@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "multi-agent-orchestration": {
+      "source": "qodex-ai/ai-agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/multi-agent-orchestration/SKILL.md",
+      "computedHash": "e5517caccf376ec61d8f94cd22f1bdd44a588a61214fcf8a67b75ba3d23a1864"
+    }
+  }
+}

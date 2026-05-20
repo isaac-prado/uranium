@@ -1,14 +1,20 @@
-import os
-from dotenv import load_dotenv
-from langchain_openai import ChatOpenAI
+"""Script de teste rápido do pipeline (requer API keys configuradas)."""
 
-load_dotenv()
+from pprint import pprint
 
-model = ChatOpenAI(
-    model=os.getenv("OPENROUTER_MODEL_NAME"),
-    temperature=0,
-)
+from src.graph import build_graph
 
-response = model.invoke("Explique em uma frase o que é LangGraph.")
 
-print(response.content)
+if __name__ == "__main__":
+    graph = build_graph()
+
+    result = graph.invoke(
+        {
+            "raw_request": "Criar um CRUD de Cliente com nome, CPF e email.",
+            "iteration_count": 0,
+            "validation_iteration_count": 0,
+            "clarification_responses": [],
+        }
+    )
+
+    pprint(result)
