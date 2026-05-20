@@ -1,0 +1,18 @@
+{
+    "context": "...",
+    "goal": "...",
+    "phases": [
+        {
+            "name": "...",
+            "description": "...",
+            "expected_output": "..."
+        }
+    ],
+    "acceptance_criteria": [
+        {
+            "name": "...",
+            "description": "...",
+            "expected_output": "..."
+        }
+    ]
+}
