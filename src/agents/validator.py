@@ -5,6 +5,7 @@ import json
 from src.schemas.validation_result import ValidationResult
 from src.state import WorkflowState, parse_artifacts, parse_intent
 from src.structured_llm import invoke_structured
+from src.tracing import agent_traceable
 
 SYSTEM_PROMPT = """
 Você é um revisor técnico em Engenharia de Software 3.0.
@@ -22,6 +23,7 @@ is_valid=false apenas quando houver lacunas significativas.
 """
 
 
+@agent_traceable("validator")
 def validator(state: WorkflowState) -> dict[str, object]:
     """Valida artefatos contra critérios de aceitação."""
     intent = parse_intent(state)

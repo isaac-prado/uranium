@@ -10,7 +10,7 @@ if __name__ == "__main__":
 
     result = graph.invoke(
         {
-            "raw_request": "Criar um CRUD de Cliente com nome, CPF e email.",
+            "raw_request": "Desenvolva um CRUD simples sem banco de dados apenas as rotas em javascript com node.",
             "iteration_count": 0,
             "validation_iteration_count": 0,
             "clarification_responses": [],

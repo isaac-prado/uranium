@@ -10,7 +10,28 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.config import get_run_config
+from src.export import export_pipeline_result, print_export_summary
 from src.graph import build_graph
+from src.tracing import pipeline_traceable
+
+
+@pipeline_traceable("uranium_pipeline")
+def run_pipeline(request: str) -> dict:
+    """Executa o grafo completo e retorna o estado final."""
+    graph = build_graph()
+    run_config = get_run_config(
+        run_name="uranium-pipeline",
+        tags=["cli"],
+    )
+    return graph.invoke(
+        {
+            "raw_request": request,
+            "iteration_count": 0,
+            "validation_iteration_count": 0,
+            "clarification_responses": [],
+        },
+        config=run_config,
+    )
 
 
 def main() -> None:
@@ -29,32 +50,56 @@ def main() -> None:
         "-o",
         choices=["pretty", "json"],
         default="pretty",
-        help="Formato de saída",
+        help="Formato de saída no terminal",
+    )
+    parser.add_argument(
+        "--export",
+        "-e",
+        action="store_true",
+        default=True,
+        help="Exporta código para output/latest/ (padrão: ativado)",
+    )
+    parser.add_argument(
+        "--no-export",
+        action="store_false",
+        dest="export",
+        help="Não grava arquivos em output/",
+    )
+    parser.add_argument(
+        "--export-dir",
+        type=Path,
+        default=None,
+        help="Diretório raiz de exportação (padrão: output/)",
+    )
+    parser.add_argument(
+        "--show-code",
+        action="store_true",
+        help="Imprime trecho do código gerado no terminal",
     )
     args = parser.parse_args()
 
-    graph = build_graph()
-    run_config = get_run_config(
-        run_name="uranium-pipeline",
-        tags=["cli"],
-    )
-    result = graph.invoke(
-        {
-            "raw_request": args.request,
-            "iteration_count": 0,
-            "validation_iteration_count": 0,
-            "clarification_responses": [],
-        },
-        config=run_config,
-    )
+    result = run_pipeline(args.request)
+
+    export_info = None
+    if args.export:
+        export_info = export_pipeline_result(
+            result,
+            output_root=args.export_dir,
+            request=args.request,
+        )
 
     if args.output == "json":
-        print(json.dumps(result, ensure_ascii=False, indent=2))
+        payload = dict(result)
+        if export_info:
+            payload["_export"] = export_info
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
     else:
-        _print_pretty(result)
+        _print_pretty(result, show_code=args.show_code)
+        if export_info:
+            print_export_summary(export_info)
 
 
-def _print_pretty(result: dict) -> None:
+def _print_pretty(result: dict, *, show_code: bool = False) -> None:
     """Imprime resultado formatado para leitura humana."""
     print("\n=== Uranium Pipeline Result ===\n")
 
@@ -74,7 +119,12 @@ def _print_pretty(result: dict) -> None:
     if artifacts := result.get("artifacts"):
         print(f"\n--- Artifacts ({len(artifacts)}) ---")
         for art in artifacts:
-            print(f"  - [{art.get('artifact_type')}] {art.get('name')}")
+            path = art.get("file_path") or art.get("name")
+            print(f"  - [{art.get('artifact_type')}] {art.get('name')} → {path}")
+            if show_code and art.get("content"):
+                preview = art["content"][:800]
+                suffix = "..." if len(art["content"]) > 800 else ""
+                print(f"\n```\n{preview}{suffix}\n```\n")
 
     if validation := result.get("validation_result"):
         print("\n--- Validation ---")

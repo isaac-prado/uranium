@@ -9,8 +9,10 @@ from src.agents.test_generator import test_generator
 from src.agents.validator import validator
 from src.config import MAX_CLARIFICATION_ITERATIONS, MAX_VALIDATION_ITERATIONS
 from src.state import WorkflowState
+from src.tracing import pipeline_traceable
 
 
+@pipeline_traceable("route_after_intent_refiner")
 def route_after_intent_refiner(state: WorkflowState) -> str:
     """Roteia para clarificação ou desenvolvimento após refinamento de intent."""
     if state.get("is_ready"):
@@ -20,6 +22,7 @@ def route_after_intent_refiner(state: WorkflowState) -> str:
     return "clarification"
 
 
+@pipeline_traceable("route_after_validator")
 def route_after_validator(state: WorkflowState) -> str:
     """Roteia para retentativa de desenvolvimento ou geração de testes."""
     if state.get("is_valid"):
@@ -29,6 +32,7 @@ def route_after_validator(state: WorkflowState) -> str:
     return "developer"
 
 
+@pipeline_traceable("build_graph")
 def build_graph():
     """
     Constrói e compila o grafo completo do pipeline Uranium.

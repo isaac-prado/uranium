@@ -5,6 +5,7 @@ import json
 from src.schemas.clarification import ClarificationBatch
 from src.state import WorkflowState, parse_intent
 from src.structured_llm import invoke_structured
+from src.tracing import agent_traceable
 
 SYSTEM_PROMPT = """
 Você é um analista de requisitos em Engenharia de Software 3.0.
@@ -19,6 +20,7 @@ Para cada pergunta pendente, gere uma resposta objetiva assumindo boas práticas
 """
 
 
+@agent_traceable("clarification")
 def clarification(state: WorkflowState) -> dict[str, object]:
     """Gera respostas para perguntas de clarificação pendentes."""
     questions = state.get("clarifications_needed") or []

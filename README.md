@@ -33,27 +33,27 @@ uv sync
 
 Variáveis principais:
 
-| Variável                   | Descrição                                   |
-| -------------------------- | ------------------------------------------- |
-| `OPENROUTER_API_KEY`       | Chave da API OpenRouter                     |
-| `OPENROUTER_MODEL_NAME`    | Modelo **free** com sufixo `:free`          |
-| `AUTO_JSON_FALLBACK_FOR_FREE` | `true` — JSON direto em modelos free   |
-| `LLM_MAX_TOKENS`           | Limite de tokens por chamada (ex: `2048`)   |
-| `LANGCHAIN_TRACING_V2`     | `true` para ativar LangSmith                |
-| `LANGCHAIN_API_KEY`        | Chave LangSmith                             |
-| `LANGCHAIN_PROJECT`        | Nome do projeto no LangSmith                |
+| Variável                      | Descrição                                 |
+| ----------------------------- | ----------------------------------------- |
+| `OPENROUTER_API_KEY`          | Chave da API OpenRouter                   |
+| `OPENROUTER_MODEL_NAME`       | Modelo **free** com sufixo `:free`        |
+| `AUTO_JSON_FALLBACK_FOR_FREE` | `true` — JSON direto em modelos free      |
+| `LLM_MAX_TOKENS`              | Limite de tokens por chamada (ex: `2048`) |
+| `LANGCHAIN_TRACING_V2`        | `true` para ativar LangSmith              |
+| `LANGCHAIN_API_KEY`           | Chave LangSmith                           |
+| `LANGCHAIN_PROJECT`           | Nome do projeto no LangSmith              |
 
 ### Modelos 100% gratuitos (OpenRouter)
 
 Todos abaixo têm **custo $0** (tier `:free`). Lista completa em [openrouter.ai/collections/free-models](https://openrouter.ai/collections/free-models).
 
-| Modelo | Velocidade | Uso recomendado |
-|--------|------------|-----------------|
-| `qwen/qwen-2.5-7b-instruct:free` | Rápido | **Padrão da POC** |
-| `google/gemma-2-9b-it:free` | Rápido | Testes rápidos |
-| `meta-llama/llama-3.3-70b-instruct:free` | Médio | Melhor qualidade free |
-| `nvidia/nemotron-3-super-120b-a12b:free` | Muito lento | Evitar — filas longas |
-| `openrouter/free` | Variável | Roteador automático free |
+| Modelo                                   | Velocidade  | Uso recomendado          |
+| ---------------------------------------- | ----------- | ------------------------ |
+| `qwen/qwen-2.5-7b-instruct:free`         | Rápido      | **Padrão da POC**        |
+| `google/gemma-2-9b-it:free`              | Rápido      | Testes rápidos           |
+| `meta-llama/llama-3.3-70b-instruct:free` | Médio       | Melhor qualidade free    |
+| `nvidia/nemotron-3-super-120b-a12b:free` | Muito lento | Evitar — filas longas    |
+| `openrouter/free`                        | Variável    | Roteador automático free |
 
 ```env
 OPENROUTER_MODEL_NAME=qwen/qwen-2.5-7b-instruct:free
@@ -65,12 +65,36 @@ O Uranium detecta modelos `:free` e usa **fallback JSON** automaticamente (evita
 ## Uso
 
 ```bash
-# Pipeline completo (CLI)
+# Pipeline completo — exporta código para output/latest/ (padrão)
 uv run python scripts/run_pipeline.py "Criar CRUD de Cliente com nome, CPF e email"
 
-# Saída JSON
-uv run python scripts/run_pipeline.py "Criar API de produtos" -o json
+# Ver trecho do código no terminal
+uv run python scripts/run_pipeline.py "Criar API de produtos" --show-code
 
+# Só terminal, sem gravar arquivos
+uv run python scripts/run_pipeline.py "Criar API" --no-export
+
+# Saída JSON (inclui metadados de exportação)
+uv run python scripts/run_pipeline.py "Criar API de produtos" -o json
+```
+
+### Artefatos exportados
+
+Após cada execução com `--export` (padrão):
+
+```
+output/
+├── latest/              ← abra esta pasta no IDE
+│   ├── manifest.json    ← resumo (goal, validação, lista de arquivos)
+│   ├── pipeline_state.json
+│   ├── artifacts/       ← código gerado pelo DeveloperAgent
+│   └── tests/           ← testes do TestAgent
+└── runs/<timestamp>/    ← histórico de execuções
+```
+
+`output/` está no `.gitignore` interno — não polui o repositório, mas fica local para revisão e TCC.
+
+```bash
 # Testes unitários (sem chamadas à API)
 uv run pytest tests/ -v
 ```

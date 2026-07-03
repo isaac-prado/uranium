@@ -3,6 +3,7 @@
 from src.schemas.development_artifact import DevelopmentArtifacts
 from src.state import WorkflowState, parse_intent, parse_validation
 from src.structured_llm import invoke_structured
+from src.tracing import agent_traceable
 
 SYSTEM_PROMPT = """
 Você é um desenvolvedor sênior em Engenharia de Software 3.0.
@@ -20,6 +21,7 @@ Regras:
 2. Cubra as fases e critérios de aceitação.
 3. Se houver feedback de validação, corrija os problemas.
 4. Limite-se a no máximo 5 artefatos essenciais.
+5. No JSON, escape barras invertidas em strings de código como \\\\ (JSON válido).
 """
 
 
@@ -40,6 +42,7 @@ def _build_developer_prompt(state: WorkflowState) -> str:
     return "\n".join(parts)
 
 
+@agent_traceable("developer")
 def developer(state: WorkflowState) -> dict[str, object]:
     """Gera artefatos de desenvolvimento baseados na intent."""
     result = invoke_structured(

@@ -11,7 +11,11 @@ load_dotenv()
 
 MAX_CLARIFICATION_ITERATIONS = int(os.getenv("MAX_CLARIFICATION_ITERATIONS", "3"))
 MAX_VALIDATION_ITERATIONS = int(os.getenv("MAX_VALIDATION_ITERATIONS", "2"))
-LANGCHAIN_PROJECT = os.getenv("LANGCHAIN_PROJECT", "uranium-poc")
+LANGSMITH_PROJECT = (
+    os.getenv("LANGSMITH_PROJECT")
+    or os.getenv("LANGCHAIN_PROJECT")
+    or "uranium-poc"
+)
 LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "2048"))
 LLM_REQUEST_TIMEOUT = int(os.getenv("LLM_REQUEST_TIMEOUT", "180"))
 
@@ -90,12 +94,12 @@ def get_run_config(*, run_name: str | None = None, tags: list[str] | None = None
     config: dict = {
         "configurable": {},
         "metadata": {
-            "project": LANGCHAIN_PROJECT,
+            "project": LANGSMITH_PROJECT,
             "pipeline": "uranium",
             "model": _get_model_name(),
             "free_tier": is_free_model(_get_model_name()),
         },
-        "tags": ["uranium", LANGCHAIN_PROJECT],
+        "tags": ["uranium", LANGSMITH_PROJECT],
     }
 
     if run_name:

@@ -5,6 +5,7 @@ import json
 from src.schemas.test_plan import TestPlan
 from src.state import WorkflowState, parse_artifacts, parse_intent
 from src.structured_llm import invoke_structured
+from src.tracing import agent_traceable
 
 SYSTEM_PROMPT = """
 Você é um engenheiro de qualidade em Engenharia de Software 3.0.
@@ -22,6 +23,7 @@ Limite a 3 unit_tests e 2 integration_tests.
 """
 
 
+@agent_traceable("test_generator")
 def test_generator(state: WorkflowState) -> dict[str, object]:
     """Gera plano de testes para artefatos validados."""
     intent = parse_intent(state)

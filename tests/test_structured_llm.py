@@ -7,7 +7,7 @@ import pytest
 from pydantic import BaseModel, Field
 
 from src.schemas.intent import StructuredIntent
-from src.structured_llm import _extract_json, invoke_structured
+from src.structured_llm import _extract_json, _parse_llm_json, invoke_structured
 
 
 class SampleModel(BaseModel):
@@ -17,7 +17,22 @@ class SampleModel(BaseModel):
 
 def test_extract_json_from_markdown():
     text = '```json\n{"name": "a", "value": 1}\n```'
-    assert json.loads(_extract_json(text)) == {"name": "a", "value": 1}
+    assert _parse_llm_json(text) == {"name": "a", "value": 1}
+
+
+def test_parse_llm_json_fixes_invalid_escape():
+    """Código com \\U inválido (comum em paths Windows) deve ser reparado."""
+    bad = '{"content": "path = C:\\\\Users\\\\foo", "value": 1}'
+    # Simula LLM retornando escape inválido \\U
+    broken = '{"content": "path = C:\\Users\\\\foo", "name": "x", "value": 1}'
+    result = _parse_llm_json(broken)
+    assert "content" in result
+    assert result["value"] == 1
+
+
+def test_parse_llm_json_valid():
+    payload = {"name": "test", "value": 42}
+    assert _parse_llm_json(json.dumps(payload)) == payload
 
 
 @patch("src.structured_llm.get_llm")
