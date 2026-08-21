@@ -9,13 +9,8 @@ from pathlib import Path
 # Garante que o pacote src seja importável
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.config import get_run_config
 from src.export import export_pipeline_result, print_export_summary
 from src.graph import build_graph
-from src.tracing import pipeline_traceable
-
-
-@pipeline_traceable("uranium_pipeline")
 def run_pipeline(request: str) -> dict:
     """
     Executa o grafo completo e retorna o estado final.
@@ -32,10 +27,6 @@ def run_pipeline(request: str) -> dict:
         "ou monte o contexto manualmente com RunContext.create(...)."
     )
     graph = build_graph()
-    run_config = get_run_config(
-        run_name="uranium-pipeline",
-        tags=["cli"],
-    )
     return graph.invoke(
         {
             "raw_request": request,
@@ -43,7 +34,6 @@ def run_pipeline(request: str) -> dict:
             "validation_iteration_count": 0,
             "clarification_responses": [],
         },
-        config=run_config,
     )
 
 

@@ -19,11 +19,26 @@ from langchain_openai import ChatOpenAI
 
 load_dotenv()
 
+# Desliga qualquer tracing remoto de forma incondicional.
+#
+# A telemetria do estudo é o JSONL local (src/telemetry.py). O `langsmith`
+# continua instalado como dependência transitiva do langchain-core, e basta
+# uma destas variáveis vazar do ambiente para o LangChain começar a enviar
+# spans pela rede no meio de uma coleta. Isso adicionaria latência variável
+# e um ponto de falha externo ao caminho de medição, então é desligado aqui
+# e não por configuração.
+for _var in (
+    "LANGSMITH_TRACING",
+    "LANGCHAIN_TRACING_V2",
+    "LANGCHAIN_TRACING",
+    "LANGSMITH_OTEL_ENABLED",
+):
+    os.environ[_var] = "false"
+
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 
 MAX_CLARIFICATION_ITERATIONS = int(os.getenv("MAX_CLARIFICATION_ITERATIONS", "3"))
 MAX_VALIDATION_ITERATIONS = int(os.getenv("MAX_VALIDATION_ITERATIONS", "2"))
-LANGSMITH_PROJECT = os.getenv("LANGSMITH_PROJECT") or "uranium"
 
 
 class ConfigError(RuntimeError):
@@ -266,20 +281,3 @@ def extract_call_metrics(message: Any) -> LLMCallMetrics:
         cost_usd=float(usage.get("cost") or 0.0),
         finish_reason=meta.get("finish_reason"),
     )
-
-
-# ------------------------------------------------------------------- tracing
-
-
-def get_run_config(*, run_name: str | None = None, tags: list[str] | None = None) -> dict:
-    """Configuração de execução para tracing (LangSmith), quando habilitado."""
-    config: dict = {
-        "configurable": {},
-        "metadata": {"project": LANGSMITH_PROJECT, "pipeline": "uranium"},
-        "tags": ["uranium", LANGSMITH_PROJECT],
-    }
-    if run_name:
-        config["run_name"] = run_name
-    if tags:
-        config["tags"] = config["tags"] + tags
-    return config

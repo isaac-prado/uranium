@@ -22,7 +22,6 @@ from src.schemas.validation_result import ValidationResult
 from src.state import WorkflowState, parse_intent
 from src.structured_llm import StructuredOutputError, invoke_structured
 from src.tools.exec import run_pytest
-from src.tracing import agent_traceable
 
 SYSTEM_PROMPT = """\
 Você é um revisor técnico. A suíte de testes JÁ PASSOU — isto não está em
@@ -41,9 +40,6 @@ tarefa.
 def semantic_review_enabled() -> bool:
     """Revisão semântica complementar; desligável para isolar o efeito."""
     return os.getenv("SEMANTIC_REVIEW", "true").strip().lower() in ("1", "true", "yes")
-
-
-@agent_traceable("validator")
 def validator(state: WorkflowState) -> dict[str, Any]:
     """Roda a suíte de verdade e, só se ela passar, complementa com revisão."""
     ctx = RunContext.from_state(state)

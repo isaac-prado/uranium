@@ -20,7 +20,6 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from pydantic import BaseModel
 
 from src.config import get_llm
-from src.tracing import pipeline_traceable
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -70,9 +69,6 @@ def get_output_method() -> StructuredOutputMethod:
 def max_retries() -> int:
     """Retentativas de chamada idêntica, para erro transitório de rede/5xx."""
     return max(0, int(os.getenv("STRUCTURED_OUTPUT_RETRIES", "2")))
-
-
-@pipeline_traceable("invoke_structured", run_type="llm")
 def invoke_structured(
     schema: type[T],
     messages: list[tuple[str, str]] | list[BaseMessage],

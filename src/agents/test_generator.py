@@ -16,7 +16,6 @@ from src.runtime import RunContext
 from src.schemas.test_plan import TestPlan
 from src.state import WorkflowState, parse_intent, parse_test_report
 from src.structured_llm import StructuredOutputError, invoke_structured
-from src.tracing import agent_traceable
 
 SYSTEM_PROMPT = """\
 Você é um engenheiro de qualidade. Dada a tarefa e o diff aplicado, proponha
@@ -25,9 +24,6 @@ testes que cubram o comportamento alterado.
 Retorne JSON com summary, unit_tests e integration_tests. Limite a 3 testes
 unitários e 2 de integração. Use pytest.
 """
-
-
-@agent_traceable("test_generator")
 def test_generator(state: WorkflowState) -> dict[str, Any]:
     """Gera um plano de testes para a mudança aplicada."""
     ctx = RunContext.from_state(state)

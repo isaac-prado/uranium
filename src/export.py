@@ -9,7 +9,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from src.tracing import pipeline_traceable
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "output"
@@ -56,9 +55,6 @@ def _write_file(base_dir: Path, relative_path: str, content: str) -> Path:
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(content, encoding="utf-8")
     return target
-
-
-@pipeline_traceable("export_pipeline_result")
 def export_pipeline_result(
     result: dict[str, Any],
     *,

@@ -1,6 +1,9 @@
 # Uranium
 
-Pipeline multi-agente de **Engenharia de Software 3.0** que valida o fluxo de desenvolvimento assistido por IA. Orquestra agentes especializados via **LangGraph** com observabilidade via **LangSmith**.
+Pipeline multi-agente de **Engenharia de Software 3.0**: agentes especializados
+orquestrados em **LangGraph** que agem sobre um repositório Python real —
+leem, editam e executam a suíte de testes. É o braço B do estudo E1, comparado
+contra um agente único (braço A2) sob o mesmo modelo, ferramentas e tarefas.
 
 ## Arquitetura
 
@@ -21,7 +24,6 @@ START → IntentRefiner → [Clarification ↔ IntentRefiner]* → Developer →
 - Python 3.12+
 - [uv](https://docs.astral.sh/uv/)
 - Conta [OpenRouter](https://openrouter.ai/) (LLM)
-- Conta [LangSmith](https://smith.langchain.com/) (observabilidade, opcional)
 
 ## Configuração
 
@@ -137,13 +139,21 @@ tests/                 # Testes (unitários + integração sobre workspace real)
 
 ## Observabilidade
 
-A telemetria oficial do estudo é **JSONL local**, por evento, gravada durante
-o run — não depende de serviço externo nem de rede. O LangSmith continua
-disponível como apoio de depuração (`LANGSMITH_TRACING=true`), mas nenhuma
-métrica reportada no TCC vem dele.
+A telemetria é **JSONL local, por evento** (`src/telemetry.py`), gravada com
+`flush + fsync` a cada linha e validada contra
+`harness/schema/event.schema.json`. Não há tracing remoto: nenhuma
+dependência de rede além do próprio OpenRouter entra no caminho de coleta.
 
 Cada chamada de LLM registra tokens (prompt/completion/reasoning), custo em
 USD devolvido pelo OpenRouter (`usage.include`), provedor servido e latência.
+Cada uso de ferramenta registra duração, bytes lidos/escritos e se houve
+recusa por caminho protegido.
+
+O LangSmith foi removido deliberadamente. Ele acrescentava um ponto de falha
+externo ao caminho de medição — e, na prática, estava respondendo 403 sem
+gravar nada. `src/config.py` desliga o tracing do LangChain de forma
+incondicional no import, para que uma variável de ambiente perdida não o
+reative no meio de uma coleta.
 
 ## Desenvolvimento
 

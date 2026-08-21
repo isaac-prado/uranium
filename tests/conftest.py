@@ -27,8 +27,6 @@ def env_isolado(monkeypatch):
     """Remove do ambiente tudo que possa alterar o comportamento sob teste."""
     for nome in _ENV_QUE_AFETA_EXPERIMENTO:
         monkeypatch.delenv(nome, raising=False)
-    monkeypatch.setenv("LANGSMITH_TRACING", "false")
-    monkeypatch.setenv("LANGCHAIN_TRACING_V2", "false")
 
 from src.schemas.development_artifact import DevelopmentArtifact, DevelopmentArtifacts
 from src.schemas.intent import StructuredIntent

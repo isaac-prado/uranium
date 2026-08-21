@@ -16,7 +16,6 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 
 from src.runtime import RunContext
 from src.state import WorkflowState, parse_intent, parse_test_report
-from src.tracing import agent_traceable
 
 SYSTEM_PROMPT = """\
 Você é um engenheiro de software resolvendo uma tarefa de manutenção num
@@ -80,9 +79,6 @@ def _executar_ferramentas(ctx: RunContext, ai: AIMessage) -> list[ToolMessage]:
         respostas.append(ToolMessage(content=conteudo, tool_call_id=chamada["id"]))
 
     return respostas
-
-
-@agent_traceable("developer")
 def developer(state: WorkflowState) -> dict[str, Any]:
     """Roda o loop de tool calling até resolver, parar de agir ou estourar orçamento."""
     ctx = RunContext.from_state(state)

@@ -9,10 +9,6 @@ from src.agents.test_generator import test_generator
 from src.agents.validator import validator
 from src.config import MAX_CLARIFICATION_ITERATIONS, MAX_VALIDATION_ITERATIONS
 from src.state import WorkflowState, parse_test_report
-from src.tracing import pipeline_traceable
-
-
-@pipeline_traceable("route_after_intent_refiner")
 def route_after_intent_refiner(state: WorkflowState) -> str:
     """Roteia para clarificação ou desenvolvimento após refinamento de intent."""
     if state.get("is_ready"):
@@ -20,9 +16,6 @@ def route_after_intent_refiner(state: WorkflowState) -> str:
     if state.get("iteration_count", 0) >= MAX_CLARIFICATION_ITERATIONS:
         return "developer"
     return "clarification"
-
-
-@pipeline_traceable("route_after_validator")
 def route_after_validator(state: WorkflowState) -> str:
     """
     Decide refinar ou encerrar, com base em execução real.
@@ -37,9 +30,6 @@ def route_after_validator(state: WorkflowState) -> str:
     if state.get("validation_iteration_count", 0) >= MAX_VALIDATION_ITERATIONS:
         return "test_generator"
     return "developer"
-
-
-@pipeline_traceable("build_graph")
 def build_graph():
     """
     Constrói e compila o grafo do braço B.

@@ -3,7 +3,6 @@
 from src.schemas.intent import StructuredIntent
 from src.state import WorkflowState
 from src.structured_llm import invoke_structured
-from src.tracing import agent_traceable
 
 SYSTEM_PROMPT = """
 Você é um especialista em Engenharia de Software 3.0.
@@ -42,9 +41,6 @@ def _build_user_prompt(state: WorkflowState) -> str:
             parts.append(f"  Resposta: {item.get('answer', '')}")
 
     return "\n".join(parts)
-
-
-@agent_traceable("intent_refiner")
 def intent_refiner(state: WorkflowState) -> dict[str, object]:
     """Refina a solicitação em uma intent estruturada."""
     result = invoke_structured(
