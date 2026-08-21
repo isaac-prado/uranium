@@ -57,16 +57,40 @@ class ProbeResult:
     erro: str | None = None
 
 
+# Parâmetros que o experimento exige. Um provedor que não suporte qualquer
+# um deles é recusado pelo OpenRouter quando `require_parameters: true` —
+# com um 404 genérico que não diz qual faltou.
+PARAMETROS_EXIGIDOS = ("tools", "seed", "temperature", "max_tokens")
+
+
 def listar_provedores(model: str) -> list[str]:
-    """Consulta os endpoints do OpenRouter que servem um modelo."""
+    """
+    Lista os provedores de um modelo, marcando quais servem ao experimento.
+
+    Um provedor sem `seed` não permite reprodutibilidade; sem `tools`, não
+    roda o agente. Consulta gratuita — nenhuma chamada de inferência.
+    """
     url = f"{OPENROUTER_MODELS_URL}/{model}/endpoints"
     try:
         with urllib.request.urlopen(url, timeout=30) as resp:
             data = json.load(resp)
     except urllib.error.HTTPError as exc:
         raise SystemExit(f"não foi possível consultar {model}: HTTP {exc.code}")
-    endpoints = (data.get("data") or {}).get("endpoints") or []
-    return [e.get("provider_name") or e.get("name") or "?" for e in endpoints]
+
+    aptos: list[str] = []
+    for endpoint in (data.get("data") or {}).get("endpoints") or []:
+        nome = endpoint.get("provider_name") or endpoint.get("name") or "?"
+        suportados = set(endpoint.get("supported_parameters") or [])
+        faltando = [p for p in PARAMETROS_EXIGIDOS if p not in suportados]
+        if faltando:
+            print(f"       {nome:24} não serve — falta: {', '.join(faltando)}")
+        else:
+            print(f"  APTO {nome:24} suporta todos os parâmetros exigidos")
+            aptos.append(nome)
+
+    if not aptos:
+        print("\n  Nenhum provedor apto. Este modelo não pode ser usado no estudo.")
+    return aptos
 
 
 def _build_probe_tool():
@@ -170,21 +194,26 @@ def main() -> None:
     parser.add_argument("--model", help="Sobrepõe OPENROUTER_MODEL_NAME")
     parser.add_argument("--provider", help="Sobrepõe OPENROUTER_PROVIDER")
     parser.add_argument("-n", type=int, default=5, help="Número de sondagens (padrão: 5)")
+    parser.add_argument("--max-tokens", type=int, default=512,
+                        help="Teto de saída por sondagem. Contém gasto em modelos com "
+                             "reasoning, que queimam tokens sem isso (padrão: 512)")
     args = parser.parse_args()
 
     if args.list_providers:
-        for nome in listar_provedores(args.list_providers):
-            print(f"  {nome}")
+        print(f"Provedores de {args.list_providers}:")
+        listar_provedores(args.list_providers)
         return
 
-    overrides = {k: v for k, v in (("model", args.model), ("provider", args.provider)) if v}
+    overrides: dict = {"max_tokens": args.max_tokens}
+    overrides.update({k: v for k, v in (("model", args.model), ("provider", args.provider)) if v})
     try:
         from src.config import load_llm_config
         config = load_llm_config(**overrides)
     except ConfigError as exc:
         raise SystemExit(f"configuração inválida: {exc}")
 
-    print(f"Sondando {config.model} via {config.provider} — {args.n} chamadas...")
+    print(f"Sondando {config.model} via {config.provider} — {args.n} chamadas "
+          f"(teto {config.max_tokens} tokens de saída)...")
     resultados = [sondar(config) for _ in range(args.n)]
     raise SystemExit(relatar(config, resultados))
 

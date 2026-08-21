@@ -74,26 +74,33 @@ def _require(name: str, hint: str) -> str:
     return value
 
 
+_HINTS = {
+    "model": (
+        "OPENROUTER_MODEL_NAME não configurado. Defina o modelo escolhido no "
+        "teste de aptidão (ex.: 'vendor/model'), ou passe --model."
+    ),
+    "provider": (
+        "OPENROUTER_PROVIDER não configurado. Defina o provedor único a pinar, "
+        "ou passe --provider. Veja os disponíveis com: "
+        "scripts/fitness_test.py --list-providers <modelo>"
+    ),
+}
+
+
 def load_llm_config(**overrides: Any) -> LLMConfig:
     """
     Resolve a configuração do LLM a partir do ambiente.
 
+    Os overrides são aplicados ANTES da checagem de obrigatoriedade: é o que
+    permite ao teste de aptidão varrer candidatos com --model/--provider sem
+    editar o .env.
+
     Falha alto e cedo: modelo de tier gratuito é recusado porque não permite
     pinar provedor nem garantir parâmetros, o que inviabilizaria a comparação.
     """
-    model = _require(
-        "OPENROUTER_MODEL_NAME",
-        "Defina o modelo escolhido no teste de aptidão (ex.: 'vendor/model').",
-    )
-    provider = _require(
-        "OPENROUTER_PROVIDER",
-        "Defina o provedor único a pinar (ex.: 'Fireworks'). "
-        "Descubra os disponíveis com: scripts/fitness_test.py --list-providers <modelo>",
-    )
-
     config = LLMConfig(
-        model=model,
-        provider=provider,
+        model=(os.getenv("OPENROUTER_MODEL_NAME") or "").strip(),
+        provider=(os.getenv("OPENROUTER_PROVIDER") or "").strip(),
         temperature=float(os.getenv("LLM_TEMPERATURE", "0")),
         seed=int(os.getenv("LLM_SEED", "0")),
         max_tokens=int(os.getenv("LLM_MAX_TOKENS", "8192")),
@@ -101,6 +108,10 @@ def load_llm_config(**overrides: Any) -> LLMConfig:
     )
     if overrides:
         config = replace(config, **overrides)
+
+    for campo, hint in _HINTS.items():
+        if not getattr(config, campo).strip():
+            raise ConfigError(hint)
 
     _validate(config)
     return config
@@ -137,6 +148,23 @@ class OpenRouterChat(ChatOpenAI):
     """
 
     _EXTRA_FIELDS = ("provider",)
+
+    def _get_request_payload(self, input_: Any, *, stop: Any = None, **kwargs: Any) -> dict:
+        """
+        Reverte `max_completion_tokens` para `max_tokens`.
+
+        O ChatOpenAI traduz um no outro incondicionalmente (deprecação do lado
+        da OpenAI, set/2024). Fora da OpenAI quase nenhum provedor implementa
+        `max_completion_tokens`: dos 5 endpoints de qwen/qwen3-coder, zero
+        suportam. Combinado com `require_parameters: true`, isso faz o
+        OpenRouter recusar TODOS os endpoints com 404 "No endpoints found that
+        can handle the requested parameters" — sintoma que não menciona o
+        parâmetro culpado e custa horas para diagnosticar.
+        """
+        payload = super()._get_request_payload(input_, stop=stop, **kwargs)
+        if "max_completion_tokens" in payload:
+            payload["max_tokens"] = payload.pop("max_completion_tokens")
+        return payload
 
     def _create_chat_result(
         self,

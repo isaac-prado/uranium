@@ -154,6 +154,48 @@ class TestClienteLLM:
         assert llm.temperature == 0.7
 
 
+class TestParametrosDoPayload:
+    """
+    Regressão de um achado que custou horas: o ChatOpenAI traduz
+    `max_tokens` em `max_completion_tokens`, que quase nenhum provedor
+    fora da OpenAI implementa. Com `require_parameters: true` o OpenRouter
+    então recusa TODOS os endpoints com um 404 que nem cita o parâmetro
+    culpado. Verificado contra a API real: 0 dos 5 endpoints de
+    qwen/qwen3-coder aceitam max_completion_tokens; todos aceitam max_tokens.
+    """
+
+    def test_envia_max_tokens_e_nao_max_completion_tokens(self, config, monkeypatch):
+        monkeypatch.setenv("OPENROUTER_API_KEY", "sk-teste")
+        payload = get_llm(config)._get_request_payload([("user", "oi")])
+
+        assert payload["max_tokens"] == config.max_tokens
+        assert "max_completion_tokens" not in payload
+
+    def test_roteamento_de_provedor_chega_ao_payload(self, config, monkeypatch):
+        monkeypatch.setenv("OPENROUTER_API_KEY", "sk-teste")
+        payload = get_llm(config)._get_request_payload([("user", "oi")])
+
+        assert payload["extra_body"]["provider"]["only"] == ["Fireworks"]
+        assert payload["extra_body"]["seed"] == 20260820
+        assert payload["extra_body"]["usage"] == {"include": True}
+
+
+class TestOverridesDoTesteDeAptidao:
+    """O sweep de candidatos precisa funcionar sem editar o .env."""
+
+    def test_override_supre_env_ausente(self, monkeypatch):
+        monkeypatch.delenv("OPENROUTER_MODEL_NAME", raising=False)
+        monkeypatch.delenv("OPENROUTER_PROVIDER", raising=False)
+
+        cfg = load_llm_config(model="vendor/m", provider="DeepInfra", max_tokens=512)
+
+        assert (cfg.model, cfg.provider, cfg.max_tokens) == ("vendor/m", "DeepInfra", 512)
+
+    def test_override_de_free_continua_recusado(self, monkeypatch):
+        with pytest.raises(ConfigError, match="tier gratuito"):
+            load_llm_config(model="qwen/qwen-2.5-7b-instruct:free", provider="X")
+
+
 class TestPreservacaoDoProvider:
     """
     O LangChain monta llm_output com allowlist fixa e descarta `provider`.
