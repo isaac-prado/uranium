@@ -21,6 +21,9 @@ class TestFile(BaseModel):
 class TestPlan(BaseModel):
     """Plano de testes gerado pelo TestAgent."""
 
+    # impede o pytest de tentar coletar esta classe como suíte de testes
+    __test__ = False
+
     summary: str = Field(description="Resumo do plano de testes")
     unit_tests: list[TestCase] = Field(
         default_factory=list,
