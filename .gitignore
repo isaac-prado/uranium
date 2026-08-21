@@ -8,3 +8,6 @@ __pycache__/
 !.env.example
 # Espelhos e workspaces do benchmark (grandes, reconstrutíveis)
 .uranium/
+
+# Saídas de execução dos braços
+runs/

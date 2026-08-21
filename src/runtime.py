@@ -15,6 +15,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, ClassVar
 
+from langchain_core.messages import BaseMessage
 from langchain_core.tools import BaseTool
 
 from src.budget import BudgetTracker, RunBudget
@@ -36,6 +37,11 @@ class RunContext:
     tools: list[BaseTool]
     llm_factory: Callable[..., Any]
     test_timeout_s: int = 120
+
+    # Conversa viva do agente. Fica aqui, e não no WorkflowState, porque
+    # BaseMessage não é serializável e porque o StateGraph descarta chaves
+    # não declaradas no TypedDict.
+    conversation: list[BaseMessage] = field(default_factory=list)
 
     _registry: ClassVar[dict[str, "RunContext"]] = {}
 

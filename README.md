@@ -83,40 +83,48 @@ protegidos contra escrita pelo agente.
 
 ## Uso
 
-```bash
-# Pipeline completo — exporta código para output/latest/ (padrão)
-uv run python scripts/run_pipeline.py "Criar CRUD de Cliente com nome, CPF e email"
-
-# Ver trecho do código no terminal
-uv run python scripts/run_pipeline.py "Criar API de produtos" --show-code
-
-# Só terminal, sem gravar arquivos
-uv run python scripts/run_pipeline.py "Criar API" --no-export
-
-# Saída JSON (inclui metadados de exportação)
-uv run python scripts/run_pipeline.py "Criar API de produtos" -o json
-```
-
-### Artefatos exportados
-
-Após cada execução com `--export` (padrão):
-
-```
-output/
-├── latest/              ← abra esta pasta no IDE
-│   ├── manifest.json    ← resumo (goal, validação, lista de arquivos)
-│   ├── pipeline_state.json
-│   ├── artifacts/       ← código gerado pelo DeveloperAgent
-│   └── tests/           ← testes do TestAgent
-└── runs/<timestamp>/    ← histórico de execuções
-```
-
-`output/` está no `.gitignore` interno — não polui o repositório, mas fica local para revisão e TCC.
+O estudo tem dois braços, executados pelo mesmo runner — muda só o grafo:
 
 ```bash
-# Testes unitários (sem chamadas à API)
-uv run pytest tests/ -v
+# braço B — multiagente com papéis especializados
+uv run python scripts/run_arm.py --arm B --task tomlkit-0001 \
+    --base-commit 11e22aefccd8069a90ae75d20613b9b1068754a1 \
+    --statement "Levantar erro em elemento malformado de array."
+
+# braço A2 — agente único, dirigido por política determinística
+uv run python scripts/run_arm.py --arm A2 --task tomlkit-0001 \
+    --base-commit 11e22aefccd8069a90ae75d20613b9b1068754a1 \
+    --statement-file tasks/tomlkit-0001/statement.md
 ```
+
+Cada run grava em `runs/<arm>/<task>/<run_id>/`:
+
+| Arquivo | Conteúdo |
+| --- | --- |
+| `manifest.json` | configuração resolvida — modelo, provedor, seed, orçamento, topologia |
+| `events.jsonl` | telemetria por evento |
+| `summary.json` | resultado, turnos, tokens, custo |
+| `patch.diff` | o diff produzido pelo agente |
+| `workspace/` | repositório modificado, entregue ao harness |
+
+### Os dois braços
+
+| | **A2** | **B** |
+| --- | --- | --- |
+| Topologia | agente único, sem papéis | grafo multiagente com papéis |
+| Operador | `DeterministicDriver` (política fixa) | autônomo |
+| `agent_role` na telemetria | `null` | preenchido |
+| Modelo, ferramentas, orçamento, seed | idênticos | idênticos |
+
+A política do driver do A2 é fixa e vai inteira para o manifesto: entrega a
+especificação uma vez, aceita todo patch sem revisão, roda a suíte quando o
+agente para de agir, e devolve o **stderr cru** em caso de falha — sem
+sumarizar nem sugerir, porque isso seria engenharia do harness creditada ao
+agente.
+
+`tests/test_arm_parity.py` verifica por execução que os manifestos dos dois
+braços só divergem em `arm`, `topology`, `driver_policy`, `run_id` e
+`started_at`. Qualquer outra divergência derruba a suíte.
 
 ## Estrutura
 
