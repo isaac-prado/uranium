@@ -1,13 +1,17 @@
-"""Testes do invoke_structured com fallback JSON."""
+"""Testes do invoke_structured — structured output nativo, sem reparo."""
 
-import json
 from unittest.mock import MagicMock, patch
 
 import pytest
 from pydantic import BaseModel, Field
 
 from src.schemas.intent import StructuredIntent
-from src.structured_llm import _extract_json, _parse_llm_json, invoke_structured
+from src.structured_llm import (
+    StructuredOutputError,
+    get_output_method,
+    invoke_structured,
+    max_retries,
+)
 
 
 class SampleModel(BaseModel):
@@ -15,79 +19,102 @@ class SampleModel(BaseModel):
     value: int = Field(description="Valor")
 
 
-def test_extract_json_from_markdown():
-    text = '```json\n{"name": "a", "value": 1}\n```'
-    assert _parse_llm_json(text) == {"name": "a", "value": 1}
+@pytest.fixture
+def llm_mock():
+    """LLM mockado; devolve também o objeto de saída estruturada."""
+    llm, structured = MagicMock(), MagicMock()
+    llm.with_structured_output.return_value = structured
+    with patch("src.structured_llm.get_llm", return_value=llm):
+        yield llm, structured
 
 
-def test_parse_llm_json_fixes_invalid_escape():
-    """Código com \\U inválido (comum em paths Windows) deve ser reparado."""
-    bad = '{"content": "path = C:\\\\Users\\\\foo", "value": 1}'
-    # Simula LLM retornando escape inválido \\U
-    broken = '{"content": "path = C:\\Users\\\\foo", "name": "x", "value": 1}'
-    result = _parse_llm_json(broken)
-    assert "content" in result
-    assert result["value"] == 1
+class TestCaminhoNativo:
+    def test_usa_structured_output_nativo(self, llm_mock, sample_intent):
+        llm, structured = llm_mock
+        structured.invoke.return_value = sample_intent
+
+        result = invoke_structured(StructuredIntent, [("user", "input")])
+
+        assert result.goal == "Implementar CRUD de Cliente."
+        llm.with_structured_output.assert_called_once()
+
+    def test_metodo_padrao_e_function_calling(self, llm_mock, sample_intent):
+        llm, structured = llm_mock
+        structured.invoke.return_value = sample_intent
+
+        invoke_structured(StructuredIntent, [("user", "input")])
+
+        assert llm.with_structured_output.call_args.kwargs["method"] == "function_calling"
+
+    def test_metodo_configuravel_por_env(self, llm_mock, sample_intent, monkeypatch):
+        monkeypatch.setenv("STRUCTURED_OUTPUT_METHOD", "json_schema")
+        llm, structured = llm_mock
+        structured.invoke.return_value = sample_intent
+
+        invoke_structured(StructuredIntent, [("user", "input")])
+
+        assert llm.with_structured_output.call_args.kwargs["method"] == "json_schema"
+
+    def test_metodo_invalido_cai_no_padrao(self, monkeypatch):
+        monkeypatch.setenv("STRUCTURED_OUTPUT_METHOD", "telepatia")
+        assert get_output_method() == "function_calling"
 
 
-def test_parse_llm_json_valid():
-    payload = {"name": "test", "value": 42}
-    assert _parse_llm_json(json.dumps(payload)) == payload
+class TestSemReparoDegradado:
+    """O reparo de JSON foi removido de propósito — não pode voltar."""
+
+    def test_nao_ha_fallback_de_prompt_json(self, llm_mock):
+        llm, structured = llm_mock
+        structured.invoke.side_effect = RuntimeError("choices=None")
+
+        with pytest.raises(StructuredOutputError):
+            invoke_structured(SampleModel, [("user", "gere json")])
+
+        # o caminho degradado chamava llm.invoke() diretamente; não pode ocorrer
+        llm.invoke.assert_not_called()
+
+    def test_resposta_vazia_vira_erro(self, llm_mock):
+        _, structured = llm_mock
+        structured.invoke.return_value = None
+
+        with pytest.raises(StructuredOutputError, match="não conformou"):
+            invoke_structured(SampleModel, [("user", "input")])
+
+    def test_modulo_nao_expoe_mais_helpers_de_reparo(self):
+        import src.structured_llm as mod
+
+        for removido in ("_parse_llm_json", "_extract_json", "_invoke_json_fallback",
+                         "_fix_invalid_escapes"):
+            assert not hasattr(mod, removido), f"{removido} não deveria existir"
+
+    def test_json_repair_nao_e_mais_importado(self):
+        import src.structured_llm as mod
+        assert "json_repair" not in dir(mod)
 
 
-@patch("src.structured_llm.get_llm")
-def test_invoke_structured_primary_path(mock_get_llm, sample_intent):
-    """Usa with_structured_output quando disponível."""
-    mock_llm = MagicMock()
-    mock_structured = MagicMock()
-    mock_structured.invoke.return_value = sample_intent
-    mock_llm.with_structured_output.return_value = mock_structured
-    mock_get_llm.return_value = mock_llm
+class TestRetentativa:
+    def test_retenta_erro_transitorio_e_devolve(self, llm_mock, sample_intent, monkeypatch):
+        monkeypatch.setenv("STRUCTURED_OUTPUT_RETRIES", "2")
+        _, structured = llm_mock
+        structured.invoke.side_effect = [TimeoutError("504"), sample_intent]
 
-    result = invoke_structured(
-        StructuredIntent,
-        [("system", "test"), ("user", "input")],
-    )
+        result = invoke_structured(StructuredIntent, [("user", "input")])
 
-    assert result.goal == "Implementar CRUD de Cliente."
-    mock_llm.with_structured_output.assert_called_once()
+        assert result.goal == "Implementar CRUD de Cliente."
+        assert structured.invoke.call_count == 2
 
+    def test_respeita_o_teto_de_tentativas(self, llm_mock, monkeypatch):
+        monkeypatch.setenv("STRUCTURED_OUTPUT_RETRIES", "1")
+        _, structured = llm_mock
+        structured.invoke.side_effect = RuntimeError("erro")
 
-@patch("src.structured_llm.get_llm")
-def test_invoke_structured_json_fallback(mock_get_llm):
-    """Faz fallback para parse JSON quando structured output falha."""
-    mock_llm = MagicMock()
-    mock_structured = MagicMock()
-    mock_structured.invoke.side_effect = RuntimeError("choices=None")
-    mock_llm.with_structured_output.return_value = mock_structured
+        with pytest.raises(StructuredOutputError):
+            invoke_structured(SampleModel, [("user", "input")])
 
-    payload = {"name": "test", "value": 42}
-    mock_response = MagicMock()
-    mock_response.content = f"```json\n{json.dumps(payload)}\n```"
-    mock_llm.invoke.return_value = mock_response
-    mock_get_llm.return_value = mock_llm
+        assert structured.invoke.call_count == 2  # 1 inicial + 1 retentativa
 
-    result = invoke_structured(
-        SampleModel,
-        [("user", "gere json")],
-    )
-
-    assert result.name == "test"
-    assert result.value == 42
-
-
-@patch("src.structured_llm.get_llm")
-def test_invoke_structured_raises_on_empty(mock_get_llm):
-    """Levanta erro claro quando LLM retorna vazio."""
-    mock_llm = MagicMock()
-    mock_structured = MagicMock()
-    mock_structured.invoke.return_value = None
-    mock_llm.with_structured_output.return_value = mock_structured
-
-    mock_response = MagicMock()
-    mock_response.content = ""
-    mock_llm.invoke.return_value = mock_response
-    mock_get_llm.return_value = mock_llm
-
-    with pytest.raises(RuntimeError, match="Falha ao parsear JSON|resposta vazia"):
-        invoke_structured(SampleModel, [("user", "input")])
+    def test_retentativa_configuravel(self, monkeypatch):
+        monkeypatch.setenv("STRUCTURED_OUTPUT_RETRIES", "5")
+        assert max_retries() == 5
+        monkeypatch.setenv("STRUCTURED_OUTPUT_RETRIES", "-3")
+        assert max_retries() == 0

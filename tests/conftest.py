@@ -2,6 +2,34 @@
 
 import pytest
 
+# Variáveis que alteram o comportamento do pipeline. O .env do desenvolvedor
+# não pode decidir o resultado de um teste — isso já mascarou falha real
+# três vezes neste repositório.
+_ENV_QUE_AFETA_EXPERIMENTO = (
+    "STRUCTURED_OUTPUT_METHOD",
+    "STRUCTURED_OUTPUT_RETRIES",
+    "OPENROUTER_MODEL_NAME",
+    "OPENROUTER_PROVIDER",
+    "LLM_TEMPERATURE",
+    "LLM_SEED",
+    "LLM_MAX_TOKENS",
+    "LLM_REQUEST_TIMEOUT",
+    "MAX_CLARIFICATION_ITERATIONS",
+    "MAX_VALIDATION_ITERATIONS",
+    "RUN_MAX_TOKENS",
+    "RUN_MAX_WALL_SECONDS",
+    "RUN_MAX_TURNS",
+)
+
+
+@pytest.fixture(autouse=True)
+def env_isolado(monkeypatch):
+    """Remove do ambiente tudo que possa alterar o comportamento sob teste."""
+    for nome in _ENV_QUE_AFETA_EXPERIMENTO:
+        monkeypatch.delenv(nome, raising=False)
+    monkeypatch.setenv("LANGSMITH_TRACING", "false")
+    monkeypatch.setenv("LANGCHAIN_TRACING_V2", "false")
+
 from src.schemas.development_artifact import DevelopmentArtifact, DevelopmentArtifacts
 from src.schemas.intent import StructuredIntent
 from src.schemas.test_plan import TestCase, TestFile, TestPlan

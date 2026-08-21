@@ -4,3 +4,7 @@ env/
 __pycache__/
 *.pyc
 .env
+.env.*
+!.env.example
+# Espelhos e workspaces do benchmark (grandes, reconstrutíveis)
+.uranium/

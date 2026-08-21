@@ -1,22 +1,30 @@
-"""Invocação tipada de LLM com fallback para modelos sem structured output nativo."""
+"""
+Invocação tipada do LLM, sem reparo degradado.
+
+O fallback anterior (prompt JSON + json_repair + reprompt corretivo) foi
+removido de propósito: ele executava trabalho de correção *fora* do agente e
+creditava ao agente o resultado. Num estudo que compara topologias de
+orquestração, isso contamina o tratamento — os dois braços passariam a
+depender de quanto o harness conserta, não de quanto o agente acerta.
+
+Agora: structured output nativo. Se o modelo não conformar, o erro sobe,
+é contabilizado, e consome orçamento — que é o comportamento honesto.
+"""
 
 from __future__ import annotations
 
-import json
 import os
-import re
-from typing import Any, Literal, TypeVar
+from typing import Literal, TypeVar
 
-import json_repair
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 
-from src.config import get_llm, use_json_fallback_only
+from src.config import get_llm
 from src.tracing import pipeline_traceable
 
 T = TypeVar("T", bound=BaseModel)
 
-StructuredOutputMethod = Literal["json_mode", "function_calling", "json_schema"]
+StructuredOutputMethod = Literal["function_calling", "json_schema", "json_mode"]
 
 _MESSAGE_MAP = {
     "system": SystemMessage,
@@ -24,17 +32,11 @@ _MESSAGE_MAP = {
     "assistant": AIMessage,
 }
 
-# Escapes válidos em JSON: \ " / b f n r t u (unicode)
-_INVALID_JSON_ESCAPE = re.compile(r'\\(?!["\\/bfnrtu])')
+DEFAULT_METHOD: StructuredOutputMethod = "function_calling"
 
-_JSON_RULES = (
-    "Regras OBRIGATÓRIAS para o JSON:\n"
-    "1. Responda APENAS com JSON válido, sem markdown.\n"
-    "2. Em strings com código, escape cada barra invertida como \\\\ "
-    "(ex.: newline no código = \\\\n, não \\n solto fora de escape válido).\n"
-    "3. Não use barras invertidas soltas (ex.: C:\\\\Users, não C:\\Users).\n"
-    "4. Use aspas duplas em todas as chaves e strings."
-)
+
+class StructuredOutputError(RuntimeError):
+    """O modelo não produziu saída conforme o schema após as retentativas."""
 
 
 def _to_messages(
@@ -47,70 +49,27 @@ def _to_messages(
             result.append(item)
             continue
         role, content = item
-        cls = _MESSAGE_MAP.get(role, HumanMessage)
-        result.append(cls(content=content))
+        result.append(_MESSAGE_MAP.get(role, HumanMessage)(content=content))
     return result
 
 
-def _extract_json(text: str) -> str:
-    """Extrai JSON de bloco markdown ou texto bruto."""
-    fenced = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", text, re.IGNORECASE)
-    if fenced:
-        return fenced.group(1).strip()
-    start = text.find("{")
-    end = text.rfind("}")
-    if start != -1 and end != -1 and end > start:
-        return text[start : end + 1]
-    return text.strip()
-
-
-def _fix_invalid_escapes(text: str) -> str:
-    """Corrige \\ inválidos comuns em código gerado por LLM (ex.: \\S, \\U)."""
-    return _INVALID_JSON_ESCAPE.sub(r"\\\\", text)
-
-
-def _parse_llm_json(text: str) -> Any:
+def get_output_method() -> StructuredOutputMethod:
     """
-    Parse robusto de JSON retornado por LLM.
+    Método de structured output, igual nos dois braços.
 
-    Tenta json.loads, correção de escapes e json-repair como fallback.
+    `function_calling` é o padrão porque é o mesmo mecanismo usado pelas
+    ferramentas — se o modelo passa no teste de aptidão de tool calling,
+    passa aqui também.
     """
-    extracted = _extract_json(text)
-    errors: list[str] = []
-
-    for label, candidate in (
-        ("json.loads", extracted),
-        ("escape_fix", _fix_invalid_escapes(extracted)),
-    ):
-        try:
-            return json.loads(candidate)
-        except json.JSONDecodeError as exc:
-            errors.append(f"{label}: {exc}")
-
-    try:
-        repaired = json_repair.repair_json(extracted, return_objects=True)
-        if isinstance(repaired, (dict, list)):
-            return repaired
-        if isinstance(repaired, str):
-            return json.loads(repaired)
-    except Exception as exc:
-        errors.append(f"json_repair: {exc}")
-
-    detail = "; ".join(errors) or "JSON inválido"
-    raise json.JSONDecodeError(detail, extracted, 0)
-
-
-def _validate_parsed(schema: type[T], payload: Any) -> T:
-    """Valida payload parseado contra schema Pydantic."""
-    return schema.model_validate(payload)
-
-
-def _get_output_method() -> StructuredOutputMethod:
-    """Método de structured output (json_mode funciona melhor em modelos free)."""
-    method = os.getenv("STRUCTURED_OUTPUT_METHOD", "json_mode").strip().lower()
-    if method in ("json_mode", "function_calling", "json_schema"):
+    method = os.getenv("STRUCTURED_OUTPUT_METHOD", DEFAULT_METHOD).strip().lower()
+    if method in ("function_calling", "json_schema", "json_mode"):
         return method  # type: ignore[return-value]
-    return "json_mode"
+    return DEFAULT_METHOD
+
+
+def max_retries() -> int:
+    """Retentativas de chamada idêntica, para erro transitório de rede/5xx."""
+    return max(0, int(os.getenv("STRUCTURED_OUTPUT_RETRIES", "2")))
 
 
 @pipeline_traceable("invoke_structured", run_type="llm")
@@ -118,101 +77,34 @@ def invoke_structured(
     schema: type[T],
     messages: list[tuple[str, str]] | list[BaseMessage],
     *,
-    temperature: float = 0,
+    temperature: float | None = None,
 ) -> T:
     """
-    Invoca o LLM e retorna instância validada do schema Pydantic.
+    Invoca o LLM e devolve uma instância validada do schema.
 
-    1. Tenta with_structured_output (json_mode por padrão)
-    2. Se falhar, pede JSON explícito e valida com Pydantic
+    Retenta apenas a mesma chamada, para falha transitória. Não reformula o
+    prompt nem repara a saída: qualquer não-conformidade é do modelo, e é
+    assim que precisa ser medida.
     """
     llm = get_llm(temperature=temperature)
+    structured = llm.with_structured_output(schema, method=get_output_method())
     lc_messages = _to_messages(messages)
 
-    if use_json_fallback_only():
-        return _invoke_json_fallback(schema, llm, lc_messages, [])
-
-    method = _get_output_method()
+    attempts = max_retries() + 1
     errors: list[str] = []
 
-    try:
-        structured = llm.with_structured_output(schema, method=method)
-        result = structured.invoke(lc_messages)
-        if result is not None:
-            return result
-        errors.append(f"{method}: resposta vazia (choices=None)")
-    except Exception as exc:
-        errors.append(f"{method}: {exc!s}")
-
-    return _invoke_json_fallback(schema, llm, lc_messages, errors)
-
-
-@pipeline_traceable("json_fallback", run_type="llm")
-def _invoke_json_fallback(
-    schema: type[T],
-    llm,
-    messages: list[BaseMessage],
-    prior_errors: list[str],
-) -> T:
-    """Fallback: prompt JSON + parse robusto + validação Pydantic."""
-    schema_hint = json.dumps(schema.model_json_schema(), ensure_ascii=False, indent=2)
-    fallback_system = (
-        f"{_JSON_RULES}\n\n"
-        "O JSON deve obedecer exatamente a este schema:\n"
-        f"{schema_hint}"
-    )
-
-    fallback_messages: list[BaseMessage] = [SystemMessage(content=fallback_system)]
-    for msg in messages:
-        if isinstance(msg, SystemMessage):
-            fallback_messages.append(
-                HumanMessage(content=f"[Instrução original]\n{msg.content}")
-            )
-        else:
-            fallback_messages.append(msg)
-
-    max_attempts = int(os.getenv("JSON_PARSE_RETRIES", "2"))
-    parse_errors: list[str] = list(prior_errors)
-
-    for attempt in range(max_attempts):
-        response = llm.invoke(fallback_messages)
-        raw = response.content if hasattr(response, "content") else str(response)
-
-        if not raw or not str(raw).strip():
-            parse_errors.append(f"tentativa {attempt + 1}: resposta vazia")
-            fallback_messages.append(
-                HumanMessage(
-                    content="Sua resposta veio vazia. Retorne apenas JSON válido.",
-                )
-            )
+    for attempt in range(1, attempts + 1):
+        try:
+            result = structured.invoke(lc_messages)
+        except Exception as exc:
+            errors.append(f"tentativa {attempt}: {type(exc).__name__}: {exc}")
             continue
 
-        try:
-            payload = _parse_llm_json(str(raw))
-            return _validate_parsed(schema, payload)
-        except json.JSONDecodeError as exc:
-            parse_errors.append(f"tentativa {attempt + 1}: {exc}")
-            fallback_messages.extend([
-                AIMessage(content=str(raw)),
-                HumanMessage(
-                    content=(
-                        "O JSON anterior é inválido. "
-                        f"Erro: {exc}. "
-                        "Reescreva o JSON completo, escapando \\\\ corretamente em strings de código."
-                    ),
-                ),
-            ])
-        except ValidationError as exc:
-            parse_errors.append(f"tentativa {attempt + 1}: validação Pydantic: {exc}")
-            fallback_messages.extend([
-                AIMessage(content=str(raw)),
-                HumanMessage(
-                    content=(
-                        f"O JSON não obedece ao schema. Erros: {exc}. "
-                        "Corrija e retorne JSON válido completo."
-                    ),
-                ),
-            ])
+        if result is not None:
+            return result
+        errors.append(f"tentativa {attempt}: resposta vazia (choices=None)")
 
-    detail = "; ".join(parse_errors)
-    raise RuntimeError(f"Falha ao parsear JSON do LLM após {max_attempts} tentativas: {detail}")
+    raise StructuredOutputError(
+        f"{schema.__name__}: modelo não conformou ao schema em {attempts} tentativas. "
+        + "; ".join(errors)
+    )
