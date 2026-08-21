@@ -3,39 +3,59 @@
 from typing import Any, TypedDict
 
 from src.schemas.clarification import ClarificationItem
-from src.schemas.development_artifact import DevelopmentArtifact
 from src.schemas.intent import StructuredIntent
 from src.schemas.test_plan import TestPlan
+from src.schemas.test_report import TestReport
 from src.schemas.validation_result import ValidationResult
 
 # Serialização no grafo (dicts JSON-compatíveis)
 IntentState = dict[str, Any]
 ClarificationState = list[dict[str, str]]
-ArtifactState = list[dict[str, Any]]
 ValidationState = dict[str, Any]
 TestPlanState = dict[str, Any]
+TestReportState = dict[str, Any]
 
 
 class WorkflowState(TypedDict, total=False):
-    """Estado do pipeline multi-agente Uranium."""
+    """
+    Estado do pipeline Uranium.
 
+    Só conteúdo serializável: objetos vivos (workspace, telemetria, cliente
+    LLM) ficam no RunContext, resolvido por `run_id`.
+    """
+
+    # Identificação do run — liga o estado ao RunContext e à telemetria
+    run_id: str
+    arm: str
+    task_id: str
+
+    # Entrada
     raw_request: str
 
+    # IntentRefiner / Clarification
     intent: IntentState
     clarifications_needed: list[str]
     is_ready: bool
-
     clarification_responses: ClarificationState
 
-    artifacts: ArtifactState
+    # Developer — o artefato agora é o diff do workspace, não blobs de texto
+    changed_files: list[str]
+    diff_stat: dict[str, int]
+    dev_summary: str
 
-    validation_result: ValidationState
+    # Validator — corretude vem de execução real
+    test_report: TestReportState
     is_valid: bool
+    validation_result: ValidationState
 
+    # TestGenerator
     test_plan: TestPlanState
 
+    # Controle de fluxo e circuit breaker
     iteration_count: int
     validation_iteration_count: int
+    turn_count: int
+    stop_reason: str
 
 
 def parse_intent(state: WorkflowState) -> StructuredIntent:
@@ -49,23 +69,19 @@ def parse_clarifications(state: WorkflowState) -> list[ClarificationItem]:
     return [ClarificationItem.model_validate(item) for item in raw]
 
 
-def parse_artifacts(state: WorkflowState) -> list[DevelopmentArtifact]:
-    """Converte artefatos do estado para modelos tipados."""
-    raw = state.get("artifacts") or []
-    return [DevelopmentArtifact.model_validate(item) for item in raw]
-
-
 def parse_validation(state: WorkflowState) -> ValidationResult | None:
     """Converte resultado de validação para modelo tipado."""
     raw = state.get("validation_result")
-    if not raw:
-        return None
-    return ValidationResult.model_validate(raw)
+    return ValidationResult.model_validate(raw) if raw else None
+
+
+def parse_test_report(state: WorkflowState) -> TestReport | None:
+    """Converte o relatório de execução de testes para modelo tipado."""
+    raw = state.get("test_report")
+    return TestReport.model_validate(raw) if raw else None
 
 
 def parse_test_plan(state: WorkflowState) -> TestPlan | None:
     """Converte plano de testes para modelo tipado."""
     raw = state.get("test_plan")
-    if not raw:
-        return None
-    return TestPlan.model_validate(raw)
+    return TestPlan.model_validate(raw) if raw else None

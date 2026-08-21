@@ -1,4 +1,4 @@
-"""Montagem do grafo LangGraph do pipeline Uranium."""
+"""Montagem do grafo LangGraph do pipeline Uranium (braço B, multiagente)."""
 
 from langgraph.graph import END, START, StateGraph
 
@@ -8,7 +8,7 @@ from src.agents.intent_refiner import intent_refiner
 from src.agents.test_generator import test_generator
 from src.agents.validator import validator
 from src.config import MAX_CLARIFICATION_ITERATIONS, MAX_VALIDATION_ITERATIONS
-from src.state import WorkflowState
+from src.state import WorkflowState, parse_test_report
 from src.tracing import pipeline_traceable
 
 
@@ -24,7 +24,14 @@ def route_after_intent_refiner(state: WorkflowState) -> str:
 
 @pipeline_traceable("route_after_validator")
 def route_after_validator(state: WorkflowState) -> str:
-    """Roteia para retentativa de desenvolvimento ou geração de testes."""
+    """
+    Decide refinar ou encerrar, com base em execução real.
+
+    A guarda de orçamento vem primeiro: sem ela, um agente que nunca chega
+    ao verde ficaria em ciclo developer↔validator gastando tokens.
+    """
+    if state.get("stop_reason", "").startswith("budget"):
+        return "test_generator"
     if state.get("is_valid"):
         return "test_generator"
     if state.get("validation_iteration_count", 0) >= MAX_VALIDATION_ITERATIONS:
@@ -35,11 +42,13 @@ def route_after_validator(state: WorkflowState) -> str:
 @pipeline_traceable("build_graph")
 def build_graph():
     """
-    Constrói e compila o grafo completo do pipeline Uranium.
+    Constrói e compila o grafo do braço B.
 
-    Fluxo:
     START -> intent_refiner -> [clarification loop | developer]
     -> validator -> [developer retry | test_generator] -> END
+
+    A topologia é a mesma de antes; o que mudou é que developer age sobre um
+    repositório real e validator decide por exit code de pytest.
     """
     builder = StateGraph(WorkflowState)
 
@@ -50,28 +59,18 @@ def build_graph():
     builder.add_node("test_generator", test_generator)
 
     builder.add_edge(START, "intent_refiner")
-
     builder.add_conditional_edges(
         "intent_refiner",
         route_after_intent_refiner,
-        {
-            "clarification": "clarification",
-            "developer": "developer",
-        },
+        {"clarification": "clarification", "developer": "developer"},
     )
-
     builder.add_edge("clarification", "intent_refiner")
     builder.add_edge("developer", "validator")
-
     builder.add_conditional_edges(
         "validator",
         route_after_validator,
-        {
-            "developer": "developer",
-            "test_generator": "test_generator",
-        },
+        {"developer": "developer", "test_generator": "test_generator"},
     )
-
     builder.add_edge("test_generator", END)
 
     return builder.compile()

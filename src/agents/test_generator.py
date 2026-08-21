@@ -1,45 +1,58 @@
-"""TestAgent - gera plano e casos de teste para artefatos validados."""
+"""
+TestAgent — plano de testes complementar, fora da medição de corretude.
 
-import json
+Nó terminal do braço B. O que ele produz NÃO conta como oráculo: os testes
+que decidem se a tarefa foi resolvida são os ocultos, injetados pelo harness
+e nunca vistos pelo agente. Se este nó chegar a escrever testes no
+workspace, eles vão para `tests/uranium/`, que o harness exclui tanto do
+oráculo quanto da suíte de regressão.
+"""
 
+from __future__ import annotations
+
+from typing import Any
+
+from src.runtime import RunContext
 from src.schemas.test_plan import TestPlan
-from src.state import WorkflowState, parse_artifacts, parse_intent
-from src.structured_llm import invoke_structured
+from src.state import WorkflowState, parse_intent, parse_test_report
+from src.structured_llm import StructuredOutputError, invoke_structured
 from src.tracing import agent_traceable
 
-SYSTEM_PROMPT = """
-Você é um engenheiro de qualidade em Engenharia de Software 3.0.
+SYSTEM_PROMPT = """\
+Você é um engenheiro de qualidade. Dada a tarefa e o diff aplicado, proponha
+testes que cubram o comportamento alterado.
 
-Gere um plano de testes para os artefatos validados.
-
-Retorne JSON com:
-- summary (string)
-- unit_tests (array de {name, description, test_code})
-- integration_tests (array de {name, description, test_code})
-- test_files (array de {path, content})
-
-Cubra os critérios de aceitação. Use pytest quando aplicável.
-Limite a 3 unit_tests e 2 integration_tests.
+Retorne JSON com summary, unit_tests e integration_tests. Limite a 3 testes
+unitários e 2 de integração. Use pytest.
 """
 
 
 @agent_traceable("test_generator")
-def test_generator(state: WorkflowState) -> dict[str, object]:
-    """Gera plano de testes para artefatos validados."""
-    intent = parse_intent(state)
-    artifacts = parse_artifacts(state)
+def test_generator(state: WorkflowState) -> dict[str, Any]:
+    """Gera um plano de testes para a mudança aplicada."""
+    ctx = RunContext.from_state(state)
 
-    prompt = f"""
-Intent:
-{intent.model_dump_json(indent=2)}
+    with ctx.telemetry.node("test_generator", agent_role="test_generator"):
+        if ctx.stop_if_exhausted():
+            return {"test_plan": None}
 
-Artefatos validados:
-{json.dumps([a.model_dump() for a in artifacts], ensure_ascii=False, indent=2)}
-"""
+        diff = ctx.workspace.diff()[:12_000]
+        report = parse_test_report(state)
 
-    result = invoke_structured(
-        TestPlan,
-        [("system", SYSTEM_PROMPT), ("user", prompt)],
-    )
+        prompt = "\n".join([
+            "Tarefa:",
+            parse_intent(state).model_dump_json(indent=2),
+            "",
+            "Diff aplicado:",
+            diff or "(nenhuma alteração)",
+            "",
+            f"Resultado da suíte: {report.summary() if report else 'não executada'}",
+        ])
 
-    return {"test_plan": result.model_dump()}
+        try:
+            plan = invoke_structured(TestPlan, [("system", SYSTEM_PROMPT), ("user", prompt)])
+        except StructuredOutputError as exc:
+            ctx.telemetry.emit_error(exc)
+            return {"test_plan": None}
+
+    return {"test_plan": plan.model_dump()}

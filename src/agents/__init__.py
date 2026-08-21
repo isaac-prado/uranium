@@ -1,15 +1,10 @@
-"""Agentes especializados do pipeline Uranium."""
+"""
+Agentes especializados do pipeline Uranium (braço B).
 
-from src.agents.clarification import clarification
-from src.agents.developer import developer
-from src.agents.intent_refiner import intent_refiner
-from src.agents.test_generator import test_generator
-from src.agents.validator import validator
+Este pacote deliberadamente NÃO reexporta as funções dos nós. Reexportar
+`validator` aqui faria `src.agents.validator` resolver para a função em vez
+do módulo, quebrando `monkeypatch.setattr` por string, navegação de IDE e
+qualquer import do submódulo. Importe do módulo:
 
-__all__ = [
-    "intent_refiner",
-    "clarification",
-    "developer",
-    "validator",
-    "test_generator",
-]
+    from src.agents.validator import validator
+"""

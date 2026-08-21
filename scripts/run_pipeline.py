@@ -17,7 +17,20 @@ from src.tracing import pipeline_traceable
 
 @pipeline_traceable("uranium_pipeline")
 def run_pipeline(request: str) -> dict:
-    """Executa o grafo completo e retorna o estado final."""
+    """
+    Executa o grafo completo e retorna o estado final.
+
+    OBSOLETO. O pipeline deixou de gerar código do zero: agora ele age sobre
+    um repositório-semente materializado num commit-base, e exige um
+    RunContext (workspace + telemetria + orçamento). Este CLI será
+    substituído por scripts/run_arm.py, que materializa tudo e roda um dos
+    dois braços do estudo.
+    """
+    raise SystemExit(
+        "scripts/run_pipeline.py está obsoleto: o pipeline agora requer um "
+        "workspace e um RunContext.\nUse scripts/run_arm.py (em construção) "
+        "ou monte o contexto manualmente com RunContext.create(...)."
+    )
     graph = build_graph()
     run_config = get_run_config(
         run_name="uranium-pipeline",
