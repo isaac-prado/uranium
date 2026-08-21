@@ -33,34 +33,51 @@ uv sync
 
 Variáveis principais:
 
-| Variável                      | Descrição                                 |
-| ----------------------------- | ----------------------------------------- |
-| `OPENROUTER_API_KEY`          | Chave da API OpenRouter                   |
-| `OPENROUTER_MODEL_NAME`       | Modelo **free** com sufixo `:free`        |
-| `AUTO_JSON_FALLBACK_FOR_FREE` | `true` — JSON direto em modelos free      |
-| `LLM_MAX_TOKENS`              | Limite de tokens por chamada (ex: `2048`) |
-| `LANGCHAIN_TRACING_V2`        | `true` para ativar LangSmith              |
-| `LANGCHAIN_API_KEY`           | Chave LangSmith                           |
-| `LANGCHAIN_PROJECT`           | Nome do projeto no LangSmith              |
+| Variável                  | Descrição                                                     |
+| ------------------------- | ------------------------------------------------------------- |
+| `OPENROUTER_API_KEY`      | Chave da API OpenRouter                                        |
+| `OPENROUTER_MODEL_NAME`   | Modelo **pago**; tier `:free` é recusado                       |
+| `OPENROUTER_PROVIDER`     | Provedor único a pinar (`provider.only`)                       |
+| `LLM_SEED`                | Semente fixa, para reprodutibilidade                           |
+| `LLM_TEMPERATURE`         | `0` nos dois braços do estudo                                  |
+| `LLM_MAX_TOKENS`          | Teto por chamada (padrão `8192`)                               |
+| `STRUCTURED_OUTPUT_METHOD`| `function_calling` (mesmo mecanismo das ferramentas)           |
+| `RUN_MAX_TOKENS`          | Orçamento de tokens por run (circuit breaker)                  |
 
-### Modelos 100% gratuitos (OpenRouter)
+### Escolha do modelo
 
-Todos abaixo têm **custo $0** (tier `:free`). Lista completa em [openrouter.ai/collections/free-models](https://openrouter.ai/collections/free-models).
+O modelo não é fixado no código: ele é escolhido por um **teste de aptidão**
+que mede conformidade de tool calling, estabilidade do provedor servido e
+determinismo.
 
-| Modelo                                   | Velocidade  | Uso recomendado          |
-| ---------------------------------------- | ----------- | ------------------------ |
-| `qwen/qwen-2.5-7b-instruct:free`         | Rápido      | **Padrão da POC**        |
-| `google/gemma-2-9b-it:free`              | Rápido      | Testes rápidos           |
-| `meta-llama/llama-3.3-70b-instruct:free` | Médio       | Melhor qualidade free    |
-| `nvidia/nemotron-3-super-120b-a12b:free` | Muito lento | Evitar — filas longas    |
-| `openrouter/free`                        | Variável    | Roteador automático free |
+```bash
+# quais provedores servem um modelo
+uv run python scripts/fitness_test.py --list-providers vendor/modelo
 
-```env
-OPENROUTER_MODEL_NAME=qwen/qwen-2.5-7b-instruct:free
-AUTO_JSON_FALLBACK_FOR_FREE=true
+# laudo de aptidão (5 sondagens)
+uv run python scripts/fitness_test.py --model vendor/modelo --provider Fireworks -n 5
 ```
 
-O Uranium detecta modelos `:free` e usa **fallback JSON** automaticamente (evita o erro `choices=None` do Nemotron e similares).
+O cliente é montado com `provider.only`, `allow_fallbacks: false`,
+`require_parameters: true` e `data_collection: deny`. Se o provedor pinado
+não puder atender, o OpenRouter devolve erro em vez de servir por outro —
+o pino é auto-verificável.
+
+Não há reparo de JSON degradado: se o modelo não conformar ao schema, o erro
+sobe e é contabilizado. Consertar a saída do agente por fora contaminaria a
+comparação entre os braços.
+
+## Benchmark (estudo E1)
+
+```bash
+# espelho local do repositório-semente (único passo que usa rede)
+uv run python scripts/setup_mirror.py tomlkit
+```
+
+O repositório-semente é o **tomlkit** (MIT, ~4.6k LOC, 1030 testes em 1,5s,
+zero dependências de runtime). Cada tarefa materializa um clone isolado num
+commit-base, via `Workspace.materialize()`, com testes e configuração
+protegidos contra escrita pelo agente.
 
 ## Uso
 
@@ -103,25 +120,30 @@ uv run pytest tests/ -v
 
 ```
 src/
-├── config.py          # LLM factory + limites de iteração
+├── config.py          # LLM com provedor pinado + métricas de chamada
+├── workspace.py       # Clone isolado do repo-semente num commit-base
+├── seeds.py           # Especificação dos repositórios-semente
+├── tools/             # Ferramentas do agente (fs + execução de testes)
 ├── state.py           # WorkflowState compartilhado
 ├── graph.py           # Grafo LangGraph
 ├── schemas/           # Pydantic models
 └── agents/            # Nós do grafo
 scripts/
+├── setup_mirror.py    # Espelhos bare locais dos repos-semente
+├── fitness_test.py    # Teste de aptidão de modelo
 └── run_pipeline.py    # CLI
-tests/                 # Testes com mocks
+tests/                 # Testes (unitários + integração sobre workspace real)
 ```
 
-## Observabilidade (LangSmith)
+## Observabilidade
 
-Com `LANGCHAIN_TRACING_V2=true`, cada execução registra automaticamente:
+A telemetria oficial do estudo é **JSONL local**, por evento, gravada durante
+o run — não depende de serviço externo nem de rede. O LangSmith continua
+disponível como apoio de depuração (`LANGSMITH_TRACING=true`), mas nenhuma
+métrica reportada no TCC vem dele.
 
-- Nós executados e ordem
-- Prompts e respostas estruturadas
-- Tokens, latência e custo estimado
-
-Acesse [smith.langchain.com](https://smith.langchain.com/) no projeto `uranium-poc`.
+Cada chamada de LLM registra tokens (prompt/completion/reasoning), custo em
+USD devolvido pelo OpenRouter (`usage.include`), provedor servido e latência.
 
 ## Desenvolvimento
 
