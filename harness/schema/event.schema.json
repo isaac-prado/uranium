@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/isaac-prado/uranium/harness/schema/event.schema.json",
+  "title": "Evento de telemetria do Uranium",
+  "description": "Uma linha do arquivo events.jsonl. Envelope idêntico nos braços A2 e B.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "run_id", "arm", "task_id", "seq", "ts", "elapsed_ms",
+    "event_type", "node", "agent_role", "turn", "intervention_level",
+    "model", "provider_requested", "provider_served",
+    "tokens_prompt", "tokens_completion", "tokens_reasoning", "tokens_total",
+    "cost_usd", "latency_ms",
+    "tool_name", "tool_args_hash", "tool_denied", "tool_exit_code", "payload"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "run_id":  { "type": "string", "minLength": 1 },
+    "arm":     { "enum": ["A2", "B"] },
+    "task_id": { "type": "string", "minLength": 1 },
+    "seq":     { "type": "integer", "minimum": 1 },
+    "ts":      { "type": "string", "format": "date-time" },
+    "elapsed_ms": { "type": "integer", "minimum": 0 },
+    "event_type": {
+      "enum": ["run_start", "run_end", "node_enter", "node_exit", "route",
+               "llm_call", "tool_call", "test_run", "error", "circuit_break"]
+    },
+    "node":       { "type": ["string", "null"] },
+    "agent_role": {
+      "type": ["string", "null"],
+      "description": "Papel do agente. Sempre null no braço A2 (agente único sem papéis) — é o campo que materializa a variável independente."
+    },
+    "turn":       { "type": ["integer", "null"], "minimum": 0 },
+    "intervention_level": {
+      "enum": ["L0", "L1", "L2", "L3", "L4"],
+      "description": "Nos braços A2/B é sempre L0: ambos são headless por construção."
+    },
+    "model":              { "type": ["string", "null"] },
+    "provider_requested": { "type": ["string", "null"] },
+    "provider_served":    { "type": ["string", "null"] },
+    "tokens_prompt":     { "type": "integer", "minimum": 0 },
+    "tokens_completion": { "type": "integer", "minimum": 0 },
+    "tokens_reasoning":  { "type": "integer", "minimum": 0 },
+    "tokens_total":      { "type": "integer", "minimum": 0 },
+    "cost_usd":   { "type": "number", "minimum": 0 },
+    "latency_ms": { "type": "integer", "minimum": 0 },
+    "tool_name":      { "type": ["string", "null"] },
+    "tool_args_hash": { "type": ["string", "null"] },
+    "tool_denied":    { "type": "boolean" },
+    "tool_exit_code": { "type": ["integer", "null"] },
+    "payload":        { "type": "object" }
+  }
+}

@@ -279,3 +279,69 @@ class TestTelemetria:
         assert captured[-1].duration_ms > 0
 
 
+# ------------------------------------------------- integração com a telemetria
+
+
+@mirror_available
+class TestIntegracaoTelemetria:
+    """As ferramentas reais têm de produzir eventos válidos contra o schema."""
+
+    @pytest.fixture
+    def writer(self, tmp_path):
+        from src.telemetry import TelemetryWriter
+
+        w = TelemetryWriter(
+            tmp_path / "events.jsonl",
+            run_id="int-001", arm="B", task_id="tomlkit-0001",
+            model="vendor/modelo", provider_requested="Fireworks",
+        )
+        yield w
+        w.close()
+
+    def test_uso_real_das_ferramentas_gera_eventos_validos(self, ws, writer):
+        import json
+        from pathlib import Path
+
+        from jsonschema import Draft202012Validator
+
+        from src.telemetry import read_events
+
+        validator = Draft202012Validator(
+            json.loads(Path("harness/schema/event.schema.json").read_text())
+        )
+        tools = {t.name: t for t in build_toolset(ws, emit=writer.emit_tool_call)}
+
+        writer.run_start(base_commit=BASE_COMMIT)
+        with writer.node("developer", agent_role="developer"):
+            writer.set_turn(1)
+            tools["search_code"].invoke({"pattern": "class Container", "path": "tomlkit"})
+            tools["read_file"].invoke({"path": "tomlkit/_utils.py", "start_line": 1, "end_line": 5})
+            tools["write_file"].invoke({"path": "tests/test_items.py", "content": "# trapaca"})
+            tools["write_file"].invoke({"path": "tomlkit/novo.py", "content": "A = 1\n"})
+        writer.run_end(stop_reason="tests_pass")
+
+        eventos = read_events(writer.path)
+        for evento in eventos:
+            validator.validate(evento)
+
+        chamadas = [e for e in eventos if e["event_type"] == "tool_call"]
+        assert len(chamadas) == 4
+        assert [c["tool_name"] for c in chamadas] == [
+            "search_code", "read_file", "write_file", "write_file",
+        ]
+        # a tentativa de escrever num teste ficou registrada como recusa
+        assert [c["tool_denied"] for c in chamadas] == [False, False, True, False]
+        # contexto do nó foi herdado por todas
+        assert all(c["node"] == "developer" and c["turn"] == 1 for c in chamadas)
+
+    def test_execucao_de_testes_vira_evento(self, ws, writer):
+        from src.telemetry import read_events
+        from src.tools.exec import run_pytest
+
+        writer.emit_test_run(run_pytest(ws, ["tests/test_api.py"]))
+
+        evento = read_events(writer.path)[-1]
+        assert evento["event_type"] == "test_run"
+        assert evento["tool_exit_code"] == 0
+        assert evento["payload"]["green"] is True
+        assert evento["payload"]["passed"] > 0
