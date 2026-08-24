@@ -27,8 +27,13 @@ não descreva a mudança, faça a mudança.
 Método esperado:
 1. Localize o código relevante com search_code antes de ler arquivos inteiros.
 2. Leia apenas os trechos necessários (read_file aceita faixa de linhas).
-3. Aplique a correção com write_file, passando o conteúdo COMPLETO do arquivo.
-4. Rode run_tests para verificar. Se falhar, leia a saída e corrija.
+3. Aplique a correção com replace_in_file, substituindo o trecho exato. Use
+   write_file (conteúdo COMPLETO) apenas para arquivo novo ou pequeno —
+   reescrever arquivo grande não cabe no limite de saída.
+4. Verifique com run_python, reproduzindo o caso descrito na tarefa. A suíte
+   de testes já está verde antes da sua mudança, então run_tests sozinho NÃO
+   confirma que você resolveu o problema — ele serve para checar regressão.
+5. Rode run_tests ao final para garantir que nada quebrou.
 
 Restrições:
 - Arquivos de teste e de configuração são protegidos: a escrita será recusada.

@@ -150,12 +150,61 @@ def search_code(
     return out
 
 
+def replace_in_file(ws: Workspace, path: str, old_text: str, new_text: str) -> str:
+    """
+    Substitui um trecho exato dentro de um arquivo.
+
+    Existe porque `write_file` exige o conteúdo completo, e arquivo real não
+    cabe no teto de saída do modelo: no piloto, o agente bateu em 8.192
+    tokens tentando reescrever um arquivo de 1.288 linhas e a resposta veio
+    truncada. Edição pontual é o que torna a tarefa executável.
+
+    Exige que `old_text` apareça EXATAMENTE UMA VEZ. Zero ocorrências ou
+    várias devolvem erro em vez de adivinhar qual o agente quis.
+    """
+    try:
+        target = ws.resolve(path)
+    except PathNotAllowed as exc:
+        return f"{DENIED_PREFIX} {exc}"
+
+    if ws.is_protected(path):
+        return (
+            f"{DENIED_PREFIX} {path} está em área protegida (testes/configuração) "
+            "e não pode ser modificado. Altere o código de produção."
+        )
+    if not target.is_file():
+        return f"{ERROR_PREFIX} arquivo não existe: {path}"
+    if old_text == new_text:
+        return f"{ERROR_PREFIX} old_text e new_text são idênticos: nada a fazer."
+
+    conteudo = target.read_text(encoding="utf-8", errors="replace")
+    ocorrencias = conteudo.count(old_text)
+
+    if ocorrencias == 0:
+        return (
+            f"{ERROR_PREFIX} trecho não encontrado em {path}. "
+            "Use read_file para conferir o texto exato, incluindo indentação."
+        )
+    if ocorrencias > 1:
+        return (
+            f"{ERROR_PREFIX} trecho aparece {ocorrencias} vezes em {path}. "
+            "Inclua mais linhas de contexto para tornar a substituição única."
+        )
+
+    target.write_text(conteudo.replace(old_text, new_text, 1), encoding="utf-8")
+    delta = new_text.count("\n") - old_text.count("\n")
+    return f"Substituído em {path} ({delta:+d} linhas)."
+
+
 def write_file(ws: Workspace, path: str, content: str) -> str:
     """
     Escreve conteúdo num arquivo do workspace.
 
     Recusa caminhos protegidos (testes e configuração). A recusa é retornada
     ao agente como texto — a tentativa fica registrada na telemetria.
+
+    Para editar arquivo existente, prefira `replace_in_file`: reescrever um
+    arquivo grande inteiro não cabe no teto de saída do modelo.
     """
     try:
         target = ws.resolve(path)

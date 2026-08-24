@@ -168,3 +168,65 @@ def run_tests(
         f"Testes falhando ({len(report.failing_node_ids)}):\n{failing}\n\n"
         f"Saída:\n{report.stdout_tail}"
     )
+
+
+SNIPPET_FILE = ".uranium_snippet.py"
+DEFAULT_SNIPPET_TIMEOUT_S = 60
+
+
+def run_python(
+    ws: Workspace,
+    code: str,
+    timeout_s: int = DEFAULT_SNIPPET_TIMEOUT_S,
+    *,
+    python_bin: str | None = None,
+) -> str:
+    """
+    Executa um trecho Python dentro do workspace.
+
+    Sem isto o agente não tem como verificar a própria correção: a suíte
+    visível já está verde no commit-base (o teste que discrimina é oculto),
+    então rodar os testes não diz nada sobre o problema em questão. O
+    enunciado traz um trecho de reprodução, e é este o meio de executá-lo.
+
+    Guarda: se o trecho alterar arquivo protegido — escrever num teste por
+    dentro do Python contornaria a guarda de caminho — a alteração é
+    revertida e a chamada é recusada.
+    """
+    alvo = ws.root / SNIPPET_FILE
+    alvo.write_text(code, encoding="utf-8")
+
+    cmd = [python_bin or sys.executable, SNIPPET_FILE]
+    inicio = time.perf_counter()
+    try:
+        proc = subprocess.run(
+            cmd, cwd=ws.root, capture_output=True, text=True,
+            env=_build_env(ws), timeout=timeout_s,
+        )
+        saida = (proc.stdout + proc.stderr).strip()
+        codigo = proc.returncode
+        estourou = False
+    except subprocess.TimeoutExpired:
+        saida, codigo, estourou = "", -1, True
+    finally:
+        alvo.unlink(missing_ok=True)
+
+    duracao = time.perf_counter() - inicio
+
+    violados = ws.protected_touched()
+    if violados:
+        for rel in violados:
+            subprocess.run(["git", "checkout", "--", rel], cwd=ws.root, capture_output=True)
+        return (
+            "RECUSADO: o trecho alterou arquivo protegido "
+            f"({', '.join(violados)}). A alteração foi revertida. "
+            "Testes e configuração não podem ser modificados, nem por código."
+        )
+
+    if estourou:
+        return f"TIMEOUT: o trecho excedeu {timeout_s}s e foi interrompido."
+
+    cabecalho = f"exit={codigo} em {duracao:.2f}s"
+    if not saida:
+        return f"{cabecalho}\n(sem saída)"
+    return f"{cabecalho}\n{truncate(saida, MAX_TOOL_OUTPUT_CHARS)}"

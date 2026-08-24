@@ -18,6 +18,7 @@ from src.graph import route_after_validator
 from src.runtime import RunContext
 from src.seeds import TOMLKIT
 from src.telemetry import TelemetryWriter, read_events
+from src.tools import TOOL_NAMES
 from src.workspace import Workspace, WorkspaceSpec
 from tests.fakes import FakeToolCallingLLM, ai
 
@@ -103,16 +104,15 @@ class TestDeveloperAge:
         assert out["stop_reason"] == "concluiu"
         assert llm.n_invocacoes == 4
 
-    def test_recebe_as_cinco_ferramentas(self, ambiente):
+    def test_recebe_o_toolset_completo(self, ambiente):
+        """O mesmo conjunto que o braço A2 recebe — a paridade depende disso."""
         _, _, montar = ambiente
         llm = FakeToolCallingLLM([ai(content="pronto")])
         montar(llm)
 
         developer(_estado())
 
-        assert {t.name for t in llm.ferramentas_ligadas} == {
-            "list_files", "read_file", "search_code", "write_file", "run_tests",
-        }
+        assert {t.name for t in llm.ferramentas_ligadas} == set(TOOL_NAMES)
 
     def test_recusa_de_escrita_volta_ao_modelo_sem_derrubar(self, ambiente):
         ws, _, montar = ambiente

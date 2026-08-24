@@ -28,7 +28,10 @@ from src.workspace import Workspace
 
 __all__ = ["build_toolset", "run_pytest", "TOOL_NAMES"]
 
-TOOL_NAMES = ("list_files", "read_file", "search_code", "write_file", "run_tests")
+TOOL_NAMES = (
+    "list_files", "read_file", "search_code",
+    "write_file", "replace_in_file", "run_python", "run_tests",
+)
 
 
 # --------------------------------------------------------------- args schemas
@@ -54,6 +57,18 @@ class SearchCodeArgs(BaseModel):
 class WriteFileArgs(BaseModel):
     path: str = Field(description="Caminho do arquivo a escrever")
     content: str = Field(description="Conteúdo completo do arquivo")
+
+
+class ReplaceInFileArgs(BaseModel):
+    path: str = Field(description="Caminho do arquivo a editar")
+    old_text: str = Field(
+        description="Trecho exato a substituir, com indentação. Precisa ser único no arquivo."
+    )
+    new_text: str = Field(description="Texto que entra no lugar")
+
+
+class RunPythonArgs(BaseModel):
+    code: str = Field(description="Trecho Python a executar na raiz do repositório")
 
 
 class RunTestsArgs(BaseModel):
@@ -90,8 +105,9 @@ def _instrument(
         if result.startswith(fs_tools.ERROR_PREFIX):
             record.error = result[: 200]
 
-        if name == "write_file" and not record.denied:
-            record.bytes_written = len(kwargs.get("content", "").encode("utf-8"))
+        if name in ("write_file", "replace_in_file") and not record.denied:
+            escrito = kwargs.get("content") or kwargs.get("new_text") or ""
+            record.bytes_written = len(escrito.encode("utf-8"))
         elif name in ("read_file", "search_code", "list_files"):
             record.bytes_read = len(result.encode("utf-8"))
 
@@ -131,6 +147,12 @@ def build_toolset(
     def _write_file(path: str, content: str) -> str:
         return fs_tools.write_file(ws, path=path, content=content)
 
+    def _replace_in_file(path: str, old_text: str, new_text: str) -> str:
+        return fs_tools.replace_in_file(ws, path=path, old_text=old_text, new_text=new_text)
+
+    def _run_python(code: str) -> str:
+        return exec_tools.run_python(ws, code, python_bin=python_bin)
+
     def _run_tests(node_ids: list[str] | None = None) -> str:
         return exec_tools.run_tests(
             ws, node_ids or None, timeout_s=test_timeout_s, python_bin=python_bin
@@ -155,6 +177,17 @@ def build_toolset(
             "write_file", _write_file, WriteFileArgs,
             "Escreve o conteúdo completo de um arquivo. Arquivos de teste e de "
             "configuração são protegidos e a escrita será recusada.",
+        ),
+        (
+            "replace_in_file", _replace_in_file, ReplaceInFileArgs,
+            "Substitui um trecho exato dentro de um arquivo. PREFIRA esta a write_file "
+            "para editar arquivo existente: reescrever um arquivo grande inteiro não "
+            "cabe no limite de saída. O trecho precisa ser único no arquivo.",
+        ),
+        (
+            "run_python", _run_python, RunPythonArgs,
+            "Executa um trecho Python na raiz do repositório e devolve a saída. "
+            "Use para reproduzir o problema e conferir se a sua correção funcionou.",
         ),
         (
             "run_tests", _run_tests, RunTestsArgs,
