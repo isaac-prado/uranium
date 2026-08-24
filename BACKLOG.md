@@ -4,6 +4,38 @@ O que falta para a coleta definitiva. Ordem é de dependência, não de esforço
 
 ---
 
+## 0. Calibração do orçamento — **feita**, falta aplicar
+
+Piloto de 23/08/2026 em `tomlkit-0001`, `qwen/qwen3-coder` via DeepInfra,
+provedor pinado em todas as chamadas. Custo total da calibração: US$ 0,065.
+
+| braço | teto | turnos | tokens | US$ | parada | oráculo |
+|---|---|---|---|---|---|---|
+| A2 | 120k | 9 | 120.486 | 0,0164 | `budget: max_tokens` | não resolveu |
+| B | 120k | 13 | 129.163 | 0,0182 | `concluiu` | **resolveu** (f2p 1/1) |
+| A2 | 300k | 29 | 227.350 | 0,0307 | `tests_pass` | **resolveu** (f2p 1/1) |
+
+**O teto de 120k era confundidor.** Com 120k o A2 gastou os nove turnos
+inteiros lendo arquivo e ainda não tinha editado nada quando foi cortado; com
+300k ele resolveu. Um teto que corta um braço no meio do trabalho mede o teto,
+não a topologia — e cortava justamente o braço que a hipótese não favorece,
+que é a direção perigosa do viés.
+
+**A aplicar:** `RUN_MAX_TOKENS = 300_000` na coleta definitiva. Parada por
+orçamento passa a ser exceção (agente em ciclo), não regra. Projeção de custo:
+12 tarefas × 2 braços × 3 repetições = 72 execuções × ~US$ 0,025 ≈ **US$ 2**.
+
+**A investigar antes da coleta:** o A2 precisou de 29 turnos e 227k tokens
+contra 13 turnos e 127k do B para o mesmo resultado — 1,8× mais caro. O
+piloto tem n=1 e não sustenta inferência nenhuma, mas é a diferença que o
+estudo existe para medir, e vale conferir se ela se mantém nas outras tarefas.
+
+O consumo é dominado pelo reenvio do contexto: no A2 de 300k, 220.219 tokens
+de prompt contra 7.131 de completion. Cresce com o quadrado do número de
+turnos, então qualquer braço que precise de mais turnos paga desproporcional.
+
+---
+
 ## 1. Renomear os braços
 
 `A2` e `B` são nomes herdados de um desenho de três braços que não existe mais.
