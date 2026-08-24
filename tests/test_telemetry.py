@@ -8,13 +8,7 @@ from pathlib import Path
 import pytest
 from jsonschema import Draft202012Validator
 
-from src.autonomy import (
-    InterventionLevel,
-    autonomy_index,
-    count_levels,
-    process_metrics,
-    self_recoveries,
-)
+from src.metrics import process_metrics, self_recoveries
 from src.budget import BudgetTracker, RunBudget
 from src.schemas.test_report import TestReport
 from src.telemetry import (
@@ -82,11 +76,14 @@ class TestEnvelope:
         with pytest.raises(ValueError, match="event_type desconhecido"):
             writer.emit("inventado")
 
-    def test_intervencao_e_sempre_L0_por_padrao(self, writer):
-        """Os dois braços são headless: nenhum evento acima de L0 por construção."""
+    def test_envelope_nao_carrega_nivel_de_intervencao(self, writer):
+        """
+        O Índice de Autonomia foi removido do desenho: com os dois braços
+        autônomos ele seria constante e não discriminaria nada.
+        """
         writer.run_start()
         writer.emit("route")
-        assert {e["intervention_level"] for e in read_events(writer.path)} == {"L0"}
+        assert all("intervention_level" not in e for e in read_events(writer.path))
 
     def test_durabilidade_linha_a_linha(self, writer):
         """Se o run morrer no meio, o que já ocorreu tem de estar em disco."""
@@ -227,35 +224,14 @@ class TestTotais:
         assert providers_served(read_events(writer.path)) == {"Fireworks", "Together"}
 
 
-# ------------------------------------------------------------------ autonomia
+# --------------------------------------------------- métricas de processo
 
 
-class TestAutonomia:
-    def test_headless_da_indice_um(self):
-        eventos = [{"event_type": "llm_call", "intervention_level": "L0"}] * 10
-        assert autonomy_index(eventos) == 1.0
-
-    def test_intervencao_reduz_o_indice(self):
-        eventos = [
-            {"event_type": "llm_call", "intervention_level": "L0"},
-            {"event_type": "llm_call", "intervention_level": "L4"},
-        ]
-        assert autonomy_index(eventos) == 0.5
-
-    def test_pesos_intermediarios(self):
-        eventos = [{"event_type": "tool_call", "intervention_level": "L2"}]
-        assert autonomy_index(eventos) == 0.5
-
-    def test_sem_pontos_de_decisao_e_um(self):
-        assert autonomy_index([{"event_type": "run_start"}]) == 1.0
-
-    def test_nivel_invalido_conta_como_L0(self):
-        assert autonomy_index([{"event_type": "route", "intervention_level": "L9"}]) == 1.0
-
-    def test_contagem_traz_todos_os_niveis(self):
-        contagem = count_levels([{"intervention_level": "L0"}])
-        assert set(contagem) == {l.value for l in InterventionLevel}
-        assert contagem["L0"] == 1 and contagem["L3"] == 0
+class TestMetricasDeProcesso:
+    """
+    Substituem o Índice de Autonomia, que era degenerado com dois braços
+    headless. Estas variam de fato entre as topologias.
+    """
 
     def test_auto_recuperacao_conta_falha_seguida_de_verde(self):
         eventos = [
@@ -269,15 +245,39 @@ class TestAutonomia:
     def test_verde_de_primeira_nao_e_recuperacao(self):
         assert self_recoveries([{"event_type": "test_run", "payload": {"green": True}}]) == 0
 
+    def test_falhas_seguidas_contam_uma_recuperacao_so(self):
+        eventos = [
+            {"event_type": "test_run", "payload": {"green": False}},
+            {"event_type": "test_run", "payload": {"green": False}},
+            {"event_type": "test_run", "payload": {"green": True}},
+        ]
+        assert self_recoveries(eventos) == 1
+
+    def test_eventos_que_nao_sao_execucao_de_teste_sao_ignorados(self):
+        eventos = [
+            {"event_type": "test_run", "payload": {"green": False}},
+            {"event_type": "llm_call"},
+            {"event_type": "test_run", "payload": {"green": True}},
+        ]
+        assert self_recoveries(eventos) == 1
+
     def test_metricas_de_processo(self):
         eventos = [
-            {"event_type": "llm_call", "intervention_level": "L0", "turn": 1},
-            {"event_type": "tool_call", "intervention_level": "L0", "turn": 2, "tool_denied": True},
-            {"event_type": "test_run", "intervention_level": "L0", "turn": 2, "payload": {"green": True}},
+            {"event_type": "llm_call", "turn": 1},
+            {"event_type": "tool_call", "turn": 2, "tool_denied": True},
+            {"event_type": "test_run", "turn": 2, "payload": {"green": True}},
         ]
         m = process_metrics(eventos)
-        assert m["turns"] == 2 and m["llm_calls"] == 1
-        assert m["tool_denials"] == 1 and m["autonomy_index"] == 1.0
+        assert m == {
+            "turns": 2, "llm_calls": 1, "tool_calls": 1,
+            "tool_denials": 1, "test_runs": 1, "self_recoveries": 0,
+        }
+
+    def test_nao_ha_mais_indice_de_autonomia(self):
+        import src.metrics as mod
+
+        assert not hasattr(mod, "autonomy_index")
+        assert not hasattr(mod, "InterventionLevel")
 
 
 # ------------------------------------------------------------- circuit breaker

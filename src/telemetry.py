@@ -22,7 +22,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
 
-from src.autonomy import InterventionLevel
 from src.config import extract_call_metrics
 
 SCHEMA_VERSION = 1
@@ -172,10 +171,6 @@ class TelemetryWriter:
                 "node": fields.pop("node", ctx.node),
                 "agent_role": fields.pop("agent_role", ctx.agent_role),
                 "turn": fields.pop("turn", ctx.turn),
-                # Nos braços A2/B é sempre L0: ambos são headless por desenho.
-                "intervention_level": fields.pop(
-                    "intervention_level", InterventionLevel.L0.value
-                ),
                 "model": fields.pop("model", self.model),
                 "provider_requested": fields.pop("provider_requested", self.provider_requested),
                 "provider_served": fields.pop("provider_served", None),
