@@ -10,7 +10,7 @@ import pytest
 from jsonschema import Draft202012Validator
 
 from src.arms.driver import DeterministicDriver, DriverAction, DriverPolicy
-from src.arms.runner import build_run_spec, run_arm
+from src.arms.runner import build_run_spec, run_arm, seed_for_repetition
 from src.budget import RunBudget
 from src.config import LLMConfig
 from src.schemas.test_report import TestReport
@@ -200,7 +200,9 @@ class TestArtefatosDoRun:
     def test_manifesto_registra_a_config_resolvida(self, executado):
         m = json.loads((executado / "manifest.json").read_text())
         assert m["arm"] == "A2" and m["topology"] == "single_agent"
-        assert m["llm"]["seed"] == 1 and m["llm"]["allow_fallbacks"] is False
+        # a semente do manifesto é a efetiva, derivada da repetição
+        assert m["llm"]["seed"] == seed_for_repetition(1, m["repetition"])
+        assert m["llm"]["allow_fallbacks"] is False
         assert m["driver_policy"]["sumariza_falhas"] is False
         assert m["base_commit"] == BASE_COMMIT
 

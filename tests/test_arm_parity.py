@@ -16,7 +16,11 @@ import pytest
 
 from src.arms.a2 import SYSTEM_PROMPT as PROMPT_A2
 from src.arms.driver import DriverPolicy
-from src.arms.runner import CHAVES_QUE_PODEM_DIFERIR, build_run_spec
+from src.arms.runner import (
+    CHAVES_QUE_PODEM_DIFERIR,
+    build_run_spec,
+    seed_for_repetition,
+)
 from src.agents.developer import SYSTEM_PROMPT as PROMPT_B
 from src.budget import RunBudget
 from src.config import LLMConfig
@@ -36,12 +40,12 @@ mirror_available = pytest.mark.skipif(
 )
 
 
-def _spec(arm, tmp_path):
+def _spec(arm, tmp_path, repetition=1):
     return build_run_spec(
         run_id=f"paridade-{arm}", arm=arm, task_id="tomlkit-0001",
         statement="Levantar erro em elemento malformado de array.",
         base_commit=BASE_COMMIT, out_dir=tmp_path / arm,
-        llm=LLM, budget=BUDGET,
+        llm=LLM, budget=BUDGET, repetition=repetition,
     )
 
 
@@ -74,7 +78,8 @@ class TestManifesto:
         a2 = _spec("A2", tmp_path).manifest("t")["llm"]
         b = _spec("B", tmp_path).manifest("t")["llm"]
         assert a2 == b
-        assert a2["seed"] == 20260820 and a2["temperature"] == 0.0
+        assert a2["seed"] == seed_for_repetition(20260820, 1)
+        assert a2["temperature"] == 0.0
         assert a2["allow_fallbacks"] is False and a2["require_parameters"] is True
 
     def test_orcamento_identico(self, tmp_path):
@@ -176,6 +181,48 @@ class TestJusticaDePrompt:
     def test_so_o_b_decompoe_em_papeis(self):
         """A diferença de prompt permitida é exatamente a topologia."""
         assert "papéis" not in PROMPT_A2 and "fases" not in PROMPT_A2
+
+
+class TestSementePorRepeticao:
+    """
+    A semente varia entre repetições — senão as N execuções sairiam quase
+    idênticas e não mediriam variabilidade — mas é a MESMA entre os braços
+    numa dada repetição, o que preserva o pareamento da análise.
+    """
+
+    def test_repeticoes_diferentes_dao_sementes_diferentes(self, tmp_path):
+        sementes = {_spec("B", tmp_path, rep).llm.seed for rep in (1, 2, 3, 10)}
+        assert len(sementes) == 4
+
+    def test_mesma_repeticao_pareia_os_bracos(self, tmp_path):
+        for rep in (1, 5, 10):
+            a2 = _spec("A2", tmp_path, rep)
+            b = _spec("B", tmp_path, rep)
+            assert a2.llm.seed == b.llm.seed, f"repetição {rep} não pareada"
+
+    def test_repeticao_nao_pode_divergir_entre_bracos(self):
+        """Se `repetition` virasse chave livre, o pareamento se perderia."""
+        assert "repetition" not in CHAVES_QUE_PODEM_DIFERIR
+
+    def test_repeticao_entra_no_manifesto(self, tmp_path):
+        assert _spec("B", tmp_path, 7).manifest("t")["repetition"] == 7
+
+    def test_derivacao_e_deterministica(self):
+        assert seed_for_repetition(100, 3) == seed_for_repetition(100, 3)
+        assert seed_for_repetition(100, 3) != seed_for_repetition(100, 4)
+
+    def test_repeticao_zero_e_recusada(self, tmp_path):
+        """1-based: o índice aparece em caminho de saída e em run_id."""
+        with pytest.raises(ValueError, match="começa em 1"):
+            _spec("B", tmp_path, 0)
+
+    def test_saida_separada_por_repeticao(self):
+        from pathlib import Path
+        spec = build_run_spec(
+            run_id="r", arm="B", task_id="t", statement="s",
+            base_commit=BASE_COMMIT, llm=LLM, budget=BUDGET, repetition=4,
+        )
+        assert spec.out_dir == Path("runs") / "B" / "t" / "rep04" / "r"
 
 
 class TestPoliticaDoDriver:

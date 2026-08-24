@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import platform
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
@@ -29,8 +29,25 @@ from src.workspace import Workspace, WorkspaceSpec
 MANIFEST_VERSION = 1
 
 # Chaves do manifesto que PODEM diferir entre os braços. Qualquer outra
-# divergência é violação do desenho experimental.
+# divergência é violação do desenho experimental. Note que `repetition` NÃO
+# está aqui: a repetição nº k do A2 e a nº k do B são um par, e precisam
+# rodar sob a mesma semente.
 CHAVES_QUE_PODEM_DIFERIR = frozenset({"arm", "topology", "driver_policy", "run_id", "started_at"})
+
+
+def seed_for_repetition(base_seed: int, repetition: int) -> int:
+    """
+    Semente efetiva de uma repetição.
+
+    Com semente fixa e temperatura zero, repetir o mesmo run produziria
+    saídas quase idênticas — as repetições não mediriam variabilidade
+    nenhuma e só gastariam crédito. Variar a semente resolve isso.
+
+    A derivação é determinística e depende apenas do índice da repetição,
+    nunca do braço: a repetição nº k roda sob a mesma semente nos dois
+    lados, o que preserva o pareamento e permite análise pareada.
+    """
+    return base_seed + repetition
 
 
 @dataclass(frozen=True)
@@ -40,6 +57,7 @@ class RunSpec:
     run_id: str
     arm: Arm
     task_id: str
+    repetition: int
     seed_id: str
     base_commit: str
     statement: str
@@ -57,6 +75,7 @@ class RunSpec:
             "arm": self.arm,
             "topology": "single_agent" if self.arm == "A2" else "multi_agent_roles",
             "task_id": self.task_id,
+            "repetition": self.repetition,
             "seed_id": self.seed_id,
             "base_commit": self.base_commit,
             "started_at": started_at,
@@ -76,6 +95,7 @@ def build_run_spec(
     task_id: str,
     statement: str,
     base_commit: str,
+    repetition: int = 1,
     seed_id: str = "tomlkit",
     out_dir: Path | None = None,
     llm: LLMConfig | None = None,
@@ -87,16 +107,24 @@ def build_run_spec(
 
     Deliberadamente idêntica para os dois braços: a config de LLM e o
     orçamento vêm do mesmo lugar, e só `driver_policy` é específico do A2.
+
+    A semente do LLM é derivada da repetição, então dois braços na mesma
+    repetição partem exatamente da mesma condição inicial.
     """
+    if repetition < 1:
+        raise ValueError(f"repetition começa em 1, recebido {repetition}")
+
+    base_llm = llm or load_llm_config()
     return RunSpec(
         run_id=run_id,
         arm=arm,
         task_id=task_id,
+        repetition=repetition,
         seed_id=seed_id,
         base_commit=base_commit,
         statement=statement,
-        out_dir=out_dir or Path("runs") / arm / task_id / run_id,
-        llm=llm or load_llm_config(),
+        out_dir=out_dir or Path("runs") / arm / task_id / f"rep{repetition:02d}" / run_id,
+        llm=replace(base_llm, seed=seed_for_repetition(base_llm.seed, repetition)),
         budget=budget or RunBudget.from_env(),
         driver_policy=DriverPolicy() if arm == "A2" else None,
         test_timeout_s=test_timeout_s,
@@ -148,7 +176,12 @@ def run_arm(spec: RunSpec, *, llm_factory: Any = None) -> dict[str, Any]:
         "clarification_responses": [], "turn_count": 0,
     }
 
-    telemetry.run_start(base_commit=spec.base_commit, topology=manifesto["topology"])
+    telemetry.run_start(
+        base_commit=spec.base_commit,
+        topology=manifesto["topology"],
+        repetition=spec.repetition,
+        llm_seed=spec.llm.seed,
+    )
 
     final: dict[str, Any] = {}
     stop_reason = "error"
@@ -170,6 +203,8 @@ def run_arm(spec: RunSpec, *, llm_factory: Any = None) -> dict[str, Any]:
             "run_id": spec.run_id,
             "arm": spec.arm,
             "task_id": spec.task_id,
+            "repetition": spec.repetition,
+            "llm_seed": spec.llm.seed,
             "topology": manifesto["topology"],
             "stop_reason": stop_reason,
             "is_valid": bool(final.get("is_valid")),

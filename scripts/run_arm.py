@@ -37,6 +37,12 @@ def main() -> None:
     parser.add_argument("--seed", default="tomlkit", choices=sorted(SEEDS))
     parser.add_argument("--statement", help="Enunciado da tarefa (texto)")
     parser.add_argument("--statement-file", type=Path, help="Arquivo com o enunciado")
+    parser.add_argument(
+        "--repetition", type=int, default=1,
+        help="Índice da repetição (1-based). Deriva a semente do LLM: repetições "
+             "diferentes produzem variabilidade, e a mesma repetição nos dois "
+             "braços parte da mesma semente (padrão: 1)",
+    )
     parser.add_argument("--run-id", help="Identificador do run (padrão: gerado)")
     parser.add_argument("--out", type=Path, help="Diretório de saída")
     parser.add_argument("--max-turns", type=int, help="Sobrepõe RUN_MAX_TURNS")
@@ -65,13 +71,16 @@ def main() -> None:
         **{k: v for k, v in (("max_turns", args.max_turns),
                              ("max_tokens", args.max_tokens)) if v}
     )
-    run_id = args.run_id or f"{args.arm.lower()}-{args.task}-{uuid.uuid4().hex[:8]}"
+    run_id = args.run_id or (
+        f"{args.arm.lower()}-{args.task}-r{args.repetition:02d}-{uuid.uuid4().hex[:8]}"
+    )
 
     overrides = {k: v for k, v in (("model", args.model), ("provider", args.provider)) if v}
     try:
         spec = build_run_spec(
             run_id=run_id, arm=args.arm, task_id=args.task, statement=statement,
             base_commit=args.base_commit, seed_id=args.seed, out_dir=args.out,
+            repetition=args.repetition,
             llm=load_llm_config(**overrides),
             budget=orcamento, test_timeout_s=args.test_timeout,
         )
@@ -79,7 +88,8 @@ def main() -> None:
         raise SystemExit(f"configuração inválida: {exc}")
 
     print(f"braço {spec.arm} ({spec.manifest('')['topology']}) | tarefa {spec.task_id}")
-    print(f"modelo {spec.llm.model} via {spec.llm.provider} | seed {spec.llm.seed}")
+    print(f"modelo {spec.llm.model} via {spec.llm.provider}")
+    print(f"repetição {spec.repetition} | semente do LLM {spec.llm.seed}")
     print(f"orçamento {orcamento.as_manifest()}")
     print(f"saída {spec.out_dir}\n")
 
