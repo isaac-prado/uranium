@@ -52,7 +52,7 @@ def _fonte_corrigida() -> str:
 def ambiente(tmp_path):
     """Workspace real + telemetria real; o LLM é injetado por teste."""
     ws = Workspace.materialize(
-        WorkspaceSpec(seed=TOMLKIT, base_commit=BASE_COMMIT),
+        WorkspaceSpec(seed_repo=TOMLKIT, base_commit=BASE_COMMIT),
         run_id="nodes-test", dest=tmp_path / "ws",
     )
     tel = TelemetryWriter(

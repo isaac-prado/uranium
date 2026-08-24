@@ -18,9 +18,9 @@ import tarfile
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
-from src.seeds import SeedSpec, mirror_root, workspace_root
+from src.seeds import SeedRepoSpec, mirror_root, workspace_root
 
-# Sempre bloqueado, independente dos globs protegidos do seed.
+# Sempre bloqueado, independente dos globs protegidos do repo-semente.
 _FORBIDDEN_PREFIXES = (".git/",)
 
 BASE_TAG = "uranium-base"
@@ -74,12 +74,12 @@ def matches_glob(rel_path: str, pattern: str) -> bool:
 class WorkspaceSpec:
     """Parâmetros de materialização de um workspace para uma tarefa."""
 
-    seed: SeedSpec
+    seed_repo: SeedRepoSpec
     base_commit: str
 
     @property
     def protected_globs(self) -> tuple[str, ...]:
-        return self.seed.protected_globs
+        return self.seed_repo.protected_globs
 
 
 class Workspace:
@@ -107,7 +107,7 @@ class Workspace:
         Deixa o repositório no branch `uranium/<run_id>`, apontando para
         `base_commit`, com a tag `uranium-base` marcando o estado inicial.
         """
-        mirror = spec.seed.mirror_path
+        mirror = spec.seed_repo.mirror_path
         if not mirror.exists():
             raise WorkspaceError(
                 f"Espelho ausente: {mirror}. Rode scripts/setup_mirror.py primeiro."
@@ -127,7 +127,7 @@ class Workspace:
         )
         _git("checkout", "--quiet", spec.base_commit, cwd=root)
 
-        cls._init_submodules(spec.seed, root)
+        cls._init_submodules(spec.seed_repo, root)
 
         _git("checkout", "--quiet", "-b", f"uranium/{run_id}", cwd=root)
         _git("tag", "--force", BASE_TAG, cwd=root)
@@ -139,7 +139,7 @@ class Workspace:
         return cls(spec, run_id, root)
 
     @staticmethod
-    def _init_submodules(seed: SeedSpec, root: Path) -> None:
+    def _init_submodules(seed_repo: SeedRepoSpec, root: Path) -> None:
         """
         Inicializa submódulos a partir de espelhos locais.
 
@@ -149,11 +149,11 @@ class Workspace:
         `-c protocol.file.allow=always` — seguro porque a origem é um
         espelho local sob nosso controle.
         """
-        if not seed.submodules:
+        if not seed_repo.submodules:
             return
 
         _git("submodule", "init", "--quiet", cwd=root)
-        for sub_path, mirror_name in seed.submodules:
+        for sub_path, mirror_name in seed_repo.submodules:
             local_mirror = mirror_root() / mirror_name
             if not local_mirror.exists():
                 raise WorkspaceError(f"Espelho de submódulo ausente: {local_mirror}")

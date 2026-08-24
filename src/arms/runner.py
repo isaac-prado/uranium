@@ -22,7 +22,7 @@ from src.arms.driver import DriverPolicy
 from src.budget import RunBudget
 from src.config import LLMConfig, load_llm_config
 from src.runtime import RunContext
-from src.seeds import get_seed
+from src.seeds import get_seed_repo
 from src.telemetry import Arm, TelemetryWriter
 from src.workspace import Workspace, WorkspaceSpec
 
@@ -58,7 +58,7 @@ class RunSpec:
     arm: Arm
     task_id: str
     repetition: int
-    seed_id: str
+    seed_repo_id: str
     base_commit: str
     statement: str
     out_dir: Path
@@ -76,7 +76,7 @@ class RunSpec:
             "topology": "single_agent" if self.arm == "A2" else "multi_agent_roles",
             "task_id": self.task_id,
             "repetition": self.repetition,
-            "seed_id": self.seed_id,
+            "seed_repo_id": self.seed_repo_id,
             "base_commit": self.base_commit,
             "started_at": started_at,
             "llm": self.llm.as_manifest(),
@@ -96,7 +96,7 @@ def build_run_spec(
     statement: str,
     base_commit: str,
     repetition: int = 1,
-    seed_id: str = "tomlkit",
+    seed_repo_id: str = "tomlkit",
     out_dir: Path | None = None,
     llm: LLMConfig | None = None,
     budget: RunBudget | None = None,
@@ -120,7 +120,7 @@ def build_run_spec(
         arm=arm,
         task_id=task_id,
         repetition=repetition,
-        seed_id=seed_id,
+        seed_repo_id=seed_repo_id,
         base_commit=base_commit,
         statement=statement,
         out_dir=out_dir or Path("runs") / arm / task_id / f"rep{repetition:02d}" / run_id,
@@ -146,7 +146,7 @@ def run_arm(spec: RunSpec, *, llm_factory: Any = None) -> dict[str, Any]:
     )
 
     workspace = Workspace.materialize(
-        WorkspaceSpec(seed=get_seed(spec.seed_id), base_commit=spec.base_commit),
+        WorkspaceSpec(seed_repo=get_seed_repo(spec.seed_repo_id), base_commit=spec.base_commit),
         run_id=spec.run_id,
         dest=spec.out_dir / "workspace",
         overwrite=True,

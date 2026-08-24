@@ -16,7 +16,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.seeds import SEEDS, get_seed, mirror_root
+from src.seeds import SEED_REPOS, get_seed_repo, mirror_root
 
 SUBMODULE_UPSTREAMS = {
     "toml-test.git": "https://github.com/BurntSushi/toml-test.git",
@@ -42,16 +42,16 @@ def _mirror(url: str, dest: Path, *, update: bool) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Espelha repositórios-semente localmente")
-    parser.add_argument("seed_id", nargs="?", default="tomlkit", choices=sorted(SEEDS))
+    parser.add_argument("seed_repo_id", nargs="?", default="tomlkit", choices=sorted(SEED_REPOS))
     parser.add_argument("--update", action="store_true", help="Atualiza espelhos existentes")
     args = parser.parse_args()
 
-    seed = get_seed(args.seed_id)
+    seed_repo = get_seed_repo(args.seed_repo_id)
     root = mirror_root()
     print(f"Espelhos em {root}")
-    print(_mirror(seed.upstream_url, seed.mirror_path, update=args.update))
+    print(_mirror(seed_repo.upstream_url, seed_repo.mirror_path, update=args.update))
 
-    for _, mirror_name in seed.submodules:
+    for _, mirror_name in seed_repo.submodules:
         url = SUBMODULE_UPSTREAMS.get(mirror_name)
         if not url:
             raise SystemExit(f"URL upstream desconhecida para submódulo {mirror_name}")

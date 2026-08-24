@@ -105,7 +105,7 @@ class TestRuntimeIdentico:
     def contexto(self, tmp_path):
         def montar(arm):
             ws = Workspace.materialize(
-                WorkspaceSpec(seed=TOMLKIT, base_commit=BASE_COMMIT),
+                WorkspaceSpec(seed_repo=TOMLKIT, base_commit=BASE_COMMIT),
                 run_id=f"par-{arm}", dest=tmp_path / f"ws-{arm}",
             )
             tel = TelemetryWriter(
@@ -223,6 +223,32 @@ class TestSementePorRepeticao:
             base_commit=BASE_COMMIT, llm=LLM, budget=BUDGET, repetition=4,
         )
         assert spec.out_dir == Path("runs") / "B" / "t" / "rep04" / "r"
+
+
+class TestDesambiguacaoDeSemente:
+    """
+    "Semente" tinha dois significados no código: o repositório de partida e a
+    semente aleatória do LLM. Os dois apareciam lado a lado no mesmo comando,
+    o que é receita para erro de operação numa coleta de 160 execuções.
+    """
+
+    def test_manifesto_separa_os_dois_conceitos(self, tmp_path):
+        m = _spec("B", tmp_path, repetition=3).manifest("t")
+        assert m["seed_repo_id"] == "tomlkit"          # repositório
+        assert m["llm"]["seed"] == seed_for_repetition(20260820, 3)  # aleatória
+        assert m["seed_repo_id"] != m["llm"]["seed"]
+
+    def test_o_cli_nao_expoe_flag_ambigua(self):
+        """`--seed` sozinho não pode existir: era o repositório, e confunde."""
+        import subprocess
+        import sys
+
+        ajuda = subprocess.run(
+            [sys.executable, "scripts/run_arm.py", "--help"],
+            capture_output=True, text=True,
+        ).stdout
+        assert "--seed-repo" in ajuda
+        assert "--seed " not in ajuda and "--seed]" not in ajuda
 
 
 class TestPoliticaDoDriver:

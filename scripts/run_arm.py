@@ -26,7 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from src.arms.runner import build_run_spec, run_arm  # noqa: E402
 from src.budget import RunBudget  # noqa: E402
 from src.config import ConfigError, load_llm_config  # noqa: E402
-from src.seeds import SEEDS, get_seed  # noqa: E402
+from src.seeds import SEED_REPOS, get_seed_repo  # noqa: E402
 
 
 def main() -> None:
@@ -34,7 +34,11 @@ def main() -> None:
     parser.add_argument("--arm", required=True, choices=["A2", "B"])
     parser.add_argument("--task", required=True, help="Identificador da tarefa")
     parser.add_argument("--base-commit", required=True, help="Commit-base do repo-semente")
-    parser.add_argument("--seed", default="tomlkit", choices=sorted(SEEDS))
+    parser.add_argument(
+        "--seed-repo", default="tomlkit", choices=sorted(SEED_REPOS),
+        help="Repositório-semente do experimento. Não confundir com a semente\n"
+             "aleatória do LLM, que é derivada de --repetition",
+    )
     parser.add_argument("--statement", help="Enunciado da tarefa (texto)")
     parser.add_argument("--statement-file", type=Path, help="Arquivo com o enunciado")
     parser.add_argument(
@@ -60,11 +64,11 @@ def main() -> None:
     )
 
     # Resolve o commit-base curto para o SHA completo, para o manifesto ser exato.
-    seed = get_seed(args.seed)
-    if not seed.mirror_path.exists():
+    seed_repo = get_seed_repo(args.seed_repo)
+    if not seed_repo.mirror_path.exists():
         raise SystemExit(
-            f"espelho ausente em {seed.mirror_path}.\n"
-            f"Rode: uv run python scripts/setup_mirror.py {args.seed}"
+            f"espelho ausente em {seed_repo.mirror_path}.\n"
+            f"Rode: uv run python scripts/setup_mirror.py {args.seed_repo}"
         )
 
     orcamento = RunBudget.from_env(
@@ -79,7 +83,7 @@ def main() -> None:
     try:
         spec = build_run_spec(
             run_id=run_id, arm=args.arm, task_id=args.task, statement=statement,
-            base_commit=args.base_commit, seed_id=args.seed, out_dir=args.out,
+            base_commit=args.base_commit, seed_repo_id=args.seed_repo, out_dir=args.out,
             repetition=args.repetition,
             llm=load_llm_config(**overrides),
             budget=orcamento, test_timeout_s=args.test_timeout,

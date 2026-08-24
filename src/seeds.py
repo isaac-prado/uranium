@@ -40,10 +40,16 @@ DEFAULT_PROTECTED_GLOBS: tuple[str, ...] = (
 
 
 @dataclass(frozen=True)
-class SeedSpec:
-    """Um repositório-semente e como materializá-lo offline."""
+class SeedRepoSpec:
+    """
+    Um repositório-semente e como materializá-lo offline.
 
-    seed_id: str
+    "Semente" aqui é o repositório de partida do experimento, não a
+    semente aleatória do LLM (essa é `LLMConfig.seed`). Os identificadores
+    carregam `seed_repo` justamente para os dois nunca se confundirem.
+    """
+
+    seed_repo_id: str
     upstream_url: str
     mirror_name: str
     source_dir: str
@@ -57,8 +63,8 @@ class SeedSpec:
         return mirror_root() / self.mirror_name
 
 
-TOMLKIT = SeedSpec(
-    seed_id="tomlkit",
+TOMLKIT = SeedRepoSpec(
+    seed_repo_id="tomlkit",
     upstream_url="https://github.com/python-poetry/tomlkit.git",
     mirror_name="tomlkit.git",
     source_dir="tomlkit",
@@ -66,12 +72,12 @@ TOMLKIT = SeedSpec(
     submodules=(("tests/toml-test", "toml-test.git"),),
 )
 
-SEEDS: dict[str, SeedSpec] = {TOMLKIT.seed_id: TOMLKIT}
+SEED_REPOS: dict[str, SeedRepoSpec] = {TOMLKIT.seed_repo_id: TOMLKIT}
 
 
-def get_seed(seed_id: str) -> SeedSpec:
-    """Resolve um seed por id, com erro explícito se desconhecido."""
+def get_seed_repo(seed_repo_id: str) -> SeedRepoSpec:
+    """Resolve um repositório-semente por id, com erro explícito se desconhecido."""
     try:
-        return SEEDS[seed_id]
+        return SEED_REPOS[seed_repo_id]
     except KeyError:
-        raise KeyError(f"Seed desconhecido: {seed_id!r}. Disponíveis: {sorted(SEEDS)}") from None
+        raise KeyError(f"Repositório-semente desconhecido: {seed_repo_id!r}. Disponíveis: {sorted(SEED_REPOS)}") from None

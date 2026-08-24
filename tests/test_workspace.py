@@ -70,7 +70,7 @@ class TestMatchesGlob:
 @pytest.fixture(scope="module")
 def ws(tmp_path_factory) -> Workspace:
     """Workspace real materializado do espelho local, uma vez por módulo."""
-    spec = WorkspaceSpec(seed=TOMLKIT, base_commit=BASE_COMMIT)
+    spec = WorkspaceSpec(seed_repo=TOMLKIT, base_commit=BASE_COMMIT)
     dest = tmp_path_factory.mktemp("uranium_ws") / "tomlkit"
     return Workspace.materialize(spec, run_id="test-run", dest=dest)
 

@@ -41,7 +41,7 @@ def _from_mirror(ref: str, path: str) -> str:
 
 @pytest.fixture
 def ws(tmp_path) -> Workspace:
-    spec = WorkspaceSpec(seed=TOMLKIT, base_commit=BASE_COMMIT)
+    spec = WorkspaceSpec(seed_repo=TOMLKIT, base_commit=BASE_COMMIT)
     return Workspace.materialize(spec, run_id="oracle", dest=tmp_path / "ws")
 
 
