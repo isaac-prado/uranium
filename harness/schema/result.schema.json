@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/isaac-prado/uranium/harness/schema/result.schema.json",
+  "title": "Resultado da avaliação de um run",
+  "description": "Um result.json por execução. É a única fonte de corretude reportada no TCC.",
+  "type": "object",
+  "required": [
+    "result_schema_version", "harness_version", "evaluated_at",
+    "run_id", "arm", "task_id", "repetition", "base_commit",
+    "resolved", "resolved_blocked_by_cheat",
+    "oracle", "cheat", "quality", "cost", "process", "provenance", "diff"
+  ],
+  "properties": {
+    "result_schema_version": { "type": "integer", "const": 1 },
+    "harness_version": { "type": "string" },
+    "evaluated_at": { "type": "string" },
+    "run_id": { "type": "string" },
+    "arm": { "enum": ["A2", "B", null] },
+    "task_id": { "type": "string" },
+    "repetition": { "type": ["integer", "null"], "minimum": 1 },
+    "base_commit": { "type": "string" },
+
+    "resolved": {
+      "type": "boolean",
+      "description": "Verdadeiro só se o oráculo aprovou E nenhuma trapaça crítica foi detectada."
+    },
+    "resolved_blocked_by_cheat": {
+      "type": "boolean",
+      "description": "O oráculo aprovaria, mas a detecção de trapaça reprovou."
+    },
+
+    "oracle": {
+      "type": "object",
+      "required": ["f2p_total", "f2p_passed", "f2p", "p2p", "regression"],
+      "properties": {
+        "f2p_total":  { "type": "integer", "minimum": 0 },
+        "f2p_passed": { "type": "integer", "minimum": 0 },
+        "f2p":        { "$ref": "#/$defs/pytestResult" },
+        "p2p":        { "$ref": "#/$defs/pytestResult" },
+        "regression": { "$ref": "#/$defs/pytestResult" }
+      }
+    },
+
+    "cheat": {
+      "type": "object",
+      "required": ["clean", "critical_count", "warning_count", "signals"],
+      "properties": {
+        "clean":          { "type": "boolean" },
+        "critical_count": { "type": "integer", "minimum": 0 },
+        "warning_count":  { "type": "integer", "minimum": 0 },
+        "signals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["rule", "severity", "file", "detail"],
+            "properties": {
+              "rule":     { "type": "string" },
+              "severity": { "enum": ["critical", "warning"] },
+              "file":     { "type": "string" },
+              "line":     { "type": ["integer", "null"] },
+              "detail":   { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+
+    "quality": { "type": "object" },
+
+    "cost": {
+      "type": "object",
+      "required": ["tokens_total", "cost_usd", "llm_calls", "tool_calls", "wall_seconds"],
+      "properties": {
+        "tokens_prompt":     { "type": "integer", "minimum": 0 },
+        "tokens_completion": { "type": "integer", "minimum": 0 },
+        "tokens_reasoning":  { "type": "integer", "minimum": 0 },
+        "tokens_total":      { "type": "integer", "minimum": 0 },
+        "cost_usd":          { "type": "number", "minimum": 0 },
+        "llm_calls":         { "type": "integer", "minimum": 0 },
+        "tool_calls":        { "type": "integer", "minimum": 0 },
+        "wall_seconds":      { "type": "number", "minimum": 0 }
+      }
+    },
+
+    "process": {
+      "type": "object",
+      "required": ["turns", "test_runs", "self_recoveries", "stop_reason"],
+      "properties": {
+        "turns":           { "type": "integer", "minimum": 0 },
+        "test_runs":       { "type": "integer", "minimum": 0 },
+        "tool_denials":    { "type": "integer", "minimum": 0 },
+        "errors":          { "type": "integer", "minimum": 0 },
+        "circuit_breaks":  { "type": "integer", "minimum": 0 },
+        "self_recoveries": { "type": "integer", "minimum": 0 },
+        "stop_reason":     { "type": ["string", "null"] }
+      }
+    },
+
+    "provenance": {
+      "type": "object",
+      "required": ["model", "provider_requested", "providers_served", "topology"],
+      "properties": {
+        "model":              { "type": ["string", "null"] },
+        "provider_requested": { "type": ["string", "null"] },
+        "providers_served": {
+          "type": "array", "items": { "type": "string" },
+          "description": "Mais de um elemento significa que o pino de provedor falhou."
+        },
+        "llm_seed": { "type": ["integer", "null"] },
+        "topology": { "enum": ["single_agent", "multi_agent_roles", null] }
+      }
+    },
+
+    "diff": {
+      "type": "object",
+      "required": ["files_changed", "insertions", "deletions", "changed_files"],
+      "properties": {
+        "files_changed": { "type": "integer", "minimum": 0 },
+        "insertions":    { "type": "integer", "minimum": 0 },
+        "deletions":     { "type": "integer", "minimum": 0 },
+        "changed_files": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  },
+
+  "$defs": {
+    "pytestResult": {
+      "type": "object",
+      "required": ["exit_code", "passed", "failed", "errors", "duration_s"],
+      "properties": {
+        "exit_code":        { "type": "integer" },
+        "passed":           { "type": "integer", "minimum": 0 },
+        "failed":           { "type": "integer", "minimum": 0 },
+        "errors":           { "type": "integer", "minimum": 0 },
+        "skipped":          { "type": "integer", "minimum": 0 },
+        "duration_s":       { "type": "number", "minimum": 0 },
+        "failing_node_ids": { "type": "array", "items": { "type": "string" } },
+        "timed_out":        { "type": "boolean" },
+        "network_isolated": { "type": "boolean" }
+      }
+    }
+  }
+}

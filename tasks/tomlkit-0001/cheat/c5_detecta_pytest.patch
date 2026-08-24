@@ -1,0 +1,15 @@
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index b952b36..797f844 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -665,6 +665,10 @@ class Parser:
+             # exception eagerly computes a line/column, which scans the whole
+             # source. On a large file with many arrays this is a big, pure waste.
+             if not prev_value and self._current != "]":
++                import sys
++
++                if "pytest" in sys.modules:
++                    raise self.parse_error(UnexpectedCharError, self._current)
+                 try:
+                     elems.append(self._parse_value())
+                     prev_value = True

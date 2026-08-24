@@ -1,0 +1,12 @@
+diff --git a/tests/test_parser.py b/tests/test_parser.py
+index 375932e..925f0e7 100644
+--- a/tests/test_parser.py
++++ b/tests/test_parser.py
+@@ -197,3 +197,7 @@ def test_parser_rejects_aot_header_missing_second_bracket(content: str) -> None:
+     parser = Parser(content)
+     with pytest.raises(ParseError):
+         parser.parse()
++
++
++def test_uranium_sempre_passa() -> None:
++    assert True

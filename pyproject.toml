@@ -16,6 +16,13 @@ dev = [
     "pytest>=8.0.0",
     "jsonschema>=4.0.0",
 ]
+# Avaliador externo. Isolado do pipeline de propósito: o harness não importa
+# nada de src/ e roda sem rede.
+harness = [
+    "jsonschema>=4.0.0",
+    "radon>=6.0.0",
+    "coverage>=7.0.0",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
