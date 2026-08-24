@@ -55,14 +55,28 @@ class RunContext:
         workspace: Workspace,
         telemetry: TelemetryWriter,
         budget: RunBudget | None = None,
+        llm_config: Any = None,
         llm_factory: Callable[..., Any] | None = None,
         test_timeout_s: int = 120,
     ) -> "RunContext":
-        """Monta o contexto e o registra para os nós resolverem por run_id."""
+        """
+        Monta o contexto e o registra para os nós resolverem por run_id.
+
+        `llm_config` é a configuração JÁ RESOLVIDA do run — a mesma que vai
+        para o manifesto. Precisa ser passada: sem ela o cliente seria
+        construído a partir do ambiente, e um run poderia usar um modelo
+        diferente do que o manifesto declara. Isso corromperia a proveniência
+        da coleta em silêncio.
+        """
         if llm_factory is None:
             from src.config import get_llm
 
-            llm_factory = get_llm
+            if llm_config is None:
+                raise RuntimeError(
+                    "RunContext.create exige llm_config quando não há llm_factory: "
+                    "sem ela o cliente viria do ambiente e divergiria do manifesto."
+                )
+            llm_factory = lambda: get_llm(llm_config)  # noqa: E731
 
         context = cls(
             run_id=run_id,
@@ -111,6 +125,30 @@ class RunContext:
         """LLM pronto para uso, com as ferramentas ligadas quando pedido."""
         llm = self.llm_factory()
         return llm.bind_tools(self.tools) if tools else llm
+
+    def invoke_structured(self, schema: Any, messages: Any, **kwargs: Any) -> Any:
+        """
+        Chamada estruturada instrumentada.
+
+        Usa o LLM do contexto (injetável em teste) e registra a chamada na
+        telemetria. Os nós do braço B DEVEM passar por aqui: chamar
+        `invoke_structured` direto deixa a chamada fora da contabilidade de
+        custo e fora do orçamento, e o braço multiagente — que tem quatro
+        nós a mais fazendo chamadas — sairia artificialmente barato.
+        """
+        import time
+
+        from src.structured_llm import invoke_structured_raw
+
+        inicio = time.perf_counter()
+        resultado, bruta = invoke_structured_raw(
+            schema, messages, llm=self.llm_factory(), **kwargs
+        )
+        if bruta is not None:
+            self.telemetry.emit_llm_call(
+                bruta, latency_ms=int((time.perf_counter() - inicio) * 1000)
+            )
+        return resultado
 
     def stop_if_exhausted(self) -> str | None:
         """Registra e devolve o motivo do estouro de orçamento, se houver."""

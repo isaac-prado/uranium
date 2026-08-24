@@ -74,6 +74,18 @@ def ambiente(tmp_path):
     RunContext.release("nodes-test")
 
 
+def _mudanca_benigna(ws) -> None:
+    """
+    Edita a fonte sem quebrar a suíte.
+
+    Existe porque a suíte visível já está verde no commit-base: sem uma
+    mudança real, `is_valid` agora é False por falta de diff, e o teste
+    passaria a medir a guarda de diff vazio em vez do que ele quer medir.
+    """
+    alvo = ws.resolve("tomlkit/_utils.py")
+    alvo.write_text(alvo.read_text() + "\n# nota do agente\n")
+
+
 def _estado(**extra):
     return {"run_id": "nodes-test", "arm": "B", "task_id": "tomlkit-0001",
             "intent": INTENT, **extra}
@@ -246,7 +258,7 @@ class TestValidatorExecuta:
             chamou_llm = True
             raise AssertionError("revisão semântica não deve rodar com suíte vermelha")
 
-        monkeypatch.setattr("src.agents.validator.invoke_structured", _nao_deveria_ser_chamado)
+        monkeypatch.setattr("src.structured_llm.invoke_structured_raw", _nao_deveria_ser_chamado)
 
         out = validator(_estado())
 
@@ -255,15 +267,17 @@ class TestValidatorExecuta:
 
     def test_llm_pode_rebaixar_codigo_que_passa(self, ambiente, monkeypatch):
         monkeypatch.setenv("SEMANTIC_REVIEW", "true")
-        _, _, montar = ambiente
+        ws, _, montar = ambiente
         montar(FakeToolCallingLLM([ai(content="x")]))
+        _mudanca_benigna(ws)
 
         from src.schemas.validation_result import ValidationResult
 
         monkeypatch.setattr(
-            "src.agents.validator.invoke_structured",
-            lambda *a, **k: ValidationResult(
-                is_valid=False, issues=["resolve o teste mas não a intenção"],
+            "src.structured_llm.invoke_structured_raw",
+            lambda *a, **k: (
+                ValidationResult(is_valid=False, issues=["resolve o teste mas não a intenção"]),
+                None,
             ),
         )
 
@@ -274,15 +288,16 @@ class TestValidatorExecuta:
 
     def test_falha_de_conformidade_nao_reprova_codigo_verde(self, ambiente, monkeypatch):
         monkeypatch.setenv("SEMANTIC_REVIEW", "true")
-        _, tel, montar = ambiente
+        ws, tel, montar = ambiente
         montar(FakeToolCallingLLM([ai(content="x")]))
+        _mudanca_benigna(ws)
 
         from src.structured_llm import StructuredOutputError
 
         def _falha(*a, **k):
             raise StructuredOutputError("modelo não conformou")
 
-        monkeypatch.setattr("src.agents.validator.invoke_structured", _falha)
+        monkeypatch.setattr("src.structured_llm.invoke_structured_raw", _falha)
 
         out = validator(_estado())
 
@@ -353,15 +368,12 @@ class TestGrafoPontaAPonta:
 
         def _estruturado(schema, mensagens, **kwargs):
             if schema is StructuredIntent:
-                return StructuredIntent.model_validate(INTENT)
+                return StructuredIntent.model_validate(INTENT), None
             if schema is TestPlan:
-                return TestPlan(summary="plano", unit_tests=[], integration_tests=[])
+                return TestPlan(summary="plano", unit_tests=[], integration_tests=[]), None
             raise AssertionError(f"schema inesperado: {schema}")
 
-        for modulo in ("intent_refiner", "test_generator"):
-            monkeypatch.setattr(
-                f"src.agents.{modulo}.invoke_structured", _estruturado, raising=True
-            )
+        monkeypatch.setattr("src.structured_llm.invoke_structured_raw", _estruturado)
 
         from src.graph import build_graph
 

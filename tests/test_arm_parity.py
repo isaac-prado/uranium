@@ -265,3 +265,81 @@ class TestPoliticaDoDriver:
             "entrega_spec_uma_vez", "aceita_todo_patch", "sumariza_falhas",
             "stderr_chars", "roda_suite_sem_tool_call",
         }
+
+
+class TestContabilidadeDeCusto:
+    """
+    Toda chamada de LLM tem de aparecer na telemetria.
+
+    O braço B tem quatro nós além do developer que chamam LLM. Quando eles
+    usavam `invoke_structured` direto, essas chamadas ficavam fora da conta
+    de custo E fora do orçamento — o braço multiagente saía artificialmente
+    barato, enviesando exatamente a comparação que o estudo faz.
+    """
+
+    def test_nenhum_no_chama_invoke_structured_direto(self):
+        import subprocess
+        from pathlib import Path
+
+        raiz = Path(__file__).resolve().parent.parent
+        achados = subprocess.run(
+            ["grep", "-rn", "-E", r"(^|[^.])\binvoke_structured\(", "--include=*.py", "src/agents"],
+            cwd=raiz, capture_output=True, text=True,
+        ).stdout.strip()
+        assert not achados, (
+            "nó chamando invoke_structured fora do RunContext — a chamada não "
+            f"seria contabilizada:\n{achados}"
+        )
+
+    def test_contexto_expoe_a_chamada_instrumentada(self):
+        from src.runtime import RunContext
+
+        assert callable(getattr(RunContext, "invoke_structured", None))
+
+
+class TestProveniencia:
+    """
+    O modelo efetivamente usado tem de ser o que o manifesto declara.
+
+    O cliente já foi construído a partir do ambiente enquanto o manifesto
+    registrava a configuração resolvida do run. Com um modelo diferente no
+    .env, a coleta inteira teria proveniência errada sem sinal nenhum.
+    """
+
+    def test_contexto_exige_a_config_resolvida(self, tmp_path):
+        from src.runtime import RunContext
+        from src.telemetry import TelemetryWriter
+
+        tel = TelemetryWriter(tmp_path / "e.jsonl", run_id="p", arm="B", task_id="t")
+        try:
+            with pytest.raises(RuntimeError, match="llm_config"):
+                RunContext.create(
+                    run_id="p", arm="B", task_id="t",
+                    workspace=None, telemetry=tel,
+                )
+        finally:
+            tel.close()
+            RunContext.release("p")
+
+    def test_cliente_usa_o_modelo_do_manifesto(self, tmp_path, monkeypatch):
+        from src.runtime import RunContext
+        from src.telemetry import TelemetryWriter
+
+        monkeypatch.setenv("OPENROUTER_API_KEY", "sk-teste")
+        monkeypatch.setenv("OPENROUTER_MODEL_NAME", "modelo/do-ambiente")
+        monkeypatch.setenv("OPENROUTER_PROVIDER", "ProvedorDoAmbiente")
+
+        resolvida = LLMConfig(model="modelo/do-run", provider="ProvedorDoRun", seed=7)
+        tel = TelemetryWriter(tmp_path / "e.jsonl", run_id="p2", arm="B", task_id="t")
+        try:
+            ctx = RunContext.create(
+                run_id="p2", arm="B", task_id="t",
+                workspace=None, telemetry=tel, llm_config=resolvida,
+            )
+            cliente = ctx.llm_factory()
+            assert cliente.model_name == "modelo/do-run"
+            assert cliente.extra_body["provider"]["only"] == ["ProvedorDoRun"]
+            assert cliente.extra_body["seed"] == 7
+        finally:
+            tel.close()
+            RunContext.release("p2")

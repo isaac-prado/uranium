@@ -55,7 +55,7 @@ def validator(state: WorkflowState) -> dict[str, Any]:
         semantic: ValidationResult | None = None
         if report.green and semantic_review_enabled():
             try:
-                semantic = invoke_structured(
+                semantic = ctx.invoke_structured(
                     ValidationResult,
                     [
                         ("system", SYSTEM_PROMPT),

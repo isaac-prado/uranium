@@ -161,7 +161,7 @@ def run_arm(spec: RunSpec, *, llm_factory: Any = None) -> dict[str, Any]:
     context = RunContext.create(
         run_id=spec.run_id, arm=spec.arm, task_id=spec.task_id,
         workspace=workspace, telemetry=telemetry,
-        budget=spec.budget, llm_factory=llm_factory,
+        budget=spec.budget, llm_config=spec.llm, llm_factory=llm_factory,
         test_timeout_s=spec.test_timeout_s,
     )
 

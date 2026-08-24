@@ -1,8 +1,8 @@
 """IntentRefinerAgent - converte solicitação em linguagem natural em intent estruturada."""
 
+from src.runtime import RunContext
 from src.schemas.intent import StructuredIntent
 from src.state import WorkflowState
-from src.structured_llm import invoke_structured
 
 SYSTEM_PROMPT = """
 Você é um especialista em Engenharia de Software 3.0.
@@ -43,13 +43,16 @@ def _build_user_prompt(state: WorkflowState) -> str:
     return "\n".join(parts)
 def intent_refiner(state: WorkflowState) -> dict[str, object]:
     """Refina a solicitação em uma intent estruturada."""
-    result = invoke_structured(
-        StructuredIntent,
-        [
-            ("system", SYSTEM_PROMPT),
-            ("user", _build_user_prompt(state)),
-        ],
-    )
+    ctx = RunContext.from_state(state)
+
+    with ctx.telemetry.node("intent_refiner", agent_role="intent_refiner"):
+        result = ctx.invoke_structured(
+            StructuredIntent,
+            [
+                ("system", SYSTEM_PROMPT),
+                ("user", _build_user_prompt(state)),
+            ],
+        )
 
     iteration_count = state.get("iteration_count", 0)
     if state.get("clarification_responses"):

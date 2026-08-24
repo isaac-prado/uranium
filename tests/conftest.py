@@ -143,3 +143,46 @@ def sample_clarification_batch() -> ClarificationBatch:
             ),
         ],
     )
+
+
+@pytest.fixture
+def ctx_minimo(tmp_path, monkeypatch):
+    """
+    RunContext sem workspace real, para testar nós que só chamam LLM.
+
+    Devolve (contexto, respostas) — basta preencher `respostas` com o que o
+    `invoke_structured_raw` deve retornar, na ordem.
+    """
+    from src.runtime import RunContext
+    from src.telemetry import TelemetryWriter
+
+    class _WorkspaceFalso:
+        root = tmp_path
+
+        def changed_files(self):
+            return []
+
+        def diff(self):
+            return ""
+
+        def diffstat(self):
+            return {"files_changed": 0, "insertions": 0, "deletions": 0}
+
+    tel = TelemetryWriter(tmp_path / "events.jsonl", run_id="no-test", arm="B", task_id="t")
+    ctx = RunContext.create(
+        run_id="no-test", arm="B", task_id="t",
+        workspace=_WorkspaceFalso(), telemetry=tel, llm_factory=lambda: None,
+    )
+
+    respostas: list = []
+
+    def _falso(schema, messages, **kwargs):
+        if not respostas:
+            raise AssertionError(f"sem resposta preparada para {schema.__name__}")
+        return respostas.pop(0), None
+
+    monkeypatch.setattr("src.structured_llm.invoke_structured_raw", _falso)
+
+    yield ctx, respostas
+    tel.close()
+    RunContext.release("no-test")

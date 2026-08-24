@@ -2,9 +2,9 @@
 
 import json
 
+from src.runtime import RunContext
 from src.schemas.clarification import ClarificationBatch
 from src.state import WorkflowState, parse_intent
-from src.structured_llm import invoke_structured
 
 SYSTEM_PROMPT = """
 Você é um analista de requisitos em Engenharia de Software 3.0.
@@ -38,10 +38,12 @@ Perguntas pendentes:
 Gere respostas técnicas para cada pergunta.
 """
 
-    result = invoke_structured(
-        ClarificationBatch,
-        [("system", SYSTEM_PROMPT), ("user", prompt)],
-    )
+    ctx = RunContext.from_state(state)
+    with ctx.telemetry.node("clarification", agent_role="clarification"):
+        result = ctx.invoke_structured(
+            ClarificationBatch,
+            [("system", SYSTEM_PROMPT), ("user", prompt)],
+        )
 
     existing = state.get("clarification_responses") or []
     new_responses = [r.model_dump() for r in result.responses]

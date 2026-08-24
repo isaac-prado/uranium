@@ -46,7 +46,7 @@ def test_generator(state: WorkflowState) -> dict[str, Any]:
         ])
 
         try:
-            plan = invoke_structured(TestPlan, [("system", SYSTEM_PROMPT), ("user", prompt)])
+            plan = ctx.invoke_structured(TestPlan, [("system", SYSTEM_PROMPT), ("user", prompt)])
         except StructuredOutputError as exc:
             ctx.telemetry.emit_error(exc)
             return {"test_plan": None}
