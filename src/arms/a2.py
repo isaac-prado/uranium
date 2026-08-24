@@ -127,17 +127,19 @@ def build_a2_graph(policy: DriverPolicy | None = None):
         with ctx.telemetry.node("driver", agent_role=None):
             report = run_pytest(ctx.workspace, timeout_s=ctx.test_timeout_s)
             ctx.telemetry.emit_test_run(report)
-            decisao = driver.apos_turno(report)
+            alterados = ctx.workspace.changed_files()
+            decisao = driver.apos_turno(report, houve_mudanca=bool(alterados))
 
             if decisao.action is DriverAction.CONTINUAR:
                 ctx.conversation.append(HumanMessage(content=decisao.feedback))
 
+        concluiu = decisao.action is DriverAction.ENCERRAR_VERDE
         return {
             "test_report": report.model_dump(),
-            "is_valid": report.green,
-            "changed_files": ctx.workspace.changed_files(),
+            "is_valid": concluiu,
+            "changed_files": alterados,
             "diff_stat": ctx.workspace.diffstat(),
-            "stop_reason": "tests_pass" if report.green else "",
+            "stop_reason": "tests_pass" if concluiu else "",
         }
 
     def rotear_apos_agente(state: WorkflowState) -> str:

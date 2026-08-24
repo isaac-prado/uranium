@@ -70,14 +70,29 @@ class DeterministicDriver:
         self.spec_entregue = True
         return especificacao
 
-    def apos_turno(self, report: TestReport) -> DriverDecision:
+    def apos_turno(self, report: TestReport, *, houve_mudanca: bool = True) -> DriverDecision:
         """
         Decide o que fazer com o resultado da suíte.
 
         Devolve o stderr cru. Qualquer processamento aqui — apontar o arquivo
         provável, resumir a causa, sugerir correção — seria trabalho de
         engenharia feito pelo harness e creditado ao agente.
+
+        `houve_mudanca` existe porque a suíte visível já está verde no
+        commit-base: sem essa checagem, "não fazer nada" satisfaz o critério
+        de parada. No piloto foi exatamente o que aconteceu.
         """
+        if report.green and not houve_mudanca:
+            return DriverDecision(
+                DriverAction.CONTINUAR,
+                feedback=(
+                    "A suíte passou, mas nenhum arquivo foi modificado — ela já "
+                    "estava verde antes de você começar. Aplique a correção do "
+                    "problema descrito na tarefa e verifique com run_python."
+                ),
+                report=report,
+            )
+
         if report.green:
             return DriverDecision(DriverAction.ENCERRAR_VERDE, report=report)
 

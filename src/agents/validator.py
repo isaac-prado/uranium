@@ -67,8 +67,15 @@ def validator(state: WorkflowState) -> dict[str, Any]:
                 # testes; fica registrada e o veredito segue pela execução.
                 ctx.telemetry.emit_error(exc)
 
+    # Diff vazio não pode ser sucesso. A suíte visível já está verde no
+    # commit-base — o teste que discrimina é oculto —, então "testes passam"
+    # é satisfeito por não fazer nada. No piloto foi exatamente isso: o
+    # agente explorou 10 turnos, não escreveu nada, a suíte passou e o run
+    # foi dado como válido com patch.diff de zero byte.
+    houve_mudanca = bool(ctx.workspace.changed_files())
+
     # O LLM só rebaixa. Nunca promove.
-    is_valid = report.green and (semantic is None or semantic.is_valid)
+    is_valid = report.green and houve_mudanca and (semantic is None or semantic.is_valid)
 
     return {
         "test_report": report.model_dump(),

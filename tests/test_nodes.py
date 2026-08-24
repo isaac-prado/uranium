@@ -214,8 +214,9 @@ class TestDeveloperOrcamento:
 class TestValidatorExecuta:
     def test_base_verde_sem_revisao_semantica(self, ambiente, monkeypatch):
         monkeypatch.setenv("SEMANTIC_REVIEW", "false")
-        _, _, montar = ambiente
+        ws, _, montar = ambiente
         montar(FakeToolCallingLLM([ai(content="x")]))
+        _mudanca_benigna(ws)
 
         out = validator(_estado())
 
@@ -223,6 +224,22 @@ class TestValidatorExecuta:
         assert out["test_report"]["exit_code"] == 0
         assert out["test_report"]["passed"] > 1000
         assert out["validation_result"] is None
+
+    def test_verde_sem_mudanca_nao_e_sucesso(self, ambiente, monkeypatch):
+        """
+        A suíte visível já passa no commit-base. Sem esta guarda, "não fazer
+        nada" satisfaz o critério de parada — foi o que aconteceu no piloto,
+        que terminou com is_valid=True e patch.diff de zero byte.
+        """
+        monkeypatch.setenv("SEMANTIC_REVIEW", "false")
+        ws, _, montar = ambiente
+        montar(FakeToolCallingLLM([ai(content="x")]))
+
+        out = validator(_estado())
+
+        assert ws.changed_files() == []
+        assert out["test_report"]["exit_code"] == 0
+        assert out["is_valid"] is False
 
     def test_codigo_quebrado_reprova(self, ambiente, monkeypatch):
         monkeypatch.setenv("SEMANTIC_REVIEW", "false")
