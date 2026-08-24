@@ -179,6 +179,15 @@ class OpenRouterChat(ChatOpenAI):
         payload = super()._get_request_payload(input_, stop=stop, **kwargs)
         if "max_completion_tokens" in payload:
             payload["max_tokens"] = payload.pop("max_completion_tokens")
+
+        # `with_structured_output` acrescenta parallel_tool_calls=false. É outro
+        # parâmetro que quase nenhum provedor fora da OpenAI implementa, e com
+        # `require_parameters: true` ele derruba o endpoint inteiro com o mesmo
+        # 404 genérico. Não precisamos dele: o loop do agente já trata várias
+        # tool calls por turno, e a saída estruturada força a função por
+        # `tool_choice`. Descoberto no piloto: o braço B falhava 100% das vezes
+        # enquanto o A2, que usa bind_tools (sem esse parâmetro), rodava.
+        payload.pop("parallel_tool_calls", None)
         return payload
 
     def _create_chat_result(
