@@ -51,6 +51,19 @@ class TestDriverDeterministico:
         assert decisao.action is DriverAction.ENCERRAR_VERDE
         assert decisao.feedback == ""
 
+    def test_verde_sem_mudanca_nao_encerra(self):
+        """
+        A suíte visível já passa no commit-base. Sem esta guarda, "não fazer
+        nada" satisfaz o critério de parada — foi o que o piloto produziu:
+        10 turnos, stop_reason=tests_pass e patch.diff de zero byte.
+        """
+        decisao = DeterministicDriver().apos_turno(
+            TestReport(exit_code=0, passed=10), houve_mudanca=False
+        )
+
+        assert decisao.action is DriverAction.CONTINUAR
+        assert "nenhum arquivo foi modificado" in decisao.feedback
+
     def test_falha_devolve_stderr_cru(self):
         report = TestReport(exit_code=1, failed=1, stdout_tail="E   assert 1 == 2")
         decisao = DeterministicDriver().apos_turno(report)

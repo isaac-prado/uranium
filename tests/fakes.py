@@ -74,6 +74,36 @@ class FakeToolCallingLLM:
     def n_invocacoes(self) -> int:
         return len(self.chamadas)
 
+    @property
+    def encerrou(self) -> bool:
+        """A última resposta entregue foi texto puro — o loop do agente fecha aí."""
+        if not self.chamadas:
+            return False
+        indice = min(len(self.chamadas) - 1, len(self.respostas) - 1)
+        return not self.respostas[indice].tool_calls
+
     def factory(self, *args: Any, **kwargs: Any) -> "FakeToolCallingLLM":
         """Compatível com a assinatura de `llm_factory` do RunContext."""
         return self
+
+
+def fabrica_por_run(construtor: Any) -> Any:
+    """
+    Um LLM novo por run, o mesmo objeto enquanto o run dura.
+
+    O braço A2 chama `bound_llm()` a cada turno, então a fábrica não pode
+    devolver instância nova por chamada — a sequência gravada reiniciaria no
+    meio do run. Mas o piloto executa os dois braços em sequência com a mesma
+    fábrica, e o segundo braço precisa da sequência do começo. O corte é o fim
+    do run, que a resposta em texto marca.
+    """
+    estado: dict[str, FakeToolCallingLLM] = {}
+
+    def _fabrica(*args: Any, **kwargs: Any) -> FakeToolCallingLLM:
+        atual = estado.get("llm")
+        if atual is None or atual.encerrou:
+            atual = construtor()
+            estado["llm"] = atual
+        return atual
+
+    return _fabrica
