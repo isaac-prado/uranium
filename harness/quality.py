@@ -110,7 +110,14 @@ def measure(repo: Path, changed_py: list[str]) -> QualityReport:
     )
 
 
-def coverage_percent(repo: Path, source_dir: str, *, timeout_s: int = 900) -> float | None:
+def coverage_percent(
+    repo: Path,
+    source_dir: str,
+    *,
+    timeout_s: int = 900,
+    python_bin: str | None = None,
+    targets: tuple[str, ...] = (),
+) -> float | None:
     """
     Cobertura de linha+ramo da suíte sobre o código de produção.
 
@@ -119,15 +126,16 @@ def coverage_percent(repo: Path, source_dir: str, *, timeout_s: int = 900) -> fl
     """
     if not source_dir:
         return None
+    py = python_bin or sys.executable
     try:
         subprocess.run(
-            [sys.executable, "-m", "coverage", "run", "--branch",
+            [py, "-m", "coverage", "run", "--branch",
              f"--source={source_dir}", "-m", "pytest", "-q", "-p", "no:cacheprovider",
-             "-o", "addopts="],
+             "-o", "addopts=", *targets],
             cwd=repo, capture_output=True, text=True, timeout=timeout_s,
         )
         saida = subprocess.run(
-            [sys.executable, "-m", "coverage", "json", "-o", "-"],
+            [py, "-m", "coverage", "json", "-o", "-"],
             cwd=repo, capture_output=True, text=True, timeout=120,
         )
         if saida.returncode != 0:

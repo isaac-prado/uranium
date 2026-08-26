@@ -31,6 +31,11 @@ class TaskSpec:
     fail_to_pass: tuple[str, ...]
     pass_to_pass: tuple[str, ...]
     root: Path
+    # Alvos que o pytest recebe para "a suíte inteira". Precisa ser explícito
+    # porque a coleta padrão do pytest não serve para todo repo: no peewee os
+    # módulos de teste não casam com `test_*.py` e um pytest pelado acha 5 de
+    # 1.634. Vazio herda `pass_to_pass`.
+    suite_targets: tuple[str, ...] = ()
     fix_commit: str = ""
     issue_url: str = ""
     protected_globs: tuple[str, ...] = field(default=DEFAULT_PROTECTED_GLOBS)
@@ -76,6 +81,7 @@ def load_task(path: str | Path) -> TaskSpec:
         seed_repo_id=dados["seed_repo"],
         base_commit=dados["base_commit"],
         source_dir=dados.get("source_dir", ""),
+        suite_targets=tuple(dados.get("suite_targets", ())),
         hidden_tests=tuple(dados["hidden_tests"]),
         fail_to_pass=tuple(dados["fail_to_pass"]),
         pass_to_pass=tuple(dados.get("pass_to_pass", ["tests/"])),

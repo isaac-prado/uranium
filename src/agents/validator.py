@@ -45,11 +45,7 @@ def validator(state: WorkflowState) -> dict[str, Any]:
     ctx = RunContext.from_state(state)
 
     with ctx.telemetry.node("validator", agent_role="validator"):
-        report = run_pytest(
-            ctx.workspace,
-            timeout_s=ctx.test_timeout_s,
-            python_bin=os.getenv("URANIUM_TEST_PYTHON"),
-        )
+        report = run_pytest(ctx.workspace, timeout_s=ctx.test_timeout_s)
         ctx.telemetry.emit_test_run(report)
 
         semantic: ValidationResult | None = None

@@ -26,6 +26,7 @@ from typing import Any
 from harness.cheat import HIDDEN_DIR
 from harness.pytest_runner import PytestResult, run_pytest
 from harness.taskspec import TaskSpec
+from harness.venvs import python_for
 
 
 @dataclass
@@ -81,12 +82,19 @@ def evaluate_oracle(repo: Path, task: TaskSpec, *, timeout_s: int = 600) -> Orac
     """Roda as três verificações sobre o workspace já modificado."""
     inject_hidden_tests(repo, task)
 
-    f2p = run_pytest(repo, list(task.fail_to_pass), timeout_s=timeout_s)
+    # O interpretador é o do repo-semente, nunca o do avaliador: a suíte do
+    # upstream não pode enxergar dependência que o upstream não declara.
+    py = python_for(task.seed_repo_id)
+
+    f2p = run_pytest(repo, list(task.fail_to_pass), timeout_s=timeout_s, python_bin=py)
 
     # exclui o diretório oculto: p2p e regressão medem a suíte original
     ignorar = (f"--ignore={HIDDEN_DIR}",)
-    p2p = run_pytest(repo, list(task.pass_to_pass), timeout_s=timeout_s, extra_args=ignorar)
-    regression = run_pytest(repo, None, timeout_s=timeout_s, extra_args=ignorar)
+    p2p = run_pytest(repo, list(task.pass_to_pass), timeout_s=timeout_s,
+                     extra_args=ignorar, python_bin=py)
+    alvos_suite = list(task.suite_targets or task.pass_to_pass)
+    regression = run_pytest(repo, alvos_suite, timeout_s=timeout_s,
+                            extra_args=ignorar, python_bin=py)
 
     total = len(task.fail_to_pass)
     passaram = total - len([n for n in f2p.failing_node_ids if n in task.fail_to_pass])

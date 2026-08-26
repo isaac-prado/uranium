@@ -90,7 +90,14 @@ def run_pytest(
     Roda a suíte (ou apenas `node_ids`) e devolve um TestReport estruturado.
 
     Chamada direta, não mediada por LLM — o Validator usa esta função.
+
+    Sem `node_ids`, os alvos vêm de `suite_targets` do repo-semente, não de
+    um pytest pelado: no peewee o padrão de coleta do pytest acha 5 testes
+    de 1.634, e o agente enxergaria uma suíte diferente da que o harness
+    mede. O interpretador também é o do repo, nunca o do projeto.
     """
+    seed_repo = ws.spec.seed_repo
+
     targets: list[str] = []
     for node in node_ids or []:
         file_part = node.split("::", 1)[0]
@@ -99,9 +106,11 @@ def run_pytest(
         except PathNotAllowed:
             continue  # ignora node id que tenta escapar do workspace
         targets.append(node)
+    if not targets:
+        targets = list(seed_repo.suite_targets)
 
     cmd = [
-        python_bin or sys.executable,
+        python_bin or seed_repo.python_bin,
         "-m", "pytest",
         "-q", "-rf",
         "--tb=short",
@@ -196,7 +205,7 @@ def run_python(
     alvo = ws.root / SNIPPET_FILE
     alvo.write_text(code, encoding="utf-8")
 
-    cmd = [python_bin or sys.executable, SNIPPET_FILE]
+    cmd = [python_bin or ws.spec.seed_repo.python_bin, SNIPPET_FILE]
     inicio = time.perf_counter()
     try:
         proc = subprocess.run(
