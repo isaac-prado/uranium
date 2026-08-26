@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -110,7 +111,7 @@ class TestMaterialize:
     def test_suite_verde_no_commit_base(self, ws):
         """O commit-base precisa estar verde, senão não dá para atribuir falhas ao agente."""
         proc = subprocess.run(
-            ["python", "-m", "pytest", *TOMLKIT.test_command],
+            [sys.executable, "-m", "pytest", *TOMLKIT.test_command],
             cwd=ws.root, capture_output=True, text=True,
         )
         if proc.returncode == 4:  # sem pytest/deps no ambiente do teste
