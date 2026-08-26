@@ -6,10 +6,10 @@ Mesmo caminho de execução para os dois braços; muda só o grafo compilado.
 Cada run grava manifest.json, events.jsonl, summary.json, patch.diff e o
 workspace modificado, que é o que o harness externo consome depois.
 
-    uv run python scripts/run_arm.py --arm B  --task tomlkit-0001 \
+    uv run python scripts/run_arm.py --arm orchestration --task tomlkit-0001 \
         --base-commit 11e22aef --statement "Levantar erro em array malformado"
 
-    uv run python scripts/run_arm.py --arm A2 --task tomlkit-0001 \
+    uv run python scripts/run_arm.py --arm single-agent --task tomlkit-0001 \
         --base-commit 11e22aef --statement-file tasks/tomlkit-0001/statement.md
 """
 
@@ -31,7 +31,7 @@ from src.seeds import SEED_REPOS, get_seed_repo  # noqa: E402
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Executa um braço do estudo E1")
-    parser.add_argument("--arm", required=True, choices=["A2", "B"])
+    parser.add_argument("--arm", required=True, choices=["single-agent", "orchestration"])
     parser.add_argument("--task", required=True, help="Identificador da tarefa")
     parser.add_argument("--base-commit", required=True, help="Commit-base do repo-semente")
     parser.add_argument(

@@ -11,12 +11,12 @@ provedor pinado em todas as chamadas. Custo total da calibração: US$ 0,065.
 
 | braço | teto | turnos | tokens | US$ | parada | oráculo |
 |---|---|---|---|---|---|---|
-| A2 | 120k | 9 | 120.486 | 0,0164 | `budget: max_tokens` | não resolveu |
-| B | 120k | 13 | 129.163 | 0,0182 | `concluiu` | **resolveu** (f2p 1/1) |
-| A2 | 300k | 29 | 227.350 | 0,0307 | `tests_pass` | **resolveu** (f2p 1/1) |
+| single-agent | 120k | 9 | 120.486 | 0,0164 | `budget: max_tokens` | não resolveu |
+| orchestration | 120k | 13 | 129.163 | 0,0182 | `concluiu` | **resolveu** (f2p 1/1) |
+| single-agent | 300k | 29 | 227.350 | 0,0307 | `tests_pass` | **resolveu** (f2p 1/1) |
 
-**O teto de 120k era confundidor.** Com 120k o A2 gastou os nove turnos
-inteiros lendo arquivo e ainda não tinha editado nada quando foi cortado; com
+**O teto de 120k era confundidor.** Com 120k o single-agent gastou os nove
+turnos inteiros lendo arquivo e ainda não tinha editado nada quando foi cortado; com
 300k ele resolveu. Um teto que corta um braço no meio do trabalho mede o teto,
 não a topologia — e cortava justamente o braço que a hipótese não favorece,
 que é a direção perigosa do viés.
@@ -25,44 +25,39 @@ que é a direção perigosa do viés.
 orçamento passa a ser exceção (agente em ciclo), não regra. Projeção de custo:
 12 tarefas × 2 braços × 3 repetições = 72 execuções × ~US$ 0,025 ≈ **US$ 2**.
 
-**A investigar antes da coleta:** o A2 precisou de 29 turnos e 227k tokens
-contra 13 turnos e 127k do B para o mesmo resultado — 1,8× mais caro. O
+**A investigar antes da coleta:** o single-agent precisou de 29 turnos e 227k
+tokens contra 13 turnos e 127k do orchestration para o mesmo resultado —
+1,8× mais caro. O
 piloto tem n=1 e não sustenta inferência nenhuma, mas é a diferença que o
 estudo existe para medir, e vale conferir se ela se mantém nas outras tarefas.
 
-O consumo é dominado pelo reenvio do contexto: no A2 de 300k, 220.219 tokens
-de prompt contra 7.131 de completion. Cresce com o quadrado do número de
+O consumo é dominado pelo reenvio do contexto: no single-agent de 300k,
+220.219 tokens de prompt contra 7.131 de completion. Cresce com o quadrado do número de
 turnos, então qualquer braço que precise de mais turnos paga desproporcional.
 
 ---
 
-## 1. Renomear os braços
+## 1. Renomear os braços — **feito**
 
-`A2` e `B` são nomes herdados de um desenho de três braços que não existe mais.
-Passam a ser:
+`A2` e `B` eram nomes herdados de um desenho de três braços que não existe
+mais. Passaram a ser:
 
-| hoje | passa a ser | topologia |
+| antes | agora | topologia |
 |---|---|---|
-| `A2` | `single-agent` | agente único, sem papéis, operado por política determinística |
+| `A2` | `single-agent` | agente único, sem papéis, dirigido por política determinística |
 | `B` | `orchestration` | grafo multiagente com papéis especializados |
 
-Escopo do rename — é dado que sai em arquivo, então tem de ser feito de uma vez:
+O rename alcançou o valor do campo `arm` na telemetria, no manifesto e no
+resumo do run; os enums dos dois JSON Schema do harness; o `choices` do
+`--arm`; o módulo `src/arms/a2.py` → [src/arms/single_agent.py](src/arms/single_agent.py);
+`build_a2_graph` → `build_single_agent_graph`; o caminho de saída
+`runs/<arm>/...`; e a prosa toda.
 
-- valor do campo `arm` na telemetria (`events.jsonl`), no `manifest.json` e no
-  `summary.json`;
-- `Arm = Literal[...]` em [src/telemetry.py](src/telemetry.py);
-- enums em [harness/schema/event.schema.json](harness/schema/event.schema.json)
-  e [harness/schema/result.schema.json](harness/schema/result.schema.json);
-- `choices` do `--arm` em [scripts/run_arm.py](scripts/run_arm.py);
-- módulo `src/arms/a2.py` → `src/arms/single_agent.py`, `build_a2_graph` →
-  `build_single_agent_graph`;
-- `tests/test_arm_a2.py` → `tests/test_arm_single_agent.py`;
-- caminho de saída `runs/<arm>/...`;
-- prosa dos docstrings, do README e dos comentários.
+Foi feito antes da coleta definitiva de propósito: enquanto não há dado
+gravado, é substituição de texto; depois viraria migração.
 
-Runs anteriores ao rename ficam com o valor antigo. Não há dado de coleta
-definitiva ainda, então não é preciso migrar nada — mas depois disso passa a
-ser, e o custo sobe.
+Os runs do piloto em `runs/` ficam com o valor antigo. Não são dado de
+coleta, então não precisam migrar.
 
 ---
 

@@ -2,8 +2,9 @@
 
 Pipeline multi-agente de **Engenharia de Software 3.0**: agentes especializados
 orquestrados em **LangGraph** que agem sobre um repositório Python real —
-leem, editam e executam a suíte de testes. É o braço B do estudo E1, comparado
-contra um agente único (braço A2) sob o mesmo modelo, ferramentas e tarefas.
+leem, editam e executam a suíte de testes. É o braço `orchestration` do
+estudo E1, comparado contra um agente único (braço `single-agent`) sob o
+mesmo modelo, ferramentas e tarefas.
 
 ## Arquitetura
 
@@ -86,13 +87,13 @@ protegidos contra escrita pelo agente.
 O estudo tem dois braços, executados pelo mesmo runner — muda só o grafo:
 
 ```bash
-# braço B — multiagente com papéis especializados
-uv run python scripts/run_arm.py --arm B --task tomlkit-0001 \
+# braço orchestration — multiagente com papéis especializados
+uv run python scripts/run_arm.py --arm orchestration --task tomlkit-0001 \
     --base-commit 11e22aefccd8069a90ae75d20613b9b1068754a1 \
     --statement "Levantar erro em elemento malformado de array."
 
-# braço A2 — agente único, dirigido por política determinística
-uv run python scripts/run_arm.py --arm A2 --task tomlkit-0001 \
+# braço single-agent — agente único, dirigido por política determinística
+uv run python scripts/run_arm.py --arm single-agent --task tomlkit-0001 \
     --base-commit 11e22aefccd8069a90ae75d20613b9b1068754a1 \
     --statement-file tasks/tomlkit-0001/statement.md
 ```
@@ -109,15 +110,15 @@ Cada run grava em `runs/<arm>/<task>/<run_id>/`:
 
 ### Os dois braços
 
-| | **A2** | **B** |
+| | **single-agent** | **orchestration** |
 | --- | --- | --- |
 | Topologia | agente único, sem papéis | grafo multiagente com papéis |
 | Operador | `DeterministicDriver` (política fixa) | autônomo |
 | `agent_role` na telemetria | `null` | preenchido |
 | Modelo, ferramentas, orçamento, seed | idênticos | idênticos |
 
-A política do driver do A2 é fixa e vai inteira para o manifesto: entrega a
-especificação uma vez, aceita todo patch sem revisão, roda a suíte quando o
+A política do driver do `single-agent` é fixa e vai inteira para o manifesto:
+entrega a especificação uma vez, aceita todo patch sem revisão, roda a suíte quando o
 agente para de agir, e devolve o **stderr cru** em caso de falha — sem
 sumarizar nem sugerir, porque isso seria engenharia do harness creditada ao
 agente.

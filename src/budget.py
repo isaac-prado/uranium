@@ -3,7 +3,7 @@ Circuit breaker do run: teto de tokens, de tempo de parede e de turnos.
 
 Idêntico nos dois braços — se um deles pudesse gastar mais que o outro, a
 comparação de custo perderia o sentido. Os limites vão para o manifesto do
-run e são checados pelo teste de paridade A2/B.
+run e são checados por `tests/test_arm_parity.py`.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from typing import Any
 
 @dataclass(frozen=True)
 class RunBudget:
-    """Limites de um run. Iguais em A2 e B."""
+    """Limites de um run. Iguais nos dois braços."""
 
     max_tokens: int = 400_000
     max_wall_seconds: int = 1800

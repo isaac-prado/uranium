@@ -1,7 +1,7 @@
 """
 Configuração do LLM com provedor pinado, e constantes do workflow.
 
-Os dois braços do estudo (A2 e B) compartilham exatamente esta configuração.
+Os dois braços do estudo compartilham exatamente esta configuração.
 A única variável que pode diferir entre eles é a topologia de orquestração,
 então tudo aqui é resolvido uma vez e serializado no manifesto do run para
 que o teste de paridade possa comparar os dois lados.
@@ -50,7 +50,7 @@ class ConfigError(RuntimeError):
 
 @dataclass(frozen=True)
 class LLMConfig:
-    """Configuração resolvida do LLM. Idêntica nos braços A2 e B."""
+    """Configuração resolvida do LLM. Idêntica nos braços single-agent e orchestration."""
 
     model: str
     provider: str
@@ -137,7 +137,7 @@ def _validate(config: LLMConfig) -> None:
     if name.endswith(":free") or name == "openrouter/free":
         raise ConfigError(
             f"Modelo de tier gratuito recusado: {config.model!r}. "
-            "Os braços A2/B exigem modelo pago com provedor pinado — sem isso "
+            "O estudo exige modelo pago com provedor pinado — sem isso "
             "não há como garantir que os dois braços foram servidos igual."
         )
     if config.allow_fallbacks:
@@ -185,8 +185,8 @@ class OpenRouterChat(ChatOpenAI):
         # `require_parameters: true` ele derruba o endpoint inteiro com o mesmo
         # 404 genérico. Não precisamos dele: o loop do agente já trata várias
         # tool calls por turno, e a saída estruturada força a função por
-        # `tool_choice`. Descoberto no piloto: o braço B falhava 100% das vezes
-        # enquanto o A2, que usa bind_tools (sem esse parâmetro), rodava.
+        # `tool_choice`. Descoberto no piloto: o braço orchestration falhava 100% das vezes
+        # enquanto o single-agent, que usa bind_tools (sem esse parâmetro), rodava.
         payload.pop("parallel_tool_calls", None)
         return payload
 

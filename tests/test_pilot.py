@@ -41,7 +41,7 @@ def _fonte_corrigida() -> str:
 
 @pytest.fixture
 def sem_saida_estruturada(monkeypatch):
-    """Fixa as saídas estruturadas do braço B; o resto do grafo roda de verdade."""
+    """Fixa as saídas estruturadas do orchestration; o resto do grafo roda de verdade."""
     from src.schemas.intent import StructuredIntent
     from src.schemas.test_plan import TestPlan
 
@@ -78,7 +78,7 @@ class TestPilotoPontaAPonta:
             llm_factory=fabrica_por_run(_llm_que_corrige),
         )
 
-        assert [r.arm for r in resultados] == ["A2", "B"]
+        assert [r.arm for r in resultados] == ["single-agent", "orchestration"]
         for r in resultados:
             assert r.erro is None, r.erro
             assert r.resolved is True, f"{r.arm} não resolveu: f2p={r.f2p}"
@@ -134,10 +134,10 @@ class TestPilotoPontaAPonta:
 class TestRelatorio:
     def _amostra(self) -> list[PilotOutcome]:
         return [
-            PilotOutcome(arm="A2", repetition=1, run_id="a", out_dir=Path("/x"),
+            PilotOutcome(arm="single-agent", repetition=1, run_id="a", out_dir=Path("/x"),
                          stop_reason="tests_pass", turns=4, tokens=1000, cost_usd=0.01,
                          resolved=True, f2p="1/1"),
-            PilotOutcome(arm="B", repetition=1, run_id="b", out_dir=Path("/y"),
+            PilotOutcome(arm="orchestration", repetition=1, run_id="b", out_dir=Path("/y"),
                          stop_reason="budget_turns", turns=8, tokens=5000, cost_usd=0.05,
                          resolved=False, f2p="0/1", erro=None),
         ]
@@ -146,13 +146,13 @@ class TestRelatorio:
         texto = format_report(self._amostra(), "tomlkit-0001")
 
         assert "tomlkit-0001" in texto
-        assert "A2: 1/1 resolvidos" in texto
-        assert "B: 0/1 resolvidos" in texto
+        assert "single-agent: 1/1 resolvidos" in texto
+        assert "orchestration: 0/1 resolvidos" in texto
         assert "US$ 0.06000" not in texto  # agregado é por braço, não somado
 
     def test_json_do_relatorio_e_relegivel(self, tmp_path):
         destino = save_report(self._amostra(), tmp_path / "pilot.json")
         dados = json.loads(destino.read_text())
 
-        assert [d["arm"] for d in dados] == ["A2", "B"]
+        assert [d["arm"] for d in dados] == ["single-agent", "orchestration"]
         assert dados[0]["resolved"] is True and dados[1]["resolved"] is False

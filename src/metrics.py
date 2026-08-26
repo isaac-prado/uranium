@@ -2,7 +2,7 @@
 Métricas de processo extraídas da telemetria.
 
 O Índice de Autonomia e a taxonomia de intervenção L0–L4, previstos no
-desenho original, foram removidos: com os dois braços (A2 e B) rodando
+desenho original, foram removidos: com os dois braços rodando
 sem qualquer intervenção humana, o índice daria o valor máximo para ambos
 e não discriminaria nada. Reportá-lo como resultado comparativo seria
 circular.

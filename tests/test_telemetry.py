@@ -33,7 +33,7 @@ def validator() -> Draft202012Validator:
 def writer(tmp_path) -> TelemetryWriter:
     w = TelemetryWriter(
         tmp_path / "events.jsonl",
-        run_id="run-001", arm="B", task_id="tomlkit-0001",
+        run_id="run-001", arm="orchestration", task_id="tomlkit-0001",
         model="vendor/modelo", provider_requested="Fireworks",
     )
     yield w
@@ -68,7 +68,7 @@ class TestEnvelope:
         writer.emit("route")
         for evento in read_events(writer.path):
             assert evento["run_id"] == "run-001"
-            assert evento["arm"] == "B"
+            assert evento["arm"] == "orchestration"
             assert evento["task_id"] == "tomlkit-0001"
             assert evento["schema_version"] == SCHEMA_VERSION
 
@@ -119,8 +119,9 @@ class TestContexto:
         assert tipos == ["node_enter", "error", "node_exit"]
 
     def test_papel_nulo_no_braco_a2(self, tmp_path):
-        """agent_role null é o que distingue A2 de B no dado bruto."""
-        with TelemetryWriter(tmp_path / "e.jsonl", run_id="r", arm="A2", task_id="t") as w:
+        """agent_role null é o que distingue single-agent de orchestration no dado bruto."""
+        with TelemetryWriter(tmp_path / "e.jsonl", run_id="r",
+                             arm="single-agent", task_id="t") as w:
             with w.node("single_agent"):
                 w.emit("route")
         assert all(e["agent_role"] is None for e in read_events(tmp_path / "e.jsonl"))

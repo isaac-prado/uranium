@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Teste de aptidão de modelo para os braços A2/B.
+Teste de aptidão de modelo para os braços single-agent/orchestration.
 
 Não recomenda modelo: mede. Três coisas que decidem se um candidato serve:
 
@@ -180,7 +180,7 @@ def relatar(config: LLMConfig, resultados: list[ProbeResult]) -> int:
     print(f"  determinismo         {'OK' if deterministico else 'DIVERGENTE — aumente N de repetições no estudo'}")
 
     apto = pino_ok and conformidade_ok
-    print(f"\n  VEREDITO: {'APTO' if apto else 'NÃO APTO'} para os braços A2/B")
+    print(f"\n  VEREDITO: {'APTO' if apto else 'NÃO APTO'} para os dois braços")
     if apto and not deterministico:
         print("  (apto, mas não determinístico — declare a variabilidade no TCC)")
     print(f"{'─' * 68}\n")

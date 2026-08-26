@@ -15,7 +15,7 @@
     "harness_version": { "type": "string" },
     "evaluated_at": { "type": "string" },
     "run_id": { "type": "string" },
-    "arm": { "enum": ["A2", "B", null] },
+    "arm": { "enum": ["single-agent", "orchestration", null] },
     "task_id": { "type": "string" },
     "repetition": { "type": ["integer", "null"], "minimum": 1 },
     "base_commit": { "type": "string" },

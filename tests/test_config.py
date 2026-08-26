@@ -78,7 +78,7 @@ class TestProviderRouting:
         }
 
     def test_manifesto_e_serializavel(self, config):
-        """O manifesto vai para o JSON do run e para o teste de paridade A2/B."""
+        """O manifesto vai para o JSON do run e para o teste de paridade."""
         manifesto = config.as_manifest()
         assert json.loads(json.dumps(manifesto)) == manifesto
         assert manifesto["seed"] == 20260820

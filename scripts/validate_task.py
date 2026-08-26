@@ -72,7 +72,8 @@ def _montar_run(ws: Workspace, raiz: Path, nome: str) -> Path:
     (run_dir / "workspace").parent.mkdir(parents=True, exist_ok=True)
     subprocess.run(["cp", "-a", str(ws.root), str(run_dir / "workspace")], check=True)
     (run_dir / "manifest.json").write_text(json.dumps({
-        "run_id": nome, "arm": "B", "repetition": 1, "topology": "multi_agent_roles",
+        "run_id": nome, "arm": "orchestration", "repetition": 1,
+        "topology": "multi_agent_roles",
         "llm": {"model": "referencia", "provider": "n/a", "seed": 0},
     }), encoding="utf-8")
     (run_dir / "events.jsonl").write_text("", encoding="utf-8")

@@ -168,9 +168,12 @@ def ctx_minimo(tmp_path, monkeypatch):
         def diffstat(self):
             return {"files_changed": 0, "insertions": 0, "deletions": 0}
 
-    tel = TelemetryWriter(tmp_path / "events.jsonl", run_id="no-test", arm="B", task_id="t")
+    tel = TelemetryWriter(
+        tmp_path / "events.jsonl",
+        run_id="no-test", arm="orchestration", task_id="t",
+    )
     ctx = RunContext.create(
-        run_id="no-test", arm="B", task_id="t",
+        run_id="no-test", arm="orchestration", task_id="t",
         workspace=_WorkspaceFalso(), telemetry=tel, llm_factory=lambda: None,
     )
 

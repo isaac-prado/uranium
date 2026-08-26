@@ -91,8 +91,8 @@ def fabrica_por_run(construtor: Any) -> Any:
     """
     Um LLM novo por run, o mesmo objeto enquanto o run dura.
 
-    O braço A2 chama `bound_llm()` a cada turno, então a fábrica não pode
-    devolver instância nova por chamada — a sequência gravada reiniciaria no
+    O braço single-agent chama `bound_llm()` a cada turno, então a fábrica
+    não pode devolver instância nova por chamada — a sequência gravada reiniciaria no
     meio do run. Mas o piloto executa os dois braços em sequência com a mesma
     fábrica, e o segundo braço precisa da sequência do começo. O corte é o fim
     do run, que a resposta em texto marca.

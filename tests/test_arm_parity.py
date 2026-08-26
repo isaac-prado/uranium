@@ -1,5 +1,5 @@
 """
-Paridade entre os braços A2 e B.
+Paridade entre os braços single-agent e orchestration.
 
 Este é o teste que sustenta a alegação causal do estudo: se algo além da
 topologia de orquestração diferir entre os braços, a diferença medida deixa
@@ -14,14 +14,14 @@ from __future__ import annotations
 
 import pytest
 
-from src.arms.a2 import SYSTEM_PROMPT as PROMPT_A2
+from src.arms.single_agent import SYSTEM_PROMPT as PROMPT_SINGLE
 from src.arms.driver import DriverPolicy
 from src.arms.runner import (
     CHAVES_QUE_PODEM_DIFERIR,
     build_run_spec,
     seed_for_repetition,
 )
-from src.agents.developer import SYSTEM_PROMPT as PROMPT_B
+from src.agents.developer import SYSTEM_PROMPT as PROMPT_ORQ
 from src.budget import RunBudget
 from src.config import LLMConfig
 from src.runtime import RunContext
@@ -55,8 +55,8 @@ def _spec(arm, tmp_path, repetition=1):
 class TestManifesto:
     def test_so_a_topologia_difere(self, tmp_path):
         """O coração do desenho experimental, verificado por execução."""
-        a2 = _spec("A2", tmp_path).manifest("2026-01-01T00:00:00")
-        b = _spec("B", tmp_path).manifest("2026-01-01T00:00:00")
+        a2 = _spec("single-agent", tmp_path).manifest("2026-01-01T00:00:00")
+        b = _spec("orchestration", tmp_path).manifest("2026-01-01T00:00:00")
 
         divergentes = {k for k in a2 if a2[k] != b.get(k)}
         inesperadas = divergentes - CHAVES_QUE_PODEM_DIFERIR
@@ -68,31 +68,31 @@ class TestManifesto:
 
     def test_a_topologia_de_fato_difere(self):
         """Contraprova: se nada diferisse, não haveria variável independente."""
-        a2 = _spec("A2", __import__("pathlib").Path("/tmp")).manifest("t")
-        b = _spec("B", __import__("pathlib").Path("/tmp")).manifest("t")
+        a2 = _spec("single-agent", __import__("pathlib").Path("/tmp")).manifest("t")
+        b = _spec("orchestration", __import__("pathlib").Path("/tmp")).manifest("t")
         assert a2["topology"] == "single_agent"
         assert b["topology"] == "multi_agent_roles"
         assert a2["topology"] != b["topology"]
 
     def test_configuracao_de_llm_identica(self, tmp_path):
-        a2 = _spec("A2", tmp_path).manifest("t")["llm"]
-        b = _spec("B", tmp_path).manifest("t")["llm"]
+        a2 = _spec("single-agent", tmp_path).manifest("t")["llm"]
+        b = _spec("orchestration", tmp_path).manifest("t")["llm"]
         assert a2 == b
         assert a2["seed"] == seed_for_repetition(20260820, 1)
         assert a2["temperature"] == 0.0
         assert a2["allow_fallbacks"] is False and a2["require_parameters"] is True
 
     def test_orcamento_identico(self, tmp_path):
-        assert _spec("A2", tmp_path).manifest("t")["budget"] == \
-               _spec("B", tmp_path).manifest("t")["budget"]
+        assert _spec("single-agent", tmp_path).manifest("t")["budget"] == \
+               _spec("orchestration", tmp_path).manifest("t")["budget"]
 
     def test_so_o_a2_tem_politica_de_driver(self, tmp_path):
-        assert _spec("A2", tmp_path).manifest("t")["driver_policy"] is not None
-        assert _spec("B", tmp_path).manifest("t")["driver_policy"] is None
+        assert _spec("single-agent", tmp_path).manifest("t")["driver_policy"] is not None
+        assert _spec("orchestration", tmp_path).manifest("t")["driver_policy"] is None
 
     def test_manifesto_serializavel(self, tmp_path):
         import json
-        m = _spec("A2", tmp_path).manifest("t")
+        m = _spec("single-agent", tmp_path).manifest("t")
         assert json.loads(json.dumps(m)) == m
 
 
@@ -118,7 +118,7 @@ class TestRuntimeIdentico:
                 llm_factory=lambda: None,
             )
             return ctx, tel
-        contextos = [montar("A2"), montar("B")]
+        contextos = [montar("single-agent"), montar("orchestration")]
         yield {ctx.arm: ctx for ctx, _ in contextos}
         for ctx, tel in contextos:
             tel.close()
@@ -126,8 +126,8 @@ class TestRuntimeIdentico:
 
     def test_mesmo_conjunto_de_ferramentas(self, contexto):
         """Ferramentas diferentes entre braços invalidariam a comparação."""
-        a2 = {t.name for t in contexto["A2"].tools}
-        b = {t.name for t in contexto["B"].tools}
+        a2 = {t.name for t in contexto["single-agent"].tools}
+        b = {t.name for t in contexto["orchestration"].tools}
         assert a2 == b == set(TOOL_NAMES)
 
     def test_mesmos_schemas_de_argumento(self, contexto):
@@ -136,19 +136,20 @@ class TestRuntimeIdentico:
                 t.name: t.args_schema.model_json_schema()
                 for t in sorted(ctx.tools, key=lambda x: x.name)
             }
-        assert assinatura(contexto["A2"]) == assinatura(contexto["B"])
+        assert assinatura(contexto["single-agent"]) == assinatura(contexto["orchestration"])
 
     def test_mesmas_descricoes_de_ferramenta(self, contexto):
         """A descrição entra no prompt: divergir aqui é divergir de prompt."""
         def descricoes(ctx):
             return {t.name: t.description for t in ctx.tools}
-        assert descricoes(contexto["A2"]) == descricoes(contexto["B"])
+        assert descricoes(contexto["single-agent"]) == descricoes(contexto["orchestration"])
 
     def test_mesmo_orcamento_efetivo(self, contexto):
-        assert contexto["A2"].budget.budget == contexto["B"].budget.budget
+        assert contexto["single-agent"].budget.budget == contexto["orchestration"].budget.budget
 
     def test_mesmo_timeout_de_teste(self, contexto):
-        assert contexto["A2"].test_timeout_s == contexto["B"].test_timeout_s
+        assert (contexto["single-agent"].test_timeout_s
+                == contexto["orchestration"].test_timeout_s)
 
 
 # ------------------------------------------------------------------- prompts
@@ -156,31 +157,32 @@ class TestRuntimeIdentico:
 
 class TestJusticaDePrompt:
     """
-    O A2 não pode ser espantalho: precisa das mesmas capacidades do B, sem a
+    O single-agent não pode ser espantalho: precisa das mesmas capacidades
+    do orchestration, sem a
     decomposição em papéis. Se o prompt dele fosse empobrecido, o estudo
     mediria qualidade de prompt em vez de topologia.
     """
 
     def test_a2_conhece_as_mesmas_ferramentas(self):
         for nome in TOOL_NAMES:
-            assert nome in PROMPT_A2, f"{nome} ausente do prompt do A2"
+            assert nome in PROMPT_SINGLE, f"{nome} ausente do prompt do single-agent"
 
     def test_ambos_carregam_a_restricao_de_arquivos_protegidos(self):
-        for prompt in (PROMPT_A2, PROMPT_B):
+        for prompt in (PROMPT_SINGLE, PROMPT_ORQ):
             assert "protegidos" in prompt
             assert "produção" in prompt
 
     def test_ambos_exigem_conteudo_completo_no_write(self):
-        assert "COMPLETO" in PROMPT_A2 and "COMPLETO" in PROMPT_B
+        assert "COMPLETO" in PROMPT_SINGLE and "COMPLETO" in PROMPT_ORQ
 
     def test_tamanhos_comparaveis(self):
         """Prompt muito maior de um lado seria confundidor de tratamento."""
-        razao = len(PROMPT_B) / len(PROMPT_A2)
+        razao = len(PROMPT_ORQ) / len(PROMPT_SINGLE)
         assert 0.6 <= razao <= 1.6, f"prompts desbalanceados: razão {razao:.2f}"
 
     def test_so_o_b_decompoe_em_papeis(self):
         """A diferença de prompt permitida é exatamente a topologia."""
-        assert "papéis" not in PROMPT_A2 and "fases" not in PROMPT_A2
+        assert "papéis" not in PROMPT_SINGLE and "fases" not in PROMPT_SINGLE
 
 
 class TestSementePorRepeticao:
@@ -191,13 +193,13 @@ class TestSementePorRepeticao:
     """
 
     def test_repeticoes_diferentes_dao_sementes_diferentes(self, tmp_path):
-        sementes = {_spec("B", tmp_path, rep).llm.seed for rep in (1, 2, 3, 10)}
+        sementes = {_spec("orchestration", tmp_path, rep).llm.seed for rep in (1, 2, 3, 10)}
         assert len(sementes) == 4
 
     def test_mesma_repeticao_pareia_os_bracos(self, tmp_path):
         for rep in (1, 5, 10):
-            a2 = _spec("A2", tmp_path, rep)
-            b = _spec("B", tmp_path, rep)
+            a2 = _spec("single-agent", tmp_path, rep)
+            b = _spec("orchestration", tmp_path, rep)
             assert a2.llm.seed == b.llm.seed, f"repetição {rep} não pareada"
 
     def test_repeticao_nao_pode_divergir_entre_bracos(self):
@@ -205,7 +207,7 @@ class TestSementePorRepeticao:
         assert "repetition" not in CHAVES_QUE_PODEM_DIFERIR
 
     def test_repeticao_entra_no_manifesto(self, tmp_path):
-        assert _spec("B", tmp_path, 7).manifest("t")["repetition"] == 7
+        assert _spec("orchestration", tmp_path, 7).manifest("t")["repetition"] == 7
 
     def test_derivacao_e_deterministica(self):
         assert seed_for_repetition(100, 3) == seed_for_repetition(100, 3)
@@ -214,15 +216,15 @@ class TestSementePorRepeticao:
     def test_repeticao_zero_e_recusada(self, tmp_path):
         """1-based: o índice aparece em caminho de saída e em run_id."""
         with pytest.raises(ValueError, match="começa em 1"):
-            _spec("B", tmp_path, 0)
+            _spec("orchestration", tmp_path, 0)
 
     def test_saida_separada_por_repeticao(self):
         from pathlib import Path
         spec = build_run_spec(
-            run_id="r", arm="B", task_id="t", statement="s",
+            run_id="r", arm="orchestration", task_id="t", statement="s",
             base_commit=BASE_COMMIT, llm=LLM, budget=BUDGET, repetition=4,
         )
-        assert spec.out_dir == Path("runs") / "B" / "t" / "rep04" / "r"
+        assert spec.out_dir == Path("runs") / "orchestration" / "t" / "rep04" / "r"
 
 
 class TestDesambiguacaoDeSemente:
@@ -233,7 +235,7 @@ class TestDesambiguacaoDeSemente:
     """
 
     def test_manifesto_separa_os_dois_conceitos(self, tmp_path):
-        m = _spec("B", tmp_path, repetition=3).manifest("t")
+        m = _spec("orchestration", tmp_path, repetition=3).manifest("t")
         assert m["seed_repo_id"] == "tomlkit"          # repositório
         assert m["llm"]["seed"] == seed_for_repetition(20260820, 3)  # aleatória
         assert m["seed_repo_id"] != m["llm"]["seed"]
@@ -271,7 +273,7 @@ class TestContabilidadeDeCusto:
     """
     Toda chamada de LLM tem de aparecer na telemetria.
 
-    O braço B tem quatro nós além do developer que chamam LLM. Quando eles
+    O braço orchestration tem quatro nós além do developer que chamam LLM. Quando eles
     usavam `invoke_structured` direto, essas chamadas ficavam fora da conta
     de custo E fora do orçamento — o braço multiagente saía artificialmente
     barato, enviesando exatamente a comparação que o estudo faz.
@@ -310,11 +312,12 @@ class TestProveniencia:
         from src.runtime import RunContext
         from src.telemetry import TelemetryWriter
 
-        tel = TelemetryWriter(tmp_path / "e.jsonl", run_id="p", arm="B", task_id="t")
+        tel = TelemetryWriter(tmp_path / "e.jsonl", run_id="p",
+                              arm="orchestration", task_id="t")
         try:
             with pytest.raises(RuntimeError, match="llm_config"):
                 RunContext.create(
-                    run_id="p", arm="B", task_id="t",
+                    run_id="p", arm="orchestration", task_id="t",
                     workspace=None, telemetry=tel,
                 )
         finally:
@@ -330,10 +333,11 @@ class TestProveniencia:
         monkeypatch.setenv("OPENROUTER_PROVIDER", "ProvedorDoAmbiente")
 
         resolvida = LLMConfig(model="modelo/do-run", provider="ProvedorDoRun", seed=7)
-        tel = TelemetryWriter(tmp_path / "e.jsonl", run_id="p2", arm="B", task_id="t")
+        tel = TelemetryWriter(tmp_path / "e.jsonl", run_id="p2",
+                              arm="orchestration", task_id="t")
         try:
             ctx = RunContext.create(
-                run_id="p2", arm="B", task_id="t",
+                run_id="p2", arm="orchestration", task_id="t",
                 workspace=None, telemetry=tel, llm_config=resolvida,
             )
             cliente = ctx.llm_factory()

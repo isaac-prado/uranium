@@ -1,14 +1,15 @@
 """
-Braço A2 — agente único, sem papéis especializados.
+Braço single-agent — agente único, sem papéis especializados.
 
 Um grafo de dois nós (`single_agent` ↔ `driver`) compilado com o MESMO
 StateGraph, as mesmas ferramentas, a mesma telemetria e o mesmo circuit
-breaker do braço B. A única coisa que difere é a topologia.
+breaker do braço orchestration. A única coisa que difere é a topologia.
 
 Sobre justiça de prompt: o system prompt daqui é a união das *capacidades*
-concedidas ao braço B — mesma lista de ferramentas, mesmas restrições de
-formato, mesmo texto de critérios — SEM a decomposição em papéis e fases.
-Empobrecer este prompt transformaria o A2 em espantalho e o estudo passaria
+concedidas ao braço orchestration — mesma lista de ferramentas, mesmas
+restrições de formato, mesmo texto de critérios — SEM a decomposição em
+papéis e fases. Empobrecer este prompt transformaria o single-agent em
+espantalho e o estudo passaria
 a medir qualidade de prompt em vez de topologia.
 """
 
@@ -71,15 +72,15 @@ def _executar_ferramentas(ctx: RunContext, ai: Any) -> list[ToolMessage]:
     return respostas
 
 
-def build_a2_graph(policy: DriverPolicy | None = None):
+def build_single_agent_graph(policy: DriverPolicy | None = None):
     """
-    Compila o grafo do braço A2.
+    Compila o grafo do braço single-agent.
 
     START -> single_agent -> [driver | END]
     driver -> [single_agent | END]
 
     `agent_role` fica nulo na telemetria: é o campo que, no dado bruto,
-    distingue este braço do B.
+    distingue este braço do orchestration.
     """
     driver = DeterministicDriver(policy)
 
@@ -94,7 +95,7 @@ def build_a2_graph(policy: DriverPolicy | None = None):
                 HumanMessage(content=driver.mensagem_inicial(_spec(state))),
             ])
 
-        # agent_role=None: o braço A2 não tem papéis especializados
+        # agent_role=None: o braço single-agent não tem papéis especializados
         with ctx.telemetry.node("single_agent", agent_role=None):
             motivo = ctx.stop_if_exhausted()
             if motivo:

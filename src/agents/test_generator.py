@@ -1,7 +1,7 @@
 """
 TestAgent — plano de testes complementar, fora da medição de corretude.
 
-Nó terminal do braço B. O que ele produz NÃO conta como oráculo: os testes
+Nó terminal do braço orchestration. O que ele produz NÃO conta como oráculo: os testes
 que decidem se a tarefa foi resolvida são os ocultos, injetados pelo harness
 e nunca vistos pelo agente. Se este nó chegar a escrever testes no
 workspace, eles vão para `tests/uranium/`, que o harness exclui tanto do

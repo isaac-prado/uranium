@@ -1,7 +1,7 @@
 """
 Runner unificado dos dois braços.
 
-Existe um caminho de execução só. Braço A2 e braço B recebem o mesmo
+Existe um caminho de execução só. Os dois braços recebem o mesmo
 workspace, a mesma configuração de LLM, o mesmo orçamento e a mesma
 telemetria; o que se escolhe é qual grafo compilar. Tudo que foi resolvido
 vai para o manifesto do run, e é sobre ele que `tests/test_arm_parity.py`
@@ -30,8 +30,8 @@ MANIFEST_VERSION = 1
 
 # Chaves do manifesto que PODEM diferir entre os braços. Qualquer outra
 # divergência é violação do desenho experimental. Note que `repetition` NÃO
-# está aqui: a repetição nº k do A2 e a nº k do B são um par, e precisam
-# rodar sob a mesma semente.
+# está aqui: a repetição nº k de um braço e a nº k do outro são um par,
+# e precisam rodar sob a mesma semente.
 CHAVES_QUE_PODEM_DIFERIR = frozenset({"arm", "topology", "driver_policy", "run_id", "started_at"})
 
 
@@ -73,7 +73,7 @@ class RunSpec:
             "manifest_version": MANIFEST_VERSION,
             "run_id": self.run_id,
             "arm": self.arm,
-            "topology": "single_agent" if self.arm == "A2" else "multi_agent_roles",
+            "topology": "single_agent" if self.arm == "single-agent" else "multi_agent_roles",
             "task_id": self.task_id,
             "repetition": self.repetition,
             "seed_repo_id": self.seed_repo_id,
@@ -106,7 +106,7 @@ def build_run_spec(
     Resolve a configuração de um run.
 
     Deliberadamente idêntica para os dois braços: a config de LLM e o
-    orçamento vêm do mesmo lugar, e só `driver_policy` é específico do A2.
+    orçamento vêm do mesmo lugar, e só `driver_policy` é específico do single-agent.
 
     A semente do LLM é derivada da repetição, então dois braços na mesma
     repetição partem exatamente da mesma condição inicial.
@@ -126,7 +126,7 @@ def build_run_spec(
         out_dir=out_dir or Path("runs") / arm / task_id / f"rep{repetition:02d}" / run_id,
         llm=replace(base_llm, seed=seed_for_repetition(base_llm.seed, repetition)),
         budget=budget or RunBudget.from_env(),
-        driver_policy=DriverPolicy() if arm == "A2" else None,
+        driver_policy=DriverPolicy() if arm == "single-agent" else None,
         test_timeout_s=test_timeout_s,
     )
 
@@ -226,10 +226,10 @@ def run_arm(spec: RunSpec, *, llm_factory: Any = None) -> dict[str, Any]:
 
 def _compilar(spec: RunSpec):
     """Escolhe o grafo. É o ÚNICO ponto em que os braços divergem."""
-    if spec.arm == "A2":
-        from src.arms.a2 import build_a2_graph
+    if spec.arm == "single-agent":
+        from src.arms.single_agent import build_single_agent_graph
 
-        return build_a2_graph(spec.driver_policy)
+        return build_single_agent_graph(spec.driver_policy)
 
     from src.graph import build_graph
 

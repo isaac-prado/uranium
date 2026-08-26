@@ -1,8 +1,8 @@
 """
 Toolset do agente: as ferramentas do LangChain construídas sobre um Workspace.
 
-Braço A2 e braço B recebem exatamente este mesmo conjunto. Se as ferramentas
-divergirem entre os braços, a comparação deixa de ser sobre topologia.
+Os dois braços recebem exatamente este mesmo conjunto. Se as ferramentas
+divergirem entre eles, a comparação deixa de ser sobre topologia.
 """
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""Montagem do grafo LangGraph do pipeline Uranium (braço B, multiagente)."""
+"""Montagem do grafo LangGraph do pipeline Uranium (braço orchestration, multiagente)."""
 
 from langgraph.graph import END, START, StateGraph
 
@@ -32,7 +32,7 @@ def route_after_validator(state: WorkflowState) -> str:
     return "developer"
 def build_graph():
     """
-    Constrói e compila o grafo do braço B.
+    Constrói e compila o grafo do braço orchestration.
 
     START -> intent_refiner -> [clarification loop | developer]
     -> validator -> [developer retry | test_generator] -> END

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/isaac-prado/uranium/harness/schema/event.schema.json",
   "title": "Evento de telemetria do Uranium",
-  "description": "Uma linha do arquivo events.jsonl. Envelope idêntico nos braços A2 e B.",
+  "description": "Uma linha do arquivo events.jsonl. Envelope idêntico nos dois braços.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -43,8 +43,8 @@
     },
     "arm": {
       "enum": [
-        "A2",
-        "B"
+        "single-agent",
+        "orchestration"
       ]
     },
     "task_id": {
@@ -88,7 +88,7 @@
         "string",
         "null"
       ],
-      "description": "Papel do agente. Sempre null no braço A2 (agente único sem papéis) — é o campo que materializa a variável independente."
+      "description": "Papel do agente. Sempre null no braço single-agent (agente único sem papéis) — é o campo que materializa a variável independente."
     },
     "turn": {
       "type": [

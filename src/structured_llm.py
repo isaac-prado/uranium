@@ -81,7 +81,7 @@ def invoke_structured_raw(
 
     A mensagem bruta é indispensável: sem ela não há como extrair tokens,
     custo e provedor servido, e a chamada ficaria invisível na telemetria.
-    Quatro dos cinco nós do braço B passam por aqui — se não fossem
+    Quatro dos cinco nós do braço orchestration passam por aqui — se não fossem
     contabilizados, o custo do braço multiagente sairia subestimado
     exatamente contra o braço de comparação.
 

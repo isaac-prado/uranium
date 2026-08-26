@@ -57,7 +57,7 @@ class WorkflowState(TypedDict, total=False):
     turn_count: int
     stop_reason: str
 
-    # Braço A2: indica se o agente usou ferramenta no turno, o que
+    # Braço single-agent: indica se o agente usou ferramenta no turno, o que
     # decide se o driver roda a suíte ou o agente segue agindo.
     agiu_no_turno: bool
 

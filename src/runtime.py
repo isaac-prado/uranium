@@ -131,7 +131,7 @@ class RunContext:
         Chamada estruturada instrumentada.
 
         Usa o LLM do contexto (injetável em teste) e registra a chamada na
-        telemetria. Os nós do braço B DEVEM passar por aqui: chamar
+        telemetria. Os nós do braço orchestration DEVEM passar por aqui: chamar
         `invoke_structured` direto deixa a chamada fora da contabilidade de
         custo e fora do orçamento, e o braço multiagente — que tem quatro
         nós a mais fazendo chamadas — sairia artificialmente barato.

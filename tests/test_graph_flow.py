@@ -1,5 +1,5 @@
 """
-Testes de estrutura e roteamento do grafo (braço B).
+Testes de estrutura e roteamento do grafo (braço orchestration).
 
 O comportamento ponta a ponta do pipeline é testado em tests/test_nodes.py,
 contra um workspace real e execução real de pytest. Os testes antigos que

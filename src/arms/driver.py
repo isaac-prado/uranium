@@ -1,5 +1,5 @@
 """
-DeterministicDriver — o "operador" do braço A2.
+DeterministicDriver — o "operador" do braço single-agent.
 
 Não é um LLM e não é um humano: é uma política fixa, documentada e
 serializada no manifesto do run, para que qualquer pessoa possa auditar
@@ -11,7 +11,7 @@ A política, na íntegra:
   3. ao fim de um turno em que o agente não pediu ferramenta, roda a suíte;
   4. se falhar, devolve o stderr CRU, truncado — sem sumarizar, sem sugerir,
      sem apontar arquivo. Sumarizar seria injetar inteligência de fora e
-     contaminar a comparação com o braço B;
+     contaminar a comparação com o braço orchestration;
   5. se passar, encerra;
   6. estourou turnos, tempo ou tokens, encerra.
 """

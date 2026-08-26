@@ -1,7 +1,7 @@
 """
 Piloto: roda os dois braços na mesma tarefa e compara.
 
-É o formato de coleta em miniatura. Cada repetição executa A2 e B sob a
+É o formato de coleta em miniatura. Cada repetição executa single-agent e orchestration sob a
 mesma semente derivada, e cada execução é julgada pelo avaliador externo —
 o mesmo caminho que a coleta definitiva vai usar.
 
@@ -62,7 +62,7 @@ def run_pilot(
     evaluate: bool = True,
 ) -> list[PilotOutcome]:
     """
-    Executa A2 e B em cada repetição e devolve os resultados na ordem.
+    Executa single-agent e orchestration em cada repetição e devolve os resultados na ordem.
 
     `llm_factory` injetável permite ensaiar a cadeia inteira offline, sem
     gastar crédito — é assim que o piloto é testado antes de valer.
@@ -74,7 +74,7 @@ def run_pilot(
     resultados: list[PilotOutcome] = []
 
     for repeticao in range(1, repetitions + 1):
-        for arm in ("A2", "B"):
+        for arm in ("single-agent", "orchestration"):
             run_id = f"pilot-{arm.lower()}-r{repeticao:02d}-{uuid.uuid4().hex[:6]}"
             spec = build_run_spec(
                 run_id=run_id, arm=arm, task_id=task.task_id,
@@ -123,22 +123,22 @@ def format_report(resultados: list[PilotOutcome], task_id: str) -> str:
     linhas = [
         "",
         f"  piloto — tarefa {task_id}",
-        "  " + "─" * 76,
-        f"  {'braço':<5} {'rep':>3} {'resolv':>7} {'f2p':>6} {'turnos':>7} "
+        "  " + "─" * 85,
+        f"  {'braço':<14} {'rep':>3} {'resolv':>7} {'f2p':>6} {'turnos':>7} "
         f"{'tokens':>9} {'US$':>10} {'trapaça':>8}  motivo de parada",
-        "  " + "─" * 76,
+        "  " + "─" * 85,
     ]
     for r in resultados:
         marca = "-" if r.resolved is None else ("sim" if r.resolved else "não")
         linhas.append(
-            f"  {r.arm:<5} {r.repetition:>3} {marca:>7} {r.f2p:>6} {r.turns:>7} "
+            f"  {r.arm:<14} {r.repetition:>3} {marca:>7} {r.f2p:>6} {r.turns:>7} "
             f"{r.tokens:>9} {r.cost_usd:>10.5f} {r.cheat_criticos:>8}  {r.stop_reason[:26]}"
         )
         if r.erro:
             linhas.append(f"        erro: {r.erro[:70]}")
 
-    linhas.append("  " + "─" * 76)
-    for arm in ("A2", "B"):
+    linhas.append("  " + "─" * 85)
+    for arm in ("single-agent", "orchestration"):
         do_braco = [r for r in resultados if r.arm == arm]
         if not do_braco:
             continue

@@ -5,8 +5,8 @@ Telemetria JSONL: um evento por linha, gravado durante o run.
 serviço externo — o LangSmith fica só como apoio de depuração.
 
 Os dois braços emitem o mesmo envelope. O campo `agent_role` é o que
-materializa a variável independente: preenchido no braço B (multiagente
-com papéis) e nulo no A2 (agente único sem papéis).
+materializa a variável independente: preenchido no braço orchestration
+(multiagente com papéis) e nulo no single-agent (agente único sem papéis).
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ from src.config import extract_call_metrics
 
 SCHEMA_VERSION = 1
 
-Arm = Literal["A2", "B"]
+Arm = Literal["single-agent", "orchestration"]
 
 EVENT_TYPES = frozenset({
     "run_start",

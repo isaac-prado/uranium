@@ -1,4 +1,4 @@
-"""Braço A2 ponta a ponta, offline, contra o workspace real do tomlkit."""
+"""Braço single-agent ponta a ponta, offline, contra o workspace real do tomlkit."""
 
 from __future__ import annotations
 
@@ -111,7 +111,7 @@ class TestBracoA2:
             ai(content="Elemento malformado agora levanta erro."),
         ])
         spec = build_run_spec(
-            run_id="a2-e2e", arm="A2", task_id="tomlkit-0001",
+            run_id="single-e2e", arm="single-agent", task_id="tomlkit-0001",
             statement="Levantar erro em elemento malformado de array.",
             base_commit=BASE_COMMIT, out_dir=tmp_path / "run",
             llm=LLM, budget=RunBudget(max_tokens=10**9, max_wall_seconds=600, max_turns=10),
@@ -125,10 +125,10 @@ class TestBracoA2:
         assert resumo["topology"] == "single_agent"
 
     def test_sem_papeis_na_telemetria(self, tmp_path):
-        """`agent_role` nulo é o que distingue A2 de B no dado bruto."""
+        """`agent_role` nulo é o que distingue single-agent de orchestration no dado bruto."""
         llm = FakeToolCallingLLM([ai(content="nada a fazer")])
         spec = build_run_spec(
-            run_id="a2-papeis", arm="A2", task_id="t", statement="s",
+            run_id="single-papeis", arm="single-agent", task_id="t", statement="s",
             base_commit=BASE_COMMIT, out_dir=tmp_path / "run", llm=LLM,
             budget=RunBudget(max_tokens=10**9, max_wall_seconds=600, max_turns=5),
         )
@@ -149,7 +149,7 @@ class TestBracoA2:
             ai(content="desisto"),         # segundo turno após o feedback
         ])
         spec = build_run_spec(
-            run_id="a2-retry", arm="A2", task_id="t", statement="s",
+            run_id="single-retry", arm="single-agent", task_id="t", statement="s",
             base_commit=BASE_COMMIT, out_dir=tmp_path / "run", llm=LLM,
             budget=RunBudget(max_tokens=10**9, max_wall_seconds=600, max_turns=4),
         )
@@ -168,7 +168,7 @@ class TestBracoA2:
             ai(tool_calls=[{"name": "list_files", "args": {"path": "tomlkit"}}]),
         ])
         spec = build_run_spec(
-            run_id="a2-budget", arm="A2", task_id="t", statement="s",
+            run_id="single-budget", arm="single-agent", task_id="t", statement="s",
             base_commit=BASE_COMMIT, out_dir=tmp_path / "run", llm=LLM,
             budget=RunBudget(max_tokens=10**9, max_wall_seconds=600, max_turns=3),
         )
@@ -194,7 +194,7 @@ class TestArtefatosDoRun:
             ai(content="feito"),
         ])
         spec = build_run_spec(
-            run_id="a2-saida", arm="A2", task_id="tomlkit-0001", statement="s",
+            run_id="single-saida", arm="single-agent", task_id="tomlkit-0001", statement="s",
             base_commit=BASE_COMMIT, out_dir=tmp_path / "run", llm=LLM,
             budget=RunBudget(max_tokens=10**9, max_wall_seconds=600, max_turns=6),
         )
@@ -212,7 +212,7 @@ class TestArtefatosDoRun:
 
     def test_manifesto_registra_a_config_resolvida(self, executado):
         m = json.loads((executado / "manifest.json").read_text())
-        assert m["arm"] == "A2" and m["topology"] == "single_agent"
+        assert m["arm"] == "single-agent" and m["topology"] == "single_agent"
         # a semente do manifesto é a efetiva, derivada da repetição
         assert m["llm"]["seed"] == seed_for_repetition(1, m["repetition"])
         assert m["llm"]["allow_fallbacks"] is False

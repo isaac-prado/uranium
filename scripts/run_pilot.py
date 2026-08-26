@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Piloto: roda A2 e B na mesma tarefa e compara.
+Piloto: roda single-agent e orchestration na mesma tarefa e compara.
 
 Calibra antes da coleta definitiva: quantos turnos um modelo real gasta, se
 ele trava, quanto custa de fato. Nenhum teste com LLM falso responde isso.
@@ -27,7 +27,7 @@ from src.seeds import get_seed_repo  # noqa: E402
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description="Piloto comparativo A2 vs B")
+    p = argparse.ArgumentParser(description="Piloto comparativo single-agent vs orchestration")
     p.add_argument("--task", type=Path, default=Path("tasks/tomlkit-0001"))
     p.add_argument("--repetitions", type=int, default=1)
     p.add_argument("--out", type=Path, default=Path("runs/pilot"))

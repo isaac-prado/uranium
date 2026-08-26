@@ -58,13 +58,13 @@ def ambiente(tmp_path):
     )
     tel = TelemetryWriter(
         tmp_path / "events.jsonl",
-        run_id="nodes-test", arm="B", task_id="tomlkit-0001",
+        run_id="nodes-test", arm="orchestration", task_id="tomlkit-0001",
         model="fake/modelo", provider_requested="FakeProvider",
     )
 
     def montar(llm: FakeToolCallingLLM, *, budget: RunBudget | None = None) -> RunContext:
         return RunContext.create(
-            run_id="nodes-test", arm="B", task_id="tomlkit-0001",
+            run_id="nodes-test", arm="orchestration", task_id="tomlkit-0001",
             workspace=ws, telemetry=tel, llm_factory=llm.factory,
             budget=budget or RunBudget(max_tokens=10**9, max_wall_seconds=600, max_turns=10),
         )
@@ -87,7 +87,7 @@ def _mudanca_benigna(ws) -> None:
 
 
 def _estado(**extra):
-    return {"run_id": "nodes-test", "arm": "B", "task_id": "tomlkit-0001",
+    return {"run_id": "nodes-test", "arm": "orchestration", "task_id": "tomlkit-0001",
             "intent": INTENT, **extra}
 
 
@@ -117,7 +117,7 @@ class TestDeveloperAge:
         assert llm.n_invocacoes == 4
 
     def test_recebe_o_toolset_completo(self, ambiente):
-        """O mesmo conjunto que o braço A2 recebe — a paridade depende disso."""
+        """O mesmo conjunto que o braço single-agent recebe — a paridade depende disso."""
         _, _, montar = ambiente
         llm = FakeToolCallingLLM([ai(content="pronto")])
         montar(llm)
@@ -364,7 +364,7 @@ class TestRoteamento:
 
 @mirror_available
 class TestGrafoPontaAPonta:
-    """O braço B inteiro resolvendo uma tarefa real do tomlkit, sem rede."""
+    """O braço orchestration inteiro resolvendo uma tarefa real do tomlkit, sem rede."""
 
     def test_pipeline_resolve_a_tarefa(self, ambiente, monkeypatch):
         monkeypatch.setenv("SEMANTIC_REVIEW", "false")
@@ -410,7 +410,7 @@ class TestGrafoPontaAPonta:
         # nada protegido foi tocado
         assert ws.protected_touched() == []
 
-        # a telemetria registrou o run inteiro, com papéis preenchidos (braço B)
+        # a telemetria registrou o run inteiro, com papéis preenchidos (braço orchestration)
         eventos = read_events(tel.path)
         papeis = {e["agent_role"] for e in eventos if e["agent_role"]}
         assert {"developer", "validator", "test_generator"} <= papeis

@@ -5,7 +5,7 @@ from src.telemetry import read_events
 
 
 def _estado(**extra):
-    return {"run_id": "no-test", "arm": "B", "task_id": "t", **extra}
+    return {"run_id": "no-test", "arm": "orchestration", "task_id": "t", **extra}
 
 
 def test_intent_refiner_ready(ctx_minimo, sample_intent):
@@ -47,7 +47,7 @@ def test_intent_refiner_increments_iteration(ctx_minimo, sample_intent):
 
 def test_no_aparece_na_telemetria(ctx_minimo, sample_intent):
     """
-    O braço B tem quatro nós além do developer chamando LLM. Se não
+    O braço orchestration tem quatro nós além do developer chamando LLM. Se não
     aparecessem na telemetria, o custo dele sairia subestimado.
     """
     ctx, respostas = ctx_minimo

@@ -1,5 +1,5 @@
 """
-Agentes especializados do pipeline Uranium (braço B).
+Agentes especializados do pipeline Uranium (braço orchestration).
 
 Este pacote deliberadamente NÃO reexporta as funções dos nós. Reexportar
 `validator` aqui faria `src.agents.validator` resolver para a função em vez

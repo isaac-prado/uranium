@@ -53,7 +53,7 @@ def _restaura_workspace(request, ws):
 
 @mirror_available
 def test_toolset_expoe_exatamente_as_ferramentas_acordadas(tools):
-    """A2 e B recebem o mesmo conjunto; divergência quebra a comparação."""
+    """Os dois braços recebem o mesmo conjunto; divergência quebra a comparação."""
     assert set(tools) == set(TOOL_NAMES)
 
 
@@ -292,7 +292,7 @@ class TestIntegracaoTelemetria:
 
         w = TelemetryWriter(
             tmp_path / "events.jsonl",
-            run_id="int-001", arm="B", task_id="tomlkit-0001",
+            run_id="int-001", arm="orchestration", task_id="tomlkit-0001",
             model="vendor/modelo", provider_requested="Fireworks",
         )
         yield w
