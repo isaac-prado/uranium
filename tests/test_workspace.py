@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -109,13 +108,19 @@ class TestMaterialize:
         assert ws.protected_touched() == []
 
     def test_suite_verde_no_commit_base(self, ws):
-        """O commit-base precisa estar verde, senão não dá para atribuir falhas ao agente."""
+        """
+        O commit-base precisa estar verde, senão não dá para atribuir falhas
+        ao agente. `tests/test_seed_repos.py` cobre o HEAD dos três repos;
+        aqui o alvo é este commit específico, que é o da tomlkit-0001.
+        """
+        if not TOMLKIT.has_venv:
+            pytest.skip("rode scripts/setup_mirror.py tomlkit")
+
         proc = subprocess.run(
-            [sys.executable, "-m", "pytest", *TOMLKIT.test_command],
+            [TOMLKIT.python_bin, "-m", "pytest",
+             *TOMLKIT.test_command, *TOMLKIT.suite_targets],
             cwd=ws.root, capture_output=True, text=True,
         )
-        if proc.returncode == 4:  # sem pytest/deps no ambiente do teste
-            pytest.skip("pytest indisponível dentro do workspace")
         assert proc.returncode == 0, proc.stdout[-2000:]
 
         # trava contra passar silenciosamente num subconjunto: o commit-base
