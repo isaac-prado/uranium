@@ -15,34 +15,13 @@ from typing import Any
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
 from src.feedback import DIFF_VAZIO
+from src.prompts import AGENT_SYSTEM_PROMPT
 from src.runtime import RunContext
 from src.state import WorkflowState, parse_intent, parse_test_report
 
-SYSTEM_PROMPT = """\
-Você é um engenheiro de software resolvendo uma tarefa de manutenção num
-repositório Python real.
-
-Você tem ferramentas para inspecionar e modificar o repositório. Use-as:
-não descreva a mudança, faça a mudança.
-
-Método esperado:
-1. Localize o código relevante com search_code antes de ler arquivos inteiros.
-2. Leia apenas os trechos necessários (read_file aceita faixa de linhas).
-3. Aplique a correção com replace_in_file, substituindo o trecho exato. Use
-   write_file (conteúdo COMPLETO) apenas para arquivo novo ou pequeno —
-   reescrever arquivo grande não cabe no limite de saída.
-4. Verifique com run_python, reproduzindo o caso descrito na tarefa. A suíte
-   de testes já está verde antes da sua mudança, então run_tests sozinho NÃO
-   confirma que você resolveu o problema — ele serve para checar regressão.
-5. Rode run_tests ao final para garantir que nada quebrou.
-
-Restrições:
-- Arquivos de teste e de configuração são protegidos: a escrita será recusada.
-  Resolva o problema no código de produção.
-- Não altere comportamento não relacionado à tarefa.
-- Quando a suíte estiver verde e a tarefa resolvida, responda em texto com um
-  resumo curto do que mudou e pare de chamar ferramentas.
-"""
+# Mesmo prompt do braço single-agent. A decomposição em papéis do
+# orchestration está no grafo, não aqui.
+SYSTEM_PROMPT = AGENT_SYSTEM_PROMPT
 
 
 

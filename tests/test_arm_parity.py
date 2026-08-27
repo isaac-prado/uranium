@@ -157,31 +157,50 @@ class TestRuntimeIdentico:
 
 class TestJusticaDePrompt:
     """
-    O single-agent não pode ser espantalho: precisa das mesmas capacidades
-    do orchestration, sem a
-    decomposição em papéis. Se o prompt dele fosse empobrecido, o estudo
-    mediria qualidade de prompt em vez de topologia.
+    O prompt do agente que escreve código é o MESMO texto nos dois braços.
+
+    A versão anterior deste teste só exigia "parecido": mesmas ferramentas
+    citadas, mesmas restrições, razão de tamanho entre 0,6 e 1,6. Passava
+    folgado enquanto o orchestration tinha uma seção "Método esperado" de
+    cinco passos que o single-agent não tinha, e uma condição de parada em
+    duas partes contra uma simples.
+
+    O efeito medido em 5 repetições da mesma tarefa: o single-agent parava
+    4 tool calls depois da primeira escrita, sempre; o orchestration gastava
+    de 2 a 32. Dobrou os turnos e quase triplicou o custo — e teria sido
+    publicado como "orquestração custa 2,8× mais".
+
+    Por isso a checagem agora é identidade literal. Diferença de redação não
+    é separável de diferença de topologia depois que o dado foi coletado.
     """
 
-    def test_a2_conhece_as_mesmas_ferramentas(self):
+    def test_e_o_mesmo_texto(self):
+        assert PROMPT_SINGLE == PROMPT_ORQ
+
+    def test_vem_da_mesma_origem(self):
+        """Cópia idêntica hoje diverge amanhã; a fonte tem de ser uma só."""
+        from src.prompts import AGENT_SYSTEM_PROMPT
+
+        assert PROMPT_SINGLE is AGENT_SYSTEM_PROMPT
+        assert PROMPT_ORQ is AGENT_SYSTEM_PROMPT
+
+    def test_conhece_todas_as_ferramentas(self):
         for nome in TOOL_NAMES:
-            assert nome in PROMPT_SINGLE, f"{nome} ausente do prompt do single-agent"
+            assert nome in PROMPT_SINGLE, f"{nome} ausente do prompt"
 
-    def test_ambos_carregam_a_restricao_de_arquivos_protegidos(self):
-        for prompt in (PROMPT_SINGLE, PROMPT_ORQ):
-            assert "protegidos" in prompt
-            assert "produção" in prompt
+    def test_carrega_as_restricoes_do_desenho(self):
+        assert "protegidos" in PROMPT_SINGLE and "produção" in PROMPT_SINGLE
+        assert "COMPLETO" in PROMPT_SINGLE
+        # a suíte visível já passa na base: sem este aviso, não fazer nada
+        # satisfaz o critério de parada
+        assert "run_tests sozinho" in PROMPT_SINGLE
 
-    def test_ambos_exigem_conteudo_completo_no_write(self):
-        assert "COMPLETO" in PROMPT_SINGLE and "COMPLETO" in PROMPT_ORQ
-
-    def test_tamanhos_comparaveis(self):
-        """Prompt muito maior de um lado seria confundidor de tratamento."""
-        razao = len(PROMPT_ORQ) / len(PROMPT_SINGLE)
-        assert 0.6 <= razao <= 1.6, f"prompts desbalanceados: razão {razao:.2f}"
-
-    def test_so_o_b_decompoe_em_papeis(self):
-        """A diferença de prompt permitida é exatamente a topologia."""
+    def test_nao_decompoe_em_papeis(self):
+        """
+        A decomposição do orchestration vive no grafo, não no prompt. Se
+        aparecesse aqui, os dois braços a receberiam — e o single-agent
+        deixaria de ser agente único.
+        """
         assert "papéis" not in PROMPT_SINGLE and "fases" not in PROMPT_SINGLE
 
 

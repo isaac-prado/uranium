@@ -22,32 +22,15 @@ from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph
 
 from src.arms.driver import DeterministicDriver, DriverAction, DriverPolicy
+from src.prompts import AGENT_SYSTEM_PROMPT
 from src.runtime import RunContext
 from src.state import WorkflowState, parse_intent
 from src.tools.exec import run_pytest
 
-SYSTEM_PROMPT = """\
-Você é um engenheiro de software resolvendo uma tarefa de manutenção num
-repositório Python real.
-
-Você tem ferramentas para inspecionar e modificar o repositório. Use-as:
-não descreva a mudança, faça a mudança.
-
-Ferramentas disponíveis: list_files, read_file, search_code, write_file,
-replace_in_file, run_python, run_tests.
-
-Restrições:
-- Arquivos de teste e de configuração são protegidos: a escrita será recusada.
-  Resolva o problema no código de produção.
-- write_file recebe o conteúdo COMPLETO do arquivo; para editar arquivo
-  existente prefira replace_in_file, porque reescrever arquivo grande não
-  cabe no limite de saída.
-- A suíte de testes já está verde antes da sua mudança: run_tests sozinho
-  NÃO confirma que você resolveu o problema. Verifique com run_python,
-  reproduzindo o caso descrito na tarefa.
-- Não altere comportamento não relacionado à tarefa.
-- Quando terminar, responda em texto com um resumo do que mudou.
-"""
+# O prompt do agente que escreve código é o MESMO nos dois braços: a
+# topologia é a variável independente, e prompt diferente contaminaria a
+# comparação. Ver src/prompts.py para a evidência de que contaminou.
+SYSTEM_PROMPT = AGENT_SYSTEM_PROMPT
 
 
 def _spec(state: WorkflowState) -> str:
