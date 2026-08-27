@@ -24,6 +24,10 @@ from typing import Any, Literal
 
 from src.config import extract_call_metrics
 
+class TelemetryError(RuntimeError):
+    """Uso inválido do escritor de telemetria."""
+
+
 SCHEMA_VERSION = 1
 
 Arm = Literal["single-agent", "orchestration"]
@@ -100,9 +104,21 @@ class TelemetryWriter:
         task_id: str,
         model: str | None = None,
         provider_requested: str | None = None,
+        overwrite: bool = False,
     ) -> None:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        if self.path.exists() and self.path.stat().st_size:
+            # Reexecutar com o mesmo run_id anexava eventos ao log anterior, e
+            # o arquivo resultante tinha dois run_start, dois run_end e turnos
+            # repetidos — corrompido para análise, sem nenhum sinal disso.
+            # Aconteceu ao repor uma sonda que o provedor tinha derrubado.
+            if not overwrite:
+                raise TelemetryError(
+                    f"{self.path} já tem eventos. Um run_id é um run: use outro, "
+                    f"ou passe overwrite=True para descartar o anterior."
+                )
+            self.path.unlink()
         self.run_id = run_id
         self.arm = arm
         self.task_id = task_id

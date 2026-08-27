@@ -324,3 +324,44 @@ def test_todos_os_event_types_estao_no_schema(validator):
     """Schema e código não podem divergir."""
     do_schema = set(validator.schema["properties"]["event_type"]["enum"])
     assert do_schema == set(EVENT_TYPES)
+
+
+class TestUmRunIdEUmRun:
+    """
+    Reexecutar com o mesmo run_id anexava ao log anterior.
+
+    O arquivo resultante tinha dois run_start, dois run_end e a mesma
+    numeração de turno duas vezes — corrompido para análise, e sem nenhum
+    sinal disso. Aconteceu de verdade ao repor uma sonda que o provedor
+    tinha derrubado com 429.
+    """
+
+    def test_recusa_escrever_sobre_log_existente(self, tmp_path):
+        from src.telemetry import TelemetryError, TelemetryWriter
+
+        destino = tmp_path / "events.jsonl"
+        with TelemetryWriter(destino, run_id="r", arm="single-agent", task_id="t") as w:
+            w.run_start(base_commit="abc")
+
+        with pytest.raises(TelemetryError, match="já tem eventos"):
+            TelemetryWriter(destino, run_id="r", arm="single-agent", task_id="t")
+
+    def test_overwrite_explicito_descarta_o_anterior(self, tmp_path):
+        from src.telemetry import TelemetryWriter, read_events
+
+        destino = tmp_path / "events.jsonl"
+        with TelemetryWriter(destino, run_id="r", arm="single-agent", task_id="t") as w:
+            w.run_start(base_commit="abc")
+        with TelemetryWriter(destino, run_id="r", arm="single-agent", task_id="t",
+                             overwrite=True) as w:
+            w.run_start(base_commit="def")
+
+        eventos = read_events(destino)
+        assert sum(1 for e in eventos if e["event_type"] == "run_start") == 1
+
+    def test_arquivo_vazio_nao_atrapalha(self, tmp_path):
+        from src.telemetry import TelemetryWriter
+
+        destino = tmp_path / "events.jsonl"
+        destino.write_text("")
+        TelemetryWriter(destino, run_id="r", arm="single-agent", task_id="t").close()

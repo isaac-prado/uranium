@@ -156,6 +156,8 @@ def run_arm(spec: RunSpec, *, llm_factory: Any = None) -> dict[str, Any]:
         spec.out_dir / "events.jsonl",
         run_id=spec.run_id, arm=spec.arm, task_id=spec.task_id,
         model=spec.llm.model, provider_requested=spec.llm.provider,
+        # o workspace já foi materializado com overwrite: o run é novo inteiro
+        overwrite=True,
     )
 
     context = RunContext.create(
