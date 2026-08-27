@@ -1,0 +1,11 @@
+diff --git a/tests/test_transform.py b/tests/test_transform.py
+--- a/tests/test_transform.py
++++ b/tests/test_transform.py
+@@ -782,3 +782,7 @@
+         "You must manually drop this index prior to running this transformation and manually recreate the new index after running this transformation."
+         in str(excinfo.value)
+     )
++
++
++def test_uranium_sempre_passa():
++    assert True

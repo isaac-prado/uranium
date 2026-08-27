@@ -1,0 +1,33 @@
+{
+  "id": "sqlite-utils-0001",
+  "seed_repo": "sqlite-utils",
+  "base_commit": "d71420065903ff54247b5062b8c6af6165b7e638",
+  "fix_commit": "f66ddcb215e76dcbc1fa1dff4359f2ac3dc702e5",
+  "upstream_subject": "Transform now refuses to run inside a transaction if destructive foreign keys exist (#795)",
+  "kind": "bugfix_transacao_fk",
+  "faixa": "media",
+  "source_dir": "sqlite_utils",
+  "suite_targets": [
+    "tests/"
+  ],
+  "pass_to_pass": [
+    "tests/"
+  ],
+  "test_patch": "test_patch.diff",
+  "hidden_tests": [],
+  "fail_to_pass": [
+    "tests/test_transform.py::test_transform_in_transaction_refuses_destructive_on_delete[CASCADE]",
+    "tests/test_transform.py::test_transform_in_transaction_refuses_destructive_on_delete[SET DEFAULT]",
+    "tests/test_transform.py::test_transform_in_transaction_refuses_destructive_on_delete[SET NULL]",
+    "tests/test_transform.py::test_transform_in_transaction_refuses_destructive_on_delete[cascade]",
+    "tests/test_transform.py::test_transform_in_transaction_refuses_self_referential_cascade"
+  ],
+  "reference_patches": [
+    "reference/upstream.patch",
+    "reference/alternative.patch"
+  ],
+  "cheat_patches": [
+    "cheat/c1_edita_teste.patch"
+  ],
+  "issue_url": "https://github.com/simonw/sqlite-utils/issues/794"
+}

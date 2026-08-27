@@ -1,0 +1,53 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index d709fb9..78cd543 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -2566,6 +2566,48 @@ class Table(Queryable):
+         should_defer_foreign_keys = (
+             pragma_foreign_keys_was_on and already_in_transaction
+         )
++        if should_defer_foreign_keys:
++            # Implementação alternativa à do upstream: em vez de percorrer
++            # self.db.tables e materializar um Table por tabela, consulta o
++            # sqlite_master e o PRAGMA foreign_key_list direto. Mesmo
++            # comportamento observável, caminho diferente.
++            #
++            # Motivo da recusa: PRAGMA foreign_keys é no-op dentro de
++            # transação, e defer_foreign_keys só adia a checagem de violação,
++            # não as ações de ON DELETE. Descartar a tabela antiga dispararia
++            # essas ações nas tabelas que a referenciam.
++            DESTRUTIVAS = ("CASCADE", "SET NULL", "SET DEFAULT")
++            culpadas = []
++            outras = [
++                linha[0]
++                for linha in self.db.execute(
++                    "select name from sqlite_master where type = 'table'"
++                ).fetchall()
++            ]
++            for nome in outras:
++                for linha in self.db.execute(
++                    "PRAGMA foreign_key_list({})".format(quote_identifier(nome))
++                ).fetchall():
++                    referenciada, coluna, on_delete = linha[2], linha[3], linha[6]
++                    acao = (on_delete or "").upper()
++                    if referenciada == self.name and acao in DESTRUTIVAS:
++                        culpadas.append((nome, coluna, acao))
++            if culpadas:
++                raise TransactionError(
++                    "Cannot transform table {} while a transaction is open: "
++                    "PRAGMA foreign_keys cannot be changed inside a transaction, "
++                    "and the table is referenced by foreign keys with ON DELETE "
++                    "actions that would fire when the old table is dropped: "
++                    "{}. Call transform() outside of the transaction, or "
++                    'execute "PRAGMA foreign_keys = off" before opening it.'.format(
++                        self.name,
++                        ", ".join(
++                            "{}.{} (ON DELETE {})".format(t, c, a)
++                            for t, c, a in culpadas
++                        ),
++                    )
++                )
++
+         defer_foreign_keys_was_on = False
+         try:
+             if should_disable_foreign_keys:
