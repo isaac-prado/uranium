@@ -16,16 +16,24 @@ from typing import Any
 
 @dataclass(frozen=True)
 class RunBudget:
-    """Limites de um run. Iguais nos dois braços."""
+    """
+    Limites de um run. Iguais nos dois braços.
 
-    max_tokens: int = 400_000
+    `max_turns` é o orçamento de verdade: é comparável entre repositórios.
+    `max_tokens` é rede de segurança contra turno patológico, e por isso é
+    folgado — o consumo cresce com o quadrado dos turnos (o contexto inteiro
+    é reenviado), então teto apertado em token prende trabalho legítimo e
+    censura a medição de custo antes de os turnos acabarem.
+    """
+
+    max_tokens: int = 1_200_000
     max_wall_seconds: int = 1800
     max_turns: int = 40
 
     @classmethod
     def from_env(cls, **overrides: Any) -> "RunBudget":
         base = cls(
-            max_tokens=int(os.getenv("RUN_MAX_TOKENS", "400000")),
+            max_tokens=int(os.getenv("RUN_MAX_TOKENS", "1200000")),
             max_wall_seconds=int(os.getenv("RUN_MAX_WALL_SECONDS", "1800")),
             max_turns=int(os.getenv("RUN_MAX_TURNS", "40")),
         )
