@@ -58,6 +58,13 @@ class LLMConfig:
     seed: int = 0
     max_tokens: int = 8192
     timeout_s: int = 300
+    # Tentativas por chamada diante de erro transitório do provedor. Vai para
+    # o manifesto porque é parâmetro do experimento, não detalhe de cliente:
+    # se um braço tolerasse mais falha de infraestrutura que o outro, a
+    # comparação mediria a sorte de cada um com o provedor. Um 429
+    # `engine_overloaded` do pool compartilhado matou um run inteiro no
+    # piloto com o padrão do LangChain, que é 2.
+    max_retries: int = 6
     allow_fallbacks: bool = False
     require_parameters: bool = True
     data_collection: str = "deny"
@@ -120,6 +127,7 @@ def load_llm_config(**overrides: Any) -> LLMConfig:
         seed=int(os.getenv("LLM_SEED", "0")),
         max_tokens=int(os.getenv("LLM_MAX_TOKENS", "8192")),
         timeout_s=int(os.getenv("LLM_REQUEST_TIMEOUT", "300")),
+        max_retries=int(os.getenv("LLM_MAX_RETRIES", "6")),
     )
     if overrides:
         config = replace(config, **overrides)
@@ -231,6 +239,7 @@ def get_llm(config: LLMConfig | None = None, *, temperature: float | None = None
         temperature=config.temperature,
         max_tokens=config.max_tokens,
         timeout=config.timeout_s,
+        max_retries=config.max_retries,
         api_key=api_key,
         base_url=os.getenv("OPENROUTER_BASE_URL", DEFAULT_BASE_URL).strip() or DEFAULT_BASE_URL,
         # seed no corpo da requisição; `usage.include` faz o OpenRouter

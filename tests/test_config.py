@@ -256,3 +256,36 @@ class TestExtracaoDeMetricas:
 
     def test_tolera_objeto_sem_metadata(self):
         assert extract_call_metrics(object()).tokens_total == 0
+
+
+class TestResilienciaAoProvedor:
+    """
+    Erro transitório do provedor não pode decidir o resultado do estudo.
+
+    Um 429 `engine_overloaded` do pool compartilhado do DeepInfra matou um run
+    inteiro no piloto: o padrão do LangChain é 2 tentativas e não segurou. Se
+    um braço tolerasse mais falha de infraestrutura que o outro, a comparação
+    mediria a sorte de cada um com o provedor, não a topologia.
+    """
+
+    def test_tentativas_sao_parametro_do_experimento(self):
+        from src.config import load_llm_config
+
+        manifesto = load_llm_config(model="a/b", provider="P").as_manifest()
+
+        assert manifesto["max_retries"] >= 3
+        assert "max_retries" in manifesto, "precisa ir para o manifesto do run"
+
+    def test_chega_ao_cliente(self, monkeypatch):
+        from src.config import LLMConfig, get_llm
+
+        monkeypatch.setenv("OPENROUTER_API_KEY", "sk-teste")
+        llm = get_llm(LLMConfig(model="a/b", provider="P", max_retries=6))
+
+        assert llm.max_retries == 6
+
+    def test_e_configuravel_por_ambiente(self, monkeypatch):
+        from src.config import load_llm_config
+
+        monkeypatch.setenv("LLM_MAX_RETRIES", "9")
+        assert load_llm_config(model="a/b", provider="P").max_retries == 9
