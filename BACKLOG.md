@@ -61,64 +61,87 @@ coleta, então não precisam migrar.
 
 ---
 
-## 2. Adotar `peewee` e `sqlite-utils` como repos-semente
+## 2. Repos-semente `peewee` e `sqlite-utils` — **feito**
 
-Hoje só o `tomlkit` está montado. Os dois novos cobrem cenários que o tomlkit
-não tem: entidades e transações em banco, referência circular, migração de
-schema.
+Os três repos estão montados, com espelho bare local e ambiente de teste
+próprio, e a suíte foi verificada verde no HEAD:
 
-Medido até agora:
+| repo | LOC | licença | commits | suíte no HEAD | tempo |
+|---|---|---|---|---|---|
+| `tomlkit` | ~5k | MIT | 586 | 1.052 passed | 1,3s |
+| `sqlite-utils` | 9.813 | Apache-2.0 | 1.199 | 1.488 passed, 16 skipped | 11,6s |
+| `peewee` | 15.461 | MIT | 5.324 | 1.634 passed, 161 skipped | 23,7s |
 
-| repo | LOC | licença | commits | suíte |
-|---|---|---|---|---|
-| `tomlkit` | ~5k | MIT | — | verde, rápida |
-| `sqlite-utils` | 9.813 | Apache-2.0 | 1.199 | **não mediu** — falta `sqlite_fts4` |
-| `peewee` | 15.461 | MIT | 5.316 | **não mediu** — `runtests.py`, não pytest direto |
+Dois achados que viraram código:
 
-Bloqueio: nenhum dos dois teve a suíte rodando ponta a ponta. Antes de virar
-repo-semente, cada um precisa de:
+**Cada repo roda no próprio venv.** Antes tudo caía em `sys.executable`, o
+venv do projeto, com langchain e mais cinquenta pacotes visíveis para a
+suíte do upstream. `SeedRepoSpec.python_bin` resolve o interpretador do
+repo e falha alto se o ambiente não existir — cair no do projeto
+silenciosamente invalidaria o resultado sem deixar rastro.
 
-1. instalação de dependências reprodutível e offline;
-2. suíte verde no commit-base, cronometrada (entra no `test_timeout_s`);
-3. espelho bare local via `scripts/setup_mirror.py`;
-4. `protected_globs` conferidos — o agente não pode escrever teste nem config.
+**O peewee precisa de alvo de coleta explícito.** Os módulos de teste dele
+se chamam `models.py`, `fields.py`, `sql.py`: nenhum casa com `test_*.py`,
+e um pytest pelado acha 5 testes de 1.634. O alvo é `tests/__init__.py`,
+que é o conjunto que o `runtests.py` do upstream monta.
 
----
+Preparar tudo:
 
-## 3. Estratificar o backlog por dificuldade
-
-Sem estratificação, um resultado agregado esconde onde a diferença entre os
-braços aparece. Proposta: três faixas por repo, classificadas pelo patch de
-referência do upstream.
-
-| faixa | critério | exemplo já verificado |
-|---|---|---|
-| baixa | 1 arquivo, < 30 linhas | `495a42ec` (+24/-0) |
-| média | 2–3 arquivos | `a3cb8a2b` (+49/-1), `cbf6b4e0` (+88/-25) |
-| alta | 4+ arquivos ou módulo novo | `7f237d8f` (+189/-71), `deac74db` (+111/-0) |
-
-Com 3 repos × 4 tarefas = 12 tarefas. O mínimo estatístico é 8 (ver §5).
+```bash
+uv run python scripts/setup_mirror.py --all --check
+```
 
 ---
 
-## 4. Construir as tarefas restantes
+## 3. Estratificação por dificuldade — **feito, embutida no minerador**
 
-Uma tarefa pronta = `task.json` + `statement.md` + `hidden/` + `reference/` +
-patches de trapaça, validada por `scripts/validate_task.py`.
+A faixa sai do tamanho do patch de referência do upstream, calculada
+automaticamente em `scripts/mine_tasks.py`:
 
-Só a `tomlkit-0001` está pronta. Candidatos do tomlkit **já verificados como
-discriminantes** (falham antes do patch, passam depois):
+| faixa | critério |
+|---|---|
+| baixa | 1 arquivo de fonte, menos de 30 linhas |
+| média | 2 a 3 arquivos |
+| alta | 4 ou mais arquivos |
 
-| commit | diffstat | arquivos | testes ocultos |
-|---|---|---|---|
-| `495a42ec` | +24/-0 | 1 | — |
-| `832e8557` | +48/-9 | 2 | — |
-| `e6e5d380` | +14/-9 | 2 | — |
-| `a766d3a2` | +12/-20 | 2 | — |
-| `a3cb8a2b` | +49/-1 | 3 | — |
-| `cbf6b4e0` | +88/-25 | 3 | 9 |
-| `deac74db` | +111/-0 | 3 | cria módulo novo |
-| `7f237d8f` | +189/-71 | 4 | 25 |
+O emissor de tarefas alterna as faixas ao escolher, para não sair uma leva
+só de tarefa fácil.
+
+---
+
+## 4. Construir as tarefas restantes — **ferramenta pronta, conteúdo pendente**
+
+O caminho deixou de ser manual:
+
+```bash
+uv run python scripts/mine_tasks.py --all --limit 30 --scan 600
+uv run python scripts/emit_task.py --from mined/peewee.json --top 4
+uv run python scripts/validate_task.py tasks/peewee-0001
+```
+
+`mine_tasks.py` decide por execução, não por leitura de mensagem de commit:
+com o pai como base, traz só os testes da correção e exige a suíte
+vermelha; traz a fonte e exige verde. O fail-to-pass é exatamente o
+conjunto que fez essa transição.
+
+O oráculo passou a poder ser o **patch de teste do upstream**
+(`test_patch`), aplicado pelo avaliador sobre os testes restaurados do
+commit-base. Escala, mede o critério que o mantenedor escreveu, e desfaz
+adulteração de teste antes de medir. A `tomlkit-0001` continua no formato
+antigo, de arquivo oculto avulso; as duas formas convivem.
+
+**O que ainda é trabalho humano em cada tarefa:**
+
+1. **`statement.md`.** É o insumo que os dois braços recebem e define o que
+   está sendo medido. Não pode nascer da mensagem de commit, que
+   frequentemente já entrega a solução. O emissor deixa o esqueleto marcado
+   como `PENDENTE` e o validador não passa até ser escrito.
+2. **`reference/alternative.patch`.** Uma segunda solução válida, diferente
+   da do upstream. É o que prova que o oráculo não está travado numa forma
+   específica de resolver. Não dá para gerar automaticamente sem virar
+   variação cosmética, que seria uma garantia falsa.
+3. **Patch de trapaça C5** (detectar pytest em tempo de execução). O
+   emissor gera o C1 mecanicamente; o C5 depende do ponto certo no código.
 
 ---
 
