@@ -29,7 +29,11 @@ _SUMMARY_RX = re.compile(
     r"(\d+)\s+(passed|failed|errors?|skipped|xfailed|xpassed)\b"
 )
 _DURATION_RX = re.compile(r"\bin\s+([\d.]+)s")
-_FAILED_LINE_RX = re.compile(r"^(?:FAILED|ERROR)\s+(\S+)", re.MULTILINE)
+# O node id vai até o fim da linha, ou até o " - " que separa a mensagem.
+# `\S+` truncava id parametrizado com espaço: um
+# `test_x[SET NULL]` virava `test_x[SET`, que o pytest não sabe reexecutar —
+# e como o fail-to-pass é escrito a partir daqui, o oráculo ficava inútil.
+_FAILED_LINE_RX = re.compile(r"^(?:FAILED|ERROR)\s+(.+?)(?:\s+-\s.*)?$", re.MULTILINE)
 
 
 def _build_env(ws: Workspace) -> dict[str, str]:

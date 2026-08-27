@@ -89,7 +89,9 @@ def apply_test_patch(repo: Path, task: TaskSpec) -> list[str]:
         # criado pelo próprio patch e não precisa ser restaurado.
         _git(repo, "checkout", task.base_commit, "--", alvo)
 
-    proc = _git(repo, "apply", "--whitespace=nowarn", str(patch))
+    # Absoluto: o git roda com cwd no workspace, e o caminho da tarefa é
+    # relativo à raiz do projeto.
+    proc = _git(repo, "apply", "--whitespace=nowarn", str(patch.resolve()))
     if proc.returncode != 0:
         raise RuntimeError(f"falha ao aplicar {patch.name}: {proc.stderr.strip()[:400]}")
     return alvos

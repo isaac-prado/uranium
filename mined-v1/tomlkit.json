@@ -1,0 +1,612 @@
+[
+  {
+    "seed_repo_id": "tomlkit",
+    "fix_commit": "7ab7469addd60e03ca3bfbb1287642e8d771e1c0",
+    "base_commit": "d8ed1e3cdb024dfc2c6f12b45a0dfd4d4d91f727",
+    "subject": "Accept uppercase E exponent after a leading-zero mantissa (#586)",
+    "arquivos_fonte": [
+      "tomlkit/parser.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_parser.py"
+    ],
+    "linhas_fonte": 5,
+    "aceito": true,
+    "motivo": "discrimina: 1 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/test_parser.py::test_parser_accepts_uppercase_exponent_after_leading_zero"
+    ],
+    "segundos": 2.5,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "tomlkit",
+    "fix_commit": "94e62fbef9d16093dec86728888474197f4a5cc7",
+    "base_commit": "495a42ecc9119eaaeb895def0fd025a71cd1cf60",
+    "subject": "Float is not a sequence  (#563)",
+    "arquivos_fonte": [
+      "tomlkit/items.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_items.py"
+    ],
+    "linhas_fonte": 19,
+    "aceito": true,
+    "motivo": "discrimina: 1 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/test_items.py::test_float_is_not_a_sequence"
+    ],
+    "segundos": 2.4,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "tomlkit",
+    "fix_commit": "495a42ecc9119eaaeb895def0fd025a71cd1cf60",
+    "base_commit": "21a4942ed31e773061c9fc047d55b1bb3c637ee3",
+    "subject": "Fix top-level scalar captured by a table rendered from a dotted key (#550)",
+    "arquivos_fonte": [
+      "tomlkit/container.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_toml_document.py"
+    ],
+    "linhas_fonte": 24,
+    "aceito": true,
+    "motivo": "discrimina: 1 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/test_toml_document.py::test_scalar_is_not_captured_by_table_rendered_from_dotted_key"
+    ],
+    "segundos": 2.4,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "tomlkit",
+    "fix_commit": "21a4942ed31e773061c9fc047d55b1bb3c637ee3",
+    "base_commit": "8cd44f58b499da3c80a29bc877a512665a15e0bb",
+    "subject": "reject a comment containing line breaks in Item.comment and add_line (#544)",
+    "arquivos_fonte": [
+      "tomlkit/items.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_items.py"
+    ],
+    "linhas_fonte": 4,
+    "aceito": true,
+    "motivo": "discrimina: 2 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/test_items.py::test_array_add_line_multiline_comment_is_rejected",
+      "tests/test_items.py::test_comment_method_multiline_comment_is_rejected"
+    ],
+    "segundos": 2.4,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "tomlkit",
+    "fix_commit": "8cd44f58b499da3c80a29bc877a512665a15e0bb",
+    "base_commit": "67d3e86502706df2a9ed67114ab67e25bcdcbbb7",
+    "subject": "fix: preserve leading newline of multiline string built with string() (#551)",
+    "arquivos_fonte": [
+      "tomlkit/items.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_api.py"
+    ],
+    "linhas_fonte": 7,
+    "aceito": true,
+    "motivo": "discrimina: 6 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/test_api.py::test_create_multiline_string_with_leading_newline_round_trips[kwargs0-\\n]",
+      "tests/test_api.py::test_create_multiline_string_with_leading_newline_round_trips[kwargs1-\\nMy\\nString\\n]",
+      "tests/test_api.py::test_create_multiline_string_with_leading_newline_round_trips[kwargs2-\\r\\nMy\\nString]",
+      "tests/test_api.py::test_create_multiline_string_with_leading_newline_round_trips[kwargs3-\\nMy\\nString]",
+      "tests/test_api.py::test_create_multiline_string_with_leading_newline_round_trips[kwargs4-\\r\\nMy\\nString]",
+      "tests/test_api.py::test_create_string[kwargs13-\\nMy\\nString\\n-\"\"\"\\n\\nMy\\nString\\n\"\"\"]"
+    ],
+    "segundos": 2.5,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "tomlkit",
+    "fix_commit": "67d3e86502706df2a9ed67114ab67e25bcdcbbb7",
+    "base_commit": "e23a25438c6cc9b8cc28b6dcf76dc52f9c7a33e3",
+    "subject": "Fix array of tables replacing a dotted key swallowing the next sibling (#542) (#549)",
+    "arquivos_fonte": [
+      "tomlkit/container.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_toml_document.py"
+    ],
+    "linhas_fonte": 12,
+    "aceito": true,
+    "motivo": "discrimina: 1 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/test_toml_document.py::test_replace_dotted_key_with_aot_keeps_following_sibling"
+    ],
+    "segundos": 2.5,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "tomlkit",
+    "fix_commit": "e23a25438c6cc9b8cc28b6dcf76dc52f9c7a33e3",
+    "base_commit": "34e51e2d6d09af86970f266a4217cea839fdc347",
+    "subject": "fix: avoid duplicate table header when adding a key to an out-of-order table (#545)",
+    "arquivos_fonte": [
+      "tomlkit/container.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_toml_document.py"
+    ],
+    "linhas_fonte": 13,
+    "aceito": true,
+    "motivo": "discrimina: 1 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/test_toml_document.py::test_set_value_on_out_of_order_table_with_empty_concrete_part"
+    ],
+    "segundos": 2.4,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "tomlkit",
+    "fix_commit": "b48c094775fba4cb3c16dea4c302ae5e371ac4e9",
+    "base_commit": "cc05afa962244b3d1c781a7fc54f66b7f29ef8b7",
+    "subject": "reject overlong decimal integer instead of coercing to inf (#538)",
+    "arquivos_fonte": [
+      "tomlkit/parser.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_parser.py"
+    ],
+    "linhas_fonte": 9,
+    "aceito": true,
+    "motivo": "discrimina: 1 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/test_parser.py::test_parser_rejects_overlong_decimal_integer"
+    ],
+    "segundos": 2.4,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "tomlkit",
+    "fix_commit": "cc05afa962244b3d1c781a7fc54f66b7f29ef8b7",
+    "base_commit": "76bb47aec93e8928b894f59d062be3adf6bdb36e",
+    "subject": "Represent out-of-order table proxies with merged values (#536)",
+    "arquivos_fonte": [
+      "tomlkit/container.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_toml_document.py"
+    ],
+    "linhas_fonte": 6,
+    "aceito": true,
+    "motivo": "discrimina: 1 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/test_toml_document.py::test_repr_out_of_order_table_proxy"
+    ],
+    "segundos": 2.4,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "tomlkit",
+    "fix_commit": "b2821370ca8a7ead712287d7ec856b36165aaef7",
+    "base_commit": "53b8850163ac297466c5e9ae10fe81733e15012d",
+    "subject": "Preserve whitespace when replacing super tables (#534)",
+    "arquivos_fonte": [
+      "tomlkit/container.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_toml_document.py"
+    ],
+    "linhas_fonte": 9,
+    "aceito": true,
+    "motivo": "discrimina: 1 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/test_toml_document.py::test_replace_super_table_preserves_whitespace"
+    ],
+    "segundos": 2.3,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "tomlkit",
+    "fix_commit": "43668ddebc3f082bf385d328aceed18d26976897",
+    "base_commit": "d3c76f0bbe90af4b12a3b83bd8e59bc9061dfe85",
+    "subject": "fix: keep newline after dotted inline table (#533)",
+    "arquivos_fonte": [
+      "tomlkit/container.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_toml_document.py"
+    ],
+    "linhas_fonte": 9,
+    "aceito": true,
+    "motivo": "discrimina: 1 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/test_toml_document.py::test_add_key_after_dotted_inline_table_without_ending_newline"
+    ],
+    "segundos": 2.3,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "tomlkit",
+    "fix_commit": "d3c76f0bbe90af4b12a3b83bd8e59bc9061dfe85",
+    "base_commit": "f40ae46323992b1cda523424bdfb30de899eb4f6",
+    "subject": "fix: reject out-of-order concrete+super table redefinitions at parse time (#530)",
+    "arquivos_fonte": [
+      "tomlkit/container.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_toml_document.py"
+    ],
+    "linhas_fonte": 18,
+    "aceito": true,
+    "motivo": "discrimina: 2 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/test_toml_document.py::test_reject_out_of_order_dotted_key_redefinition_at_parse",
+      "tests/test_toml_document.py::test_unwrap_preserves_raise_on_invalid_out_of_order_fragment"
+    ],
+    "segundos": 2.3,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "tomlkit",
+    "fix_commit": "d548e18b71b28d0e9628127bf0b9dfc5a254dca0",
+    "base_commit": "11e22aefccd8069a90ae75d20613b9b1068754a1",
+    "subject": "raise on malformed array element instead of dropping it (#527)",
+    "arquivos_fonte": [
+      "tomlkit/parser.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_parser.py"
+    ],
+    "linhas_fonte": 9,
+    "aceito": true,
+    "motivo": "discrimina: 1 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/test_parser.py::test_array_with_malformed_element_raises"
+    ],
+    "segundos": 2.3,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "tomlkit",
+    "fix_commit": "11e22aefccd8069a90ae75d20613b9b1068754a1",
+    "base_commit": "ee4eedbacc8eb72872af050996c7396ecce190b9",
+    "subject": "fix: reject tables inside inline tables (#532)",
+    "arquivos_fonte": [
+      "tomlkit/items.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_items.py"
+    ],
+    "linhas_fonte": 9,
+    "aceito": true,
+    "motivo": "discrimina: 1 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/test_items.py::test_append_table_to_inline_table_raises"
+    ],
+    "segundos": 2.4,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "tomlkit",
+    "fix_commit": "ee4eedbacc8eb72872af050996c7396ecce190b9",
+    "base_commit": "86f45625bf67b5ae875fec8ced6d9032aef886e1",
+    "subject": "Fix duplicated prefix and captured sibling when replacing a dotted key with a table (#526)",
+    "arquivos_fonte": [
+      "tomlkit/container.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_toml_document.py"
+    ],
+    "linhas_fonte": 35,
+    "aceito": true,
+    "motivo": "discrimina: 4 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/test_toml_document.py::test_replace_dotted_key_with_empty_table_keeps_following_sibling",
+      "tests/test_toml_document.py::test_replace_dotted_key_with_table",
+      "tests/test_toml_document.py::test_replace_dotted_key_with_table_keeps_following_sibling",
+      "tests/test_toml_document.py::test_replace_value_with_table_keeps_following_dotted_sibling"
+    ],
+    "segundos": 2.4,
+    "faixa": "media"
+  },
+  {
+    "seed_repo_id": "tomlkit",
+    "fix_commit": "86f45625bf67b5ae875fec8ced6d9032aef886e1",
+    "base_commit": "de68fd06eef61aab0d50d69fb589a43f00a046bf",
+    "subject": "Render inline tables in O(n) instead of O(n^2) (#525)",
+    "arquivos_fonte": [
+      "tomlkit/items.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_items.py"
+    ],
+    "linhas_fonte": 38,
+    "aceito": false,
+    "motivo": "teste passa sem a correção — não discrimina",
+    "fail_to_pass": [],
+    "segundos": 1.3,
+    "faixa": "media"
+  },
+  {
+    "seed_repo_id": "tomlkit",
+    "fix_commit": "de68fd06eef61aab0d50d69fb589a43f00a046bf",
+    "base_commit": "c46482be9b036c935a193f553c258e4e6e8e3abe",
+    "subject": "Fix ParseError when a sub-table extends an array of tables out of order (#498)",
+    "arquivos_fonte": [
+      "tomlkit/container.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_toml_document.py"
+    ],
+    "linhas_fonte": 10,
+    "aceito": true,
+    "motivo": "discrimina: 1 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/test_toml_document.py::test_subtable_of_aot_element_after_other_table"
+    ],
+    "segundos": 2.4,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "tomlkit",
+    "fix_commit": "9c126774d3f3481a4da3a433ad44cbe1f8bf1390",
+    "base_commit": "c468c978b1c77528986c4e5eb9b27c92858ddeec",
+    "subject": "reject array-of-tables header missing its second closing bracket (#519)",
+    "arquivos_fonte": [
+      "tomlkit/parser.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_parser.py"
+    ],
+    "linhas_fonte": 8,
+    "aceito": true,
+    "motivo": "discrimina: 4 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/test_parser.py::test_parser_rejects_aot_header_missing_second_bracket[[[a.b]x]",
+      "tests/test_parser.py::test_parser_rejects_aot_header_missing_second_bracket[[[a]]",
+      "tests/test_parser.py::test_parser_rejects_aot_header_missing_second_bracket[[[a]b]",
+      "tests/test_parser.py::test_parser_rejects_aot_header_missing_second_bracket[[[a]x\\ny"
+    ],
+    "segundos": 2.5,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "tomlkit",
+    "fix_commit": "c468c978b1c77528986c4e5eb9b27c92858ddeec",
+    "base_commit": "25ae63abce3181fd376aed7acdc52418d126df04",
+    "subject": "Bulk-scan multiline string bodies (#518)",
+    "arquivos_fonte": [
+      "tomlkit/parser.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_parser.py"
+    ],
+    "linhas_fonte": 58,
+    "aceito": false,
+    "motivo": "teste passa sem a correção — não discrimina",
+    "fail_to_pass": [],
+    "segundos": 1.3,
+    "faixa": "media"
+  },
+  {
+    "seed_repo_id": "tomlkit",
+    "fix_commit": "25ae63abce3181fd376aed7acdc52418d126df04",
+    "base_commit": "9ac3f98214dbfbca0157b6c370c7986f497c34e4",
+    "subject": "Merge AoT fragments when building an out-of-order table proxy (#507)",
+    "arquivos_fonte": [
+      "tomlkit/container.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_toml_document.py"
+    ],
+    "linhas_fonte": 39,
+    "aceito": true,
+    "motivo": "discrimina: 2 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/test_toml_document.py::test_out_of_order_table_merges_aot_fragments",
+      "tests/test_toml_document.py::test_out_of_order_table_merges_three_aot_fragments"
+    ],
+    "segundos": 2.3,
+    "faixa": "media"
+  },
+  {
+    "seed_repo_id": "tomlkit",
+    "fix_commit": "9ac3f98214dbfbca0157b6c370c7986f497c34e4",
+    "base_commit": "80b743ce7935ccf17c254b9f63ba9b2d92641e92",
+    "subject": "Speed up unwrap() by resolving keys from the key map, not items() (#521)",
+    "arquivos_fonte": [
+      "tomlkit/container.py",
+      "tomlkit/items.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_toml_document.py"
+    ],
+    "linhas_fonte": 37,
+    "aceito": false,
+    "motivo": "teste passa sem a correção — não discrimina",
+    "fail_to_pass": [],
+    "segundos": 1.2,
+    "faixa": "media"
+  },
+  {
+    "seed_repo_id": "tomlkit",
+    "fix_commit": "483f240ea7d45bd9c82fbd16d8e63270a69770c3",
+    "base_commit": "ae1b6790d99b21bc0a339a5825e7d5e40e7e6f6a",
+    "subject": "Return a single key from key() for a single-element list (#520)",
+    "arquivos_fonte": [
+      "tomlkit/api.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_api.py"
+    ],
+    "linhas_fonte": 5,
+    "aceito": true,
+    "motivo": "discrimina: 1 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/test_api.py::test_key_with_single_element_list_is_a_single_key"
+    ],
+    "segundos": 2.4,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "tomlkit",
+    "fix_commit": "ae1b6790d99b21bc0a339a5825e7d5e40e7e6f6a",
+    "base_commit": "989c1a79787d63806de37934a6c2b041e1f550d8",
+    "subject": "Validate out-of-order tables incrementally while parsing (#509)",
+    "arquivos_fonte": [
+      "tomlkit/container.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_api.py"
+    ],
+    "linhas_fonte": 63,
+    "aceito": false,
+    "motivo": "suíte estourou o tempo com os testes novos",
+    "fail_to_pass": [],
+    "segundos": 900.2,
+    "faixa": "media"
+  },
+  {
+    "seed_repo_id": "tomlkit",
+    "fix_commit": "989c1a79787d63806de37934a6c2b041e1f550d8",
+    "base_commit": "7c978a512b9b99ac02a5abd689c10418448148b6",
+    "subject": "Skip the value attempt when an array closes right after a value (#517)",
+    "arquivos_fonte": [
+      "tomlkit/parser.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_parser.py"
+    ],
+    "linhas_fonte": 8,
+    "aceito": false,
+    "motivo": "teste passa sem a correção — não discrimina",
+    "fail_to_pass": [],
+    "segundos": 1.8,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "tomlkit",
+    "fix_commit": "7c978a512b9b99ac02a5abd689c10418448148b6",
+    "base_commit": "281ca004386b83bc12d88d79c15b99c714477dc6",
+    "subject": "reject a table redefined after its parent table header (#516)",
+    "arquivos_fonte": [
+      "tomlkit/container.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_parser.py"
+    ],
+    "linhas_fonte": 8,
+    "aceito": true,
+    "motivo": "discrimina: 4 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/test_parser.py::test_parser_rejects_table_redefined_after_parent[[a.b.c]\\n[a]\\n[a.b.c]]",
+      "tests/test_parser.py::test_parser_rejects_table_redefined_after_parent[[a.b]\\n[a.c]\\n[a]\\n[a.b]]",
+      "tests/test_parser.py::test_parser_rejects_table_redefined_after_parent[[a.b]\\n[a]\\n[a.b]]",
+      "tests/test_parser.py::test_parser_rejects_table_redefined_after_parent[[a.b]\\nx"
+    ],
+    "segundos": 2.2,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "tomlkit",
+    "fix_commit": "281ca004386b83bc12d88d79c15b99c714477dc6",
+    "base_commit": "82bb211e031dc50ebf4e25465ee6144b23acd9bf",
+    "subject": "Place inline-table separator after the value, not the comment (#514)",
+    "arquivos_fonte": [
+      "tomlkit/items.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_items.py"
+    ],
+    "linhas_fonte": 14,
+    "aceito": true,
+    "motivo": "discrimina: 1 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/test_items.py::test_append_key_after_inline_table_trailing_comment"
+    ],
+    "segundos": 2.1,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "tomlkit",
+    "fix_commit": "82bb211e031dc50ebf4e25465ee6144b23acd9bf",
+    "base_commit": "5b2b1ffbc1a62df387d7114b733a606933bea17a",
+    "subject": "Add a native OutOfOrderTableProxy.__contains__ (#515)",
+    "arquivos_fonte": [
+      "tomlkit/container.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_items.py"
+    ],
+    "linhas_fonte": 9,
+    "aceito": false,
+    "motivo": "teste passa sem a correção — não discrimina",
+    "fail_to_pass": [],
+    "segundos": 1.1,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "tomlkit",
+    "fix_commit": "5b2b1ffbc1a62df387d7114b733a606933bea17a",
+    "base_commit": "d94175295a128b671858661e318e7040341acb10",
+    "subject": "Prefix every line of a multiline comment with # (#511)",
+    "arquivos_fonte": [
+      "tomlkit/api.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_api.py"
+    ],
+    "linhas_fonte": 10,
+    "aceito": true,
+    "motivo": "discrimina: 1 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/test_api.py::test_comment_multiline_is_valid_toml"
+    ],
+    "segundos": 2.2,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "tomlkit",
+    "fix_commit": "ea9263f9e1dfd5715fabc2951699f0ee144eced9",
+    "base_commit": "afa41a570bfa26d585f851f2a081e3da80e629c9",
+    "subject": "Limit parser nesting depth instead of crashing with RecursionError (#510)",
+    "arquivos_fonte": [
+      "tomlkit/parser.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_api.py"
+    ],
+    "linhas_fonte": 58,
+    "aceito": true,
+    "motivo": "discrimina: 5 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/test_api.py::test_parse_accepts_nesting_at_the_depth_limit",
+      "tests/test_api.py::test_parse_rejects_deeply_nested_documents[[[a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a]]\\nx",
+      "tests/test_api.py::test_parse_rejects_deeply_nested_documents[[a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a]\\nx",
+      "tests/test_api.py::test_parse_rejects_deeply_nested_documents[a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a",
+      "tests/test_api.py::test_parse_rejects_deeply_nested_documents[x"
+    ],
+    "segundos": 2.3,
+    "faixa": "media"
+  },
+  {
+    "seed_repo_id": "tomlkit",
+    "fix_commit": "afa41a570bfa26d585f851f2a081e3da80e629c9",
+    "base_commit": "f9b4b227f88ade30c1a95721f40eb19e237fa224",
+    "subject": "Render self-dumping wrappers via as_string in dumps() (#508)",
+    "arquivos_fonte": [
+      "tomlkit/api.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_api.py"
+    ],
+    "linhas_fonte": 14,
+    "aceito": true,
+    "motivo": "discrimina: 1 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/test_api.py::test_dumps_wrapper_delegating_as_string_preserves_layout"
+    ],
+    "segundos": 2.1,
+    "faixa": "baixa"
+  }
+]

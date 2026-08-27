@@ -9,10 +9,13 @@ quais servem é trabalho de execução, não de leitura de mensagem de commit.
 
 Para cada commit candidato, com o pai como commit-base:
 
+  0. a suíte tem de estar VERDE no pai — sem isso não dá para atribuir
+     falha nenhuma ao agente, e o passo 1 ficaria vermelho pelo motivo
+     errado;
   1. traz os arquivos de teste do commit de correção, deixa a fonte velha;
      a suíte tem de ficar VERMELHA — se não ficar, o teste não discrimina;
   2. traz também a fonte; a suíte tem de ficar VERDE — se não ficar, o
-     commit-base não estava sadio ou o corte está errado.
+     corte está errado.
 
 O fail-to-pass sai daí: são exatamente os node ids que falharam em (1) e
 passaram em (2). Nada é inferido do texto do commit.
@@ -64,6 +67,17 @@ class Candidato:
     motivo: str = ""
     fail_to_pass: list[str] = field(default_factory=list)
     segundos: float = 0.0
+
+    @property
+    def f2p_arquivos(self) -> int:
+        """
+        Em quantos arquivos de teste o fail-to-pass se espalha.
+
+        Sinal de que o commit é um lote de correções sem relação entre si, e
+        não um problema. O peewee 08b28d14 tem 6 f2p em 6 arquivos: seriam
+        seis tarefas espremidas numa, com enunciado incoerente.
+        """
+        return len({n.split("::", 1)[0] for n in self.fail_to_pass})
 
     @property
     def faixa(self) -> str:
@@ -154,6 +168,15 @@ def avaliar(cand: Candidato, repo: SeedRepoSpec, raiz: Path, *, timeout_s: int) 
     )
 
     try:
+        # 0. a base precisa estar sadia. Sem esta checagem entram commits cuja
+        # suíte já estava vermelha, e o vermelho do passo 1 seria por outro
+        # motivo — o sqlite-utils d9a0fd26 passou assim, com 3 dos 4 f2p num
+        # arquivo de teste que o commit sequer tocou.
+        base = run_pytest(ws, timeout_s=timeout_s)
+        if not base.green:
+            return _fechar(cand, comeco,
+                           f"commit-base já vermelho ({base.failed} falhas)")
+
         # 1. testes novos sobre a fonte velha: tem de ficar vermelho
         _git("checkout", cand.fix_commit, "--", *cand.arquivos_teste, cwd=ws.root)
         antes = run_pytest(ws, timeout_s=timeout_s)
@@ -177,7 +200,8 @@ def avaliar(cand: Candidato, repo: SeedRepoSpec, raiz: Path, *, timeout_s: int) 
 
         cand.fail_to_pass = sorted(antes.failing_node_ids)
         cand.aceito = True
-        cand.motivo = f"discrimina: {len(cand.fail_to_pass)} teste(s) f2p"
+        cand.motivo = (f"discrimina: {len(cand.fail_to_pass)} teste(s) f2p "
+                       f"em {cand.f2p_arquivos} arquivo(s)")
         return _fechar(cand, comeco, cand.motivo)
     finally:
         ws.cleanup()
@@ -202,6 +226,9 @@ def minerar(repo: SeedRepoSpec, *, limite: int, varredura: int, timeout_s: int,
         marca = "ACEITO " if resultado.aceito else "recusa "
         print(f"  [{i:>3}/{min(limite, len(candidatos))}] {marca} {resultado.fix_commit[:8]} "
               f"{resultado.faixa:<6} {resultado.segundos:>5.1f}s  {resultado.subject[:60]}")
+        if resultado.aceito and resultado.f2p_arquivos > 2:
+            print(f"                atenção: f2p em {resultado.f2p_arquivos} arquivos "
+                  f"— provável lote de correções, não um problema")
         if not resultado.aceito:
             print(f"                {resultado.motivo[:100]}")
     return avaliados
@@ -235,7 +262,8 @@ def main() -> None:
                             timeout_s=args.timeout, raiz=raiz)
         destino = args.out / f"{seed_repo_id}.json"
         destino.write_text(
-            json.dumps([asdict(c) | {"faixa": c.faixa} for c in avaliados],
+            json.dumps([asdict(c) | {"faixa": c.faixa, "f2p_arquivos": c.f2p_arquivos}
+                       for c in avaliados],
                        ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         total += avaliados
         print(f"  -> {destino}")

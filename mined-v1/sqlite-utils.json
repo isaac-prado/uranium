@@ -1,0 +1,636 @@
+[
+  {
+    "seed_repo_id": "sqlite-utils",
+    "fix_commit": "f6d73112c8368cd6eb2ac596966e8148747c7b4e",
+    "base_commit": "1d98613f28b8edab5fd0deb5ba65d54fb286e7ba",
+    "subject": "Fix for sqlite-utils 4.2 crashing bug (#843)",
+    "arquivos_fonte": [
+      "sqlite_utils/db.py"
+    ],
+    "arquivos_teste": [
+      ".github/workflows/test.yml"
+    ],
+    "linhas_fonte": 4,
+    "aceito": false,
+    "motivo": "vermelho sem node id: erro de coleta",
+    "fail_to_pass": [],
+    "segundos": 0.3,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "sqlite-utils",
+    "fix_commit": "e4935e064407bc995f77795c025c33cef52d742e",
+    "base_commit": "75ba58846206b2c1beb39836134e763bf34177aa",
+    "subject": "transform: coerce empty strings to NULL when converting TEXT columns to numeric types (#805)",
+    "arquivos_fonte": [
+      "sqlite_utils/db.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_transform.py"
+    ],
+    "linhas_fonte": 21,
+    "aceito": false,
+    "motivo": "vermelho sem node id: erro de coleta",
+    "fail_to_pass": [],
+    "segundos": 0.2,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "sqlite-utils",
+    "fix_commit": "75ba58846206b2c1beb39836134e763bf34177aa",
+    "base_commit": "2b52b5ed6f4a6e553e3620d8424374fc7cbf95fd",
+    "subject": "Preserve composite UNIQUE constraints in transforms",
+    "arquivos_fonte": [
+      "sqlite_utils/create_table_parser.py",
+      "sqlite_utils/db.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_create_table_parser.py",
+      "tests/test_transform.py"
+    ],
+    "linhas_fonte": 312,
+    "aceito": false,
+    "motivo": "vermelho sem node id: erro de coleta",
+    "fail_to_pass": [],
+    "segundos": 0.2,
+    "faixa": "media"
+  },
+  {
+    "seed_repo_id": "sqlite-utils",
+    "fix_commit": "2b52b5ed6f4a6e553e3620d8424374fc7cbf95fd",
+    "base_commit": "fcfccea8132e4aa6167a14f9afec5a690de7485c",
+    "subject": "Preserve AUTOINCREMENT through transforms",
+    "arquivos_fonte": [
+      "sqlite_utils/create_table_parser.py",
+      "sqlite_utils/db.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_create_table_parser.py",
+      "tests/test_transform.py"
+    ],
+    "linhas_fonte": 90,
+    "aceito": false,
+    "motivo": "vermelho sem node id: erro de coleta",
+    "fail_to_pass": [],
+    "segundos": 0.2,
+    "faixa": "media"
+  },
+  {
+    "seed_repo_id": "sqlite-utils",
+    "fix_commit": "fcfccea8132e4aa6167a14f9afec5a690de7485c",
+    "base_commit": "57192ef4e36c334bc2946a10547bf64d63621127",
+    "subject": "Support ANY column types for strict tables",
+    "arquivos_fonte": [
+      "sqlite_utils/__init__.py",
+      "sqlite_utils/cli.py",
+      "sqlite_utils/db.py",
+      "sqlite_utils/utils.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_cli.py",
+      "tests/test_column_affinity.py",
+      "tests/test_create.py",
+      "tests/test_extract.py",
+      "tests/test_transform.py"
+    ],
+    "linhas_fonte": 53,
+    "aceito": false,
+    "motivo": "vermelho sem node id: erro de coleta",
+    "fail_to_pass": [],
+    "segundos": 0.2,
+    "faixa": "alta"
+  },
+  {
+    "seed_repo_id": "sqlite-utils",
+    "fix_commit": "57192ef4e36c334bc2946a10547bf64d63621127",
+    "base_commit": "e4784ec1200b7408a037c50009dc07d88a5ac577",
+    "subject": "table.transform(rename=...) now preserves indexes, closes #822",
+    "arquivos_fonte": [
+      "sqlite_utils/db.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_transform.py"
+    ],
+    "linhas_fonte": 98,
+    "aceito": false,
+    "motivo": "vermelho sem node id: erro de coleta",
+    "fail_to_pass": [],
+    "segundos": 0.2,
+    "faixa": "media"
+  },
+  {
+    "seed_repo_id": "sqlite-utils",
+    "fix_commit": "88b48fa1674c396bfda330d1c609bc7108f952f2",
+    "base_commit": "e6be6267a4eda2d35e57a50400208fe1bb66d6d3",
+    "subject": "Fixed introspection of default values TRUE / FALSE / NULL",
+    "arquivos_fonte": [
+      "sqlite_utils/db.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_create.py",
+      "tests/test_introspect.py"
+    ],
+    "linhas_fonte": 7,
+    "aceito": false,
+    "motivo": "vermelho sem node id: erro de coleta",
+    "fail_to_pass": [],
+    "segundos": 0.2,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "sqlite-utils",
+    "fix_commit": "e6be6267a4eda2d35e57a50400208fe1bb66d6d3",
+    "base_commit": "c5063f67b10ff194392dcbce7b64f409f866dd72",
+    "subject": "Use quote_identifier() in indexes/xindexes PRAGMA statements (#825)",
+    "arquivos_fonte": [
+      "sqlite_utils/db.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_introspect.py"
+    ],
+    "linhas_fonte": 14,
+    "aceito": false,
+    "motivo": "vermelho sem node id: erro de coleta",
+    "fail_to_pass": [],
+    "segundos": 0.2,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "sqlite-utils",
+    "fix_commit": "c5063f67b10ff194392dcbce7b64f409f866dd72",
+    "base_commit": "25c632fbbc286b6e5d622a975a2231c12ce6837c",
+    "subject": "Use quoted SQL identifiers in convert --dry-run, closes #829",
+    "arquivos_fonte": [
+      "sqlite_utils/cli.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_cli_convert.py"
+    ],
+    "linhas_fonte": 10,
+    "aceito": false,
+    "motivo": "vermelho sem node id: erro de coleta",
+    "fail_to_pass": [],
+    "segundos": 0.2,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "sqlite-utils",
+    "fix_commit": "ebb04a97de765ce5f0b6d1149c992062fa25629a",
+    "base_commit": "38fe4667006bc03b0dc22852de3bd891645b5707",
+    "subject": "Fixes for Pyright, closes #833",
+    "arquivos_fonte": [
+      "sqlite_utils/cli.py",
+      "sqlite_utils/db.py",
+      "sqlite_utils/utils.py"
+    ],
+    "arquivos_teste": [
+      ".github/workflows/test.yml",
+      "pyproject.toml",
+      "tests/test_cli.py",
+      "tests/test_cli_bulk.py",
+      "tests/test_cli_insert.py",
+      "tests/test_constructor.py",
+      "tests/test_create.py",
+      "tests/test_foreign_keys.py",
+      "tests/test_fts.py",
+      "tests/test_list_mode.py",
+      "tests/test_register_function.py",
+      "tests/test_upsert.py"
+    ],
+    "linhas_fonte": 163,
+    "aceito": false,
+    "motivo": "vermelho sem node id: erro de coleta",
+    "fail_to_pass": [],
+    "segundos": 0.2,
+    "faixa": "media"
+  },
+  {
+    "seed_repo_id": "sqlite-utils",
+    "fix_commit": "43d5d3331f5bd056d20ee61903142b86a2ee0efb",
+    "base_commit": "2d3c6b9a1e5068fcee6923c9ed74cbd158ee9db4",
+    "subject": "Emit LIMIT -1 when offset is used without limit (#821)",
+    "arquivos_fonte": [
+      "sqlite_utils/cli.py",
+      "sqlite_utils/db.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_cli.py",
+      "tests/test_fts.py",
+      "tests/test_rows.py"
+    ],
+    "linhas_fonte": 8,
+    "aceito": false,
+    "motivo": "vermelho sem node id: erro de coleta",
+    "fail_to_pass": [],
+    "segundos": 0.2,
+    "faixa": "media"
+  },
+  {
+    "seed_repo_id": "sqlite-utils",
+    "fix_commit": "2d3c6b9a1e5068fcee6923c9ed74cbd158ee9db4",
+    "base_commit": "b37b8cf8c83515a022e7ec0b1599004bb2f7eb55",
+    "subject": "Escape tokenize argument in enable_fts (#828)",
+    "arquivos_fonte": [
+      "sqlite_utils/db.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_fts.py"
+    ],
+    "linhas_fonte": 4,
+    "aceito": false,
+    "motivo": "vermelho sem node id: erro de coleta",
+    "fail_to_pass": [],
+    "segundos": 0.2,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "sqlite-utils",
+    "fix_commit": "b37b8cf8c83515a022e7ec0b1599004bb2f7eb55",
+    "base_commit": "b432e686ca3d3449df74899393ab05cb4f40f6d7",
+    "subject": "Preserve column before/after comments through .transform()",
+    "arquivos_fonte": [
+      "sqlite_utils/create_table_parser.py",
+      "sqlite_utils/db.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_create_table_parser.py",
+      "tests/test_transform.py"
+    ],
+    "linhas_fonte": 108,
+    "aceito": false,
+    "motivo": "vermelho sem node id: erro de coleta",
+    "fail_to_pass": [],
+    "segundos": 0.2,
+    "faixa": "media"
+  },
+  {
+    "seed_repo_id": "sqlite-utils",
+    "fix_commit": "2303b80aef69abe418636dc980c5350958d55411",
+    "base_commit": "3db0c57a3bc9d8468db430ebe0ffd0da213fdda3",
+    "subject": ".transform() preserves check constraints, refs #762",
+    "arquivos_fonte": [
+      "sqlite_utils/create_table_parser.py",
+      "sqlite_utils/db.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_mutator_transactions.py",
+      "tests/test_transform.py"
+    ],
+    "linhas_fonte": 148,
+    "aceito": false,
+    "motivo": "vermelho sem node id: erro de coleta",
+    "fail_to_pass": [],
+    "segundos": 0.2,
+    "faixa": "media"
+  },
+  {
+    "seed_repo_id": "sqlite-utils",
+    "fix_commit": "f726ea4a65c3ce9eaff67057908ee8f2fe7f81e0",
+    "base_commit": "6a456830ca33eb5edaa634a9b0febe5d71bea2be",
+    "subject": "transform() now works for tables referenced by views (#832)",
+    "arquivos_fonte": [
+      "sqlite_utils/db.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_transform.py"
+    ],
+    "linhas_fonte": 21,
+    "aceito": false,
+    "motivo": "vermelho sem node id: erro de coleta",
+    "fail_to_pass": [],
+    "segundos": 0.3,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "sqlite-utils",
+    "fix_commit": "6a456830ca33eb5edaa634a9b0febe5d71bea2be",
+    "base_commit": "a7b734946f95341f52d866321c183e3532ac0aad",
+    "subject": "Fix _decode_default_value to unescape doubled single quotes in string defaults (#811)",
+    "arquivos_fonte": [
+      "sqlite_utils/db.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_introspect.py"
+    ],
+    "linhas_fonte": 4,
+    "aceito": false,
+    "motivo": "vermelho sem node id: erro de coleta",
+    "fail_to_pass": [],
+    "segundos": 0.2,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "sqlite-utils",
+    "fix_commit": "f66ddcb215e76dcbc1fa1dff4359f2ac3dc702e5",
+    "base_commit": "d71420065903ff54247b5062b8c6af6165b7e638",
+    "subject": "Transform now refuses to run inside a transaction if destructive foreign keys exist (#795)",
+    "arquivos_fonte": [
+      "sqlite_utils/db.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_transform.py"
+    ],
+    "linhas_fonte": 35,
+    "aceito": true,
+    "motivo": "discrimina: 4 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/test_transform.py::test_transform_in_transaction_refuses_destructive_on_delete[CASCADE]",
+      "tests/test_transform.py::test_transform_in_transaction_refuses_destructive_on_delete[SET",
+      "tests/test_transform.py::test_transform_in_transaction_refuses_destructive_on_delete[cascade]",
+      "tests/test_transform.py::test_transform_in_transaction_refuses_self_referential_cascade"
+    ],
+    "segundos": 23.0,
+    "faixa": "media"
+  },
+  {
+    "seed_repo_id": "sqlite-utils",
+    "fix_commit": "b74b72703588863464880232e596001d958df180",
+    "base_commit": "dc61f75a0ba84bca00f88da374df29610e8164cb",
+    "subject": ".transform(strict=) and sqlite-utils transform --strict/--no-strict (#788)",
+    "arquivos_fonte": [
+      "sqlite_utils/cli.py",
+      "sqlite_utils/db.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_cli.py",
+      "tests/test_transform.py"
+    ],
+    "linhas_fonte": 21,
+    "aceito": true,
+    "motivo": "discrimina: 13 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/test_cli.py::test_transform_strict_option[False-args2-True]",
+      "tests/test_cli.py::test_transform_strict_option[True-args3-False]",
+      "tests/test_cli.py::test_transform_strict_option_sql[False---strict-True]",
+      "tests/test_cli.py::test_transform_strict_option_sql[True---no-strict-False]",
+      "tests/test_cli.py::test_transform_strict_option_with_invalid_data",
+      "tests/test_transform.py::test_transform_strict[False-None-False]",
+      "tests/test_transform.py::test_transform_strict[False-True-True]",
+      "tests/test_transform.py::test_transform_strict[True-False-False]",
+      "tests/test_transform.py::test_transform_strict[True-None-True]",
+      "tests/test_transform.py::test_transform_strict_updates_default",
+      "tests/test_transform.py::test_transform_to_strict_not_supported[transform]",
+      "tests/test_transform.py::test_transform_to_strict_not_supported[transform_sql]",
+      "tests/test_transform.py::test_transform_to_strict_with_invalid_data"
+    ],
+    "segundos": 30.2,
+    "faixa": "media"
+  },
+  {
+    "seed_repo_id": "sqlite-utils",
+    "fix_commit": "7a52214624ae0e2c3fdf07215c1bcfc1393dbd93",
+    "base_commit": "d302835d57bcf53c36c0dc67356ec292f55a5931",
+    "subject": "drop-index command and table.drop_index(index_name)",
+    "arquivos_fonte": [
+      "sqlite_utils/cli.py",
+      "sqlite_utils/db.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_cli.py",
+      "tests/test_create.py"
+    ],
+    "linhas_fonte": 44,
+    "aceito": false,
+    "motivo": "não fica verde com a correção (1 falhas, 0 das mesmas) — base insalubre ou corte errado",
+    "fail_to_pass": [],
+    "segundos": 27.9,
+    "faixa": "media"
+  },
+  {
+    "seed_repo_id": "sqlite-utils",
+    "fix_commit": "d2ac3765ed9f0516bb0cbc2508a5c3907fb6a71a",
+    "base_commit": "092f0919c3c254de0801dda60e7bbf8b73818c6c",
+    "subject": "sqlite-utils insert/upsert --type colunm-name type option, closes #131",
+    "arquivos_fonte": [
+      "sqlite_utils/cli.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_cli_insert.py"
+    ],
+    "linhas_fonte": 28,
+    "aceito": true,
+    "motivo": "discrimina: 2 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/test_cli_insert.py::test_insert_upsert_csv_type_overrides_detected_types[insert-extra_args0-zipcode,score\\n01234,9.5\\n-expected_row0]",
+      "tests/test_cli_insert.py::test_insert_upsert_csv_type_overrides_detected_types[upsert-extra_args1-id,zipcode,score\\n1,01234,9.5\\n-expected_row1]"
+    ],
+    "segundos": 21.5,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "sqlite-utils",
+    "fix_commit": "569608e40f28893262d727adadddbf3d077112da",
+    "base_commit": "23a21c1d6bc8aa1c17a49b37181aadffd7abb8be",
+    "subject": "sqlite-utils insert --code option, closes #684",
+    "arquivos_fonte": [
+      "sqlite_utils/cli.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_cli_insert.py"
+    ],
+    "linhas_fonte": 232,
+    "aceito": true,
+    "motivo": "discrimina: 12 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/test_cli_insert.py::test_insert_code[\\ndef",
+      "tests/test_cli_insert.py::test_insert_code[\\nrows",
+      "tests/test_cli_insert.py::test_insert_code_file_not_found",
+      "tests/test_cli_insert.py::test_insert_code_from_file",
+      "tests/test_cli_insert.py::test_insert_code_missing_rows",
+      "tests/test_cli_insert.py::test_insert_code_mutually_exclusive_with_file",
+      "tests/test_cli_insert.py::test_insert_code_not_iterable",
+      "tests/test_cli_insert.py::test_insert_code_rejects_input_format_options",
+      "tests/test_cli_insert.py::test_insert_code_requires_file_or_code",
+      "tests/test_cli_insert.py::test_insert_code_single_dict",
+      "tests/test_cli_insert.py::test_insert_code_syntax_error",
+      "tests/test_cli_insert.py::test_upsert_code"
+    ],
+    "segundos": 28.0,
+    "faixa": "media"
+  },
+  {
+    "seed_repo_id": "sqlite-utils",
+    "fix_commit": "ebafb84c93bd3666e0e6acd24bfafe070f25cdee",
+    "base_commit": "aa300942bfcba0bd788951db0b9070cf291c193a",
+    "subject": "Allow sqlite-utils upsert to infer --pk from existing table",
+    "arquivos_fonte": [
+      "sqlite_utils/cli.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_cli.py"
+    ],
+    "linhas_fonte": 7,
+    "aceito": true,
+    "motivo": "discrimina: 1 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/test_cli.py::test_upsert_pk_inferred_from_existing_table"
+    ],
+    "segundos": 23.5,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "sqlite-utils",
+    "fix_commit": "619770bf427e47657099f1a4fdaa8777ec4c68d8",
+    "base_commit": "353baf280d3765b9680a49276945a0e96bc9e238",
+    "subject": "sqlite-utils query - to read SQL from stdin, closes #765",
+    "arquivos_fonte": [
+      "sqlite_utils/cli.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_cli.py"
+    ],
+    "linhas_fonte": 8,
+    "aceito": true,
+    "motivo": "discrimina: 1 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/test_cli.py::test_query_sql_from_stdin"
+    ],
+    "segundos": 25.5,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "sqlite-utils",
+    "fix_commit": "60811e730509667f702bc08f9bf5fc3fe13b7f45",
+    "base_commit": "d314d04215f7337d42c847214861ec7ffe0bf757",
+    "subject": "Fix rowid pk and last_rowid regressions in insert/upsert",
+    "arquivos_fonte": [
+      "sqlite_utils/db.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_create.py"
+    ],
+    "linhas_fonte": 97,
+    "aceito": true,
+    "motivo": "discrimina: 12 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/test_create.py::test_insert_ignore_reports_existing_row",
+      "tests/test_create.py::test_insert_ignore_reports_existing_row_compound_pk",
+      "tests/test_create.py::test_insert_ignore_reports_existing_row_list_mode",
+      "tests/test_create.py::test_pk_rowid_alias_on_rowid_table[insert_ignore-_rowid_]",
+      "tests/test_create.py::test_pk_rowid_alias_on_rowid_table[insert_ignore-oid]",
+      "tests/test_create.py::test_pk_rowid_alias_on_rowid_table[insert_ignore-rowid]",
+      "tests/test_create.py::test_pk_rowid_alias_on_rowid_table[insert_replace-_rowid_]",
+      "tests/test_create.py::test_pk_rowid_alias_on_rowid_table[insert_replace-oid]",
+      "tests/test_create.py::test_pk_rowid_alias_on_rowid_table[insert_replace-rowid]",
+      "tests/test_create.py::test_pk_rowid_alias_on_rowid_table[upsert-_rowid_]",
+      "tests/test_create.py::test_pk_rowid_alias_on_rowid_table[upsert-oid]",
+      "tests/test_create.py::test_pk_rowid_alias_on_rowid_table[upsert-rowid]"
+    ],
+    "segundos": 32.4,
+    "faixa": "media"
+  },
+  {
+    "seed_repo_id": "sqlite-utils",
+    "fix_commit": "d9a0fd26e09a7e1c07b7356d0cd25a22695f89c5",
+    "base_commit": "c2a17744095553c7fcc4706cc5da1d20045a299e",
+    "subject": "Transaction cleanup no longer masks transaction-destroying errors",
+    "arquivos_fonte": [
+      "sqlite_utils/db.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_query.py"
+    ],
+    "linhas_fonte": 22,
+    "aceito": true,
+    "motivo": "discrimina: 4 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/test_atomic.py::test_atomic_preserves_error_from_insert_or_rollback",
+      "tests/test_atomic.py::test_atomic_preserves_error_from_transaction_destroying_trigger",
+      "tests/test_atomic.py::test_nested_atomic_preserves_error_from_transaction_destroying_trigger",
+      "tests/test_query.py::test_query_preserves_error_from_transaction_destroying_trigger"
+    ],
+    "segundos": 25.0,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "sqlite-utils",
+    "fix_commit": "93640a7ddedf008036427a3e5bbd033d17cbe9df",
+    "base_commit": "548a886ca1d2ba6c259676da2c8e00f022bacc2c",
+    "subject": "migrate --list is read-only with legacy sqlite-migrate classes too",
+    "arquivos_fonte": [
+      "sqlite_utils/cli.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_cli_migrate.py"
+    ],
+    "linhas_fonte": 9,
+    "aceito": false,
+    "motivo": "não fica verde com a correção (1 falhas, 1 das mesmas) — base insalubre ou corte errado",
+    "fail_to_pass": [],
+    "segundos": 36.4,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "sqlite-utils",
+    "fix_commit": "548a886ca1d2ba6c259676da2c8e00f022bacc2c",
+    "base_commit": "8572d1e39c3c807bc0643249411fb33bd0881eb6",
+    "subject": "Clean CLI errors for InvalidColumns from insert --pk and extract",
+    "arquivos_fonte": [
+      "sqlite_utils/cli.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_cli.py",
+      "tests/test_cli_insert.py"
+    ],
+    "linhas_fonte": 8,
+    "aceito": false,
+    "motivo": "não fica verde com a correção (1 falhas, 1 das mesmas) — base insalubre ou corte errado",
+    "fail_to_pass": [],
+    "segundos": 34.6,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "sqlite-utils",
+    "fix_commit": "8572d1e39c3c807bc0643249411fb33bd0881eb6",
+    "base_commit": "16bbfb582d6acf33a8c05317b64d93c85e184a5c",
+    "subject": "extract() no longer duplicates NULL-containing rows in shared lookups",
+    "arquivos_fonte": [
+      "sqlite_utils/db.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_extract.py"
+    ],
+    "linhas_fonte": 18,
+    "aceito": false,
+    "motivo": "não fica verde com a correção (1 falhas, 1 das mesmas) — base insalubre ou corte errado",
+    "fail_to_pass": [],
+    "segundos": 33.0,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "sqlite-utils",
+    "fix_commit": "16bbfb582d6acf33a8c05317b64d93c85e184a5c",
+    "base_commit": "a0387791e511a17eb96e0ed667da222550a00412",
+    "subject": "add_foreign_keys() errors instead of silently dropping action changes",
+    "arquivos_fonte": [
+      "sqlite_utils/db.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_foreign_keys.py"
+    ],
+    "linhas_fonte": 25,
+    "aceito": false,
+    "motivo": "não fica verde com a correção (1 falhas, 1 das mesmas) — base insalubre ou corte errado",
+    "fail_to_pass": [],
+    "segundos": 31.5,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "sqlite-utils",
+    "fix_commit": "a0387791e511a17eb96e0ed667da222550a00412",
+    "base_commit": "b3aa3f47b717bba2c166f11e59a35bcd2f8e6b09",
+    "subject": "ensure_autocommit_on() raises TransactionError inside a transaction",
+    "arquivos_fonte": [
+      "sqlite_utils/db.py"
+    ],
+    "arquivos_teste": [
+      "tests/test_wal.py"
+    ],
+    "linhas_fonte": 9,
+    "aceito": false,
+    "motivo": "não fica verde com a correção (1 falhas, 1 das mesmas) — base insalubre ou corte errado",
+    "fail_to_pass": [],
+    "segundos": 25.2,
+    "faixa": "baixa"
+  }
+]

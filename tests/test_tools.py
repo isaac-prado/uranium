@@ -345,3 +345,42 @@ class TestIntegracaoTelemetria:
         assert evento["tool_exit_code"] == 0
         assert evento["payload"]["green"] is True
         assert evento["payload"]["passed"] > 0
+
+
+class TestNodeIdParametrizado:
+    """
+    O node id vai até o fim da linha, não até o primeiro espaço.
+
+    `\\S+` truncava `test_x[SET NULL]` em `test_x[SET`, que o pytest não sabe
+    reexecutar. Como o fail-to-pass de cada tarefa é escrito a partir dessa
+    extração, o oráculo saía inútil — e em silêncio, porque um node id
+    inexistente vira "erro de coleta", não "id errado".
+    """
+
+    SAIDA = (
+        "FAILED tests/test_transform.py::test_refuses[SET NULL] - AssertionError: x\n"
+        "FAILED tests/test_transform.py::test_refuses[CASCADE]\n"
+        "ERROR tests/test_z.py\n"
+        "2 failed, 3 passed in 0.5s"
+    )
+
+    def test_preserva_espaco_dentro_do_parametro(self):
+        from src.tools.exec import parse_pytest_output
+
+        ids = parse_pytest_output(self.SAIDA, 1, 0.5)["failing_node_ids"]
+        assert "tests/test_transform.py::test_refuses[SET NULL]" in ids
+
+    def test_descarta_a_mensagem_depois_do_hifen(self):
+        from src.tools.exec import parse_pytest_output
+
+        ids = parse_pytest_output(self.SAIDA, 1, 0.5)["failing_node_ids"]
+        assert all("AssertionError" not in i for i in ids)
+        assert len(ids) == 3
+
+    def test_harness_extrai_igual_ao_src(self):
+        """Divergência aqui faz o agente e o avaliador falarem de testes diferentes."""
+        from harness.pytest_runner import parse_output
+        from src.tools.exec import parse_pytest_output
+
+        assert (sorted(parse_output(self.SAIDA, 0.5)["failing_node_ids"])
+                == sorted(parse_pytest_output(self.SAIDA, 1, 0.5)["failing_node_ids"]))

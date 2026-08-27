@@ -1,0 +1,644 @@
+[
+  {
+    "seed_repo_id": "peewee",
+    "fix_commit": "b8a336d04cb62678839e750b75ffd9de98a5f943",
+    "base_commit": "608f1440490f1edaf433a07c61cdcb890bdd8a0e",
+    "subject": "Allow specifying a default `lock_type` for sqlite txns.",
+    "arquivos_fonte": [
+      "peewee.py",
+      "playhouse/apsw_ext.py",
+      "playhouse/cysqlite_ext.py"
+    ],
+    "arquivos_teste": [
+      "tests/transactions.py"
+    ],
+    "linhas_fonte": 11,
+    "aceito": true,
+    "motivo": "discrimina: 1 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/__init__.py::TestTransactionLockType::test_default_lock_type"
+    ],
+    "segundos": 56.6,
+    "faixa": "media"
+  },
+  {
+    "seed_repo_id": "peewee",
+    "fix_commit": "510576ca1d0162ec98d5e4089f2bc4227af489cf",
+    "base_commit": "cfd2421cbfcf7f7e505a755ab71d9f0929641bcb",
+    "subject": "Fix apsw window func registration.",
+    "arquivos_fonte": [
+      "playhouse/apsw_ext.py"
+    ],
+    "arquivos_teste": [
+      "tests/apsw_ext.py"
+    ],
+    "linhas_fonte": 7,
+    "aceito": false,
+    "motivo": "teste passa sem a correção — não discrimina",
+    "fail_to_pass": [],
+    "segundos": 22.7,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "peewee",
+    "fix_commit": "cfd2421cbfcf7f7e505a755ab71d9f0929641bcb",
+    "base_commit": "5842026613fbcb3f4a0be8576e1ccde9852ec8d0",
+    "subject": "No longer override MySQL/MariaDB sql_mode, set charset=utf8mb4.",
+    "arquivos_fonte": [
+      "peewee.py"
+    ],
+    "arquivos_teste": [
+      "tests/migrations.py",
+      "tests/models.py"
+    ],
+    "linhas_fonte": 25,
+    "aceito": false,
+    "motivo": "teste passa sem a correção — não discrimina",
+    "fail_to_pass": [],
+    "segundos": 22.1,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "peewee",
+    "fix_commit": "408aa4c130267ffd1e3ec5d09c0595e8d9a9bd98",
+    "base_commit": "8359b7bb8a00221b6d0ba4cf2bc29a67f1c6ac8c",
+    "subject": "Ensure we properly bind JSONField for initialized proxies.",
+    "arquivos_fonte": [
+      "peewee.py"
+    ],
+    "arquivos_teste": [
+      "tests/json_field.py"
+    ],
+    "linhas_fonte": 19,
+    "aceito": true,
+    "motivo": "discrimina: 1 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/__init__.py::TestDeferredDatabase::test_proxy_initialized_early"
+    ],
+    "segundos": 55.3,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "peewee",
+    "fix_commit": "8359b7bb8a00221b6d0ba4cf2bc29a67f1c6ac8c",
+    "base_commit": "5dacbe9dcd8c18879b999e394e88a97c3429273b",
+    "subject": "Fix for Insert query attempting to access attr before bind.",
+    "arquivos_fonte": [
+      "peewee.py"
+    ],
+    "arquivos_teste": [
+      "tests/models.py"
+    ],
+    "linhas_fonte": 18,
+    "aceito": false,
+    "motivo": "teste passa sem a correção — não discrimina",
+    "fail_to_pass": [],
+    "segundos": 21.5,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "peewee",
+    "fix_commit": "5dacbe9dcd8c18879b999e394e88a97c3429273b",
+    "base_commit": "9b3bff5f1433c6acef1672ae2cde41746543b691",
+    "subject": "Flesh out reconnectmixin errors, clarify doc for pg users.",
+    "arquivos_fonte": [
+      "playhouse/shortcuts.py"
+    ],
+    "arquivos_teste": [
+      "tests/shortcuts.py"
+    ],
+    "linhas_fonte": 7,
+    "aceito": false,
+    "motivo": "teste passa sem a correção — não discrimina",
+    "fail_to_pass": [],
+    "segundos": 26.4,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "peewee",
+    "fix_commit": "08b28d1487f188a178a6428e9f43203ee16607eb",
+    "base_commit": "fc1811ecc1c55be8b1c4fd116c5d05c4ff7cf794",
+    "subject": "commit/rollback on a closed connection will raise rather than re-open.",
+    "arquivos_fonte": [
+      "peewee.py",
+      "playhouse/apsw_ext.py",
+      "playhouse/cysqlite_ext.py",
+      "playhouse/migrate.py",
+      "playhouse/pool.py",
+      "playhouse/reflection.py"
+    ],
+    "arquivos_teste": [
+      "tests/apsw_ext.py",
+      "tests/cysqlite_ext.py",
+      "tests/migrations.py",
+      "tests/reflection.py",
+      "tests/sql.py",
+      "tests/transactions.py"
+    ],
+    "linhas_fonte": 72,
+    "aceito": true,
+    "motivo": "discrimina: 6 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/__init__.py::TestOnConflictSqlite::test_unbound_error",
+      "tests/__init__.py::TestReflection::test_column_map_not_shared_with_class",
+      "tests/__init__.py::TestSchemaMigration::test_make_index_name_long",
+      "tests/__init__.py::TestTransaction::test_commit_rollback_closed",
+      "tests/__init__.py::TestTransaction::test_mixing_manual_db_context",
+      "tests/__init__.py::TestWindowFunctions::test_duplicate_window_alias_error"
+    ],
+    "segundos": 71.9,
+    "faixa": "alta"
+  },
+  {
+    "seed_repo_id": "peewee",
+    "fix_commit": "fc1811ecc1c55be8b1c4fd116c5d05c4ff7cf794",
+    "base_commit": "baee95877420ec6336c8b1459f92ee14362c5e21",
+    "subject": "Add helper for unwrapping db if it's a proxy.",
+    "arquivos_fonte": [
+      "peewee.py"
+    ],
+    "arquivos_teste": [
+      "tests/models.py"
+    ],
+    "linhas_fonte": 13,
+    "aceito": true,
+    "motivo": "discrimina: 1 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/__init__.py::TestMetadataEdgeCases::test_get_database_instance"
+    ],
+    "segundos": 80.0,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "peewee",
+    "fix_commit": "f5e439d3eaa3aecc5621c6f121df854086eec008",
+    "base_commit": "c12b753156e36b1cf75606290bb240b4748d55d5",
+    "subject": "Apply a LIMIT 1 on scalar(), fixes #3068",
+    "arquivos_fonte": [
+      "peewee.py"
+    ],
+    "arquivos_teste": [
+      "tests/models.py"
+    ],
+    "linhas_fonte": 4,
+    "aceito": true,
+    "motivo": "discrimina: 1 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/__init__.py::TestScalarIntegration::test_scalar_implicit_limit"
+    ],
+    "segundos": 53.8,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "peewee",
+    "fix_commit": "6beef0640b4f4b51cc71775bc1297d764ae74e20",
+    "base_commit": "3755f9d12d33a011896b2379b3e073f0b3f5ea2b",
+    "subject": "Do not specify withhold with psycopg3.",
+    "arquivos_fonte": [
+      "peewee.py"
+    ],
+    "arquivos_teste": [
+      "tests/postgres.py"
+    ],
+    "linhas_fonte": 17,
+    "aceito": false,
+    "motivo": "teste passa sem a correção — não discrimina",
+    "fail_to_pass": [],
+    "segundos": 27.6,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "peewee",
+    "fix_commit": "3755f9d12d33a011896b2379b3e073f0b3f5ea2b",
+    "base_commit": "6927c2022d67cf4183475530c1eadfc901ef7bd2",
+    "subject": "Drop warning.",
+    "arquivos_fonte": [
+      "playhouse/migrations.py"
+    ],
+    "arquivos_teste": [
+      "tests/migrations.py"
+    ],
+    "linhas_fonte": 6,
+    "aceito": false,
+    "motivo": "teste passa sem a correção — não discrimina",
+    "fail_to_pass": [],
+    "segundos": 27.9,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "peewee",
+    "fix_commit": "6927c2022d67cf4183475530c1eadfc901ef7bd2",
+    "base_commit": "33d1e57dd0f548647438d17d8f17e21a8625924b",
+    "subject": "Support the other common `default=` values people tend to use.",
+    "arquivos_fonte": [
+      "playhouse/migrations.py"
+    ],
+    "arquivos_teste": [
+      "tests/schema_diff.py"
+    ],
+    "linhas_fonte": 58,
+    "aceito": true,
+    "motivo": "discrimina: 1 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/__init__.py::TestTemplate::test_common_defaults"
+    ],
+    "segundos": 47.9,
+    "faixa": "media"
+  },
+  {
+    "seed_repo_id": "peewee",
+    "fix_commit": "ecfc08ffb6596d56b2824452e9bc7d653bf5e076",
+    "base_commit": "da5716e0ecd1ee63e567d395a752ab10c05c1169",
+    "subject": "Close gap on index params, add a sql helper to migrator.",
+    "arquivos_fonte": [
+      "peewee.py",
+      "playhouse/migrate.py"
+    ],
+    "arquivos_teste": [
+      "tests/migrations.py"
+    ],
+    "linhas_fonte": 19,
+    "aceito": true,
+    "motivo": "discrimina: 2 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/__init__.py::TestSchemaMigration::test_add_index_where",
+      "tests/__init__.py::TestSchemaMigration::test_sql_operation"
+    ],
+    "segundos": 54.0,
+    "faixa": "media"
+  },
+  {
+    "seed_repo_id": "peewee",
+    "fix_commit": "31737a65b8b586f19c285f56a1ad8fdf40fd1daa",
+    "base_commit": "617c9244c64bd92e03fe696424bdbd793f86d2fd",
+    "subject": "Workaround for when FK rel field is itself an FK.",
+    "arquivos_fonte": [
+      "playhouse/migrations.py"
+    ],
+    "arquivos_teste": [
+      "tests/schema_diff.py"
+    ],
+    "linhas_fonte": 10,
+    "aceito": true,
+    "motivo": "discrimina: 1 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/__init__.py::TestTemplateRoundTrip::test_fk_stub_pk_fk"
+    ],
+    "segundos": 49.3,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "peewee",
+    "fix_commit": "617c9244c64bd92e03fe696424bdbd793f86d2fd",
+    "base_commit": "d42d564e72bac0c3273c5054a3ea16b2a5611bf3",
+    "subject": "Cleaner implementation.",
+    "arquivos_fonte": [
+      "playhouse/migrations.py"
+    ],
+    "arquivos_teste": [
+      "tests/migrations.py"
+    ],
+    "linhas_fonte": 123,
+    "aceito": true,
+    "motivo": "discrimina: 6 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/__init__.py::TestMigrationRunner::test_down_plan_requires_down",
+      "tests/__init__.py::TestMigrationRunner::test_down_series",
+      "tests/__init__.py::TestMigrationRunner::test_failed_migration",
+      "tests/__init__.py::TestMigrationRunner::test_status_missing_file",
+      "tests/__init__.py::TestMigrationRunner::test_status_orphan_ordering",
+      "tests/__init__.py::TestMigrationRunner::test_up_down_status"
+    ],
+    "segundos": 51.9,
+    "faixa": "media"
+  },
+  {
+    "seed_repo_id": "peewee",
+    "fix_commit": "035d5fd9256f2de6246f15311d5ee0a93945a13a",
+    "base_commit": "58a0afdd76919a7fe4cfa24b181c9cf73c4736d6",
+    "subject": "Few more cleanups.",
+    "arquivos_fonte": [
+      "playhouse/migrations.py"
+    ],
+    "arquivos_teste": [
+      "tests/migrations.py"
+    ],
+    "linhas_fonte": 3,
+    "aceito": true,
+    "motivo": "discrimina: 1 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/__init__.py::TestMigrationRunnerCLI::test_cli_import_error_attribution"
+    ],
+    "segundos": 48.0,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "peewee",
+    "fix_commit": "f3a3f2bc98aa5ccc055473d259da05b48609af61",
+    "base_commit": "35d873dc57a245ce8a36b00d3179385548cfc0ef",
+    "subject": "Add config file support to simplify things",
+    "arquivos_fonte": [
+      "playhouse/migrations.py"
+    ],
+    "arquivos_teste": [
+      "tests/migrations.py"
+    ],
+    "linhas_fonte": 88,
+    "aceito": true,
+    "motivo": "discrimina: 5 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/__init__.py::TestMigrationRunnerCLI::test_cli_config_dotfile",
+      "tests/__init__.py::TestMigrationRunnerCLI::test_cli_config_errors",
+      "tests/__init__.py::TestMigrationRunnerCLI::test_cli_config_file",
+      "tests/__init__.py::TestMigrationsCLIDiff::test_cli_config_models",
+      "tests/__init__.py::TestMigrationsCLIDiff::test_cli_diff_and_generate"
+    ],
+    "segundos": 50.7,
+    "faixa": "media"
+  },
+  {
+    "seed_repo_id": "peewee",
+    "fix_commit": "35d873dc57a245ce8a36b00d3179385548cfc0ef",
+    "base_commit": "3c3e37208dbde33d010dc7a6c4ef3a1950042567",
+    "subject": "Clean up argparse fml",
+    "arquivos_fonte": [
+      "playhouse/migrations.py"
+    ],
+    "arquivos_teste": [
+      "tests/migrations.py"
+    ],
+    "linhas_fonte": 184,
+    "aceito": false,
+    "motivo": "teste passa sem a correção — não discrimina",
+    "fail_to_pass": [],
+    "segundos": 26.4,
+    "faixa": "media"
+  },
+  {
+    "seed_repo_id": "peewee",
+    "fix_commit": "9b7ec5242c31792b76a6c67f8a9a1cbf62ddb86c",
+    "base_commit": "d252921ed73d955330d3de641aa6c24541d7993d",
+    "subject": "Skip virtual models",
+    "arquivos_fonte": [
+      "playhouse/migrations.py"
+    ],
+    "arquivos_teste": [
+      "tests/migrations.py"
+    ],
+    "linhas_fonte": 10,
+    "aceito": true,
+    "motivo": "discrimina: 1 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/__init__.py::TestMigrationsCLIDiff::test_cli_initial"
+    ],
+    "segundos": 46.4,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "peewee",
+    "fix_commit": "14bc23395ba28770a4b0746cf2d154f4208cb8e6",
+    "base_commit": "363431673f68c5e9a64b54aa43ddf547b43c57e1",
+    "subject": "Couple small fixes / cleanups.",
+    "arquivos_fonte": [
+      "playhouse/migrations.py"
+    ],
+    "arquivos_teste": [
+      "tests/migrations.py",
+      "tests/schema_diff.py"
+    ],
+    "linhas_fonte": 20,
+    "aceito": true,
+    "motivo": "discrimina: 1 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/__init__.py::TestTemplate::test_field_import"
+    ],
+    "segundos": 49.9,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "peewee",
+    "fix_commit": "a59b52fb9b521f3ea04dd10f3f394835d11eeab9",
+    "base_commit": "7c78a4782c70f8646375c46b0ab3075560c47594",
+    "subject": "Various cleanups in docs, arg handling.",
+    "arquivos_fonte": [
+      "playhouse/migrations.py",
+      "playhouse/schema_diff.py"
+    ],
+    "arquivos_teste": [
+      "tests/schema_diff.py"
+    ],
+    "linhas_fonte": 72,
+    "aceito": false,
+    "motivo": "teste passa sem a correção — não discrimina",
+    "fail_to_pass": [],
+    "segundos": 23.3,
+    "faixa": "media"
+  },
+  {
+    "seed_repo_id": "peewee",
+    "fix_commit": "2a37561b3c7fa0e5f915ccd062d82ed9d86d1561",
+    "base_commit": "9d8234d58c6656464f611f4eee676ebbc67feaaf",
+    "subject": "Introspect basic type defaults, more cleanup in the code.",
+    "arquivos_fonte": [
+      "playhouse/migrations.py"
+    ],
+    "arquivos_teste": [
+      "tests/schema_diff.py"
+    ],
+    "linhas_fonte": 72,
+    "aceito": true,
+    "motivo": "discrimina: 5 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/__init__.py::TestTemplate::test_field_defaults",
+      "tests/__init__.py::TestTemplate::test_fk_kwargs",
+      "tests/__init__.py::TestTemplate::test_full_body",
+      "tests/__init__.py::TestTemplateRoundTrip::test_added_indexed_column",
+      "tests/__init__.py::TestTemplateRoundTrip::test_field_params"
+    ],
+    "segundos": 51.3,
+    "faixa": "media"
+  },
+  {
+    "seed_repo_id": "peewee",
+    "fix_commit": "b2ee70c70ec8612f8857ec7f6e09e0f50a62feba",
+    "base_commit": "cde22792d0ab1278e7e537463bce65298bb992f6",
+    "subject": "Support for initial, better CLI doc.",
+    "arquivos_fonte": [
+      "playhouse/migrations.py"
+    ],
+    "arquivos_teste": [
+      "tests/migrations.py"
+    ],
+    "linhas_fonte": 33,
+    "aceito": true,
+    "motivo": "discrimina: 1 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/__init__.py::TestMigrationsCLIDiff::test_cli_initial"
+    ],
+    "segundos": 45.8,
+    "faixa": "media"
+  },
+  {
+    "seed_repo_id": "peewee",
+    "fix_commit": "6c30c70108bf00afc3a6f8003209d38ae8aa07bf",
+    "base_commit": "9613a36eb4db2fbe0108601c8463b34e0c1d66cd",
+    "subject": "Walkthrough, some cleanups w/error handling.",
+    "arquivos_fonte": [
+      "playhouse/db_url.py",
+      "playhouse/migrations.py"
+    ],
+    "arquivos_teste": [
+      "tests/db_url.py",
+      "tests/migrations.py"
+    ],
+    "linhas_fonte": 23,
+    "aceito": true,
+    "motivo": "discrimina: 3 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/__init__.py::TestDBUrl::test_missing_database_name",
+      "tests/__init__.py::TestMigrationRunnerCLI::test_cli_bad_url",
+      "tests/__init__.py::TestMigrationRunnerCLI::test_cli_database_proxy"
+    ],
+    "segundos": 55.3,
+    "faixa": "media"
+  },
+  {
+    "seed_repo_id": "peewee",
+    "fix_commit": "a6996dd6e9788eccf32dc6c7f0c430e8dfe88ec8",
+    "base_commit": "e91aeaed8437ad27d858d74ada22d7b12f0d6560",
+    "subject": "FK support in schema generation.",
+    "arquivos_fonte": [
+      "playhouse/migrations.py"
+    ],
+    "arquivos_teste": [
+      "tests/schema_diff.py"
+    ],
+    "linhas_fonte": 106,
+    "aceito": true,
+    "motivo": "discrimina: 7 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/__init__.py::TestTemplate::test_added_fk_flags",
+      "tests/__init__.py::TestTemplate::test_fk_alias",
+      "tests/__init__.py::TestTemplate::test_fk_kwargs",
+      "tests/__init__.py::TestTemplate::test_full_body",
+      "tests/__init__.py::TestTemplateRoundTrip::test_fk_chain",
+      "tests/__init__.py::TestTemplateRoundTrip::test_fk_flags",
+      "tests/__init__.py::TestTemplateRoundTrip::test_fk_stub"
+    ],
+    "segundos": 46.2,
+    "faixa": "media"
+  },
+  {
+    "seed_repo_id": "peewee",
+    "fix_commit": "1664a634d588df9ea3aae9a68d69f87be4422ae3",
+    "base_commit": "9629e0eb552a1946de3693066dfa82d2321cba24",
+    "subject": "Docs n' tests.",
+    "arquivos_fonte": [
+      "playhouse/schema_diff.py"
+    ],
+    "arquivos_teste": [
+      "tests/__init__.py",
+      "tests/migrations.py",
+      "tests/schema_diff.py"
+    ],
+    "linhas_fonte": 97,
+    "aceito": true,
+    "motivo": "discrimina: 4 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/__init__.py::TestSchemaDiff::test_column_add_drop",
+      "tests/__init__.py::TestSchemaDiff::test_partial_indexes_by_name",
+      "tests/__init__.py::TestSchemaDiff::test_stray_index_dropped",
+      "tests/__init__.py::TestSchemaDiff::test_unique_flag_mismatch"
+    ],
+    "segundos": 51.1,
+    "faixa": "media"
+  },
+  {
+    "seed_repo_id": "peewee",
+    "fix_commit": "65b44c728ef3d9e24265eb80732573c1ca70e5e9",
+    "base_commit": "ed7575d9aa97ed272408d3db171dba77fb743411",
+    "subject": "Disallow .delete() on model instances.",
+    "arquivos_fonte": [
+      "peewee.py"
+    ],
+    "arquivos_teste": [
+      "tests/models.py"
+    ],
+    "linhas_fonte": 11,
+    "aceito": true,
+    "motivo": "discrimina: 1 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/__init__.py::TestDeleteInstance::test_delete_not_allowed_instance"
+    ],
+    "segundos": 46.2,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "peewee",
+    "fix_commit": "6c15006d7119931632b427d5895052a40cd6489b",
+    "base_commit": "2c56fda83bc40ddea3e7b39200337c8c8036fbd5",
+    "subject": "Support for SQLite 3.53.0 alter table stuff.",
+    "arquivos_fonte": [
+      "playhouse/migrate.py"
+    ],
+    "arquivos_teste": [
+      "tests/base.py",
+      "tests/migrations.py"
+    ],
+    "linhas_fonte": 43,
+    "aceito": true,
+    "motivo": "discrimina: 8 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/__init__.py::TestSchemaMigration::test_add_not_null",
+      "tests/__init__.py::TestSchemaMigration::test_drop_not_null",
+      "tests/__init__.py::TestSchemaMigration::test_drop_table",
+      "tests/__init__.py::TestSchemaMigration::test_drop_table_cascade_sqlite",
+      "tests/__init__.py::TestSchemaMigration::test_drop_table_schema",
+      "tests/__init__.py::TestSchemaMigration::test_modify_not_null_foreign_key",
+      "tests/__init__.py::TestSchemaMigration::test_rebuild_preserves_bare_unique",
+      "tests/__init__.py::TestSchemaMigration::test_rebuild_substring_table_name"
+    ],
+    "segundos": 50.7,
+    "faixa": "media"
+  },
+  {
+    "seed_repo_id": "peewee",
+    "fix_commit": "1aa90010491ab252f8d85302ce32a663138b2ed3",
+    "base_commit": "d8d6f3189f121a74f110c90ec15aba23ee4ea834",
+    "subject": "Ensure we retain kwargs when rebuilding ds cache.",
+    "arquivos_fonte": [
+      "playhouse/dataset.py"
+    ],
+    "arquivos_teste": [
+      "tests/dataset.py"
+    ],
+    "linhas_fonte": 6,
+    "aceito": true,
+    "motivo": "discrimina: 1 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/__init__.py::TestDataSet::test_model_kwargs_preserved"
+    ],
+    "segundos": 45.4,
+    "faixa": "baixa"
+  },
+  {
+    "seed_repo_id": "peewee",
+    "fix_commit": "395c15694383bdd16a39ab67668dcd00e0a0938e",
+    "base_commit": "400170588e5300d5b43e4b88b0083103757cd353",
+    "subject": "Do not apply type parameters to bare fields",
+    "arquivos_fonte": [
+      "playhouse/reflection.py"
+    ],
+    "arquivos_teste": [
+      "tests/reflection.py"
+    ],
+    "linhas_fonte": 4,
+    "aceito": true,
+    "motivo": "discrimina: 1 teste(s) f2p",
+    "fail_to_pass": [
+      "tests/__init__.py::TestReflectionFacets::test_bare_fields_type_parameters"
+    ],
+    "segundos": 46.6,
+    "faixa": "baixa"
+  }
+]

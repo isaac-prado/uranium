@@ -28,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from harness.evaluate import evaluate_run  # noqa: E402
 from harness.pytest_runner import run_pytest  # noqa: E402
 from harness.taskspec import TaskSpec, load_task  # noqa: E402
+from harness.venvs import python_for  # noqa: E402
 from src.seeds import get_seed_repo  # noqa: E402
 from src.workspace import Workspace, WorkspaceSpec  # noqa: E402
 
@@ -88,7 +89,8 @@ def validar(task: TaskSpec, raiz: Path, *, com_qualidade: bool = False) -> Valid
     # 1. commit-base verde
     print("1. commit-base")
     base = _materializar(task, "base", raiz)
-    suite = run_pytest(base.root, list(task.pass_to_pass))
+    suite = run_pytest(base.root, list(task.pass_to_pass),
+                       python_bin=python_for(task.seed_repo_id))
     v.checar(suite.green, f"suíte verde no commit-base ({suite.passed} testes)",
              suite.stdout[-400:])
 
