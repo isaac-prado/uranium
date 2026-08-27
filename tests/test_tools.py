@@ -384,3 +384,46 @@ class TestNodeIdParametrizado:
 
         assert (sorted(parse_output(self.SAIDA, 0.5)["failing_node_ids"])
                 == sorted(parse_pytest_output(self.SAIDA, 1, 0.5)["failing_node_ids"]))
+
+
+class TestContabilidadeDeContexto:
+    """
+    Toda ferramenta mede o tamanho do que devolve ao modelo.
+
+    O consumo de token cresce com o quadrado dos turnos porque o contexto é
+    reenviado inteiro, e cada saída de ferramenta entra nele. Enquanto só
+    read_file, search_code e list_files eram medidos, run_python e run_tests
+    — metade das chamadas — ficavam fora da conta, e não dava para explicar
+    de onde vinha a diferença de custo entre os braços.
+    """
+
+    def test_toda_ferramenta_registra_o_tamanho_da_saida(self, ws):
+        from src.tools import TOOL_NAMES, build_toolset
+
+        registros = []
+        tools = {t.name: t for t in build_toolset(ws, emit=registros.append)}
+        chamadas = {
+            "list_files": {},
+            "read_file": {"path": "tomlkit/parser.py", "start_line": 1, "end_line": 20},
+            "search_code": {"pattern": "def parse"},
+            "run_python": {"code": "print('oi')"},
+            "write_file": {"path": "novo.py", "content": "x = 1\n"},
+            "replace_in_file": {"path": "novo.py", "old_text": "x = 1", "new_text": "x = 2"},
+        }
+        for nome, args in chamadas.items():
+            tools[nome].invoke(args)
+
+        assert {r.tool_name for r in registros} == set(chamadas)
+        for r in registros:
+            assert r.bytes_read > 0, f"{r.tool_name} não mediu a saída devolvida ao modelo"
+
+    def test_escrita_mede_os_dois_lados(self, ws):
+        from src.tools import build_toolset
+
+        registros = []
+        tools = {t.name: t for t in build_toolset(ws, emit=registros.append)}
+        tools["write_file"].invoke({"path": "n.py", "content": "a = 1\n" * 100})
+
+        r = registros[0]
+        assert r.bytes_written == len(("a = 1\n" * 100).encode())
+        assert r.bytes_read > 0, "a confirmação devolvida ao modelo também ocupa contexto"

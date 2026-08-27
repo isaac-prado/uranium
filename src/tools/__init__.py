@@ -105,11 +105,15 @@ def _instrument(
         if result.startswith(fs_tools.ERROR_PREFIX):
             record.error = result[: 200]
 
+        # `bytes_read` é o tamanho do que volta PARA O MODELO, em toda
+        # ferramenta. Media-se só nas três de leitura antes, e a conta do
+        # crescimento de contexto não fechava: run_python e run_tests são
+        # metade das chamadas e a saída deles entra no prompt do turno
+        # seguinte igual à de um read_file.
+        record.bytes_read = len(result.encode("utf-8"))
         if name in ("write_file", "replace_in_file") and not record.denied:
             escrito = kwargs.get("content") or kwargs.get("new_text") or ""
             record.bytes_written = len(escrito.encode("utf-8"))
-        elif name in ("read_file", "search_code", "list_files"):
-            record.bytes_read = len(result.encode("utf-8"))
 
         emit(record)
         return result
