@@ -4,7 +4,7 @@ O que falta para a coleta definitiva. Ordem é de dependência, não de esforço
 
 ---
 
-## 0. Calibração do orçamento — **feita**, falta aplicar
+## 0. Calibração do orçamento — **feita e aplicada**
 
 Piloto de 23/08/2026 em `tomlkit-0001`, `qwen/qwen3-coder` via DeepInfra,
 provedor pinado em todas as chamadas. Custo total da calibração: US$ 0,065.
@@ -21,9 +21,16 @@ turnos inteiros lendo arquivo e ainda não tinha editado nada quando foi cortado
 não a topologia — e cortava justamente o braço que a hipótese não favorece,
 que é a direção perigosa do viés.
 
-**A aplicar:** `RUN_MAX_TOKENS = 300_000` na coleta definitiva. Parada por
-orçamento passa a ser exceção (agente em ciclo), não regra. Projeção de custo:
-12 tarefas × 2 braços × 3 repetições = 72 execuções × ~US$ 0,025 ≈ **US$ 2**.
+**Aplicado:** o piloto deixou de ter tetos próprios e passou a herdar os
+`RUN_MAX_*` da coleta (400k tokens, 40 turnos, 1800s). Piloto mais apertado
+que a coleta não calibra a coleta: mede o teto.
+
+O teto de turnos era o segundo confundidor, e passou despercebido na
+primeira leitura — o padrão do piloto era 25 e o single-agent precisou de
+29. Ele teria sido cortado de novo, por outro motivo.
+
+Projeção de custo: 12 tarefas × 2 braços × 3 repetições = 72 execuções ×
+~US$ 0,025 ≈ **US$ 2**.
 
 **A investigar antes da coleta:** o single-agent precisou de 29 turnos e 227k
 tokens contra 13 turnos e 127k do orchestration para o mesmo resultado —

@@ -33,10 +33,16 @@ def main() -> None:
     p.add_argument("--out", type=Path, default=Path("runs/pilot"))
     p.add_argument("--model", help="Sobrepõe OPENROUTER_MODEL_NAME")
     p.add_argument("--provider", help="Sobrepõe OPENROUTER_PROVIDER")
-    p.add_argument("--max-turns", type=int, default=25)
-    p.add_argument("--max-tokens", type=int, default=150_000,
+    # Os tetos vêm do mesmo lugar da coleta definitiva (RUN_MAX_* no .env).
+    # Piloto com orçamento mais apertado que a coleta não calibra a coleta:
+    # mede o teto. Foi o que aconteceu na primeira rodada — o braço
+    # single-agent foi cortado no turno 9 sem ter editado nada, e com folga
+    # resolveu em 29 turnos e 227k tokens.
+    padrao = RunBudget.from_env()
+    p.add_argument("--max-turns", type=int, default=padrao.max_turns)
+    p.add_argument("--max-tokens", type=int, default=padrao.max_tokens,
                    help="Teto por execução. Contém o custo se o agente entrar em ciclo")
-    p.add_argument("--max-seconds", type=int, default=900)
+    p.add_argument("--max-seconds", type=int, default=padrao.max_wall_seconds)
     p.add_argument("--test-timeout", type=int, default=120)
     p.add_argument("--no-eval", action="store_true", help="Só executa, não avalia")
     args = p.parse_args()
