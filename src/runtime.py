@@ -23,6 +23,9 @@ from src.telemetry import Arm, TelemetryWriter
 from src.tools import build_toolset
 from src.workspace import Workspace
 
+# Teto de tool calls por turno, igual nos dois braços.
+MAX_TOOL_CALLS_POR_TURNO = 8
+
 
 @dataclass
 class RunContext:
@@ -156,3 +159,44 @@ class RunContext:
         if reason:
             self.telemetry.emit_circuit_break(reason)
         return reason
+
+    def executar_tool_calls(self, ai: Any) -> list[Any]:
+        """
+        Executa as tool calls de um turno e devolve as respostas ao modelo.
+
+        Vive aqui, e não em cada braço, porque comportamento divergente na
+        execução de ferramenta é divergência de tratamento: os braços teriam
+        capacidades diferentes sem que nada no manifesto dissesse isso.
+
+        Nada escapa como exceção. Ferramenta desconhecida, argumento faltando
+        ou erro interno voltam como texto para o modelo, que pode corrigir no
+        turno seguinte. Um `ValidationError` do pydantic derrubou um run
+        inteiro do piloto antes disto existir — a validação de argumento
+        acontece antes da função da ferramenta rodar, então a guarda que já
+        havia lá dentro nunca era alcançada.
+        """
+        from langchain_core.messages import ToolMessage
+
+        respostas: list[Any] = []
+        por_nome = self.tool_by_name
+
+        for chamada in (ai.tool_calls or [])[:MAX_TOOL_CALLS_POR_TURNO]:
+            ferramenta = por_nome.get(chamada["name"])
+            if ferramenta is None:
+                conteudo = (
+                    f"ERRO: ferramenta desconhecida {chamada['name']!r}. "
+                    f"Disponíveis: {', '.join(sorted(por_nome))}."
+                )
+            else:
+                try:
+                    conteudo = str(ferramenta.invoke(chamada["args"]))
+                except Exception as exc:
+                    self.telemetry.emit_error(exc)
+                    conteudo = (
+                        f"ERRO: chamada inválida de {chamada['name']!r}: "
+                        f"{type(exc).__name__}: {exc}. Confira os argumentos "
+                        f"exigidos e tente de novo."
+                    )
+            respostas.append(ToolMessage(content=conteudo, tool_call_id=chamada["id"]))
+
+        return respostas

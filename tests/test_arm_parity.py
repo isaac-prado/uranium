@@ -347,3 +347,89 @@ class TestProveniencia:
         finally:
             tel.close()
             RunContext.release("p2")
+
+
+class TestExecucaoDeFerramenta:
+    """
+    Os dois braços executam tool call pelo MESMO código.
+
+    Enquanto eram duas cópias, elas divergiram sem ninguém notar. E a
+    divergência aqui não é detalhe de implementação: é diferença de
+    capacidade entre os braços, invisível no manifesto.
+    """
+
+    def test_os_dois_bracos_usam_o_executor_do_runtime(self):
+        import inspect
+
+        from src.agents import developer as dev
+        from src.arms import single_agent as sa
+
+        for modulo in (dev, sa):
+            fonte = inspect.getsource(modulo)
+            assert "ctx.executar_tool_calls(ai)" in fonte, f"{modulo.__name__} não usa o comum"
+            assert "def _executar_ferramentas" not in fonte, f"{modulo.__name__} reintroduziu cópia"
+
+    def test_argumento_faltando_volta_como_texto_e_nao_derruba_o_run(self, ctx_minimo):
+        ctx, _ = ctx_minimo
+        """
+        O pydantic valida os argumentos ANTES da função da ferramenta rodar,
+        então a guarda que existe lá dentro nunca é alcançada. Um
+        ValidationError assim matou um run inteiro no teste de variância.
+        """
+        from tests.fakes import ai
+
+        chamada = ai(tool_calls=[{"name": "read_file", "args": {}}])
+        respostas = ctx.executar_tool_calls(chamada)
+
+        assert len(respostas) == 1
+        assert "ERRO" in respostas[0].content and "read_file" in respostas[0].content
+        assert "argumentos" in respostas[0].content
+
+    def test_ferramenta_desconhecida_lista_as_disponiveis(self, ctx_minimo):
+        ctx, _ = ctx_minimo
+        from tests.fakes import ai
+
+        respostas = ctx.executar_tool_calls(
+            ai(tool_calls=[{"name": "rm_rf", "args": {}}])
+        )
+
+        assert "desconhecida" in respostas[0].content
+        assert "read_file" in respostas[0].content
+
+
+class TestFeedbackDeProtocolo:
+    """
+    A mensagem entregue ao agente tem de ser a mesma nos dois braços.
+
+    O single-agent avisava sobre diff vazio pelo driver e o orchestration
+    não avisava nada: no retry, o developer recebia o prompt idêntico ao da
+    primeira tentativa e repetia o que já tinha feito. Dois dos cinco runs do
+    teste de variância terminaram assim, com patch de zero byte.
+    """
+
+    def test_a_mensagem_de_diff_vazio_e_literalmente_a_mesma(self):
+        from src.agents.developer import _build_prompt
+        from src.arms.driver import DeterministicDriver
+        from src.feedback import DIFF_VAZIO
+        from src.schemas.test_report import TestReport
+
+        do_driver = DeterministicDriver().apos_turno(
+            TestReport(exit_code=0, passed=10), houve_mudanca=False
+        ).feedback
+        do_developer = _build_prompt({
+            "intent": {"context": "", "goal": "g", "phases": [],
+                       "acceptance_criteria": [], "clarifications_needed": [],
+                       "is_ready": True},
+            "test_report": TestReport(exit_code=0, passed=10).model_dump(),
+            "changed_files": [],
+        })
+
+        assert do_driver == DIFF_VAZIO
+        assert DIFF_VAZIO in do_developer
+
+    def test_nao_aponta_arquivo_nem_sugere_solucao(self):
+        """A mensagem informa o protocolo; dizer como resolver seria trapaça nossa."""
+        from src.feedback import DIFF_VAZIO
+
+        for palavra in ("parser", ".py", "função", "linha", "provavelmente", "sugir"):
+            assert palavra not in DIFF_VAZIO.lower()

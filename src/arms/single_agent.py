@@ -18,7 +18,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph
 
 from src.arms.driver import DeterministicDriver, DriverAction, DriverPolicy
@@ -49,27 +49,12 @@ Restrições:
 - Quando terminar, responda em texto com um resumo do que mudou.
 """
 
-MAX_TOOL_CALLS_POR_TURNO = 8
 
 def _spec(state: WorkflowState) -> str:
     """A especificação inteira, entregue de uma vez pelo driver."""
     return "Tarefa:\n" + parse_intent(state).model_dump_json(indent=2)
 
 
-def _executar_ferramentas(ctx: RunContext, ai: Any) -> list[ToolMessage]:
-    """Aceita todo patch proposto, sem revisão — é a política do driver."""
-    por_nome = ctx.tool_by_name
-    respostas: list[ToolMessage] = []
-    for chamada in (ai.tool_calls or [])[:MAX_TOOL_CALLS_POR_TURNO]:
-        ferramenta = por_nome.get(chamada["name"])
-        conteudo = (
-            str(ferramenta.invoke(chamada["args"]))
-            if ferramenta is not None
-            else f"ERRO: ferramenta desconhecida {chamada['name']!r}. "
-                 f"Disponíveis: {', '.join(sorted(por_nome))}."
-        )
-        respostas.append(ToolMessage(content=conteudo, tool_call_id=chamada["id"]))
-    return respostas
 
 
 def build_single_agent_graph(policy: DriverPolicy | None = None):
@@ -112,7 +97,7 @@ def build_single_agent_graph(policy: DriverPolicy | None = None):
 
             pediu_ferramenta = bool(getattr(ai, "tool_calls", None))
             if pediu_ferramenta:
-                mensagens.extend(_executar_ferramentas(ctx, ai))
+                mensagens.extend(ctx.executar_tool_calls(ai))
 
         return {
             "agiu_no_turno": pediu_ferramenta,

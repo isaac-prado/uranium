@@ -12,8 +12,9 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
+from src.feedback import DIFF_VAZIO
 from src.runtime import RunContext
 from src.state import WorkflowState, parse_intent, parse_test_report
 
@@ -43,7 +44,6 @@ Restrições:
   resumo curto do que mudou e pare de chamar ferramentas.
 """
 
-MAX_TOOL_CALLS_POR_TURNO = 8
 
 
 def _build_prompt(state: WorkflowState) -> str:
@@ -55,35 +55,25 @@ def _build_prompt(state: WorkflowState) -> str:
     ]
 
     report = parse_test_report(state)
+    alterados = state.get("changed_files") or []
     if report and not report.green:
         partes += [
             "",
             "A suíte falhou na tentativa anterior. Saída do pytest:",
             report.stdout_tail,
         ]
-    elif state.get("changed_files"):
-        partes += ["", f"Arquivos já modificados: {', '.join(state['changed_files'])}"]
+    elif report and not alterados:
+        # Mesma mensagem que o driver do single-agent entrega. Sem ela, o
+        # developer recebe no retry o prompt idêntico ao da primeira vez e
+        # repete o que já fez — aconteceu em 2 dos 5 runs do teste de
+        # variância, ambos terminando com patch de zero byte.
+        partes += ["", DIFF_VAZIO]
+    elif alterados:
+        partes += ["", f"Arquivos já modificados: {', '.join(alterados)}"]
 
     return "\n".join(partes)
 
 
-def _executar_ferramentas(ctx: RunContext, ai: AIMessage) -> list[ToolMessage]:
-    """Executa as tool calls pedidas e devolve as respostas."""
-    respostas: list[ToolMessage] = []
-    por_nome = ctx.tool_by_name
-
-    for chamada in (ai.tool_calls or [])[:MAX_TOOL_CALLS_POR_TURNO]:
-        ferramenta = por_nome.get(chamada["name"])
-        if ferramenta is None:
-            conteudo = (
-                f"ERRO: ferramenta desconhecida {chamada['name']!r}. "
-                f"Disponíveis: {', '.join(sorted(por_nome))}."
-            )
-        else:
-            conteudo = str(ferramenta.invoke(chamada["args"]))
-        respostas.append(ToolMessage(content=conteudo, tool_call_id=chamada["id"]))
-
-    return respostas
 def developer(state: WorkflowState) -> dict[str, Any]:
     """Roda o loop de tool calling até resolver, parar de agir ou estourar orçamento."""
     ctx = RunContext.from_state(state)
@@ -118,7 +108,7 @@ def developer(state: WorkflowState) -> dict[str, Any]:
                 resumo = str(ai.content)[:2000]
                 break
 
-            mensagens.extend(_executar_ferramentas(ctx, ai))
+            mensagens.extend(ctx.executar_tool_calls(ai))
 
     ws = ctx.workspace
     return {

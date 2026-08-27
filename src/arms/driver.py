@@ -22,6 +22,7 @@ from dataclasses import asdict, dataclass
 from enum import StrEnum
 from typing import Any
 
+from src.feedback import DIFF_VAZIO, suite_falhou
 from src.schemas.test_report import TestReport
 
 
@@ -85,11 +86,7 @@ class DeterministicDriver:
         if report.green and not houve_mudanca:
             return DriverDecision(
                 DriverAction.CONTINUAR,
-                feedback=(
-                    "A suíte passou, mas nenhum arquivo foi modificado — ela já "
-                    "estava verde antes de você começar. Aplique a correção do "
-                    "problema descrito na tarefa e verifique com run_python."
-                ),
+                feedback=DIFF_VAZIO,
                 report=report,
             )
 
@@ -105,7 +102,7 @@ class DeterministicDriver:
 
         return DriverDecision(
             DriverAction.CONTINUAR,
-            feedback=f"A suíte falhou.\n\n{saida}",
+            feedback=suite_falhou(saida),
             report=report,
         )
 
