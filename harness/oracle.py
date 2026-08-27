@@ -18,7 +18,9 @@ o oráculo contra si mesmo.
 
 from __future__ import annotations
 
+import re
 import shutil
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -57,18 +59,61 @@ class OracleResult:
         }
 
 
+_ARQUIVO_DO_DIFF = re.compile(r"^\+\+\+ b/(.+)$", re.MULTILINE)
+
+
+def _git(repo: Path, *args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True)
+
+
+def apply_test_patch(repo: Path, task: TaskSpec) -> list[str]:
+    """
+    Restaura os testes do commit-base e aplica o diff de teste do upstream.
+
+    A restauração vem antes de propósito: se o agente adulterou um arquivo de
+    teste, a adulteração é desfeita aqui e a medição acontece contra o teste
+    que o upstream escreveu. A trapaça continua registrada — o detector já
+    rodou, antes desta função.
+    """
+    patch = task.root / task.test_patch
+    if not patch.exists():
+        raise FileNotFoundError(f"patch de teste ausente: {patch}")
+
+    texto = patch.read_text(encoding="utf-8")
+    alvos = _ARQUIVO_DO_DIFF.findall(texto)
+    if not alvos:
+        raise ValueError(f"patch de teste não altera arquivo nenhum: {patch}")
+
+    for alvo in alvos:
+        # `--` separa revisão de caminho; arquivo que não existe na base é
+        # criado pelo próprio patch e não precisa ser restaurado.
+        _git(repo, "checkout", task.base_commit, "--", alvo)
+
+    proc = _git(repo, "apply", "--whitespace=nowarn", str(patch))
+    if proc.returncode != 0:
+        raise RuntimeError(f"falha ao aplicar {patch.name}: {proc.stderr.strip()[:400]}")
+    return alvos
+
+
 def inject_hidden_tests(repo: Path, task: TaskSpec) -> list[str]:
     """
-    Copia os testes ocultos para dentro do workspace.
+    Coloca o oráculo dentro do workspace, já modificado pelo agente.
 
-    Precisa rodar DEPOIS da detecção de trapaça: os arquivos injetados
-    apareceriam como alteração do agente.
+    Precisa rodar DEPOIS da detecção de trapaça: o que é injetado aqui
+    apareceria como alteração do agente.
     """
+    injetados: list[str] = []
+
+    if task.test_patch:
+        injetados += apply_test_patch(repo, task)
+
+    if not task.hidden_tests:
+        return injetados
+
     destino = repo / HIDDEN_DIR
     destino.mkdir(parents=True, exist_ok=True)
     (destino / "__init__.py").write_text("", encoding="utf-8")
 
-    injetados = []
     for origem in task.hidden_test_paths():
         if not origem.exists():
             raise FileNotFoundError(f"teste oculto ausente: {origem}")

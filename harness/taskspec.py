@@ -31,6 +31,12 @@ class TaskSpec:
     fail_to_pass: tuple[str, ...]
     pass_to_pass: tuple[str, ...]
     root: Path
+    # Diff que traz os testes do commit de correção do upstream. Alternativa
+    # a `hidden_tests`: escrever o teste oculto à mão não escala para dezenas
+    # de tarefas e se afasta do que o upstream de fato exigiu. Aplicado pelo
+    # avaliador DEPOIS que o agente termina, sobre os testes restaurados do
+    # commit-base — o que também anula qualquer adulteração de teste.
+    test_patch: str = ""
     # Alvos que o pytest recebe para "a suíte inteira". Precisa ser explícito
     # porque a coleta padrão do pytest não serve para todo repo: no peewee os
     # módulos de teste não casam com `test_*.py` e um pytest pelado acha 5 de
@@ -71,10 +77,15 @@ def load_task(path: str | Path) -> TaskSpec:
         raise FileNotFoundError(f"especificação de tarefa não encontrada: {caminho}")
 
     dados = json.loads(caminho.read_text(encoding="utf-8"))
-    obrigatorios = ("id", "seed_repo", "base_commit", "hidden_tests", "fail_to_pass")
+    obrigatorios = ("id", "seed_repo", "base_commit", "fail_to_pass")
     faltando = [c for c in obrigatorios if c not in dados]
     if faltando:
         raise ValueError(f"{caminho}: campos obrigatórios ausentes: {faltando}")
+    if not dados.get("hidden_tests") and not dados.get("test_patch"):
+        raise ValueError(
+            f"{caminho}: informe `hidden_tests` (arquivos avulsos) ou "
+            f"`test_patch` (diff de teste do upstream) — sem oráculo não há tarefa"
+        )
 
     return TaskSpec(
         task_id=dados["id"],
@@ -82,7 +93,8 @@ def load_task(path: str | Path) -> TaskSpec:
         base_commit=dados["base_commit"],
         source_dir=dados.get("source_dir", ""),
         suite_targets=tuple(dados.get("suite_targets", ())),
-        hidden_tests=tuple(dados["hidden_tests"]),
+        hidden_tests=tuple(dados.get("hidden_tests", ())),
+        test_patch=dados.get("test_patch", ""),
         fail_to_pass=tuple(dados["fail_to_pass"]),
         pass_to_pass=tuple(dados.get("pass_to_pass", ["tests/"])),
         root=caminho.parent,
