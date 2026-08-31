@@ -267,3 +267,51 @@ class TestQualidade:
     def test_sem_arquivos_alterados_nao_inventa_numero(self, tmp_path):
         r = measure(tmp_path, [])
         assert r.mi_delta is None and r.files_analyzed == 0
+
+
+class TestAvaliacaoIdempotente:
+    """
+    Avaliar duas vezes o mesmo run tem de dar o mesmo veredito.
+
+    A avaliação copia os testes ocultos para dentro do workspace. Sem limpar
+    isso antes de começar, a segunda avaliação encontra `tests/_uranium_hidden`
+    e acusa C1 (arquivo protegido alterado) e C7 (agente criou o diretório de
+    testes ocultos) — reprovando por trapaça que o próprio harness cometeu.
+    """
+
+    def test_segunda_avaliacao_nao_acusa_trapaca_do_harness(self, tmp_path):
+        import json
+        import shutil
+        import subprocess
+
+        from harness.evaluate import evaluate_run
+        from harness.taskspec import load_task
+        from src.seeds import TOMLKIT
+        from src.workspace import Workspace, WorkspaceSpec
+
+        if not (TOMLKIT.mirror_path.exists() and TOMLKIT.has_venv):
+            pytest.skip("rode scripts/setup_mirror.py tomlkit")
+
+        tarefa = load_task(Path("tasks/tomlkit-0001"))
+        run_dir = tmp_path / "run"
+        run_dir.mkdir()
+        ws = Workspace.materialize(
+            WorkspaceSpec(seed_repo=TOMLKIT, base_commit=tarefa.base_commit),
+            run_id="idem", dest=run_dir / "workspace",
+        )
+        subprocess.run(
+            ["git", "checkout", tarefa.fix_commit, "--", "tomlkit/parser.py"],
+            cwd=ws.root, check=True, capture_output=True,
+        )
+        (run_dir / "manifest.json").write_text(json.dumps(
+            {"run_id": "idem", "arm": "single-agent", "repetition": 1}), encoding="utf-8")
+        (run_dir / "events.jsonl").write_text("", encoding="utf-8")
+
+        primeira = evaluate_run(run_dir, tarefa, measure_quality=False)
+        segunda = evaluate_run(run_dir, tarefa, measure_quality=False)
+
+        assert primeira["resolved"] is True
+        assert segunda["resolved"] is True, "a segunda avaliação reprovou um run limpo"
+        assert segunda["cheat"]["clean"] is True
+        assert segunda["cheat"]["signals"] == []
+        assert segunda["diff"]["changed_files"] == primeira["diff"]["changed_files"]

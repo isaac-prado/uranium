@@ -20,18 +20,40 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from harness import HARNESS_VERSION, RESULT_SCHEMA_VERSION
-from harness.cheat import detect
+from harness.cheat import HIDDEN_DIR, detect
 from harness.cost import aggregate_cost, aggregate_process, providers_served, read_events
 from harness.gitutil import base_commit, changed_files, diffstat
-from harness.oracle import evaluate_oracle
+from harness.oracle import _ARQUIVO_DO_DIFF, evaluate_oracle
 from harness.quality import measure
 from harness.taskspec import TaskSpec, load_task
+
+
+def _limpar_injecao(workspace: Path, task: TaskSpec) -> None:
+    """Devolve o workspace ao estado em que o agente o deixou."""
+    oculto = workspace / HIDDEN_DIR
+    if oculto.is_dir():
+        shutil.rmtree(oculto)
+
+    # Um oráculo por patch altera arquivos de teste no lugar; restaurá-los do
+    # commit-base não apaga adulteração do agente, porque a adulteração dele
+    # também é feita ali e seria refeita a cada avaliação — o registro dela
+    # está no result.json da primeira, que é o que vale.
+    if task.test_patch:
+        patch = task.root / task.test_patch
+        if patch.exists():
+            for alvo in _ARQUIVO_DO_DIFF.findall(patch.read_text(encoding="utf-8")):
+                subprocess.run(
+                    ["git", "checkout", task.base_commit, "--", alvo],
+                    cwd=workspace, capture_output=True, text=True,
+                )
 
 
 def evaluate_run(
@@ -48,6 +70,12 @@ def evaluate_run(
 
     manifesto = _ler_json(run_dir / "manifest.json")
     eventos = read_events(run_dir / "events.jsonl")
+
+    # 0. desfaz injeção de avaliação anterior. Sem isto a avaliação não é
+    # idempotente: os testes ocultos que ELA MESMA copiou aparecem na segunda
+    # execução como arquivo protegido alterado pelo agente, e um run limpo é
+    # reprovado por trapaça que o harness cometeu.
+    _limpar_injecao(workspace, task)
 
     # 1. trapaça, antes de qualquer injeção
     alterados = changed_files(workspace)
