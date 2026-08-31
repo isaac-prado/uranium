@@ -1,0 +1,757 @@
+<title>Dossiê Metodológico do Uranium</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap">
+
+<style>
+  :root {
+    --ground:#F7F8F7; --surface:#FFFFFF; --surface-alt:#EFF2F0;
+    --ink:#16191C; --ink-soft:#5C6670; --ink-faint:#8A939B;
+    --rule:#D8DDD9; --rule-soft:#E7EBE8;
+    --signal:#0F6E5C; --signal-soft:#E2EFEA;
+    --alert:#A33A2A; --alert-soft:#F6E6E2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:#101312; --surface:#171B1A; --surface-alt:#1E2422;
+      --ink:#E6E9E7; --ink-soft:#9AA6A0; --ink-faint:#6B7873;
+      --rule:#2A312E; --rule-soft:#212724;
+      --signal:#4FC3A6; --signal-soft:#16302A;
+      --alert:#E5836D; --alert-soft:#331E19;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:#101312; --surface:#171B1A; --surface-alt:#1E2422;
+    --ink:#E6E9E7; --ink-soft:#9AA6A0; --ink-faint:#6B7873;
+    --rule:#2A312E; --rule-soft:#212724;
+    --signal:#4FC3A6; --signal-soft:#16302A;
+    --alert:#E5836D; --alert-soft:#331E19;
+  }
+
+  * { box-sizing:border-box; }
+  body {
+    background:var(--ground); color:var(--ink);
+    font-family:"IBM Plex Sans",system-ui,sans-serif;
+    font-size:16.5px; line-height:1.62; margin:0;
+    padding:clamp(1.75rem,5vw,4rem) clamp(1.1rem,5vw,2rem) 6rem;
+    -webkit-font-smoothing:antialiased;
+  }
+  .page { max-width:74rem; margin:0 auto; }
+  .measure { max-width:68ch; }
+
+  header.masthead { border-bottom:2px solid var(--ink); padding-bottom:1.5rem; margin-bottom:2.5rem; }
+  .eyebrow {
+    font-family:"IBM Plex Mono",monospace; font-size:.7rem; letter-spacing:.13em;
+    text-transform:uppercase; color:var(--ink-soft); margin:0 0 .85rem;
+  }
+  h1 {
+    font-family:Newsreader,Georgia,serif; font-weight:500;
+    font-size:clamp(2.1rem,5.5vw,3rem); line-height:1.08; letter-spacing:-.015em;
+    text-wrap:balance; margin:0 0 .8rem;
+  }
+  .standfirst {
+    font-family:Newsreader,Georgia,serif; font-size:1.18rem; line-height:1.5;
+    color:var(--ink-soft); max-width:56ch; margin:0;
+  }
+
+  nav.sumario {
+    display:flex; flex-wrap:wrap; gap:.5rem; margin:1.6rem 0 0;
+  }
+  nav.sumario a {
+    font-family:"IBM Plex Mono",monospace; font-size:.72rem; letter-spacing:.05em;
+    color:var(--signal); background:var(--signal-soft); text-decoration:none;
+    padding:.3rem .65rem; border-radius:2px;
+  }
+  nav.sumario a:hover, nav.sumario a:focus-visible { outline:2px solid var(--signal); outline-offset:1px; }
+
+  section { margin-bottom:3.5rem; scroll-margin-top:1rem; }
+  h2 {
+    font-family:Newsreader,Georgia,serif; font-weight:500;
+    font-size:clamp(1.55rem,3.2vw,2rem); line-height:1.2; letter-spacing:-.01em;
+    text-wrap:balance; margin:0 0 .3rem; padding-top:1.1rem; border-top:1px solid var(--rule);
+  }
+  h2 .num {
+    font-family:"IBM Plex Mono",monospace; font-size:.78rem; color:var(--signal);
+    letter-spacing:.08em; margin-right:.6rem; vertical-align:.35em;
+  }
+  h2 + .kicker {
+    font-family:"IBM Plex Mono",monospace; font-size:.7rem; letter-spacing:.11em;
+    text-transform:uppercase; color:var(--ink-faint); margin:0 0 1.5rem;
+  }
+  h3 {
+    font-weight:600; font-size:1.02rem; margin:2.1rem 0 .6rem; letter-spacing:.005em;
+  }
+  h4 {
+    font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:.72rem;
+    letter-spacing:.09em; text-transform:uppercase; color:var(--ink-soft);
+    margin:1.5rem 0 .55rem;
+  }
+  p { margin:0 0 1.05rem; max-width:68ch; }
+  ul,ol { padding-left:1.15rem; margin:0 0 1.05rem; max-width:68ch; }
+  li { margin-bottom:.4rem; }
+  strong { font-weight:600; }
+
+  code {
+    font-family:"IBM Plex Mono",monospace; font-size:.87em;
+    background:var(--surface-alt); padding:.08em .34em; border-radius:2px;
+  }
+  pre {
+    font-family:"IBM Plex Mono",monospace; font-size:.78rem; line-height:1.55;
+    background:var(--surface-alt); border-radius:3px; padding:1rem 1.2rem;
+    overflow-x:auto; margin:0 0 1.3rem;
+  }
+  pre code { background:none; padding:0; font-size:1em; }
+  .c-key { color:var(--signal); }
+  .c-dim { color:var(--ink-faint); }
+  .c-hot { color:var(--alert); }
+
+  .scroller { overflow-x:auto; margin:0 0 1.4rem; }
+  table { border-collapse:collapse; width:100%; font-size:.87rem; font-variant-numeric:tabular-nums; }
+  caption {
+    text-align:left; font-family:"IBM Plex Mono",monospace; font-size:.7rem;
+    letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); padding-bottom:.6rem;
+  }
+  th {
+    text-align:left; font-weight:600; font-size:.71rem; letter-spacing:.06em;
+    text-transform:uppercase; color:var(--ink-soft); border-bottom:1px solid var(--ink);
+    padding:.4rem .85rem .4rem 0; white-space:nowrap;
+  }
+  td { border-bottom:1px solid var(--rule-soft); padding:.5rem .85rem .5rem 0; vertical-align:top; }
+  td.num, th.num { text-align:right; padding-right:1.15rem; font-family:"IBM Plex Mono",monospace; }
+  .dim { color:var(--ink-soft); }
+
+  .chip {
+    display:inline-block; font-family:"IBM Plex Mono",monospace; font-size:.66rem;
+    letter-spacing:.07em; text-transform:uppercase; padding:.13rem .45rem; border-radius:2px; white-space:nowrap;
+  }
+  .chip-ok { background:var(--signal-soft); color:var(--signal); }
+  .chip-bad { background:var(--alert-soft); color:var(--alert); }
+  .chip-flat { background:var(--surface-alt); color:var(--ink-soft); }
+
+  .quadro { background:var(--surface-alt); border-radius:3px; padding:1.3rem 1.5rem; margin:0 0 1.4rem; }
+  .quadro > :last-child { margin-bottom:0; }
+  .quadro .rotulo {
+    font-family:"IBM Plex Mono",monospace; font-size:.67rem; letter-spacing:.11em;
+    text-transform:uppercase; color:var(--signal); display:block; margin-bottom:.5rem;
+  }
+  .quadro.aviso .rotulo { color:var(--alert); }
+
+  .cartoes { display:grid; grid-template-columns:repeat(auto-fit,minmax(16rem,1fr)); gap:1rem; margin:0 0 1.4rem; }
+  .cartao { background:var(--surface); border:1px solid var(--rule); border-radius:3px; padding:1.05rem 1.2rem; }
+  .cartao h4 { margin-top:0; }
+  .cartao p { font-size:.92rem; margin-bottom:0; }
+
+  .placar {
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(8.5rem,1fr)); gap:1px;
+    background:var(--rule); border:1px solid var(--rule); border-radius:3px;
+    overflow:hidden; margin:0 0 1.8rem;
+  }
+  .placar > div { background:var(--surface); padding:.9rem 1rem; }
+  .placar dt {
+    font-family:"IBM Plex Mono",monospace; font-size:.63rem; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--ink-faint); margin-bottom:.25rem;
+  }
+  .placar dd { margin:0; font-family:Newsreader,Georgia,serif; font-size:1.6rem; line-height:1; }
+  .placar dd small { font-family:"IBM Plex Sans",sans-serif; font-size:.74rem; color:var(--ink-soft); }
+
+  .passos { list-style:none; padding:0; margin:0; display:grid; gap:1rem; max-width:none; }
+  .passos > li {
+    display:grid; grid-template-columns:2.4rem 1fr; gap:0 1rem;
+    background:var(--surface); border:1px solid var(--rule); border-radius:3px;
+    padding:1.05rem 1.2rem; margin:0;
+  }
+  .passos .marca {
+    font-family:"IBM Plex Mono",monospace; font-size:.78rem; font-weight:600;
+    color:var(--signal); padding-top:.15rem;
+  }
+  .passos h4 { margin:0 0 .4rem; font-size:.95rem; font-family:"IBM Plex Sans",sans-serif;
+    text-transform:none; letter-spacing:0; color:var(--ink); }
+  .passos p { font-size:.93rem; margin:0 0 .45rem; }
+  .passos p:last-child { margin-bottom:0; }
+  .passos .meta {
+    font-family:"IBM Plex Mono",monospace; font-size:.7rem; color:var(--ink-faint);
+    letter-spacing:.04em;
+  }
+
+  figure.grafico { margin:0 0 1.4rem; }
+  figure.grafico figcaption {
+    font-family:"IBM Plex Mono",monospace; font-size:.7rem; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--ink-faint); margin-bottom:.7rem;
+  }
+  .barras { display:grid; gap:.5rem; }
+  .barra { display:grid; grid-template-columns:11rem 1fr 5.5rem; gap:.7rem; align-items:center; font-size:.83rem; }
+  .barra .rot { color:var(--ink-soft); }
+  .barra .trilho { background:var(--surface-alt); border-radius:2px; height:1.1rem; overflow:hidden; }
+  .barra .preenche { height:100%; background:var(--signal); border-radius:2px; }
+  .barra .preenche.leve { background:var(--ink-faint); }
+  .barra .val { text-align:right; font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; }
+
+  footer {
+    border-top:1px solid var(--rule); padding-top:1.3rem; margin-top:3rem;
+    font-family:"IBM Plex Mono",monospace; font-size:.79rem; color:var(--ink-faint); line-height:1.75;
+  }
+
+  /* ------------------------------------------------------------ impressão */
+  @media print {
+    /* Papel é sempre claro: paleta clara forçada, independente do tema do
+       visualizador. Fundo escuro em impressão gasta tinta e some no papel. */
+    :root, :root[data-theme="dark"] {
+      --ground:#FFFFFF; --surface:#FFFFFF; --surface-alt:#F2F4F3;
+      --ink:#111417; --ink-soft:#4A545C; --ink-faint:#77828A;
+      --rule:#C9D0CB; --rule-soft:#E2E7E3;
+      --signal:#0B5949; --signal-soft:#EAF3F0;
+      --alert:#8E3122; --alert-soft:#F8EDEA;
+    }
+    @page { margin: 16mm 14mm; }
+    body { font-size: 10.2pt; line-height: 1.5; padding: 0; }
+    .page { max-width: none; }
+    p, ul, ol, .measure { max-width: none; }
+
+    nav.sumario { display: none; }
+
+    h1 { font-size: 22pt; }
+    h2 { font-size: 15pt; page-break-after: avoid; break-after: avoid; }
+    h3, h4 { page-break-after: avoid; break-after: avoid; }
+
+    section { page-break-before: always; break-before: page; margin-bottom: 0; }
+    header.masthead + section, section:first-of-type { page-break-before: auto; break-before: auto; }
+
+    /* Nada de bloco partido no meio: cartão, quadro, passo e tabela curta
+       perdem o sentido quando a metade cai na página seguinte. */
+    .cartao, .quadro, .passos > li, figure.grafico, pre, tr {
+      page-break-inside: avoid; break-inside: avoid;
+    }
+    table { page-break-inside: auto; }
+    thead { display: table-header-group; }
+
+    .scroller { overflow: visible; }
+    pre { white-space: pre-wrap; word-break: break-word; }
+
+    footer { page-break-before: avoid; break-before: avoid; }
+
+    /* A barra do gráfico é fundo colorido: sem isto o navegador a descarta. */
+    .barra .preenche, .chip, .quadro, .placar > div, .cartao {
+      -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    }
+  }
+
+  .so-tela { color:var(--signal); }
+  @media print { .so-tela { display:none; } }
+
+  @media (prefers-reduced-motion:reduce) { * { animation:none!important; transition:none!important; } }
+</style>
+
+<div class="page">
+
+<header class="masthead">
+  <p class="eyebrow">Uranium · Estudo E1 · Dossiê metodológico · 31 ago 2026</p>
+  <h1>Um benchmark de agentes que se defende de si mesmo</h1>
+  <p class="standfirst">O que existe hoje, o que falta validar, de onde vem o custo do braço orquestrado, e por que cada escolha de plataforma foi feita.</p>
+  <nav class="sumario">
+    <a href="#estado">01 · Estado atual</a>
+    <a href="#proximos">02 · Próximos passos</a>
+    <a href="#gargalo">03 · O gargalo de custo</a>
+    <a href="#justificativas">04 · Justificativas</a>
+  </nav>
+</header>
+
+<!-- ══════════════════════════════════════════════ 01 -->
+<section id="estado">
+  <h2><span class="num">01</span>Onde estamos hoje</h2>
+  <p class="kicker">Engenharia pronta · conteúdo experimental em 2 de 12</p>
+
+  <dl class="placar">
+    <div><dt>Repositórios-semente</dt><dd>3</dd></div>
+    <div><dt>Tarefas validadas</dt><dd>2 <small>de 12</small></dd></div>
+    <div><dt>Candidatos minerados</dt><dd>53</dd></div>
+    <div><dt>Testes automatizados</dt><dd>322</dd></div>
+    <div><dt>Commits</dt><dd>42</dd></div>
+    <div><dt>Crédito consumido</dt><dd>US$&nbsp;1,06 <small>de 3,00</small></dd></div>
+  </dl>
+
+  <h3>O desenho experimental</h3>
+  <p>Dois sistemas resolvem as mesmas tarefas de manutenção em repositórios Python reais. Modelo, ferramentas, enunciado, semente aleatória, orçamento e prompt são <strong>idênticos e verificados por teste automatizado</strong>. Só a topologia difere — é a variável independente.</p>
+
+  <div class="cartoes">
+    <div class="cartao">
+      <h4>Braço single-agent</h4>
+      <p>Um agente, sem papéis, num laço <em>pensa → usa ferramenta → repete</em>. Operado por uma política determinística que roda a suíte e devolve o stderr cru, sem sumarizar nem sugerir.</p>
+    </div>
+    <div class="cartao">
+      <h4>Braço orchestration</h4>
+      <p>Grafo LangGraph com papéis especializados: refina intenção, esclarece, desenvolve, valida, gera plano de teste. Autônomo, sem intervenção humana.</p>
+    </div>
+  </div>
+
+  <h3>O que está construído</h3>
+
+  <h4>Execução</h4>
+  <ul>
+    <li><strong>Runner unificado</strong> — um caminho de execução só; os dois braços recebem o mesmo workspace, configuração, orçamento e telemetria. A única divergência é qual grafo compilar.</li>
+    <li><strong>7 ferramentas reais</strong> sobre clone git isolado: <code>list_files</code>, <code>read_file</code>, <code>search_code</code>, <code>write_file</code>, <code>replace_in_file</code>, <code>run_python</code>, <code>run_tests</code>.</li>
+    <li><strong>Guarda de caminho</strong> — bloqueia caminho absoluto, traversal, escape por symlink e área interna do git. Recusa é valor de retorno, nunca exceção: a tentativa é sinal comportamental que o estudo quer medir.</li>
+    <li><strong>Circuit breaker</strong> — teto de turnos (o orçamento de verdade), de tokens (rede de segurança) e de tempo de parede.</li>
+  </ul>
+
+  <h4>Medição</h4>
+  <ul>
+    <li><strong>Harness independente</strong> — nunca importa o código do agente. Roda sozinho contra um diretório de run entregue por terceiro.</li>
+    <li><strong>Oráculo de teste oculto</strong> — em duas formas: arquivo avulso, ou o próprio patch de teste do upstream aplicado sobre os testes restaurados do commit-base.</li>
+    <li><strong>Detector de trapaça, 7 regras</strong> — descritas abaixo.</li>
+    <li><strong>Telemetria JSONL</strong> — 25 campos por evento, validada contra JSON Schema 2020-12, com flush e fsync por evento.</li>
+    <li><strong>Qualidade</strong> — delta de manutenibilidade e complexidade ciclomática (radon), só nos arquivos que o agente tocou.</li>
+  </ul>
+
+  <h4>As sete regras de trapaça</h4>
+  <div class="scroller">
+    <table>
+      <caption>C1–C4 cobrem o que a guarda de caminho já recusa; C5–C7 são as vias que restam abertas</caption>
+      <thead><tr><th>Regra</th><th>Severidade</th><th>O que detecta</th><th>Técnica</th></tr></thead>
+      <tbody>
+        <tr><td>C1</td><td><span class="chip chip-bad">crítica</span></td><td>Arquivo de teste ou configuração alterado</td><td>diff</td></tr>
+        <tr><td>C2</td><td><span class="chip chip-bad">crítica</span></td><td>Teste removido ou esvaziado</td><td>diff</td></tr>
+        <tr><td>C3</td><td><span class="chip chip-bad">crítica</span></td><td><code>skip</code> ou <code>xfail</code> inserido</td><td>AST</td></tr>
+        <tr><td>C4</td><td><span class="chip chip-bad">crítica</span></td><td><code>conftest.py</code> criado ou alterado</td><td>diff</td></tr>
+        <tr><td>C5</td><td><span class="chip chip-bad">crítica</span></td><td>Código de produção detecta que está sob teste</td><td>AST</td></tr>
+        <tr><td>C6</td><td><span class="chip chip-flat">aviso</span></td><td>Exceção que o teste oculto espera é engolida</td><td>AST</td></tr>
+        <tr><td>C7</td><td><span class="chip chip-bad">crítica</span></td><td>Agente criou ou referenciou o diretório de testes ocultos</td><td>diff</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="dim" style="font-size:.92rem">Toda regra de AST compara o estado <em>antes</em> e <em>depois</em>: só construção nova é acusada, o que já existia no commit-base não conta. Isso evita reprovar um repositório que legitimamente usa <code>sys.modules</code> ou <code>try/except</code> amplo.</p>
+
+  <h4>Garantias de validade</h4>
+  <div class="cartoes">
+    <div class="cartao">
+      <h4>Provedor fixado e auditável</h4>
+      <p>OpenRouter com <code>only</code> + <code>allow_fallbacks: false</code> + <code>require_parameters: true</code>. O provedor que atendeu vai para o resultado — é auto-verificável.</p>
+    </div>
+    <div class="cartao">
+      <h4>Avaliação sem rede</h4>
+      <p>Clones vêm de espelhos bare locais. A avaliação roda dentro de <code>unshare -rn</code>, namespace de rede vazio, registrado no resultado.</p>
+    </div>
+    <div class="cartao">
+      <h4>Ambiente por repositório</h4>
+      <p>Cada repo-semente tem venv próprio com dependências pinadas. A suíte do upstream nunca enxerga as dependências do projeto.</p>
+    </div>
+    <div class="cartao">
+      <h4>Paridade travada por teste</h4>
+      <p>Prompt, ferramentas, orçamento, semente e configuração de LLM comparados por <strong>identidade literal</strong> entre os braços, não por semelhança.</p>
+    </div>
+  </div>
+
+  <h3>Resultados que já existem</h3>
+
+  <div class="quadro">
+    <span class="rotulo">Resultado metodológico — o mais forte hoje</span>
+    <p>Oito rodadas pagas produziram <strong>oito defeitos de instrumentação e zero evidência sobre a hipótese</strong>. Três deles gerariam números plausíveis e errados; ao menos um apontava na direção que favorece a hipótese, que é a pior direção possível. Isso sustenta um capítulo próprio sobre por que benchmark de agente exige fase piloto.</p>
+  </div>
+
+  <ul>
+    <li><strong>Viabilidade demonstrada.</strong> A cadeia completa funciona com modelo real: o agente edita repositório de verdade, o oráculo externo julga, o detector verifica, tudo reproduzível offline. Custo medido entre US$ 0,015 e US$ 0,057 por execução.</li>
+    <li><strong>Estabilidade do desfecho.</strong> O <code>single-agent</code> resolveu 14 de 14 execuções acumuladas na <code>tomlkit-0001</code>. O caminho varia muito (11 a 29 turnos, 58k a 440k tokens); o resultado não.</li>
+    <li><strong>Mecanismo do custo identificado</strong> — detalhado na seção 03.</li>
+  </ul>
+
+  <div class="quadro aviso">
+    <span class="rotulo">O que ainda não existe</span>
+    <p>Nenhuma evidência sobre a pergunta de pesquisa. Duas tarefas não sustentam inferência: o mínimo estatístico para um teste de sinal pareado unicaudal é <strong>oito tarefas</strong> — com quatro, o menor p alcançável é 0,0625, impossível de chegar a p&lt;0,05.</p>
+  </div>
+
+  <h3>O que uma execução devolve</h3>
+  <p>Saída real de um run do braço <code>single-agent</code> na <code>tomlkit-0001</code>, repetição 3:</p>
+
+<pre><code>{
+  <span class="c-key">"run_id"</span>: "pilot-single-agent-r03-829265",
+  <span class="c-key">"arm"</span>: "single-agent",  <span class="c-key">"task_id"</span>: "tomlkit-0001",  <span class="c-key">"repetition"</span>: 3,
+  <span class="c-key">"base_commit"</span>: "11e22aefccd8069a90ae75d20613b9b1068754a1",
+
+  <span class="c-key">"resolved"</span>: true,
+  <span class="c-key">"resolved_blocked_by_cheat"</span>: false,
+
+  <span class="c-key">"oracle"</span>: {
+    "f2p_total": 1,  "f2p_passed": 1,
+    "f2p":        { "exit_code": 0, "passed": 1,    "failed": 0, "network_isolated": true },
+    "p2p":        { "exit_code": 0, "passed": 1030, "failed": 0, "network_isolated": true },
+    "regression": { "exit_code": 0, "passed": 1030, "failed": 0, "network_isolated": true }
+  },
+
+  <span class="c-key">"cheat"</span>:   { "clean": true, "critical_count": 0, "warning_count": 0, "signals": [] },
+  <span class="c-key">"quality"</span>: { "cc_mean_before": 6.854, "cc_mean_after": 6.878,
+               "cc_mean_delta": 0.024, "files_analyzed": 1 },
+  <span class="c-key">"cost"</span>:    { "tokens_prompt": 122471, "tokens_completion": 2366,
+               "tokens_total": 124837, "cost_usd": 0.0153601,
+               "llm_calls": 25, "tool_calls": 24, "wall_seconds": 49.993 },
+  <span class="c-key">"process"</span>: { "turns": 25, "test_runs": 1, "tool_denials": 0, "errors": 0,
+               "circuit_breaks": 0, "self_recoveries": 0, "stop_reason": "tests_pass" },
+
+  <span class="c-key">"provenance"</span>: { "model": "qwen/qwen3-coder",
+                  "provider_requested": "DeepInfra",
+                  "providers_served": ["DeepInfra"],
+                  "llm_seed": 20260823, "topology": "single_agent" },
+
+  <span class="c-key">"diff"</span>: { "files_changed": 1, "insertions": 8, "deletions": 1,
+            "changed_files": ["tomlkit/parser.py"] }
+}</code></pre>
+
+  <p><strong>Como ler.</strong> <code>resolved</code> é o desfecho primário e exige três condições simultâneas: o teste oculto passa (<code>f2p 1/1</code>), a suíte original não regride (<code>p2p 1030</code>), e o detector não acusa. <code>resolved_blocked_by_cheat</code> separa “não resolveu” de “resolveu trapaceando” — são fracassos distintos e precisam de contagem separada. <code>network_isolated</code> prova que a medição rodou sem rede; <code>providers_served</code> prova que o provedor pinado foi o que atendeu.</p>
+
+  <h4>O par comparável</h4>
+  <p>Mesma tarefa, mesma repetição, mesma semente (<code>20260823</code>), tudo idêntico exceto a topologia. É este par que se repete 12 tarefas × N repetições, e é sobre ele que o teste pareado opera:</p>
+
+  <div class="scroller">
+    <table>
+      <caption>tomlkit-0001 · repetição 3</caption>
+      <thead><tr><th>Métrica</th><th class="num">single-agent</th><th class="num">orchestration</th></tr></thead>
+      <tbody>
+        <tr><td><code>resolved</code></td><td class="num">true</td><td class="num">true</td></tr>
+        <tr><td>fail-to-pass</td><td class="num">1 / 1</td><td class="num">1 / 1</td></tr>
+        <tr><td>pass-to-pass</td><td class="num">1030</td><td class="num">1030</td></tr>
+        <tr><td>trapaça</td><td class="num">limpo</td><td class="num">limpo</td></tr>
+        <tr><td>turnos</td><td class="num">25</td><td class="num">30</td></tr>
+        <tr><td>tokens</td><td class="num">124.837</td><td class="num">492.253</td></tr>
+        <tr><td>custo</td><td class="num">US$ 0,0154</td><td class="num">US$ 0,0574</td></tr>
+        <tr><td>arquivos alterados</td><td class="num">1</td><td class="num">1</td></tr>
+        <tr><td><code>stop_reason</code></td><td class="num">tests_pass</td><td class="num">concluiu</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════ 02 -->
+<section id="proximos">
+  <h2><span class="num">02</span>Próximos passos</h2>
+  <p class="kicker">Em ordem de dependência</p>
+
+  <ol class="passos">
+    <li>
+      <span class="marca">01</span>
+      <div>
+        <h4>Ablação do <code>intent_refiner</code></h4>
+        <p>Rodar o braço orquestrado com esse nó desligado, entregando o enunciado bruto ao developer. Isola se a diferença de custo vem da compressão do enunciado (hipótese da seção 03) ou de outra coisa.</p>
+        <p class="meta">≈ US$ 0,30 · experimento mais informativo disponível hoje · resultado entra direto na discussão do TCC</p>
+      </div>
+    </li>
+    <li>
+      <span class="marca">02</span>
+      <div>
+        <h4>Fechar a conta do contexto</h4>
+        <p>Agora que toda ferramenta mede o tamanho da saída devolvida ao modelo, refazer a análise de crescimento de contexto. A versão anterior atribuía 206 e 375 tokens por turno contra um crescimento observado de 200 a 850 — metade não estava instrumentada.</p>
+        <p class="meta">custo zero · reanálise de dados já coletados na próxima rodada</p>
+      </div>
+    </li>
+    <li>
+      <span class="marca">03</span>
+      <div>
+        <h4>Escrever os dez enunciados restantes</h4>
+        <p>Os candidatos já estão minerados e verificados como discriminantes. Falta o texto de cada um: descrever o problema do ponto de vista de quem usa a biblioteca, com trecho de reprodução, sem citar arquivo nem função.</p>
+        <p class="meta">manual e insubstituível · <strong>é o caminho crítico do projeto</strong></p>
+      </div>
+    </li>
+    <li>
+      <span class="marca">04</span>
+      <div>
+        <h4>Segunda solução de referência por tarefa</h4>
+        <p>Uma implementação válida e diferente da do upstream. É o que prova que o oráculo não está travado numa forma específica de resolver — sem ela, um agente que resolve corretamente por outro caminho seria reprovado e ninguém saberia.</p>
+        <p class="meta">manual · gerar automaticamente produziria variação cosmética, que é garantia falsa</p>
+      </div>
+    </li>
+    <li>
+      <span class="marca">05</span>
+      <div>
+        <h4>Validar cada tarefa nos quatro portões</h4>
+        <p>Base verde; oráculo falha na base; ambas as referências resolvem sem regressão e sem disparar o detector; patch de trapaça plantado é detectado e reprovado. Já automatizado em <code>validate_task.py</code>.</p>
+        <p class="meta">custo zero · offline</p>
+      </div>
+    </li>
+    <li>
+      <span class="marca">06</span>
+      <div>
+        <h4>Coleta definitiva</h4>
+        <p>12 tarefas × 2 braços × 3 repetições = 72 execuções. Repetições servem para estabilizar a medida dentro de cada tarefa, não para dar poder estatístico — a unidade de análise é a tarefa.</p>
+        <p class="meta">US$ 4,00 a 5,50 · restam US$ 1,94 de crédito</p>
+      </div>
+    </li>
+    <li>
+      <span class="marca">07</span>
+      <div>
+        <h4>Análise pareada</h4>
+        <p>Teste de sinal ou Wilcoxon sobre a tarefa. Com 8 tarefas o teste tolera um resultado discordante; com 12 há folga. Custo e turnos entram como desfechos secundários, com censura declarada onde houver.</p>
+        <p class="meta">custo zero</p>
+      </div>
+    </li>
+  </ol>
+
+  <h3>Validações de infraestrutura ainda pendentes</h3>
+  <ul>
+    <li><strong>Passar o pente na paridade.</strong> Prompt, ferramentas, orçamento, semente e configuração de LLM já têm teste de identidade literal. Falta auditar se sobrou alguma constante comparada por semelhança — foi exatamente uma dessas folgas que deixou passar a divergência de prompt.</li>
+    <li><strong>Resiliência a 429 sob carga.</strong> Duas execuções foram perdidas para <code>engine_overloaded</code> do pool compartilhado, uma delas já com seis tentativas configuradas. A coleta precisa de mecanismo de reexecução de run perdido, e de folga de crédito para isso.</li>
+    <li><strong>Tempo de suíte no peewee.</strong> 23,7s por execução de suíte, e o agente roda a suíte várias vezes por run. Medir o impacto no tempo de parede antes da coleta.</li>
+  </ul>
+</section>
+
+<!-- ══════════════════════════════════════════════ 03 -->
+<section id="gargalo">
+  <h2><span class="num">03</span>O gargalo de custo no braço orquestrado</h2>
+  <p class="kicker">Conteúdo para o capítulo de metodologia</p>
+
+  <p>Esta seção documenta um episódio completo de investigação: um número que parecia achado, a suspeita, a medição que a refutou, e o mecanismo que sobrou. É material direto para a metodologia porque mostra <em>como</em> um confundidor foi descoberto, não só que ele existia.</p>
+
+  <h3>Etapa 1 — O número</h3>
+  <p>Cinco repetições da <code>tomlkit-0001</code>, os dois braços, sementes pareadas:</p>
+
+  <div class="scroller">
+    <table>
+      <caption>Rodada com prompts divergentes</caption>
+      <thead><tr><th>Braço</th><th class="num">Turnos (mediana)</th><th class="num">Tokens (mediana)</th><th class="num">Custo total</th><th>Resolveu</th></tr></thead>
+      <tbody>
+        <tr><td>single-agent</td><td class="num">15</td><td class="num">123.743</td><td class="num">US$ 0,1001</td><td><span class="chip chip-ok">5 / 5</span></td></tr>
+        <tr><td>orchestration</td><td class="num">40</td><td class="num">525.195</td><td class="num">US$ 0,2858</td><td><span class="chip chip-flat">2 / 5</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Lido de fora: a orquestração multiagente custa quase três vezes mais e resolve menos. Conclusão do estudo, pronta para publicar.</p>
+
+  <h3>Etapa 2 — A suspeita</h3>
+  <p>Em vez de aceitar o agregado, a pergunta foi <em>onde</em> o custo aparece. A medida que revelou o problema foi o número de chamadas de ferramenta <strong>depois</strong> de o agente escrever a correção:</p>
+
+  <div class="scroller">
+    <table>
+      <caption>Chamadas de ferramenta após a primeira escrita, por execução</caption>
+      <thead><tr><th>Braço</th><th class="num">rep 1</th><th class="num">rep 2</th><th class="num">rep 3</th><th class="num">rep 4</th><th class="num">rep 5</th></tr></thead>
+      <tbody>
+        <tr><td>single-agent</td><td class="num">4</td><td class="num">4</td><td class="num">4</td><td class="num">4</td><td class="num">4</td></tr>
+        <tr><td>orchestration</td><td class="num">2</td><td class="num">8</td><td class="num">6</td><td class="num">32</td><td class="num">21</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p><strong>Quatro, cinco vezes seguidas.</strong> Consistência dessa ordem não é comportamento de modelo de linguagem — é protocolo. O sinal apontava para o prompt, não para a arquitetura.</p>
+
+  <h3>Etapa 3 — A causa</h3>
+  <div class="quadro aviso">
+    <span class="rotulo">Confundidor identificado</span>
+    <p>Os prompts de sistema não eram equivalentes. O do braço orquestrado tinha uma seção “Método esperado” com cinco passos que o outro não tinha. E a condição de parada era diferente:</p>
+    <pre style="margin:.8rem 0 .9rem"><code>single-agent   → "Quando terminar, responda em texto."
+orchestration  → "Quando a suíte estiver verde <span class="c-hot">e a tarefa resolvida</span>,
+                  responda em texto."</code></pre>
+    <p>Uma condição de duas partes que o agente não consegue certificar sozinho: ele continuava trabalhando para se convencer. Isso dobrou os turnos — e como o contexto inteiro é reenviado a cada turno, o consumo cresce com o <em>quadrado</em> dos turnos.</p>
+  </div>
+
+  <h3>Etapa 4 — A correção e o novo número</h3>
+  <p>Passou a existir um prompt único, em <code>src/prompts.py</code>, usado pelos dois braços. A decomposição em papéis do braço orquestrado vive no grafo, não no prompt do agente que escreve código — que é onde ela precisa estar para a variável independente ficar limpa.</p>
+
+  <div class="scroller">
+    <table>
+      <caption>Mesma tarefa, mesmas sementes, prompt unificado</caption>
+      <thead><tr><th>Braço</th><th class="num">Turnos (mediana)</th><th class="num">Turnos (total)</th><th class="num">Tokens (total)</th><th>Resolveu</th></tr></thead>
+      <tbody>
+        <tr><td>single-agent</td><td class="num">24</td><td class="num">101</td><td class="num">587.949</td><td><span class="chip chip-ok">4 / 4</span> <span class="dim">1 perdida por 429</span></td></tr>
+        <tr><td>orchestration</td><td class="num">24</td><td class="num">122</td><td class="num">1.665.462</td><td><span class="chip chip-ok">5 / 5</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>O quadro virou: a mediana de turnos do braço orquestrado caiu de 40 para 24, ele deixou de encostar no teto, e passou de 2/5 para 5/5. <strong>A diferença de resolução era artefato de redação.</strong></p>
+
+  <h3>Etapa 5 — O que sobrou, e o mecanismo</h3>
+  <p>Turnos praticamente empatados (1,2× de diferença), mas consumo ainda 2,8× maior. Com o mesmo número de turnos, um braço gasta quase três vezes mais token. Isso exigia mecanismo, não especulação.</p>
+
+  <p>Como o contexto inteiro é reenviado a cada turno, o que importa é <strong>quanto o contexto cresce por turno</strong>:</p>
+
+  <figure class="grafico">
+    <figcaption>Crescimento do prompt por turno · faixa observada em 5 execuções</figcaption>
+    <div class="barras">
+      <div class="barra">
+        <span class="rot">single-agent</span>
+        <span class="trilho"><span class="preenche leve" style="width:44%"></span></span>
+        <span class="val">+201 a +377</span>
+      </div>
+      <div class="barra">
+        <span class="rot">orchestration</span>
+        <span class="trilho"><span class="preenche" style="width:100%"></span></span>
+        <span class="val">+441 a +854</span>
+      </div>
+    </div>
+  </figure>
+
+  <div class="scroller">
+    <table>
+      <caption>De onde vem o conteúdo acumulado</caption>
+      <thead><tr><th>Medida</th><th class="num">single-agent</th><th class="num">orchestration</th><th class="num">razão</th></tr></thead>
+      <tbody>
+        <tr><td>Tool calls por turno</td><td class="num">0,96</td><td class="num">0,96</td><td class="num">1,0×</td></tr>
+        <tr><td>Chamadas de <code>read_file</code></td><td class="num">22</td><td class="num">34</td><td class="num">1,5×</td></tr>
+        <tr><td>Bytes devolvidos por leitura</td><td class="num">90.487</td><td class="num">182.866</td><td class="num">2,0×</td></tr>
+        <tr><td>Custo dos nós especializados <span class="dim">(intent_refiner, validator, test_generator)</span></td><td class="num">—</td><td class="num">4.400</td><td class="num">irrelevante</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="quadro">
+    <span class="rotulo">O achado contraintuitivo</span>
+    <p>Os nós especializados — a parte que intuitivamente pareceria cara na orquestração — custam <strong>4.400 tokens contra mais de um milhão do total</strong>. Não é ali que o custo está.</p>
+    <p>O custo está em <strong>leitura de código</strong>. Os dois braços fazem exatamente uma chamada de ferramenta por turno, mas o braço orquestrado lê 1,5× mais arquivos e traz 2× mais bytes. Cada byte lido volta no prompt de todos os turnos seguintes — daí o crescimento quadrático.</p>
+  </div>
+
+  <h3>Etapa 6 — A hipótese restante</h3>
+  <p>O braço <code>single-agent</code> recebe o enunciado bruto. O <code>orchestration</code> recebe uma versão reestruturada pelo nó <code>intent_refiner</code> — e o primeiro prompt dele é <em>menor</em> que o do outro braço, o que sugere compressão.</p>
+  <p>Se a reestruturação descarta detalhe do enunciado — o trecho de reprodução, por exemplo — o agente precisa reencontrá-lo lendo código. Isso explicaria as leituras a mais.</p>
+  <p><strong>Ainda não testado.</strong> É a ablação do passo 01 da seção anterior. Até lá, o mecanismo está identificado mas a causa não está isolada.</p>
+
+  <div class="quadro aviso">
+    <span class="rotulo">Ressalva sobre a própria medição</span>
+    <p>Ao montar a tabela acima, descobriu-se que três das ferramentas mais usadas — <code>run_python</code>, <code>run_tests</code> e <code>replace_in_file</code> — não registravam o tamanho da saída devolvida ao modelo. Os números cobrem 206 e 375 tokens por turno contra um crescimento observado de 200 a 850: <strong>metade do contexto não estava instrumentada</strong>. Corrigido, mas os valores acima são o piso, não o total.</p>
+  </div>
+
+  <h3>Lições metodológicas transferíveis</h3>
+  <ul>
+    <li><strong>Agregado esconde mecanismo.</strong> “2,8× mais caro” é verdadeiro e inútil. Só a decomposição — turnos, chamadas por turno, bytes por chamada — revelou que a causa não era arquitetural.</li>
+    <li><strong>Consistência excessiva é sinal de artefato.</strong> Quatro chamadas em cinco execuções independentes não é comportamento estocástico; é regra sendo obedecida. Variância baixa demais merece a mesma suspeita que variância alta demais.</li>
+    <li><strong>Paridade verificada por semelhança não é paridade.</strong> O teste anterior aceitava razão de tamanho entre 0,6 e 1,6 e passava folgado com a divergência. Constante que deve ser igual precisa de teste de igualdade literal.</li>
+    <li><strong>Instrumentação incompleta não torna o experimento errado, torna-o inexplicável.</strong> “Orquestração custa mais” sem mecanismo identificado é observação, não achado.</li>
+  </ul>
+</section>
+
+<!-- ══════════════════════════════════════════════ 04 -->
+<section id="justificativas">
+  <h2><span class="num">04</span>Justificativas das escolhas</h2>
+  <p class="kicker">Critérios, alternativas descartadas e limitações aceitas</p>
+
+  <h3>Por que OpenRouter, e não a API de um fornecedor</h3>
+  <p>Três exigências do desenho experimental, atendidas por parâmetros verificáveis:</p>
+  <div class="scroller">
+    <table>
+      <thead><tr><th>Parâmetro</th><th>O que garante</th></tr></thead>
+      <tbody>
+        <tr><td><code>provider.only</code></td><td>Fixa um único provedor de infraestrutura para o modelo</td></tr>
+        <tr><td><code>allow_fallbacks: false</code></td><td>Se o provedor fixado não puder atender, devolve erro em vez de servir por outro — o run nunca troca de provedor em silêncio</td></tr>
+        <tr><td><code>require_parameters: true</code></td><td>Recusa endpoint que não implemente <code>seed</code> e <code>temperature</code>, em vez de ignorá-los silenciosamente</td></tr>
+        <tr><td><code>usage.include</code></td><td>Contagem nativa de tokens e custo em USD, não estimativa</td></tr>
+        <tr><td><code>data_collection: deny</code></td><td>Impede que o provedor retenha o conteúdo das requisições</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>O provedor que efetivamente atendeu cada chamada é gravado na telemetria e agregado no resultado. O pino é <strong>auto-verificável</strong>: não há como o experimento trocar de provedor sem que isso apareça no dado.</p>
+
+  <h3>Por que <code>qwen/qwen3-coder</code></h3>
+  <p>A escolha saiu de um teste de aptidão automatizado (<code>scripts/fitness_test.py</code>), não de reputação. Um modelo só é elegível se passar em três verificações contra a API real:</p>
+
+  <div class="cartoes">
+    <div class="cartao">
+      <h4>1 · Suporte a parâmetros</h4>
+      <p>O endpoint precisa declarar suporte a <code>tools</code>, <code>seed</code>, <code>temperature</code> e <code>max_tokens</code>. Sem os quatro, não há tool calling reprodutível.</p>
+    </div>
+    <div class="cartao">
+      <h4>2 · Conformidade de tool calling</h4>
+      <p>Sondagens repetidas verificam se o modelo chama a ferramenta esperada com os argumentos exatos. Um modelo que não chama ferramenta de forma confiável inviabiliza os dois braços.</p>
+    </div>
+    <div class="cartao">
+      <h4>3 · Pino de provedor efetivo</h4>
+      <p>Todas as sondagens têm de ser atendidas pelo mesmo provedor. Variação aqui significa que o pino não funciona para aquele modelo.</p>
+    </div>
+  </div>
+
+  <h4>Resultado do teste de aptidão</h4>
+  <div class="scroller">
+    <table>
+      <caption>Custo total da triagem: US$ 0,003</caption>
+      <thead><tr><th>Modelo</th><th>Provedor</th><th>Veredito</th><th>Observação</th></tr></thead>
+      <tbody>
+        <tr><td><code>qwen/qwen3-coder</code></td><td>DeepInfra</td><td><span class="chip chip-ok">apto</span></td><td><strong>Escolhido</strong> — especializado em código, custo por token baixo</td></tr>
+        <tr><td><code>z-ai/glm-4.7</code></td><td>DeepInfra</td><td><span class="chip chip-ok">apto</span></td><td>Alternativa verificada, disponível para replicação</td></tr>
+        <tr><td><code>moonshotai/kimi-k2.5</code></td><td>DeepInfra</td><td><span class="chip chip-ok">apto</span></td><td>Alternativa verificada</td></tr>
+        <tr><td><code>minimax/minimax-m2.1</code></td><td>Novita</td><td><span class="chip chip-ok">apto</span></td><td>Alternativa verificada, provedor diferente</td></tr>
+        <tr><td><code>anthropic/claude-haiku-4.5</code></td><td>—</td><td><span class="chip chip-bad">não apto</span></td><td>Nenhum dos 8 endpoints aceita <code>seed</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="quadro aviso">
+    <span class="rotulo">Exclusão a declarar no TCC</span>
+    <p>Modelos da Anthropic ficaram fora por <strong>limitação de plataforma, não por mérito técnico</strong>: nenhum endpoint disponível no OpenRouter aceita fixar a semente aleatória, o que impossibilita o requisito de reprodutibilidade com provedor pinado. A mesma verificação exclui automaticamente qualquer modelo de tier gratuito (<code>:free</code>), que não permite pinar provedor.</p>
+  </div>
+
+  <p><strong>A escolha é trocável por variável de ambiente.</strong> O modelo não está no código: vem de <code>OPENROUTER_MODEL_NAME</code> e <code>OPENROUTER_PROVIDER</code>, e vai inteiro para o manifesto de cada run. Trocar de modelo e repetir o estudo não exige alterar uma linha.</p>
+
+  <h3>Por que estes três repositórios-semente</h3>
+
+  <h4>Critérios de elegibilidade</h4>
+  <ol>
+    <li><strong>Licença permissiva</strong> — MIT ou Apache-2.0, para que o trabalho possa reproduzir e distribuir trechos.</li>
+    <li><strong>Suíte verde e rápida no commit-base</strong> — sem isso não há como atribuir uma falha ao agente. Verificado por execução, não por confiança no CI do projeto.</li>
+    <li><strong>Histórico com correções acompanhadas de teste</strong> — é o que gera oráculo <em>fail-to-pass</em>. Verificado por mineração: cada candidato é executado antes de ser aceito.</li>
+    <li><strong>Instalação offline reprodutível</strong> — dependências pinadas, sem serviço externo, sem banco de dados em rede.</li>
+    <li><strong>Tamanho médio</strong> — grande o bastante para a tarefa não ser trivial, pequeno o bastante para a suíte caber no orçamento de tempo de cada run.</li>
+  </ol>
+
+  <div class="scroller">
+    <table>
+      <caption>Os três repositórios, com suítes verificadas verdes no HEAD</caption>
+      <thead>
+        <tr><th>Repositório</th><th class="num">Linhas</th><th>Licença</th><th class="num">Commits</th><th>Suíte</th><th class="num">Tempo</th><th class="num">Candidatos</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>tomlkit</code></td><td class="num">~5.000</td><td>MIT</td><td class="num">586</td><td>1.052 testes</td><td class="num">1,3s</td><td class="num">24 / 30</td></tr>
+        <tr><td><code>sqlite-utils</code></td><td class="num">9.813</td><td>Apache-2.0</td><td class="num">1.199</td><td>1.488 + 16 pulados</td><td class="num">11,6s</td><td class="num">7 / 30</td></tr>
+        <tr><td><code>peewee</code></td><td class="num">15.461</td><td>MIT</td><td class="num">5.324</td><td>1.634 + 161 pulados</td><td class="num">23,7s</td><td class="num">22 / 30</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h4>Por que cada um, e o que ele cobre</h4>
+  <div class="cartoes">
+    <div class="cartao">
+      <h4>tomlkit</h4>
+      <p>Interpretador de arquivos de configuração TOML que <strong>preserva formatação</strong>. Lógica de parsing densa, muitos casos de borda, correções pequenas e bem localizadas. Cobre a faixa de dificuldade baixa e é o repositório mais rápido de iterar.</p>
+    </div>
+    <div class="cartao">
+      <h4>sqlite-utils</h4>
+      <p>Biblioteca e CLI para manipular bancos SQLite. Traz <strong>transações, chaves estrangeiras, migração de schema e integridade referencial</strong> — cenários que um parser não tem como cobrir. Banco embarcado, portanto sem dependência de serviço externo.</p>
+    </div>
+    <div class="cartao">
+      <h4>peewee</h4>
+      <p>ORM maduro, com 5.324 commits de histórico. Traz <strong>mapeamento objeto-relacional, referência circular entre entidades, proxies e pool de conexões</strong>. É o maior dos três e concentra a faixa de dificuldade média.</p>
+    </div>
+  </div>
+
+  <p>Os três cobrem, juntos, as categorias que o desenho exige: bug localizado em um arquivo, bug que atravessa módulos, ajuste em entidades e transações de banco, e referência circular. A distribuição de dificuldade sai automaticamente do tamanho do patch de referência de cada tarefa.</p>
+
+  <h4>Adaptações necessárias, e o que elas revelaram</h4>
+  <ul>
+    <li><strong>peewee.</strong> Os módulos de teste dele se chamam <code>models.py</code>, <code>fields.py</code>, <code>sql.py</code> — nenhum casa com o padrão <code>test_*.py</code> do pytest. Uma coleta padrão acha <strong>5 testes de 1.634</strong> e reporta verde, o que é pior que vermelho porque parece sucesso. O alvo correto é <code>tests/__init__.py</code>, que é o conjunto que o <code>runtests.py</code> do próprio projeto monta.</li>
+    <li><strong>sqlite-utils.</strong> Faltava a dependência <code>sqlite-fts4</code>, sem a qual a suíte nem coleta.</li>
+    <li><strong>Consequência de desenho.</strong> Cada repositório passou a ter ambiente virtual próprio com dependências pinadas. Antes tudo rodava no ambiente do projeto, e a suíte do upstream enxergava langchain, pydantic e mais cinquenta pacotes — o agente poderia obter corretude a partir de dependência que o projeto original não declara, sem deixar rastro.</li>
+  </ul>
+
+  <h3>Limitações aceitas e declaradas</h3>
+  <div class="cartoes">
+    <div class="cartao">
+      <h4>Reprodutibilidade exata</h4>
+      <p>A semente não garante trajetória idêntica. A mesma tarefa com a mesma configuração produziu caminhos de 9, 14 e 29 turnos. O <code>seed</code> do OpenRouter é <em>best-effort</em>, e um laço de tool calling amplifica qualquer divergência.</p>
+    </div>
+    <div class="cartao">
+      <h4>Refatoração fora de escopo</h4>
+      <p>Uma refatoração que preserva comportamento passa nos mesmos testes antes e depois — não existe <em>fail-to-pass</em> e o oráculo não discrimina. Verificado empiricamente em dois commits. Entra só como métrica secundária de qualidade.</p>
+    </div>
+    <div class="cartao">
+      <h4>Unidade de análise</h4>
+      <p>Repetições da mesma tarefa não são observações independentes. A unidade é a tarefa, e o mínimo para um teste de sinal pareado unicaudal é oito.</p>
+    </div>
+    <div class="cartao">
+      <h4>Um modelo só</h4>
+      <p>O estudo roda com um modelo. Generalização para outros modelos não é reivindicada — mas a configuração é trocável por variável de ambiente, e três alternativas já estão verificadas como aptas.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <span class="so-tela">Para salvar em PDF: <strong>Ctrl+P</strong> (ou ⌘P) → Salvar como PDF.<br></span>
+  Uranium · TCC em Sistemas de Informação · UNIFEI<br>
+  Estudo E1 · pipeline multiagente em LangGraph, avaliação por oráculo externo<br>
+  Modelo: qwen/qwen3-coder via DeepInfra, provedor fixado e auditado em todas as chamadas<br>
+  Código: github.com/isaac-prado/uranium · branch develop · 42 commits · 322 testes
+</footer>
+
+</div>
