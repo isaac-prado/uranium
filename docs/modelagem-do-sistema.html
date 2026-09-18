@@ -1,0 +1,1278 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Modelagem do Sistema — Uranium / Estudo E1</title>
+<style>
+  :root {
+    --bg: #fbfaf8;
+    --surface: #ffffff;
+    --surface-alt: #f4f2ee;
+    --ink: #1d1c1a;
+    --ink-soft: #57534e;
+    --ink-faint: #8a847c;
+    --rule: #e2ded7;
+    --accent: #7c3f14;
+    --accent-soft: #f0e4d8;
+    --single: #1e5f74;
+    --single-soft: #dceaef;
+    --orch: #7c3f14;
+    --orch-soft: #f0e4d8;
+    --warn: #8a4b08;
+    --warn-soft: #fbeedd;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #16150f;
+      --surface: #1e1d17;
+      --surface-alt: #26241d;
+      --ink: #ece7dd;
+      --ink-soft: #b8b1a4;
+      --ink-faint: #857e72;
+      --rule: #34312a;
+      --accent: #d9a066;
+      --accent-soft: #33291d;
+      --single: #7fc4d8;
+      --single-soft: #1b2e35;
+      --orch: #d9a066;
+      --orch-soft: #33291d;
+      --warn: #e0a95e;
+      --warn-soft: #302516;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #16150f;
+    --surface: #1e1d17;
+    --surface-alt: #26241d;
+    --ink: #ece7dd;
+    --ink-soft: #b8b1a4;
+    --ink-faint: #857e72;
+    --rule: #34312a;
+    --accent: #d9a066;
+    --accent-soft: #33291d;
+    --single: #7fc4d8;
+    --single-soft: #1b2e35;
+    --orch: #d9a066;
+    --orch-soft: #33291d;
+    --warn: #e0a95e;
+    --warn-soft: #302516;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 860px;
+    margin: 0 auto;
+    padding-block: 4rem 6rem;
+    padding-inline: 20px;
+  }
+
+  /* ---------------------------------------------------------- tipografia */
+
+  h1, h2, h3, h4 { font-family: var(--sans); line-height: 1.25; }
+
+  h1 {
+    font-size: 2.1rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0 0 0.6rem;
+  }
+
+  .subtitle {
+    font-family: var(--sans);
+    font-size: 1.02rem;
+    color: var(--ink-soft);
+    margin: 0 0 1.2rem;
+    line-height: 1.5;
+  }
+
+  .meta {
+    font-family: var(--sans);
+    font-size: 0.8rem;
+    color: var(--ink-faint);
+    letter-spacing: 0.02em;
+    padding-bottom: 2rem;
+    border-bottom: 2px solid var(--rule);
+    margin-bottom: 2.5rem;
+  }
+
+  h2 {
+    font-size: 1.35rem;
+    font-weight: 650;
+    margin: 3.5rem 0 0.4rem;
+    padding-top: 1.6rem;
+    border-top: 1px solid var(--rule);
+    letter-spacing: -0.01em;
+  }
+
+  h2 .num {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.45rem;
+  }
+
+  h3 {
+    font-size: 1.06rem;
+    font-weight: 650;
+    margin: 2.2rem 0 0.3rem;
+  }
+
+  h4 {
+    font-size: 0.93rem;
+    font-weight: 650;
+    margin: 1.5rem 0 0.3rem;
+    color: var(--ink-soft);
+  }
+
+  p { margin: 0.85rem 0; }
+
+  a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.84em;
+    background: var(--surface-alt);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 0.08em 0.34em;
+    word-break: break-word;
+  }
+
+  pre {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    line-height: 1.6;
+    background: var(--surface-alt);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    padding: 0.95rem 1.1rem;
+    overflow-x: auto;
+    margin: 1.1rem 0;
+  }
+
+  pre code { background: none; border: none; padding: 0; font-size: inherit; }
+
+  ul, ol { margin: 0.85rem 0; padding-left: 1.4rem; }
+  li { margin: 0.35rem 0; }
+
+  strong { font-weight: 650; }
+
+  /* ------------------------------------------------------------- tabelas */
+
+  .scroll { overflow-x: auto; margin: 1.3rem 0; }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-family: var(--sans);
+    font-size: 0.83rem;
+    line-height: 1.45;
+  }
+
+  th, td {
+    text-align: left;
+    padding: 0.55rem 0.7rem;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+
+  th {
+    font-weight: 650;
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    border-bottom: 2px solid var(--rule);
+    white-space: nowrap;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+
+  td code { font-size: 0.86em; }
+
+  /* -------------------------------------------------------------- blocos */
+
+  .callout {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    padding: 1rem 1.2rem;
+    margin: 1.4rem 0;
+    font-size: 0.95rem;
+  }
+
+  .callout p:first-child { margin-top: 0; }
+  .callout p:last-child { margin-bottom: 0; }
+
+  .callout .label {
+    display: block;
+    font-family: var(--sans);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.45rem;
+  }
+
+  .callout.warn { border-left-color: var(--warn); background: var(--warn-soft); }
+  .callout.warn .label { color: var(--warn); }
+
+  .lead {
+    font-size: 1.06rem;
+    color: var(--ink-soft);
+    border-left: 3px solid var(--rule);
+    padding-left: 1.1rem;
+    margin: 1.4rem 0;
+  }
+
+  /* ------------------------------------------------------------- braços */
+
+  .arms {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+
+  .arm {
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 1rem 1.1rem;
+    background: var(--surface);
+  }
+
+  .arm.single { border-top: 3px solid var(--single); }
+  .arm.orch { border-top: 3px solid var(--orch); }
+
+  .arm h4 {
+    margin: 0 0 0.15rem;
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    letter-spacing: 0;
+  }
+
+  .arm.single h4 { color: var(--single); }
+  .arm.orch h4 { color: var(--orch); }
+
+  .arm .tag {
+    font-family: var(--sans);
+    font-size: 0.72rem;
+    color: var(--ink-faint);
+    display: block;
+    margin-bottom: 0.7rem;
+  }
+
+  .arm ul { margin: 0; padding-left: 1.1rem; font-family: var(--sans); font-size: 0.82rem; }
+
+  /* --------------------------------------------------------------- fluxo */
+
+  .flow {
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    line-height: 1.75;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 1.1rem 1.2rem;
+    overflow-x: auto;
+    margin: 1.3rem 0;
+    white-space: pre;
+    color: var(--ink-soft);
+  }
+
+  /* ------------------------------------------------------------ diagramas */
+
+  figure.diagram {
+    margin: 1.6rem 0;
+    padding: 1.1rem 0.6rem 0.8rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+  }
+
+  figure.diagram svg { display: block; width: 100%; height: auto; }
+
+  figure.diagram figcaption {
+    font-family: var(--sans);
+    font-size: 0.76rem;
+    color: var(--ink-faint);
+    text-align: center;
+    margin-top: 0.7rem;
+    padding-inline: 0.8rem;
+    line-height: 1.5;
+  }
+
+  .d-box { fill: var(--surface-alt); stroke: var(--rule); stroke-width: 1.5; }
+  .d-box.orch { fill: var(--orch-soft); stroke: var(--orch); }
+  .d-box.single { fill: var(--single-soft); stroke: var(--single); }
+  .d-box.exec { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 2; }
+
+  .d-term { fill: var(--ink-soft); stroke: none; }
+
+  .d-label {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    fill: var(--ink);
+    text-anchor: middle;
+    dominant-baseline: central;
+  }
+
+  .d-label.term { font-family: var(--sans); font-size: 11px; fill: var(--bg); font-weight: 700; }
+  .d-label.sub { font-family: var(--sans); font-size: 10px; fill: var(--ink-soft); }
+
+  .d-edge { stroke: var(--ink-faint); stroke-width: 1.5; fill: none; }
+  .d-edge.loop { stroke-dasharray: 4 3; }
+
+  .d-cond {
+    font-family: var(--sans);
+    font-size: 10px;
+    fill: var(--ink-soft);
+    text-anchor: middle;
+  }
+
+  .d-cond.strong { fill: var(--accent); font-weight: 650; }
+
+  .d-arrow { fill: var(--ink-faint); }
+
+  .pill {
+    display: inline-block;
+    font-family: var(--sans);
+    font-size: 0.68rem;
+    font-weight: 650;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 0.12rem 0.45rem;
+    border-radius: 3px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    border: 1px solid var(--rule);
+    vertical-align: middle;
+  }
+
+  .pill.single { background: var(--single-soft); color: var(--single); }
+  .pill.both { background: var(--surface-alt); color: var(--ink-soft); }
+
+  /* ------------------------------------------------------------- índice */
+
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 1.1rem 1.4rem;
+    margin-bottom: 1rem;
+    font-family: var(--sans);
+    font-size: 0.85rem;
+  }
+
+  .toc ol { margin: 0; padding-left: 1.3rem; }
+  .toc li { margin: 0.28rem 0; }
+  .toc a { text-decoration: none; color: var(--ink); }
+  .toc a:hover { color: var(--accent); text-decoration: underline; }
+
+  .footnote {
+    font-family: var(--sans);
+    font-size: 0.78rem;
+    color: var(--ink-faint);
+    margin-top: 0.4rem;
+  }
+
+  /* ----------------------------------------------------------- impressão */
+
+  @media print {
+    :root {
+      --bg: #fff; --surface: #fff; --surface-alt: #f5f5f5;
+      --ink: #000; --ink-soft: #333; --ink-faint: #666;
+      --rule: #ccc; --accent: #7c3f14;
+    }
+    body { font-size: 10.5pt; background: #fff; color: #000; }
+    .page { max-width: none; padding: 0; }
+    h2 { page-break-before: always; page-break-after: avoid; }
+    h2:first-of-type { page-break-before: avoid; }
+    h3, h4 { page-break-after: avoid; }
+    pre, table, .callout, .arms, .flow { page-break-inside: avoid; }
+    .toc { page-break-after: always; }
+    a { color: #000; text-decoration: none; }
+  }
+
+  @media (max-width: 640px) {
+    body { font-size: 16px; }
+    .page { padding-block: 2.5rem 4rem; }
+    .arms { grid-template-columns: 1fr; }
+    h1 { font-size: 1.65rem; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>Modelagem do sistema</h1>
+<p class="subtitle">
+  Uranium — Estudo E1: comparação controlada entre um agente único e uma
+  orquestração multiagente na resolução de tarefas de manutenção em
+  repositórios Python reais.
+</p>
+<p class="meta">
+  Documento de arquitetura · branch <code>develop</code> · setembro de 2026<br>
+  Complementa <code>docs/dossie-metodologico.html</code> (desenho experimental e
+  justificativas). Aqui o foco é <em>como o sistema está construído</em>:
+  prompts, orquestração, fronteiras de entrada e saída, e avaliação.
+</p>
+
+<nav class="toc">
+  <ol>
+    <li><a href="#s1">O que o sistema é</a></li>
+    <li><a href="#s2">Os dois agentes: a variável independente</a></li>
+    <li><a href="#s3">Onde o prompt entra, onde o output sai</a></li>
+    <li><a href="#s4">Os prompts, na íntegra</a></li>
+    <li><a href="#s5">A orquestração: topologia e roteamento</a></li>
+    <li><a href="#s6">O que é mantido idêntico, e por quê</a></li>
+    <li><a href="#s7">Como avaliamos o desenvolvimento gerado</a></li>
+    <li><a href="#s8">Como testamos o próprio sistema</a></li>
+    <li><a href="#s9">Repositórios e benchmarks para desenvolvimentos grandes</a></li>
+    <li><a href="#s10">Limitações declaradas</a></li>
+  </ol>
+</nav>
+
+<!-- ================================================================== 1 -->
+<h2 id="s1"><span class="num">Seção 1</span>O que o sistema é</h2>
+
+<p class="lead">
+  O Uranium não é um gerador de código. É um <strong>aparato experimental</strong>
+  que coloca duas topologias de agente para resolver a mesma tarefa, sob as
+  mesmas condições, e mede a diferença.
+</p>
+
+<p>
+  A pergunta do estudo é se decompor o trabalho em papéis especializados
+  (analista, desenvolvedor, revisor, testador) produz resultado melhor que um
+  agente único fazendo tudo — e a que custo. Para que essa pergunta tenha
+  resposta, tudo que não é a topologia precisa ser mantido constante: mesmo
+  modelo, mesmo provedor, mesma semente, mesmas ferramentas, mesmo orçamento,
+  mesmo prompt do agente que escreve código.
+</p>
+
+<p>
+  O sistema tem quatro camadas, e vale separá-las porque é comum confundir a
+  terceira com a segunda:
+</p>
+
+<div class="scroll">
+<table>
+  <thead>
+    <tr><th>Camada</th><th>Onde vive</th><th>Responsabilidade</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Tarefa</strong></td>
+      <td><code>tasks/</code>, <code>scripts/mine_tasks.py</code></td>
+      <td>Enunciado em linguagem natural + oráculo de correção, minerados do histórico real do upstream.</td>
+    </tr>
+    <tr>
+      <td><strong>Agente</strong></td>
+      <td><code>src/</code></td>
+      <td>As duas topologias, as ferramentas, o orçamento e a telemetria. É o objeto sob teste.</td>
+    </tr>
+    <tr>
+      <td><strong>Harness</strong></td>
+      <td><code>harness/</code></td>
+      <td>Juiz externo. Roda depois, com testes que o agente nunca viu, e decide se resolveu.</td>
+    </tr>
+    <tr>
+      <td><strong>Suíte do projeto</strong></td>
+      <td><code>tests/</code></td>
+      <td>Testes do Uranium sobre si mesmo. Não avaliam código gerado — garantem que o aparato não está enviesado.</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout">
+  <span class="label">Distinção que costuma se perder</span>
+  <p>
+    O <strong>Validator</strong> (camada do agente) e o <strong>oráculo</strong>
+    (camada do harness) fazem coisas diferentes. O Validator roda dentro do run
+    e serve para o agente decidir se continua trabalhando — é tratamento, não
+    medição. O oráculo roda depois que o agente terminou, com testes ocultos, e
+    é a única fonte de corretude reportada no TCC. Se o Validator fosse a
+    medida, o estudo estaria medindo a auto-avaliação do modelo.
+  </p>
+</div>
+
+<!-- ================================================================== 2 -->
+<h2 id="s2"><span class="num">Seção 2</span>Os dois agentes: a variável independente</h2>
+
+<p>
+  Os dois braços recebem o mesmo enunciado, as mesmas sete ferramentas e o mesmo
+  teto de gasto. A diferença é inteiramente de <strong>topologia</strong>: quem
+  decide o que fazer em seguida, e com base em quê.
+</p>
+
+<div class="arms">
+  <div class="arm single">
+    <h4>single-agent</h4>
+    <span class="tag">agente único, sem papéis</span>
+    <ul>
+      <li>Um nó de LLM em laço com um <strong>operador determinístico</strong> (não é LLM, não é humano).</li>
+      <li>O operador entrega o enunciado uma vez, aceita todo patch sem revisão, roda a suíte quando o agente para de chamar ferramenta.</li>
+      <li>Se a suíte falha, devolve o <strong>stderr cru</strong>, truncado — sem resumir, sem apontar arquivo, sem sugerir.</li>
+      <li><code>agent_role</code> é sempre <code>null</code> na telemetria.</li>
+    </ul>
+  </div>
+  <div class="arm orch">
+    <h4>orchestration</h4>
+    <span class="tag">grafo multiagente com papéis</span>
+    <ul>
+      <li>Cinco nós especializados num <code>StateGraph</code>, com dois laços condicionais.</li>
+      <li>O Developer é quem escreve código; os outros quatro refinam a entrada, julgam a saída e propõem testes.</li>
+      <li>O Validator roda a suíte de verdade e pode mandar o Developer tentar de novo.</li>
+      <li><code>agent_role</code> é preenchido em cada evento — é o campo que materializa a variável independente no dado bruto.</li>
+    </ul>
+  </div>
+</div>
+
+<h3>O ponto exato em que os braços divergem</h3>
+
+<p>
+  Um único <code>if</code>, em <a href="../src/arms/runner.py">src/arms/runner.py:229</a>.
+  Tudo antes dele — workspace materializado, configuração de LLM resolvida,
+  orçamento, telemetria, estado inicial — é construído pelo mesmo código:
+</p>
+
+<pre><code>def _compilar(spec: RunSpec):
+    """Escolhe o grafo. É o ÚNICO ponto em que os braços divergem."""
+    if spec.arm == "single-agent":
+        from src.arms.single_agent import build_single_agent_graph
+        return build_single_agent_graph(spec.driver_policy)
+
+    from src.graph import build_graph
+    return build_graph()</code></pre>
+
+<div class="callout warn">
+  <span class="label">Por que o operador do single-agent é burro de propósito</span>
+  <p>
+    A política do <code>DeterministicDriver</code>
+    (<a href="../src/arms/driver.py">src/arms/driver.py</a>) é fixa e vai inteira
+    para o manifesto do run. Ela devolve o stderr cru justamente para
+    <em>não</em> fazer engenharia pelo agente: resumir a falha, apontar o arquivo
+    provável ou sugerir a correção seria inteligência injetada pelo harness e
+    creditada ao braço. Isso inflaria artificialmente o single-agent e
+    destruiria a comparação.
+  </p>
+</div>
+
+<!-- ================================================================== 3 -->
+<h2 id="s3"><span class="num">Seção 3</span>Onde o prompt entra, onde o output sai</h2>
+
+<p>
+  Esta é a fronteira que mais importa para entender o sistema, e onde o desenho
+  atual difere radicalmente da primeira versão da POC.
+</p>
+
+<h3>A entrada</h3>
+
+<div class="flow">tasks/&lt;id&gt;/statement.md          ← escrito à mão, por humano
+        │                        (nunca derivado da mensagem de commit:
+        │                         ela frequentemente já entrega a solução)
+        ▼
+scripts/run_arm.py --statement-file ...
+        │
+        ▼
+RunSpec.statement
+        │
+        ▼
+estado_inicial["raw_request"]  +  estado_inicial["intent"]
+        │
+        ├──&gt; single-agent: _spec(state) → "Tarefa:\n" + intent como JSON
+        │                  entregue UMA VEZ pelo driver, no turno 0
+        │
+        └──&gt; orchestration: intent_refiner reescreve a intent,
+                            depois developer recebe _build_prompt(state)</div>
+
+<p>
+  Nos dois braços, o texto que chega ao modelo que escreve código é montado a
+  partir do mesmo objeto <code>StructuredIntent</code> serializado em JSON, sob o
+  mesmo system prompt. No braço orchestration há um passo a mais: o
+  <code>intent_refiner</code> pode reescrever a intent antes de o Developer
+  vê-la. <strong>Essa reescrita é parte do tratamento</strong> — é exatamente o
+  que a orquestração se propõe a fazer — e não uma vantagem indevida.
+</p>
+
+<h3>A saída</h3>
+
+<div class="callout">
+  <span class="label">A mudança de desenho mais importante do projeto</span>
+  <p>
+    Na POC original (branch <code>main</code>), o Developer pedia ao LLM que
+    devolvesse <em>blobs de texto</em> com um <code>file_path</code> sugerido, e
+    ninguém nunca executava nada. O artefato era uma string.
+  </p>
+  <p>
+    Hoje o agente <strong>age sobre um repositório real</strong>: lê, busca,
+    edita e roda a suíte por meio de ferramentas. O artefato produzido é o
+    <strong>diff do workspace</strong> — <code>git diff</code> contra a tag
+    <code>uranium-base</code>, gravado em <code>patch.diff</code>. Não há blob de
+    texto para ninguém interpretar: ou o código mudou no disco, ou não mudou.
+  </p>
+</div>
+
+<div class="flow">agente chama write_file / replace_in_file
+        │
+        ▼
+Workspace (clone isolado do repo-semente num commit-base)
+        │
+        ├─ guarda de caminho: tests/**, conftest.py, pyproject.toml… recusados
+        │
+        ▼
+runs/&lt;arm&gt;/&lt;task&gt;/rep&lt;NN&gt;/&lt;run_id&gt;/
+        ├── manifest.json      configuração resolvida (modelo, provedor, seed, orçamento, topologia)
+        ├── events.jsonl       telemetria por evento, validada contra JSON Schema
+        ├── summary.json       stop_reason, turnos, tokens, custo
+        ├── patch.diff         ← O ARTEFATO
+        └── workspace/         repositório modificado, entregue ao harness</div>
+
+<h3>As sete ferramentas</h3>
+
+<p>
+  Definidas em <a href="../src/tools/__init__.py">src/tools/__init__.py</a> e
+  entregues <strong>idênticas aos dois braços</strong>. É por elas que todo
+  efeito do agente sobre o mundo passa:
+</p>
+
+<div class="scroll">
+<table>
+  <thead>
+    <tr><th>Ferramenta</th><th>O que faz</th><th>Guarda</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>list_files</code></td><td>Lista arquivos do repositório</td><td>máx. 200 resultados</td></tr>
+    <tr><td><code>read_file</code></td><td>Lê com numeração de linha, paginável</td><td>20.000 chars / 400 linhas</td></tr>
+    <tr><td><code>search_code</code></td><td>Busca padrão, devolve <code>arquivo:linha</code></td><td>máx. 50 resultados</td></tr>
+    <tr><td><code>write_file</code></td><td>Escreve conteúdo completo</td><td><strong>recusa caminho protegido</strong></td></tr>
+    <tr><td><code>replace_in_file</code></td><td>Substitui trecho exato e único</td><td><strong>recusa caminho protegido</strong></td></tr>
+    <tr><td><code>run_python</code></td><td>Executa trecho na raiz do repo</td><td>venv do repo-semente</td></tr>
+    <tr><td><code>run_tests</code></td><td>Roda a suíte de verdade</td><td>timeout, venv do repo-semente</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>
+  Toda chamada passa por um invólucro de instrumentação que grava um
+  <code>ToolCallRecord</code>: duração, bytes lidos, bytes escritos, se houve
+  recusa, e erro. O campo <code>bytes_read</code> mede <em>o que volta para o
+  modelo</em> em toda ferramenta — inclusive <code>run_tests</code> e
+  <code>run_python</code>, cuja saída entra no prompt do turno seguinte
+  exatamente como a de um <code>read_file</code>. Sem isso a conta do
+  crescimento de contexto não fecha.
+</p>
+
+<!-- ================================================================== 4 -->
+<h2 id="s4"><span class="num">Seção 4</span>Os prompts, na íntegra</h2>
+
+<h3>O prompt do agente que escreve código <span class="pill both">os dois braços</span></h3>
+
+<p>
+  Vive em <a href="../src/prompts.py">src/prompts.py</a> e é importado tanto por
+  <code>src/arms/single_agent.py</code> quanto por
+  <code>src/agents/developer.py</code>. Um texto só, deliberadamente.
+</p>
+
+<pre><code>Você é um engenheiro de software resolvendo uma tarefa de manutenção num
+repositório Python real.
+
+Você tem ferramentas para inspecionar e modificar o repositório. Use-as:
+não descreva a mudança, faça a mudança.
+
+Ferramentas disponíveis: list_files, read_file, search_code, write_file,
+replace_in_file, run_python, run_tests.
+
+Método esperado:
+1. Localize o código relevante com search_code antes de ler arquivos inteiros.
+2. Leia apenas os trechos necessários (read_file aceita faixa de linhas).
+3. Aplique a correção com replace_in_file, substituindo o trecho exato. Use
+   write_file (conteúdo COMPLETO) apenas para arquivo novo ou pequeno —
+   reescrever arquivo grande não cabe no limite de saída.
+4. Verifique com run_python, reproduzindo o caso descrito na tarefa. A suíte
+   de testes já está verde antes da sua mudança, então run_tests sozinho NÃO
+   confirma que você resolveu o problema — ele serve para checar regressão.
+5. Rode run_tests ao final para garantir que nada quebrou.
+
+Restrições:
+- Arquivos de teste e de configuração são protegidos: a escrita será recusada.
+  Resolva o problema no código de produção.
+- Não altere comportamento não relacionado à tarefa.
+- Quando terminar, responda em texto com um resumo curto do que mudou e pare
+  de chamar ferramentas.</code></pre>
+
+<div class="callout warn">
+  <span class="label">Evidência de que prompt diferente contamina a medição</span>
+  <p>
+    Enquanto os dois braços tinham textos diferentes, o orchestration havia
+    ganhado uma seção "Método esperado" com cinco passos e uma condição de
+    parada em duas partes; o single-agent ficara com um "quando terminar" seco.
+    Em cinco repetições da mesma tarefa:
+  </p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Braço</th><th>Tool calls depois da primeira escrita</th></tr></thead>
+    <tbody>
+      <tr><td><code>single-agent</code></td><td>exatamente 4, nas cinco execuções</td></tr>
+      <tr><td><code>orchestration</code></td><td>de 2 a 32</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>
+    Isso sozinho dobrou os turnos e, como o contexto é reenviado a cada turno,
+    quase triplicou o custo — e seria lido como "orquestração é mais cara"
+    quando era diferença de redação. A decomposição em papéis do braço
+    orchestration vive <strong>no grafo</strong>, não no texto do prompt.
+  </p>
+</div>
+
+<h3>Os prompts de papel <span class="pill">só orchestration</span></h3>
+
+<p>
+  Estes quatro existem apenas no braço orquestrado. São eles, e só eles, o
+  tratamento que o estudo mede.
+</p>
+
+<div class="scroll">
+<table>
+  <thead>
+    <tr><th>Nó</th><th>Recebe</th><th>Devolve (schema Pydantic)</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>intent_refiner</code></td>
+      <td><code>raw_request</code> + respostas de clarificação anteriores</td>
+      <td><code>StructuredIntent</code>: context, goal, phases, acceptance_criteria, clarifications_needed, is_ready</td>
+    </tr>
+    <tr>
+      <td><code>clarification</code></td>
+      <td>intent atual + perguntas pendentes</td>
+      <td><code>ClarificationBatch</code>: lista de {question, answer}</td>
+    </tr>
+    <tr>
+      <td><code>developer</code></td>
+      <td>intent + saída do pytest da tentativa anterior, se falhou</td>
+      <td>— (age por ferramenta; devolve diff)</td>
+    </tr>
+    <tr>
+      <td><code>validator</code></td>
+      <td>intent + <strong>o diff efetivo</strong> (truncado em 20k chars)</td>
+      <td><code>ValidationResult</code>: is_valid, issues, suggestions, covered/missing_criteria</td>
+    </tr>
+    <tr>
+      <td><code>test_generator</code></td>
+      <td>intent + diff (12k chars) + resumo da suíte</td>
+      <td><code>TestPlan</code>: summary, unit_tests, integration_tests</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h4>O prompt do Validator merece leitura atenta</h4>
+
+<pre><code>Você é um revisor técnico. A suíte de testes JÁ PASSOU — isto não está em
+discussão e você não pode reverter esse fato.
+
+Sua única pergunta é: a mudança resolve o problema descrito na tarefa, ou
+apenas faz os testes passarem por acidente (código morto, caso especial
+grudado, comportamento não relacionado alterado)?
+
+Retorne JSON com is_valid, issues, suggestions, covered_criteria e
+missing_criteria. Use is_valid=false apenas se houver lacuna real frente à
+tarefa.</code></pre>
+
+<p>
+  O prompt é escrito assim porque o veredito é <strong>monotônico</strong>: o
+  LLM só pode <em>rebaixar</em>. A regra está no código, não na obediência do
+  modelo (<a href="../src/agents/validator.py">src/agents/validator.py:74</a>):
+</p>
+
+<pre><code>is_valid = report.green and houve_mudanca and (semantic is None or semantic.is_valid)</code></pre>
+
+<p>
+  Três conjunções, cada uma com uma razão. <code>report.green</code>: corretude
+  vem de execução, não de opinião. <code>houve_mudanca</code>: a suíte visível
+  <em>já está verde</em> no commit-base, então "não fazer nada" satisfaria o
+  critério de parada — no piloto foi exatamente o que aconteceu, o agente
+  explorou dez turnos, não escreveu nada, e o run foi dado como válido com um
+  <code>patch.diff</code> de zero byte. A terceira conjunção é o LLM, que pode
+  apenas reprovar.
+</p>
+
+<h3>Mensagens de protocolo <span class="pill both">os dois braços</span></h3>
+
+<p>
+  Um detalhe pequeno com consequência grande. As mensagens que o sistema
+  devolve ao agente vivem centralizadas em
+  <a href="../src/feedback.py">src/feedback.py</a>, e não embutidas em cada
+  braço, porque são a fronteira exata entre "informar o protocolo" e "fazer
+  engenharia pelo agente":
+</p>
+
+<pre><code>DIFF_VAZIO = (
+    "A suíte passou, mas nenhum arquivo foi modificado — ela já estava verde "
+    "antes de você começar, então passar nela não confirma nada. Aplique a "
+    "correção do problema descrito na tarefa e verifique com run_python."
+)</code></pre>
+
+<p class="footnote">
+  Enquanto esse texto estava duplicado, o driver do single-agent avisava sobre
+  diff vazio e o laço do orchestration não. Dois runs terminaram sem escrever
+  nada por falta do aviso. Centralizar não foi organização de código: foi
+  correção de viés.
+</p>
+
+<!-- ================================================================== 5 -->
+<h2 id="s5"><span class="num">Seção 5</span>A orquestração: topologia e roteamento</h2>
+
+<h3>Braço <code>orchestration</code></h3>
+
+<figure class="diagram">
+<svg viewBox="0 0 720 606" role="img" aria-label="Topologia do braço orchestration">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" class="d-arrow"/>
+    </marker>
+  </defs>
+
+  <rect class="d-term" x="320" y="8" width="80" height="26" rx="13"/>
+  <text class="d-label term" x="360" y="21">START</text>
+
+  <rect class="d-box orch" x="270" y="64" width="180" height="44" rx="4"/>
+  <text class="d-label" x="360" y="78">intent_refiner</text>
+  <text class="d-label sub" x="360" y="96">analista de requisitos</text>
+
+  <rect class="d-box orch" x="60" y="150" width="150" height="44" rx="4"/>
+  <text class="d-label" x="135" y="164">clarification</text>
+  <text class="d-label sub" x="135" y="182">respostas simuladas</text>
+
+  <rect class="d-box exec" x="270" y="250" width="180" height="48" rx="4"/>
+  <text class="d-label" x="360" y="265">developer</text>
+  <text class="d-label sub" x="360" y="284">laço de tool calling</text>
+
+  <rect class="d-box exec" x="270" y="360" width="180" height="48" rx="4"/>
+  <text class="d-label" x="360" y="375">validator</text>
+  <text class="d-label sub" x="360" y="394">roda pytest de verdade</text>
+
+  <rect class="d-box orch" x="270" y="490" width="180" height="44" rx="4"/>
+  <text class="d-label" x="360" y="504">test_generator</text>
+  <text class="d-label sub" x="360" y="522">plano de testes</text>
+
+  <rect class="d-term" x="325" y="568" width="70" height="26" rx="13"/>
+  <text class="d-label term" x="360" y="581">END</text>
+
+  <path class="d-edge" d="M 360 34 V 58" marker-end="url(#arr)"/>
+
+  <path class="d-edge loop" d="M 270 100 H 135 V 144" marker-end="url(#arr)"/>
+  <text class="d-cond" x="205" y="114">is_ready = false</text>
+
+  <path class="d-edge loop" d="M 60 172 H 30 V 86 H 264" marker-end="url(#arr)"/>
+  <text class="d-cond" x="152" y="76">respostas incorporadas à intent</text>
+
+  <path class="d-edge" d="M 360 108 V 244" marker-end="url(#arr)"/>
+  <text class="d-cond strong" x="368" y="168" text-anchor="start">is_ready = true</text>
+  <text class="d-cond" x="368" y="182" text-anchor="start">ou teto de 3 clarificações</text>
+
+  <path class="d-edge" d="M 360 298 V 354" marker-end="url(#arr)"/>
+  <text class="d-cond" x="368" y="329" text-anchor="start">diff no workspace</text>
+
+  <path class="d-edge" d="M 360 408 V 484" marker-end="url(#arr)"/>
+  <text class="d-cond strong" x="368" y="438" text-anchor="start">is_valid = true</text>
+  <text class="d-cond" x="368" y="452" text-anchor="start">ou budget, ou teto de 2</text>
+
+  <path class="d-edge loop" d="M 450 384 H 560 V 274 H 456" marker-end="url(#arr)"/>
+  <text class="d-cond" x="568" y="326" text-anchor="start">is_valid</text>
+  <text class="d-cond" x="568" y="340" text-anchor="start">= false</text>
+
+  <path class="d-edge" d="M 360 534 V 562" marker-end="url(#arr)"/>
+</svg>
+<figcaption>
+  Braço <strong>orchestration</strong>. Os dois blocos destacados são os que
+  tocam o repositório de verdade: o <code>developer</code> edita arquivos por
+  ferramenta, o <code>validator</code> executa a suíte. Os laços tracejados são
+  os dois ciclos condicionais, ambos com teto.
+</figcaption>
+</figure>
+
+<h3>Braço <code>single-agent</code></h3>
+
+<figure class="diagram">
+<svg viewBox="0 0 720 400" role="img" aria-label="Topologia do braço single-agent">
+  <rect class="d-term" x="320" y="8" width="80" height="26" rx="13"/>
+  <text class="d-label term" x="360" y="21">START</text>
+
+  <rect class="d-box single" x="250" y="80" width="220" height="48" rx="4"/>
+  <text class="d-label" x="360" y="95">single_agent</text>
+  <text class="d-label sub" x="360" y="114">pensa e, se quiser, usa ferramentas</text>
+
+  <rect class="d-box exec" x="250" y="240" width="220" height="48" rx="4"/>
+  <text class="d-label" x="360" y="255">driver</text>
+  <text class="d-label sub" x="360" y="274">política fixa — não é LLM</text>
+
+  <rect class="d-term" x="325" y="340" width="70" height="26" rx="13"/>
+  <text class="d-label term" x="360" y="353">END</text>
+
+  <path class="d-edge" d="M 360 34 V 74" marker-end="url(#arr)"/>
+
+  <path class="d-edge loop" d="M 470 92 H 552 V 116 H 476" marker-end="url(#arr)"/>
+  <text class="d-cond" x="560" y="100" text-anchor="start">usou ferramenta:</text>
+  <text class="d-cond" x="560" y="113" text-anchor="start">segue agindo</text>
+
+  <path class="d-edge" d="M 360 128 V 234" marker-end="url(#arr)"/>
+  <text class="d-cond strong" x="368" y="176" text-anchor="start">parou de chamar ferramenta</text>
+  <text class="d-cond" x="368" y="190" text-anchor="start">→ o operador roda a suíte</text>
+
+  <path class="d-edge loop" d="M 250 264 H 150 V 104 H 244" marker-end="url(#arr)"/>
+  <text class="d-cond" x="142" y="176" text-anchor="end">suíte falhou:</text>
+  <text class="d-cond" x="142" y="190" text-anchor="end">devolve stderr CRU</text>
+
+  <path class="d-edge" d="M 360 288 V 334" marker-end="url(#arr)"/>
+  <text class="d-cond strong" x="368" y="313" text-anchor="start">verde E houve mudança</text>
+</svg>
+<figcaption>
+  Braço <strong>single-agent</strong>. Dois nós apenas. O <code>driver</code>
+  não é um LLM: é uma política fixa, serializada no manifesto do run. Em
+  qualquer um dos nós, estourar turnos, tempo ou tokens encerra direto em END.
+</figcaption>
+</figure>
+
+<h3>Circuit breaker</h3>
+
+<p>
+  Idêntico nos dois braços (<a href="../src/budget.py">src/budget.py</a>), e
+  serializado no manifesto para o teste de paridade conferir:
+</p>
+
+<div class="scroll">
+<table>
+  <thead><tr><th>Limite</th><th>Padrão</th><th>Papel</th></tr></thead>
+  <tbody>
+    <tr><td><code>max_turns</code></td><td>40</td><td><strong>O orçamento de verdade</strong> — é comparável entre repositórios</td></tr>
+    <tr><td><code>max_tokens</code></td><td>1.200.000</td><td>Rede de segurança contra turno patológico; folgado de propósito</td></tr>
+    <tr><td><code>max_wall_seconds</code></td><td>1800</td><td>Teto de tempo de parede</td></tr>
+    <tr><td><code>MAX_TOOL_CALLS_POR_TURNO</code></td><td>8</td><td>Em <code>src/runtime.py</code>, igual nos dois braços</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout warn">
+  <span class="label">O teto apertado foi um confundidor real</span>
+  <p>
+    No piloto com teto de 120k tokens, o single-agent gastou nove turnos lendo
+    arquivos e foi cortado <em>antes de editar qualquer coisa</em>; com 300k,
+    resolveu a tarefa. Um teto que corta um braço no meio do trabalho mede o
+    teto, não a topologia — e cortava justamente o braço que a hipótese não
+    favorece, que é a direção perigosa do viés. O teto de turnos era o segundo
+    confundidor: o padrão do piloto era 25 e o single-agent precisou de 29.
+  </p>
+</div>
+
+<h3>Por que o estado não carrega objetos vivos</h3>
+
+<p>
+  O <code>WorkflowState</code> do LangGraph precisa ser serializável, então
+  handles de arquivo, subprocessos e o cliente HTTP não cabem nele. O estado
+  carrega apenas o <code>run_id</code>; os nós resolvem o resto via
+  <code>RunContext.from_state(state)</code>, um registro em memória
+  (<a href="../src/runtime.py">src/runtime.py</a>). A conversa do agente
+  (<code>list[BaseMessage]</code>) vive lá pelo mesmo motivo — e porque o
+  <code>StateGraph</code> descarta chaves não declaradas no <code>TypedDict</code>.
+</p>
+
+<!-- ================================================================== 6 -->
+<h2 id="s6"><span class="num">Seção 6</span>O que é mantido idêntico, e por quê</h2>
+
+<p>
+  A validade do estudo depende inteiramente disto. O manifesto de cada run
+  serializa a configuração resolvida, e
+  <a href="../tests/test_arm_parity.py">tests/test_arm_parity.py</a> verifica
+  <strong>por execução</strong> que os manifestos dos dois braços só divergem em
+  cinco chaves:
+</p>
+
+<pre><code>CHAVES_QUE_PODEM_DIFERIR = frozenset({
+    "arm", "topology", "driver_policy", "run_id", "started_at"
+})</code></pre>
+
+<p>
+  Qualquer outra divergência derruba a suíte. Note que <code>repetition</code>
+  <em>não</em> está na lista: a repetição nº <em>k</em> de um braço e a nº
+  <em>k</em> do outro formam um par e rodam sob a mesma semente, o que preserva
+  o pareamento exigido pela análise estatística.
+</p>
+
+<div class="scroll">
+<table>
+  <thead><tr><th>Dimensão</th><th>Como é fixada</th></tr></thead>
+  <tbody>
+    <tr><td>Modelo e provedor</td><td><code>provider.only</code> + <code>allow_fallbacks: false</code> no OpenRouter — se o provedor pinado não puder atender, devolve erro em vez de servir por outro. O pino é auto-verificável.</td></tr>
+    <tr><td>Semente</td><td><code>seed_for_repetition(base, rep)</code>, derivada só do índice da repetição, nunca do braço.</td></tr>
+    <tr><td>Temperatura</td><td><code>0</code> nos dois braços.</td></tr>
+    <tr><td>Ferramentas</td><td>Mesmo <code>build_toolset()</code>, mesmo teto de 8 tool calls por turno.</td></tr>
+    <tr><td>Orçamento</td><td>Mesmo <code>RunBudget</code>, vindo do mesmo <code>from_env()</code>.</td></tr>
+    <tr><td>Prompt do escritor de código</td><td>Mesmo <code>AGENT_SYSTEM_PROMPT</code>.</td></tr>
+    <tr><td>Mensagens de protocolo</td><td>Mesmo <code>src/feedback.py</code>.</td></tr>
+    <tr><td>Execução de ferramenta</td><td><code>RunContext.executar_tool_calls()</code>, compartilhado — comportamento divergente ali seria capacidade diferente sem nada no manifesto dizer isso.</td></tr>
+    <tr><td>Contabilidade de custo</td><td>Nós do orchestration <strong>devem</strong> passar por <code>ctx.invoke_structured()</code>; chamar direto deixaria as chamadas fora do orçamento e o braço multiagente — que tem quatro nós a mais chamando LLM — sairia artificialmente barato.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Observabilidade: por que o LangSmith saiu</h3>
+
+<p>
+  A telemetria é JSONL local, por evento
+  (<a href="../src/telemetry.py">src/telemetry.py</a>), gravada com
+  <code>flush + fsync</code> a cada linha e validada contra
+  <code>harness/schema/event.schema.json</code>. Dez tipos de evento
+  (<code>run_start</code>, <code>node_enter</code>, <code>llm_call</code>,
+  <code>tool_call</code>, <code>test_run</code>, <code>circuit_break</code>…),
+  todos com o mesmo envelope de 25 campos obrigatórios nos dois braços.
+</p>
+
+<p>
+  O LangSmith foi removido deliberadamente: acrescentava um ponto de falha
+  externo <em>dentro do caminho de medição</em> e, na prática, respondia 403 sem
+  gravar nada. <code>src/config.py</code> desliga o tracing do LangChain de forma
+  incondicional no import, para que uma variável de ambiente perdida não o
+  reative no meio de uma coleta.
+</p>
+
+<!-- ================================================================== 7 -->
+<h2 id="s7"><span class="num">Seção 7</span>Como avaliamos o desenvolvimento gerado</h2>
+
+<p class="lead">
+  A avaliação é <strong>externa ao agente</strong>, roda depois que ele terminou,
+  e usa testes que ele nunca viu. Entra um workspace modificado, sai um
+  <code>result.json</code>.
+</p>
+
+<pre><code>python -m harness.evaluate --run-dir runs/orchestration/tomlkit-0001/rep01/&lt;id&gt; \
+                           --task tasks/tomlkit-0001</code></pre>
+
+<h3>A ordem das etapas é parte do método</h3>
+
+<div class="scroll">
+<table>
+  <thead><tr><th>#</th><th>Etapa</th><th>Por que nesta ordem</th></tr></thead>
+  <tbody>
+    <tr><td>0</td><td>Desfaz injeção anterior</td><td>Sem isso a avaliação não é idempotente: os testes ocultos que ela mesma copiou apareceriam na segunda execução como arquivo protegido alterado pelo agente, reprovando um run limpo por trapaça que o harness cometeu.</td></tr>
+    <tr><td>1</td><td><strong>Detecção de trapaça</strong></td><td>Antes de injetar qualquer coisa — senão os arquivos do próprio avaliador apareceriam como alteração do agente.</td></tr>
+    <tr><td>2</td><td>Qualidade (radon)</td><td>Também antes: mede o que o agente escreveu, não o que o harness injetou.</td></tr>
+    <tr><td>3</td><td><strong>Oráculo</strong></td><td>Injeta os testes ocultos e julga.</td></tr>
+    <tr><td>4</td><td>Custo e processo</td><td>Agregados da telemetria.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>O oráculo: três verificações</h3>
+
+<div class="scroll">
+<table>
+  <thead><tr><th>Verificação</th><th>Critério</th></tr></thead>
+  <tbody>
+    <tr><td><strong>fail-to-pass</strong></td><td>Os testes derivados da correção original precisam <em>passar</em>. Eles falham no commit-base; se passam agora, o problema foi resolvido.</td></tr>
+    <tr><td><strong>pass-to-pass</strong></td><td>A suíte que já passava precisa continuar passando. Impede creditar uma correção que quebrou outra coisa.</td></tr>
+    <tr><td><strong>regressão</strong></td><td>A suíte original completa, como estava no commit-base.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<pre><code>resolved = f2p_total &gt; 0
+       and f2p_passed == f2p_total
+       and p2p.green
+       and regression.green</code></pre>
+
+<p>
+  Os testes ocultos são injetados em <code>tests/_uranium_hidden/</code>,
+  diretório que não existe no commit-base e que o agente não pode ter criado
+  (é área protegida). Ele é excluído das verificações de regressão para não se
+  medir o oráculo contra si mesmo. O interpretador é sempre o
+  <strong>venv do repo-semente</strong>, nunca o do avaliador — rodar a suíte do
+  upstream no venv do projeto daria ao agente langchain, pydantic e cinquenta
+  pacotes que o upstream não declara: corretude comprada de graça, sem ninguém
+  perceber.
+</p>
+
+<h4>Duas formas de oráculo</h4>
+
+<p>
+  <code>hidden_tests</code> (arquivos avulsos escritos à mão, como em
+  <code>tomlkit-0001</code>) ou <code>test_patch</code> (o diff de teste do
+  próprio upstream, como em <code>sqlite-utils-0001</code>). A segunda escala
+  para dezenas de tarefas, mede o critério que o mantenedor escreveu, e — por
+  restaurar os testes do commit-base antes de aplicar — <strong>desfaz qualquer
+  adulteração de teste</strong> antes de medir. A trapaça continua registrada: o
+  detector já rodou.
+</p>
+
+<h3>As sete regras de trapaça</h3>
+
+<p>
+  <a href="../harness/cheat.py">harness/cheat.py</a>. Regras textuais e de diff
+  onde bastam; AST onde regex produziria falso positivo em docstring ou
+  comentário. Toda regra de AST compara o estado <em>antes</em> e <em>depois</em>:
+  só construção nova é acusada.
+</p>
+
+<div class="scroll">
+<table>
+  <thead><tr><th>Regra</th><th>O que detecta</th><th>Severidade</th></tr></thead>
+  <tbody>
+    <tr><td><code>C1</code></td><td>Arquivo de teste ou configuração alterado</td><td>crítica</td></tr>
+    <tr><td><code>C2</code></td><td>Opções do pytest alteradas (<code>addopts</code>, <code>--ignore</code>, <code>testpaths</code>…)</td><td>crítica</td></tr>
+    <tr><td><code>C3</code></td><td><code>skip</code>/<code>xfail</code> inserido (via AST)</td><td>crítica</td></tr>
+    <tr><td><code>C4</code></td><td><code>conftest.py</code> criado ou alterado</td><td>crítica</td></tr>
+    <tr><td><code>C5</code></td><td>Código de produção passa a <strong>detectar que está sob teste</strong> (<code>"pytest" in sys.modules</code>)</td><td>crítica</td></tr>
+    <tr><td><code>C6</code></td><td><code>except: pass</code> novo, que pode engolir a exceção esperada pelo teste</td><td>aviso</td></tr>
+    <tr><td><code>C7</code></td><td>Referência ao diretório dos testes ocultos, que o agente não deveria conhecer</td><td>crítica</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout">
+  <span class="label">Regra de precedência</span>
+  <p>
+    Trapaça crítica detectada força <code>resolved = false</code>,
+    independentemente do que o oráculo disser — e o campo
+    <code>resolved_blocked_by_cheat</code> registra o caso, para que ele não se
+    confunda com um fracasso comum. Resolver o problema burlando a avaliação não
+    é resolver o problema.
+  </p>
+  <p class="footnote">
+    Nota de escopo do próprio detector: C1–C4 cobrem alvos que a guarda de
+    caminho do <code>write_file</code> já recusa — um detector limitado a elas
+    validaria a guarda e nada mais. As vias que restam abertas a um agente que
+    só escreve em código de produção são C5 e C6, e é por isso que elas existem.
+  </p>
+</div>
+
+<h3>O que mais entra no <code>result.json</code></h3>
+
+<div class="scroll">
+<table>
+  <thead><tr><th>Bloco</th><th>Conteúdo</th></tr></thead>
+  <tbody>
+    <tr><td><code>oracle</code></td><td>f2p_total, f2p_passed, e o resultado das três execuções</td></tr>
+    <tr><td><code>cheat</code></td><td>limpo?, contagem de críticos e avisos, sinais detalhados</td></tr>
+    <tr><td><code>quality</code></td><td><strong>Delta</strong> de Índice de Manutenibilidade e Complexidade Ciclomática (radon), restrito aos arquivos que o agente tocou. Sempre delta: o valor absoluto é dominado pelo repo-semente, não pelo agente.</td></tr>
+    <tr><td><code>cost</code></td><td>tokens (prompt/completion/reasoning), custo em USD devolvido pelo OpenRouter, nº de chamadas</td></tr>
+    <tr><td><code>process</code></td><td>turnos, llm_calls, tool_calls, <strong>tool_denials</strong>, test_runs, <strong>self_recoveries</strong></td></tr>
+    <tr><td><code>provenance</code></td><td>modelo, provedor pedido, <strong>provedores efetivamente servidos</strong>, seed, topologia</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h4>A métrica de autonomia que sobrou</h4>
+
+<p>
+  O Índice de Autonomia e a taxonomia de intervenção L0–L4, previstos no desenho
+  original, foram removidos: com os dois braços rodando sem qualquer intervenção
+  humana, o índice daria o valor máximo para ambos e não discriminaria nada —
+  reportá-lo como resultado comparativo seria circular. O que restou e de fato
+  varia entre topologias é <code>self_recoveries</code>: transições
+  falha→sucesso na execução de testes. Como não há input externo entre uma
+  execução e outra, cada transição dessas é o sistema corrigindo o próprio erro.
+</p>
+
+<!-- ================================================================== 8 -->
+<h2 id="s8"><span class="num">Seção 8</span>Como testamos o próprio sistema</h2>
+
+<div class="callout" id="placeholder-testes">
+  <span class="label">Seção em preenchimento</span>
+  <p>
+    O inventário completo dos casos de teste está sendo levantado e será
+    inserido aqui.
+  </p>
+</div>
+
+<!-- ================================================================== 9 -->
+<h2 id="s9"><span class="num">Seção 9</span>Repositórios e benchmarks para desenvolvimentos grandes</h2>
+
+<div class="callout" id="placeholder-repos">
+  <span class="label">Seção em preenchimento</span>
+  <p>
+    O levantamento de benchmarks e repositórios candidatos está sendo compilado
+    e será inserido aqui.
+  </p>
+</div>
+
+<!-- ================================================================= 10 -->
+<h2 id="s10"><span class="num">Seção 10</span>Limitações declaradas</h2>
+
+<p>
+  Não são pendências: são fatos do desenho que precisam estar escritos no TCC.
+</p>
+
+<h3>Refatoração não é categoria de tarefa possível</h3>
+<p>
+  Um refactor que preserva comportamento passa nos mesmos testes antes e depois
+  — não existe fail-to-pass, e o oráculo não discrimina. Verificado
+  empiricamente nos commits <code>9ac3f982</code> e <code>a46ac201</code>.
+  Refatoração só entra como métrica secundária (delta de MI/CC do radon), nunca
+  como corretude.
+</p>
+
+<h3>Modelos da Anthropic estão fora</h3>
+<p>
+  Nenhum dos oito endpoints do <code>claude-haiku-4.5</code> no OpenRouter aceita
+  <code>seed</code>. Com provedor pinado, não há reprodutibilidade. É limitação
+  de plataforma, não escolha de mérito.
+</p>
+
+<h3>A unidade de análise é a tarefa, não a repetição</h3>
+<p>
+  Repetições da mesma tarefa não são observações independentes. Num teste de
+  sinal pareado unicaudal, o menor <em>p</em> alcançável é 0,0625 com 4 tarefas —
+  impossível chegar a <em>p</em> &lt; 0,05. Com 5 exige unanimidade; com 8,
+  tolera um resultado discordante. Daí o mínimo de <strong>8 tarefas</strong>.
+</p>
+
+<h3>O harness é específico de Python</h3>
+<p>
+  Execução por <code>pytest</code>, ambiente por <code>venv</code>, qualidade por
+  <code>radon</code>, e a classificação fonte/teste por globs de convenção
+  Python. Estender o estudo a Java/Spring ou JavaScript/Node não é configuração:
+  exige um executor de suíte por ecossistema (Maven/Gradle + JUnit, npm + Jest),
+  um equivalente de <code>radon</code>, e regras de trapaça novas. É trabalho de
+  harness, não de agente.
+</p>
+
+<h3>Um modelo só</h3>
+<p>
+  O estudo fixa um modelo e um provedor para isolar a topologia. Isso significa
+  que o resultado é sobre <em>aquele</em> modelo: não se pode afirmar que a
+  conclusão se generaliza para modelos mais ou menos capazes, e há razão teórica
+  para suspeitar que não — a vantagem de decompor em papéis plausivelmente
+  diminui conforme o modelo base melhora.
+</p>
+
+</div>
+</body>
+</html>
