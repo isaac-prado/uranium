@@ -1,0 +1,37 @@
+{
+  "manifest_version": 1,
+  "run_id": "pilot-single-agent-r04-f76159",
+  "arm": "single-agent",
+  "topology": "single_agent",
+  "task_id": "tomlkit-0001",
+  "repetition": 4,
+  "seed_repo_id": "tomlkit",
+  "base_commit": "11e22aefccd8069a90ae75d20613b9b1068754a1",
+  "started_at": "2026-08-27T00:59:38+00:00",
+  "llm": {
+    "model": "qwen/qwen3-coder",
+    "provider": "DeepInfra",
+    "temperature": 0.0,
+    "seed": 20260824,
+    "max_tokens": 8192,
+    "timeout_s": 300,
+    "allow_fallbacks": false,
+    "require_parameters": true,
+    "data_collection": "deny"
+  },
+  "budget": {
+    "max_tokens": 1200000,
+    "max_wall_seconds": 1800,
+    "max_turns": 40
+  },
+  "driver_policy": {
+    "entrega_spec_uma_vez": true,
+    "aceita_todo_patch": true,
+    "sumariza_falhas": false,
+    "stderr_chars": 4000,
+    "roda_suite_sem_tool_call": true
+  },
+  "test_timeout_s": 300,
+  "python": "3.12.3",
+  "platform": "Linux-7.0.0-30-generic-x86_64-with-glibc2.39"
+}

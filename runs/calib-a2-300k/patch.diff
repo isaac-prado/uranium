@@ -1,0 +1,34 @@
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index b952b36..c662f78 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -658,19 +658,17 @@ class Parser:
+                 continue
+ 
+             # consume value
+-            # Skip the value attempt when sitting on the closing bracket: a
+-            # value-less position followed by "]" (an empty or trailing-comma
+-            # array) would otherwise call _parse_value() only for it to raise
+-            # UnexpectedCharError immediately -- and building that discarded
+-            # exception eagerly computes a line/column, which scans the whole
+-            # source. On a large file with many arrays this is a big, pure waste.
++            # Previously, there was an optimization here to avoid calling _parse_value()
++            # when we're likely at the end of the array. However, this optimization
++            # incorrectly caught ALL UnexpectedCharError exceptions, including those
++            # from malformed array elements, causing them to be silently ignored.
++            # The correct behavior is to always attempt to parse a value if we're not
++            # after a comma and we haven't just parsed a value. Syntax errors in
++            # array elements should propagate up, not be silently dropped.
+             if not prev_value and self._current != "]":
+-                try:
+-                    elems.append(self._parse_value())
+-                    prev_value = True
+-                    continue
+-                except UnexpectedCharError:
+-                    pass
++                elems.append(self._parse_value())
++                prev_value = True
++                continue
+ 
+             # consume comma
+             if prev_value and self._current == ",":

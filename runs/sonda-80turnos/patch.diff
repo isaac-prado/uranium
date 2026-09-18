@@ -1,0 +1,31 @@
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index b952b36..f8edac9 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -670,7 +670,8 @@ class Parser:
+                     prev_value = True
+                     continue
+                 except UnexpectedCharError:
+-                    pass
++                    # Do not silently discard malformed elements, raise the error instead
++                    raise self.parse_error(UnexpectedCharError, self._current)
+ 
+             # consume comma
+             if prev_value and self._current == ",":
+@@ -693,12 +694,11 @@ class Parser:
+ 
+         try:
+             res = Array(elems, Trivia())
+-        except ValueError:
+-            pass
+-        else:
+-            return res
++        except ValueError as e:
++            # Do not silently discard array construction failures, raise the error instead
++            raise self.parse_error(ParseError, str(e))
+ 
+-        raise self.parse_error(ParseError, "Failed to parse array")
++        return res
+ 
+     def _parse_inline_table(self) -> InlineTable:
+         # consume opening bracket, EOF here is an issue (middle of array)

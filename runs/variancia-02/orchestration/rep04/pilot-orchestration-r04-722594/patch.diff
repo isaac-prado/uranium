@@ -1,0 +1,14 @@
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index b952b36..e5c277d 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -670,7 +670,8 @@ class Parser:
+                     prev_value = True
+                     continue
+                 except UnexpectedCharError:
+-                    pass
++                    # Instead of silently ignoring malformed elements, re-raise the error
++                    raise
+ 
+             # consume comma
+             if prev_value and self._current == ",":

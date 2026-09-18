@@ -1,0 +1,30 @@
+[
+  {
+    "arm": "A2",
+    "repetition": 1,
+    "run_id": "pilot-a2-r01-8bb052",
+    "out_dir": "runs/pilot-02/A2/rep01/pilot-a2-r01-8bb052",
+    "stop_reason": "budget: max_tokens (120486 >= 120000)",
+    "turns": 9,
+    "tokens": 120486,
+    "cost_usd": 0.0164154,
+    "resolved": false,
+    "f2p": "0/1",
+    "cheat_criticos": 0,
+    "erro": null
+  },
+  {
+    "arm": "B",
+    "repetition": 1,
+    "run_id": "pilot-b-r01-7e1cee",
+    "out_dir": "runs/pilot-02/B/rep01/pilot-b-r01-7e1cee",
+    "stop_reason": "concluiu",
+    "turns": 13,
+    "tokens": 129163,
+    "cost_usd": 0.0181727,
+    "resolved": true,
+    "f2p": "1/1",
+    "cheat_criticos": 0,
+    "erro": null
+  }
+]

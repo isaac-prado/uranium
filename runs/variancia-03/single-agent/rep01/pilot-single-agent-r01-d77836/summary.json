@@ -1,0 +1,25 @@
+{
+  "run_id": "pilot-single-agent-r01-d77836",
+  "arm": "single-agent",
+  "task_id": "tomlkit-0001",
+  "repetition": 1,
+  "llm_seed": 20260821,
+  "topology": "single_agent",
+  "stop_reason": "error: RateLimitError",
+  "is_valid": false,
+  "changed_files": [],
+  "diff_stat": {},
+  "turns": 0,
+  "totals": {
+    "tokens_prompt": 121205,
+    "tokens_completion": 655,
+    "tokens_reasoning": 0,
+    "tokens_total": 121860,
+    "cost_usd": 0.0370165,
+    "llm_calls": 9,
+    "tool_calls": 9,
+    "test_runs": 0,
+    "errors": 2
+  },
+  "out_dir": "runs/variancia-03/single-agent/rep01/pilot-single-agent-r01-d77836"
+}

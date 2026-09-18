@@ -9,8 +9,5 @@ __pycache__/
 # Espelhos e workspaces do benchmark (grandes, reconstrutíveis)
 .uranium/
 
-# Saídas de execução dos braços
-runs/
-
 # saída da mineração de tarefas (workspaces temporários e relatórios)
 mined/

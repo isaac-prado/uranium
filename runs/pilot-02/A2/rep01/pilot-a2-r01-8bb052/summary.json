@@ -1,0 +1,25 @@
+{
+  "run_id": "pilot-a2-r01-8bb052",
+  "arm": "A2",
+  "task_id": "tomlkit-0001",
+  "repetition": 1,
+  "llm_seed": 20260821,
+  "topology": "single_agent",
+  "stop_reason": "budget: max_tokens (120486 >= 120000)",
+  "is_valid": false,
+  "changed_files": [],
+  "diff_stat": {},
+  "turns": 9,
+  "totals": {
+    "tokens_prompt": 120046,
+    "tokens_completion": 440,
+    "tokens_reasoning": 0,
+    "tokens_total": 120486,
+    "cost_usd": 0.0164154,
+    "llm_calls": 9,
+    "tool_calls": 9,
+    "test_runs": 0,
+    "errors": 0
+  },
+  "out_dir": "runs/pilot-02/A2/rep01/pilot-a2-r01-8bb052"
+}

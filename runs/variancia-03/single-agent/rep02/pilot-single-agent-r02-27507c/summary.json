@@ -1,0 +1,31 @@
+{
+  "run_id": "pilot-single-agent-r02-27507c",
+  "arm": "single-agent",
+  "task_id": "tomlkit-0001",
+  "repetition": 2,
+  "llm_seed": 20260822,
+  "topology": "single_agent",
+  "stop_reason": "tests_pass",
+  "is_valid": true,
+  "changed_files": [
+    "tomlkit/parser.py"
+  ],
+  "diff_stat": {
+    "files_changed": 1,
+    "insertions": 3,
+    "deletions": 1
+  },
+  "turns": 23,
+  "totals": {
+    "tokens_prompt": 141598,
+    "tokens_completion": 4094,
+    "tokens_reasoning": 0,
+    "tokens_total": 145692,
+    "cost_usd": 0.0195462,
+    "llm_calls": 23,
+    "tool_calls": 22,
+    "test_runs": 1,
+    "errors": 0
+  },
+  "out_dir": "runs/variancia-03/single-agent/rep02/pilot-single-agent-r02-27507c"
+}

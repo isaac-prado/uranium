@@ -1,0 +1,29 @@
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index b952b36..9e885b0 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -669,7 +669,24 @@ class Parser:
+                     elems.append(self._parse_value())
+                     prev_value = True
+                     continue
++                except InternalParserError:
++                    raise
++                except ParseError:
++                    raise
+                 except UnexpectedCharError:
++                    # Check if we are at the end of the array, which means the error
++                    # is unrecoverable and should be raised.
++                    idx = self._idx
++                    self.consume(" \t\n\r")
++                    if self._current == "," or self._current == "]":
++                        self._idx = idx
++                        raise
++
++                    # Otherwise, we can recover from the error and continue parsing.
++                    # This is to handle cases where the parser encounters an unexpected
++                    # character but can still make sense of the rest of the array.
++                    # For example, in `[1, {2]`, the `{2` is invalid, but we can still
++                    # parse the `1` and the closing `]`.
+                     pass
+ 
+             # consume comma

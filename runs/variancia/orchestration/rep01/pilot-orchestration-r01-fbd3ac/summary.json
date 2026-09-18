@@ -1,0 +1,29 @@
+{
+  "run_id": "pilot-orchestration-r01-fbd3ac",
+  "arm": "orchestration",
+  "task_id": "tomlkit-0001",
+  "repetition": 1,
+  "llm_seed": 20260821,
+  "topology": "multi_agent_roles",
+  "stop_reason": "concluiu",
+  "is_valid": false,
+  "changed_files": [],
+  "diff_stat": {
+    "files_changed": 0,
+    "insertions": 0,
+    "deletions": 0
+  },
+  "turns": 18,
+  "totals": {
+    "tokens_prompt": 64685,
+    "tokens_completion": 3270,
+    "tokens_reasoning": 0,
+    "tokens_total": 67955,
+    "cost_usd": 0.0112579,
+    "llm_calls": 22,
+    "tool_calls": 16,
+    "test_runs": 2,
+    "errors": 0
+  },
+  "out_dir": "runs/variancia/orchestration/rep01/pilot-orchestration-r01-fbd3ac"
+}

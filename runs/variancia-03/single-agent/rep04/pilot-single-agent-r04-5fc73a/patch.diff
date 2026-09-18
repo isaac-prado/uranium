@@ -1,0 +1,40 @@
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index b952b36..229badf 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -664,13 +664,18 @@ class Parser:
+             # UnexpectedCharError immediately -- and building that discarded
+             # exception eagerly computes a line/column, which scans the whole
+             # source. On a large file with many arrays this is a big, pure waste.
++            # However, if we get an UnexpectedCharError when trying to parse a value
++            # that is not immediately followed by a ',' or ']', the document is malformed.
+             if not prev_value and self._current != "]":
+                 try:
+                     elems.append(self._parse_value())
+                     prev_value = True
+                     continue
+                 except UnexpectedCharError:
+-                    pass
++                    # Re-raise the error. Silently dropping malformed elements is incorrect.
++                    # The performance optimization comment above is preserved, but correctness
++                    # takes precedence. A proper error message is more valuable than a few ms.
++                    raise
+ 
+             # consume comma
+             if prev_value and self._current == ",":
+@@ -693,12 +698,10 @@ class Parser:
+ 
+         try:
+             res = Array(elems, Trivia())
+-        except ValueError:
+-            pass
+-        else:
+-            return res
++        except ValueError as e:
++            raise self.parse_error(ParseError, str(e)) from e
+ 
+-        raise self.parse_error(ParseError, "Failed to parse array")
++        return res
+ 
+     def _parse_inline_table(self) -> InlineTable:
+         # consume opening bracket, EOF here is an issue (middle of array)

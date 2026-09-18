@@ -1,0 +1,31 @@
+{
+  "run_id": "pilot-orchestration-r01-9f317e",
+  "arm": "orchestration",
+  "task_id": "tomlkit-0001",
+  "repetition": 1,
+  "llm_seed": 20260821,
+  "topology": "multi_agent_roles",
+  "stop_reason": "budget: max_tokens (412314 >= 400000)",
+  "is_valid": false,
+  "changed_files": [
+    "tomlkit/parser.py"
+  ],
+  "diff_stat": {
+    "files_changed": 1,
+    "insertions": 7,
+    "deletions": 13
+  },
+  "turns": 22,
+  "totals": {
+    "tokens_prompt": 408935,
+    "tokens_completion": 4921,
+    "tokens_reasoning": 0,
+    "tokens_total": 413856,
+    "cost_usd": 0.0505551,
+    "llm_calls": 24,
+    "tool_calls": 22,
+    "test_runs": 1,
+    "errors": 0
+  },
+  "out_dir": "runs/pilot-03/orchestration/rep01/pilot-orchestration-r01-9f317e"
+}

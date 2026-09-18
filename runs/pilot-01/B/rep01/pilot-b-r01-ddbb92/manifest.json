@@ -1,0 +1,31 @@
+{
+  "manifest_version": 1,
+  "run_id": "pilot-b-r01-ddbb92",
+  "arm": "B",
+  "topology": "multi_agent_roles",
+  "task_id": "tomlkit-0001",
+  "repetition": 1,
+  "seed_repo_id": "tomlkit",
+  "base_commit": "11e22aefccd8069a90ae75d20613b9b1068754a1",
+  "started_at": "2026-08-24T02:11:42+00:00",
+  "llm": {
+    "model": "qwen/qwen3-coder",
+    "provider": "DeepInfra",
+    "temperature": 0.0,
+    "seed": 20260821,
+    "max_tokens": 8192,
+    "timeout_s": 300,
+    "allow_fallbacks": false,
+    "require_parameters": true,
+    "data_collection": "deny"
+  },
+  "budget": {
+    "max_tokens": 120000,
+    "max_wall_seconds": 420,
+    "max_turns": 25
+  },
+  "driver_policy": null,
+  "test_timeout_s": 120,
+  "python": "3.12.3",
+  "platform": "Linux-7.0.0-29-generic-x86_64-with-glibc2.39"
+}

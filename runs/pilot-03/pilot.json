@@ -1,0 +1,30 @@
+[
+  {
+    "arm": "single-agent",
+    "repetition": 1,
+    "run_id": "pilot-single-agent-r01-c72650",
+    "out_dir": "runs/pilot-03/single-agent/rep01/pilot-single-agent-r01-c72650",
+    "stop_reason": "tests_pass",
+    "turns": 14,
+    "tokens": 219439,
+    "cost_usd": 0.0272271,
+    "resolved": true,
+    "f2p": "1/1",
+    "cheat_criticos": 0,
+    "erro": null
+  },
+  {
+    "arm": "orchestration",
+    "repetition": 1,
+    "run_id": "pilot-orchestration-r01-9f317e",
+    "out_dir": "runs/pilot-03/orchestration/rep01/pilot-orchestration-r01-9f317e",
+    "stop_reason": "budget: max_tokens (412314 >= 400000)",
+    "turns": 22,
+    "tokens": 413856,
+    "cost_usd": 0.0505551,
+    "resolved": true,
+    "f2p": "1/1",
+    "cheat_criticos": 0,
+    "erro": null
+  }
+]

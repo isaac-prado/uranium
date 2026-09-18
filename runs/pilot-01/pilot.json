@@ -1,0 +1,30 @@
+[
+  {
+    "arm": "A2",
+    "repetition": 1,
+    "run_id": "pilot-a2-r01-3ef823",
+    "out_dir": "runs/pilot-01/A2/rep01/pilot-a2-r01-3ef823",
+    "stop_reason": "tests_pass",
+    "turns": 10,
+    "tokens": 138370,
+    "cost_usd": 0.0253003,
+    "resolved": false,
+    "f2p": "0/1",
+    "cheat_criticos": 0,
+    "erro": null
+  },
+  {
+    "arm": "B",
+    "repetition": 1,
+    "run_id": "pilot-b-r01-ddbb92",
+    "out_dir": "runs/pilot-01/B/rep01/pilot-b-r01-ddbb92",
+    "stop_reason": "error: StructuredOutputError",
+    "turns": 0,
+    "tokens": 0,
+    "cost_usd": 0.0,
+    "resolved": null,
+    "f2p": "-",
+    "cheat_criticos": 0,
+    "erro": "StructuredOutputError: StructuredIntent: modelo não conformou ao schema em 3 tentativas. tentativa 1: NotFoundError: Error code: 404 - {'error': {'message': 'No endpoints found that can handle the requested parameters. To learn more about provider routing, visit: https://openrouter.ai/docs/guides/ro"
+  }
+]

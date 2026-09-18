@@ -1,0 +1,20 @@
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index b952b36..6986efd 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -670,7 +670,14 @@ class Parser:
+                     prev_value = True
+                     continue
+                 except UnexpectedCharError:
+-                    pass
++                    # If we can't parse a value, and we're not at the end of the array,
++                    # it's a syntax error. We used to silently ignore it, which is wrong.
++                    # The check for ',' or ']' ensures we only raise if we were indeed
++                    # trying to parse a value and failed due to bad syntax, not just
++                    # because we hit the end of the array.
++                    if self._current in (",", "]"):
++                        raise
++                    # Otherwise, let the general UnexpectedCharError at the end of the loop handle it
+ 
+             # consume comma
+             if prev_value and self._current == ",":
