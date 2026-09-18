@@ -315,3 +315,64 @@ class TestAvaliacaoIdempotente:
         assert segunda["cheat"]["clean"] is True
         assert segunda["cheat"]["signals"] == []
         assert segunda["diff"]["changed_files"] == primeira["diff"]["changed_files"]
+
+    @pytest.mark.parametrize("task_id", ["tomlkit-0001", "sqlite-utils-0001"])
+    def test_avaliacao_nao_muta_o_workspace_gravado(self, tmp_path, task_id):
+        """
+        O invariante que torna a idempotência estrutural.
+
+        A avaliação injeta testes ocultos, restaura arquivos de teste do
+        commit-base e aplica o patch de teste do upstream. Se qualquer uma
+        dessas mutações alcançar o workspace gravado, a evidência do que o
+        agente deixou é destruída — e foi assim que a regra C1 ficou cega em
+        tarefa com `test_patch`: a restauração apagava a adulteração antes de
+        o detector olhar.
+
+        Testar o invariante, e não o sintoma, cobre também as mutações que
+        ainda não existem.
+        """
+        import json
+        import subprocess
+
+        from harness.evaluate import evaluate_run
+        from harness.taskspec import load_task
+        from src.seeds import get_seed_repo
+        from src.workspace import Workspace, WorkspaceSpec
+
+        tarefa = load_task(Path("tasks") / task_id)
+        seed = get_seed_repo(tarefa.seed_repo_id)
+        if not (seed.mirror_path.exists() and seed.has_venv):
+            pytest.skip(f"rode scripts/setup_mirror.py {tarefa.seed_repo_id}")
+
+        run_dir = tmp_path / "run"
+        run_dir.mkdir()
+        ws = Workspace.materialize(
+            WorkspaceSpec(seed_repo=seed, base_commit=tarefa.base_commit),
+            run_id="imutavel", dest=run_dir / "workspace",
+        )
+        (run_dir / "manifest.json").write_text(json.dumps(
+            {"run_id": "imutavel", "arm": "single-agent", "repetition": 1}), encoding="utf-8")
+        (run_dir / "events.jsonl").write_text("", encoding="utf-8")
+
+        def retrato() -> tuple[str, list[str]]:
+            """Estado do workspace: o que o git vê, e quais arquivos existem."""
+            status = subprocess.run(
+                ["git", "status", "--porcelain"],
+                cwd=ws.root, capture_output=True, text=True, check=True,
+            ).stdout
+            arquivos = sorted(
+                str(p.relative_to(ws.root))
+                for p in ws.root.rglob("*")
+                if p.is_file() and ".git" not in p.parts
+            )
+            return status, arquivos
+
+        antes = retrato()
+        evaluate_run(run_dir, tarefa, measure_quality=False)
+        depois = retrato()
+
+        assert depois[0] == antes[0], "a avaliação mexeu no git do workspace gravado"
+        assert depois[1] == antes[1], (
+            "a avaliação criou ou removeu arquivo no workspace gravado: "
+            f"{set(depois[1]) ^ set(antes[1])}"
+        )

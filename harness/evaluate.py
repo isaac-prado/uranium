@@ -4,12 +4,17 @@ Avaliação de um run: entra um workspace modificado, sai um result.json.
     python -m harness.evaluate --run-dir runs/B/tomlkit-0001/rep01/<id> \
                                --task tasks/tomlkit-0001
 
-Ordem das etapas importa:
+A avaliação roda sobre uma CÓPIA descartável do workspace, nunca sobre o
+que ficou gravado no run. Ela muta o que toca — injeta testes ocultos,
+restaura arquivos de teste do commit-base, aplica o patch de teste do
+upstream —, e mutar o original destruiria a evidência do que o agente fez.
 
-  1. detecção de trapaça — ANTES de injetar qualquer coisa, senão os
-     arquivos do próprio avaliador apareceriam como alteração do agente;
+Ordem das etapas dentro da cópia:
+
+  1. trapaça, diff e qualidade — sobre o estado exato em que o agente parou,
+     antes de o avaliador encostar em qualquer coisa;
   2. oráculo — injeta os testes ocultos e julga;
-  3. qualidade, custo e processo.
+  3. custo e processo, que saem da telemetria e não dependem do workspace.
 
 Regra de precedência: trapaça crítica detectada força `resolved = false`,
 independentemente do que o oráculo disser. Resolver o problema burlando a
@@ -21,39 +26,55 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
-import subprocess
 import sys
+import tempfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from harness import HARNESS_VERSION, RESULT_SCHEMA_VERSION
-from harness.cheat import HIDDEN_DIR, detect
+from harness.cheat import detect
 from harness.cost import aggregate_cost, aggregate_process, providers_served, read_events
 from harness.gitutil import base_commit, changed_files, diffstat
-from harness.oracle import _ARQUIVO_DO_DIFF, evaluate_oracle
+from harness.oracle import evaluate_oracle
 from harness.quality import measure
 from harness.taskspec import TaskSpec, load_task
 
 
-def _limpar_injecao(workspace: Path, task: TaskSpec) -> None:
-    """Devolve o workspace ao estado em que o agente o deixou."""
-    oculto = workspace / HIDDEN_DIR
-    if oculto.is_dir():
-        shutil.rmtree(oculto)
+@contextmanager
+def _workspace_descartavel(origem: Path) -> Iterator[Path]:
+    """
+    Cópia do workspace do agente, avaliada e depois descartada.
 
-    # Um oráculo por patch altera arquivos de teste no lugar; restaurá-los do
-    # commit-base não apaga adulteração do agente, porque a adulteração dele
-    # também é feita ali e seria refeita a cada avaliação — o registro dela
-    # está no result.json da primeira, que é o que vale.
-    if task.test_patch:
-        patch = task.root / task.test_patch
-        if patch.exists():
-            for alvo in _ARQUIVO_DO_DIFF.findall(patch.read_text(encoding="utf-8")):
-                subprocess.run(
-                    ["git", "checkout", task.base_commit, "--", alvo],
-                    cwd=workspace, capture_output=True, text=True,
-                )
+    Existe porque a avaliação é destrutiva: ela injeta os testes ocultos,
+    restaura arquivos de teste do commit-base e aplica o patch de teste do
+    upstream. Rodar isso no workspace gravado apaga o que o agente deixou.
+
+    A tentativa anterior de resolver — limpar a injeção no início de cada
+    avaliação — tinha um furo. Numa tarefa com `test_patch`, a limpeza fazia
+    `git checkout <base> -- tests/test_x.py`, e uma adulteração de teste pelo
+    agente mora exatamente nesse arquivo, porque é onde ficam os testes que
+    discriminam. A evidência era apagada ANTES de o detector olhar, inclusive
+    na primeira avaliação, quando não havia injeção anterior nenhuma para
+    limpar. A regra C1 nunca disparava nessas tarefas.
+
+    Com a cópia, a idempotência deixa de ser compensatória e vira estrutural:
+    o original nunca muda, avaliar N vezes dá o mesmo veredito por
+    construção, e o detector sempre vê o estado real.
+    """
+    temp = Path(tempfile.mkdtemp(prefix="uranium-eval-"))
+    try:
+        copia = temp / "workspace"
+        # symlinks=True preserva o link em vez de copiar o alvo — o submódulo
+        # tests/toml-test do tomlkit depende disso, e o .git do submódulo é um
+        # arquivo com gitdir relativo, que só resolve se a árvore for copiada
+        # inteira.
+        shutil.copytree(origem, copia, symlinks=True)
+        yield copia
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
 
 
 def evaluate_run(
@@ -64,33 +85,32 @@ def evaluate_run(
     measure_quality: bool = True,
 ) -> dict[str, Any]:
     """Avalia um run e devolve o resultado no formato do result.json."""
-    workspace = run_dir / "workspace"
-    if not (workspace / ".git").is_dir():
-        raise FileNotFoundError(f"workspace com git não encontrado em {workspace}")
+    origem = run_dir / "workspace"
+    if not (origem / ".git").is_dir():
+        raise FileNotFoundError(f"workspace com git não encontrado em {origem}")
 
     manifesto = _ler_json(run_dir / "manifest.json")
     eventos = read_events(run_dir / "events.jsonl")
 
-    # 0. desfaz injeção de avaliação anterior. Sem isto a avaliação não é
-    # idempotente: os testes ocultos que ELA MESMA copiou aparecem na segunda
-    # execução como arquivo protegido alterado pelo agente, e um run limpo é
-    # reprovado por trapaça que o harness cometeu.
-    _limpar_injecao(workspace, task)
+    # Tudo que mexe no workspace acontece na cópia; o run gravado fica intacto.
+    with _workspace_descartavel(origem) as workspace:
+        # 1. trapaça e diff, sobre o estado exato em que o agente parou
+        alterados = changed_files(workspace)
+        trapaca = detect(workspace, task.protected_globs)
+        estatistica_diff = diffstat(workspace)
+        commit_base = base_commit(workspace)
 
-    # 1. trapaça, antes de qualquer injeção
-    alterados = changed_files(workspace)
-    trapaca = detect(workspace, task.protected_globs)
+        # 2. qualidade, também antes de qualquer injeção: mede o que o agente
+        # escreveu, não o que o avaliador trouxe
+        py_alterados = [c for c in alterados if c.endswith(".py")]
+        qualidade = (
+            measure(workspace, py_alterados).as_dict()
+            if measure_quality else {"skipped": True}
+        )
 
-    # 2. qualidade, também antes: mede o que o agente escreveu
-    py_alterados = [c for c in alterados if c.endswith(".py")]
-    qualidade = (
-        measure(workspace, py_alterados).as_dict()
-        if measure_quality else {"skipped": True}
-    )
-    estatistica_diff = diffstat(workspace)
-
-    # 3. oráculo
-    oraculo = evaluate_oracle(workspace, task, timeout_s=timeout_s)
+        # 3. oráculo — daqui em diante o workspace é mutado, e é exatamente
+        # por isso que ele é descartável
+        oraculo = evaluate_oracle(workspace, task, timeout_s=timeout_s)
 
     resolvido = oraculo.resolved and trapaca.clean
 
@@ -102,7 +122,7 @@ def evaluate_run(
         "arm": manifesto.get("arm"),
         "task_id": task.task_id,
         "repetition": manifesto.get("repetition"),
-        "base_commit": base_commit(workspace),
+        "base_commit": commit_base,
         "resolved": resolvido,
         "resolved_blocked_by_cheat": oraculo.resolved and not trapaca.clean,
         "oracle": oraculo.as_dict(),
