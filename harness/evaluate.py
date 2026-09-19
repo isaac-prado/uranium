@@ -161,6 +161,14 @@ def main() -> None:
                         help="Pula radon/coverage (mais rápido em piloto)")
     args = parser.parse_args()
 
+    # Run marcado como perdido (erro de provedor; src/arms/pilot.py, E5 item 2)
+    # foi substituído por uma reexecução com a mesma semente. Avaliá-lo
+    # produziria um result.json que entraria duas vezes na análise pareada.
+    if (args.run_dir / "PERDIDO").exists():
+        raise SystemExit(
+            f"{args.run_dir}: run marcado como PERDIDO; avalie a reexecução, não este."
+        )
+
     tarefa = load_task(args.task)
     resultado = evaluate_run(
         args.run_dir, tarefa,

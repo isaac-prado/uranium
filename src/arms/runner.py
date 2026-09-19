@@ -46,7 +46,17 @@ MANIFEST_VERSION = 2
 # está aqui: a repetição nº k de um braço e a nº k do outro são um par,
 # e precisam rodar sob a mesma semente.
 CHAVES_QUE_PODEM_DIFERIR = frozenset(
-    {"arm", "topology", "driver_policy", "orchestration_policy", "run_id", "started_at"}
+    {
+        "arm", "topology", "driver_policy", "orchestration_policy", "run_id", "started_at",
+        # E5 item 2: um run perdido por erro de provedor é reexecutado com o
+        # número de tentativa incrementado. A perda pode acontecer num braço
+        # só (o outro lado do par corre normalmente da primeira vez), então
+        # `attempt` pode divergir entre os dois SEM violar o desenho — o que
+        # não pode divergir é a semente, que depende só de `repetition`
+        # (`seed_for_repetition`, abaixo), nunca de `attempt`. Ver
+        # tests/test_arm_parity.py::TestTentativaDeReexecucao.
+        "attempt",
+    }
 )
 
 # Default de `max_results` de `list_files` (src/tools/fs.py) lido por
@@ -140,6 +150,10 @@ class RunSpec:
     driver_policy: DriverPolicy | None = None
     orchestration_policy: dict[str, Any] | None = None
     test_timeout_s: int = 120
+    # Nº da tentativa dentro da repetição (1-based). Sobe quando este run
+    # substitui um anterior perdido por erro de provedor (E5 item 2); a
+    # primeira execução de cada repetição é sempre attempt=1.
+    attempt: int = 1
 
     def manifest(self, started_at: str) -> dict[str, Any]:
         """Configuração resolvida do run, auditável e comparável entre braços."""
@@ -150,6 +164,7 @@ class RunSpec:
             "topology": "single_agent" if self.arm == "single-agent" else "multi_agent_roles",
             "task_id": self.task_id,
             "repetition": self.repetition,
+            "attempt": self.attempt,
             "seed_repo_id": self.seed_repo_id,
             "base_commit": self.base_commit,
             "started_at": started_at,
@@ -177,6 +192,7 @@ def build_run_spec(
     llm: LLMConfig | None = None,
     budget: RunBudget | None = None,
     test_timeout_s: int = 120,
+    attempt: int = 1,
 ) -> RunSpec:
     """
     Resolve a configuração de um run.
@@ -184,11 +200,15 @@ def build_run_spec(
     Deliberadamente idêntica para os dois braços: a config de LLM e o
     orçamento vêm do mesmo lugar, e só `driver_policy` é específico do single-agent.
 
-    A semente do LLM é derivada da repetição, então dois braços na mesma
-    repetição partem exatamente da mesma condição inicial.
+    A semente do LLM é derivada só da repetição (nunca de `attempt`), então
+    reexecutar uma repetição perdida (E5 item 2) preserva a mesma condição
+    inicial que a tentativa que morreu — e os dois braços na mesma repetição
+    continuam partindo da mesma semente entre si, `attempt` à parte.
     """
     if repetition < 1:
         raise ValueError(f"repetition começa em 1, recebido {repetition}")
+    if attempt < 1:
+        raise ValueError(f"attempt começa em 1, recebido {attempt}")
 
     base_llm = llm or load_llm_config()
     return RunSpec(
@@ -205,6 +225,7 @@ def build_run_spec(
         driver_policy=DriverPolicy() if arm == "single-agent" else None,
         orchestration_policy=_orchestration_policy() if arm == "orchestration" else None,
         test_timeout_s=test_timeout_s,
+        attempt=attempt,
     )
 
 
@@ -283,6 +304,7 @@ def run_arm(spec: RunSpec, *, llm_factory: Any = None) -> dict[str, Any]:
             "arm": spec.arm,
             "task_id": spec.task_id,
             "repetition": spec.repetition,
+            "attempt": spec.attempt,
             "llm_seed": spec.llm.seed,
             "topology": manifesto["topology"],
             "stop_reason": stop_reason,

@@ -512,3 +512,19 @@ class TestAvaliacaoIdempotente:
             "a avaliação criou ou removeu arquivo no workspace gravado: "
             f"{set(depois[1]) ^ set(antes[1])}"
         )
+
+
+class TestRunPerdidoNaoEhAvaliado:
+    def test_cli_recusa_run_marcado_como_perdido(self, tmp_path):
+        """Run substituído por reexecução (E5 item 2) não pode virar result.json."""
+        run_dir = tmp_path / "run"
+        run_dir.mkdir()
+        (run_dir / "PERDIDO").write_text("error: provedor", encoding="utf-8")
+        proc = subprocess.run(
+            [sys.executable, "-m", "harness.evaluate", "--run-dir", str(run_dir),
+             "--task", "tasks/tomlkit-0001"],
+            capture_output=True, text=True,
+        )
+        assert proc.returncode != 0
+        assert "PERDIDO" in proc.stderr
+        assert not (run_dir / "result.json").exists()

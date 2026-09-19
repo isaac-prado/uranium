@@ -14,7 +14,15 @@ from pathlib import Path
 
 import pytest
 
-from src.arms.pilot import PilotOutcome, format_report, run_pilot, save_report
+from src.arms.pilot import (
+    PilotOutcome,
+    detectar_perdidos,
+    format_report,
+    reexecutar_perdidos,
+    run_pilot,
+    save_report,
+)
+from src.arms.runner import build_run_spec, run_arm
 from src.budget import RunBudget
 from src.config import LLMConfig
 from src.seeds import TOMLKIT
@@ -129,6 +137,188 @@ class TestPilotoPontaAPonta:
             assert r.stop_reason.startswith("error:")
             assert "provedor caiu" in (r.erro or "")
             assert r.resolved is None  # não avaliado: não houve run
+
+
+@mirror_available
+class TestReexecucaoDeRunPerdido:
+    """
+    E5 item 2 / portão G5: reexecução de run perdido por erro de provedor,
+    preservando a semente. Foram 3 perdas em 42 execuções no piloto.
+    """
+
+    class _Explode:
+        """Levanta erro de provedor em toda chamada — simula o 429/timeout real."""
+
+        def bind_tools(self, tools, **kwargs):
+            return self
+
+        def invoke(self, mensagens, **kwargs):
+            raise RuntimeError("provedor caiu")
+
+    def _cria_run_perdido(self, tmp_path):
+        """Roda de verdade um attempt=1 que morre por erro de provedor."""
+        from harness.taskspec import load_task
+
+        task = load_task(TAREFA)
+        spec = build_run_spec(
+            run_id="tentativa-1", arm="single-agent", task_id=task.task_id,
+            statement=task.statement, base_commit=task.base_commit,
+            seed_repo_id=task.seed_repo_id,
+            out_dir=tmp_path / "runs" / "single-agent" / task.task_id / "rep01" / "tentativa-1",
+            llm=LLM, budget=ORCAMENTO, repetition=1, attempt=1,
+        )
+        try:
+            run_arm(spec, llm_factory=lambda *a, **k: self._Explode())
+        except RuntimeError:
+            pass  # é exatamente o que se espera de um run perdido
+        return tmp_path / "runs", spec
+
+    def test_detecta_o_run_perdido_pelo_stop_reason_de_erro(self, tmp_path):
+        out_dir, spec = self._cria_run_perdido(tmp_path)
+
+        perdidos = detectar_perdidos(out_dir)
+
+        assert len(perdidos) == 1
+        p = perdidos[0]
+        assert (p.task_id, p.arm, p.repetition, p.attempt) == (spec.task_id, "single-agent", 1, 1)
+        assert p.motivo.startswith("error:")
+        assert p.run_dir == spec.out_dir
+        assert p.seed == spec.llm.seed
+
+    def test_reexecuta_com_a_mesma_semente_novo_run_id_e_attempt_2(self, tmp_path):
+        out_dir, spec = self._cria_run_perdido(tmp_path)
+
+        resultados = reexecutar_perdidos(
+            out_dir, llm=LLM, budget=ORCAMENTO,
+            llm_factory=fabrica_por_run(_llm_que_corrige), evaluate=False,
+        )
+
+        assert len(resultados) == 1
+        novo = resultados[0]
+        assert novo.attempt == 2
+        assert novo.run_id != spec.run_id
+        assert not novo.stop_reason.startswith("error:")
+
+        manifesto_novo = json.loads((novo.out_dir / "manifest.json").read_text())
+        assert manifesto_novo["repetition"] == spec.repetition          # mesma repetição
+        assert manifesto_novo["llm"]["seed"] == spec.llm.seed           # MESMA semente
+        assert manifesto_novo["attempt"] == 2
+
+    def test_avalia_o_substituto_quando_pedido(self, tmp_path):
+        out_dir, _spec = self._cria_run_perdido(tmp_path)
+
+        resultados = reexecutar_perdidos(
+            out_dir, llm=LLM, budget=ORCAMENTO,
+            llm_factory=fabrica_por_run(_llm_que_corrige), evaluate=True,
+        )
+
+        assert resultados[0].resolved is True
+        assert resultados[0].f2p == "1/1"
+
+    def test_o_diretorio_perdido_fica_marcado_e_intacto(self, tmp_path):
+        out_dir, spec = self._cria_run_perdido(tmp_path)
+
+        reexecutar_perdidos(
+            out_dir, llm=LLM, budget=ORCAMENTO,
+            llm_factory=fabrica_por_run(_llm_que_corrige), evaluate=False,
+        )
+
+        marca = spec.out_dir / "PERDIDO"
+        assert marca.exists()
+        assert "substituído por" in marca.read_text()
+        # nada do run perdido foi apagado
+        assert (spec.out_dir / "summary.json").exists()
+        assert (spec.out_dir / "manifest.json").exists()
+
+    def test_run_perdido_ja_marcado_nao_reaparece(self, tmp_path):
+        out_dir, _spec = self._cria_run_perdido(tmp_path)
+
+        reexecutar_perdidos(
+            out_dir, llm=LLM, budget=ORCAMENTO,
+            llm_factory=fabrica_por_run(_llm_que_corrige), evaluate=False,
+        )
+
+        # o substituto resolveu; a varredura seguinte não acha mais nada
+        assert detectar_perdidos(out_dir) == []
+
+    def test_result_json_espurio_no_diretorio_perdido_e_neutralizado(self, tmp_path):
+        """
+        Se alguém rodar o avaliador manualmente sobre o diretório perdido antes
+        da marca existir — o workspace materializado tem `.git`, e é só o que
+        `harness.evaluate.evaluate_run` exige —, o `result.json` gerado não
+        pode entrar na análise ao lado do substituto.
+        """
+        out_dir, spec = self._cria_run_perdido(tmp_path)
+        (spec.out_dir / "result.json").write_text('{"resolved": false}', encoding="utf-8")
+
+        reexecutar_perdidos(
+            out_dir, llm=LLM, budget=ORCAMENTO,
+            llm_factory=fabrica_por_run(_llm_que_corrige), evaluate=False,
+        )
+
+        assert not (spec.out_dir / "result.json").exists()
+        assert (spec.out_dir / "result.json.perdido").exists()
+
+
+class TestCorteDeOrcamentoNaoEhPerda:
+    """Corte por orçamento é resultado do experimento — nunca reexecutado."""
+
+    def _run_dir(self, tmp_path, *, stop_reason, com_run_end=True, com_summary=True,
+                 attempt=1) -> Path:
+        run_dir = tmp_path / "runs" / "single-agent" / "t" / "rep01" / f"a{attempt}"
+        run_dir.mkdir(parents=True)
+        (run_dir / "manifest.json").write_text(json.dumps({
+            "task_id": "t", "arm": "single-agent", "repetition": 1, "attempt": attempt,
+            "llm": {"seed": 42},
+        }), encoding="utf-8")
+        if com_summary:
+            (run_dir / "summary.json").write_text(
+                json.dumps({"stop_reason": stop_reason}), encoding="utf-8"
+            )
+        if com_run_end:
+            (run_dir / "events.jsonl").write_text(
+                json.dumps({"event_type": "run_end"}) + "\n", encoding="utf-8"
+            )
+        return run_dir
+
+    def test_run_cortado_por_orcamento_nao_e_perdido(self, tmp_path):
+        self._run_dir(tmp_path, stop_reason="budget: max_turns")
+        assert detectar_perdidos(tmp_path / "runs") == []
+
+    def test_run_concluido_normalmente_nao_e_perdido(self, tmp_path):
+        self._run_dir(tmp_path, stop_reason="tests_pass")
+        assert detectar_perdidos(tmp_path / "runs") == []
+
+    def test_morte_abrupta_sem_summary_json_e_perdida(self, tmp_path):
+        run_dir = self._run_dir(tmp_path, stop_reason="tests_pass", com_summary=False)
+        perdidos = detectar_perdidos(tmp_path / "runs")
+
+        assert len(perdidos) == 1
+        assert "morte abrupta" in perdidos[0].motivo
+        assert perdidos[0].run_dir == run_dir
+
+    def test_morte_abrupta_sem_run_end_e_perdida(self, tmp_path):
+        """
+        Defesa extra: `run_arm` só grava summary.json depois de emitir
+        run_end, mas um processo morto exatamente entre as duas escritas
+        deixaria só a trilha sem o evento — esta checagem cobre esse caso.
+        """
+        run_dir = self._run_dir(tmp_path, stop_reason="tests_pass", com_run_end=False)
+        perdidos = detectar_perdidos(tmp_path / "runs")
+
+        assert len(perdidos) == 1
+        assert "run_end" in perdidos[0].motivo
+        assert perdidos[0].run_dir == run_dir
+
+    def test_teto_de_tentativas_declara_o_par_perdido_de_vez(self, tmp_path):
+        run_dir = self._run_dir(tmp_path, stop_reason="error: RuntimeError", attempt=3)
+
+        resultados = reexecutar_perdidos(tmp_path / "runs", max_tentativas=3, llm=LLM, budget=ORCAMENTO)
+
+        assert resultados == []  # nem tentou: já estava no teto
+        marca = run_dir / "PERDIDO"
+        assert marca.exists() and "esgotado" in marca.read_text()
+        assert detectar_perdidos(tmp_path / "runs") == []  # não reaparece
 
 
 class TestRelatorio:

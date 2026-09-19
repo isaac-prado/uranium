@@ -340,6 +340,55 @@ class TestSementePorRepeticao:
         assert spec.out_dir == Path("runs") / "orchestration" / "t" / "rep04" / "r"
 
 
+class TestTentativaDeReexecucao:
+    """
+    E5 item 2: um run perdido por erro de provedor é reexecutado com
+    `attempt` incrementado. A perda pode acontecer num braço só, então
+    `attempt` PODE divergir entre os dois — o que não pode divergir é a
+    semente, que continua vindo só de `repetition` (`seed_for_repetition`).
+    """
+
+    def test_attempt_default_e_1_e_entra_no_manifesto(self, tmp_path):
+        assert _spec("orchestration", tmp_path).manifest("t")["attempt"] == 1
+
+    def test_attempt_diferente_nao_muda_a_semente(self, tmp_path):
+        primeira = _spec("orchestration", tmp_path, repetition=2)
+        refeita = build_run_spec(
+            run_id="refeita", arm="orchestration", task_id="tomlkit-0001",
+            statement="Levantar erro em elemento malformado de array.",
+            base_commit=BASE_COMMIT, out_dir=tmp_path / "refeita",
+            llm=LLM, budget=BUDGET, repetition=2, attempt=2,
+        )
+        assert primeira.llm.seed == refeita.llm.seed == seed_for_repetition(LLM.seed, 2)
+
+    def test_attempt_pode_divergir_entre_bracos_sem_violar_a_paridade(self, tmp_path):
+        """Prova pedida no plano: dois specs com `attempt` diferente têm o mesmo `llm.seed`."""
+        a2 = build_run_spec(
+            run_id="a", arm="single-agent", task_id="tomlkit-0001",
+            statement="s", base_commit=BASE_COMMIT, out_dir=tmp_path / "sa",
+            llm=LLM, budget=BUDGET, repetition=1, attempt=1,
+        ).manifest("t")
+        b = build_run_spec(
+            run_id="b", arm="orchestration", task_id="tomlkit-0001",
+            statement="s", base_commit=BASE_COMMIT, out_dir=tmp_path / "or",
+            llm=LLM, budget=BUDGET, repetition=1, attempt=2,
+        ).manifest("t")
+
+        assert a2["attempt"] != b["attempt"]
+        assert a2["llm"] == b["llm"]  # semente idêntica apesar do attempt divergente
+
+        divergentes = {k for k in set(a2) | set(b) if a2.get(k) != b.get(k)}
+        assert divergentes - CHAVES_QUE_PODEM_DIFERIR == set()
+
+    def test_attempt_zero_e_recusado(self, tmp_path):
+        with pytest.raises(ValueError, match="attempt começa em 1"):
+            build_run_spec(
+                run_id="x", arm="orchestration", task_id="t", statement="s",
+                base_commit=BASE_COMMIT, out_dir=tmp_path / "x",
+                llm=LLM, budget=BUDGET, repetition=1, attempt=0,
+            )
+
+
 class TestDesambiguacaoDeSemente:
     """
     "Semente" tinha dois significados no código: o repositório de partida e a
