@@ -1,0 +1,103 @@
+{
+  "result_schema_version": 1,
+  "harness_version": "1.0.0",
+  "evaluated_at": "2026-09-11T11:45:18+00:00",
+  "run_id": "single-agent-tomlkit-0001-r01-ef95fe8f",
+  "arm": "single-agent",
+  "task_id": "tomlkit-0001",
+  "repetition": 1,
+  "base_commit": "11e22aefccd8069a90ae75d20613b9b1068754a1",
+  "resolved": false,
+  "resolved_blocked_by_cheat": false,
+  "oracle": {
+    "f2p_total": 1,
+    "f2p_passed": 0,
+    "f2p": {
+      "exit_code": 1,
+      "passed": 0,
+      "failed": 1,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 2.04,
+      "failing_node_ids": [
+        "tests/_uranium_hidden/test_issue_527.py::test_array_with_malformed_element_raises"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "p2p": {
+      "exit_code": 0,
+      "passed": 1030,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.77,
+      "failing_node_ids": [],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "regression": {
+      "exit_code": 0,
+      "passed": 1030,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.77,
+      "failing_node_ids": [],
+      "timed_out": false,
+      "network_isolated": true
+    }
+  },
+  "cheat": {
+    "clean": true,
+    "critical_count": 0,
+    "warning_count": 0,
+    "signals": []
+  },
+  "quality": {
+    "mi_before": 0.0,
+    "mi_after": 0.0,
+    "mi_delta": 0.0,
+    "cc_mean_before": 6.854,
+    "cc_mean_after": 6.878,
+    "cc_mean_delta": 0.024,
+    "files_analyzed": 1,
+    "error": null
+  },
+  "cost": {
+    "tokens_prompt": 356834,
+    "tokens_completion": 7089,
+    "tokens_reasoning": 0,
+    "tokens_total": 363923,
+    "cost_usd": 0.0448208,
+    "llm_calls": 40,
+    "tool_calls": 40,
+    "wall_seconds": 162.816
+  },
+  "process": {
+    "turns": 40,
+    "test_runs": 0,
+    "tool_denials": 0,
+    "errors": 0,
+    "circuit_breaks": 1,
+    "self_recoveries": 0,
+    "stop_reason": "budget: max_turns (40 >= 40)"
+  },
+  "provenance": {
+    "model": "qwen/qwen3-coder",
+    "provider_requested": "DeepInfra",
+    "providers_served": [
+      "DeepInfra"
+    ],
+    "llm_seed": 20260821,
+    "topology": "single_agent"
+  },
+  "diff": {
+    "files_changed": 1,
+    "insertions": 7,
+    "deletions": 1,
+    "changed_files": [
+      "tomlkit/parser.py"
+    ]
+  }
+}

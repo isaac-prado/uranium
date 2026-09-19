@@ -1,0 +1,32 @@
+{
+  "manifest_version": 1,
+  "run_id": "orchestration-sqlite-utils-0001-r01-58574496",
+  "arm": "orchestration",
+  "topology": "multi_agent_roles",
+  "task_id": "sqlite-utils-0001",
+  "repetition": 1,
+  "seed_repo_id": "sqlite-utils",
+  "base_commit": "d71420065903ff54247b5062b8c6af6165b7e638",
+  "started_at": "2026-09-11T11:37:03+00:00",
+  "llm": {
+    "model": "qwen/qwen3-coder",
+    "provider": "DeepInfra",
+    "temperature": 0.0,
+    "seed": 20260821,
+    "max_tokens": 8192,
+    "timeout_s": 300,
+    "max_retries": 6,
+    "allow_fallbacks": false,
+    "require_parameters": true,
+    "data_collection": "deny"
+  },
+  "budget": {
+    "max_tokens": 1200000,
+    "max_wall_seconds": 1800,
+    "max_turns": 40
+  },
+  "driver_policy": null,
+  "test_timeout_s": 120,
+  "python": "3.12.14",
+  "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.43"
+}
