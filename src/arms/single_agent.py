@@ -75,7 +75,9 @@ def build_single_agent_graph(policy: DriverPolicy | None = None):
 
             inicio = time.perf_counter()
             ai = ctx.bound_llm().invoke(mensagens)
-            ctx.telemetry.emit_llm_call(ai, latency_ms=int((time.perf_counter() - inicio) * 1000))
+            ctx.telemetry.emit_llm_call(
+                ai, latency_ms=int((time.perf_counter() - inicio) * 1000), prompt=mensagens
+            )
             mensagens.append(ai)
 
             pediu_ferramenta = bool(getattr(ai, "tool_calls", None))

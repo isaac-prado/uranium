@@ -38,7 +38,7 @@ class StructuredOutputError(RuntimeError):
     """O modelo não produziu saída conforme o schema após as retentativas."""
 
 
-def _to_messages(
+def to_messages(
     messages: list[tuple[str, str]] | list[BaseMessage],
 ) -> list[BaseMessage]:
     """Converte tuplas (role, content) em mensagens LangChain."""
@@ -91,7 +91,7 @@ def invoke_structured_raw(
     estruturado = cliente.with_structured_output(
         schema, method=get_output_method(), include_raw=True
     )
-    lc_messages = _to_messages(messages)
+    lc_messages = to_messages(messages)
 
     tentativas = max_retries() + 1
     erros: list[str] = []

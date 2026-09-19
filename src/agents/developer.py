@@ -80,7 +80,7 @@ def developer(state: WorkflowState) -> dict[str, Any]:
             inicio = time.perf_counter()
             ai = llm.invoke(mensagens)
             latencia = int((time.perf_counter() - inicio) * 1000)
-            ctx.telemetry.emit_llm_call(ai, latency_ms=latencia)
+            ctx.telemetry.emit_llm_call(ai, latency_ms=latencia, prompt=mensagens)
             mensagens.append(ai)
 
             if not getattr(ai, "tool_calls", None):

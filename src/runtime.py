@@ -141,7 +141,7 @@ class RunContext:
         """
         import time
 
-        from src.structured_llm import invoke_structured_raw
+        from src.structured_llm import invoke_structured_raw, to_messages
 
         inicio = time.perf_counter()
         resultado, bruta = invoke_structured_raw(
@@ -149,7 +149,9 @@ class RunContext:
         )
         if bruta is not None:
             self.telemetry.emit_llm_call(
-                bruta, latency_ms=int((time.perf_counter() - inicio) * 1000)
+                bruta,
+                latency_ms=int((time.perf_counter() - inicio) * 1000),
+                prompt=to_messages(messages),
             )
         return resultado
 

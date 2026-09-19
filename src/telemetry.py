@@ -50,6 +50,37 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
+# ------------------------------------------------------ composição do prompt
+
+
+def prompt_composition(messages: Any) -> dict[str, int]:
+    """
+    Tamanho, em bytes UTF-8, do que foi enviado ao modelo, por papel de mensagem.
+
+    Serve à contabilidade de contexto: a soma do que cada categoria ocupa no
+    prompt de um turno tem de bater com o que o provedor cobra em
+    `tokens_prompt`. O que não estiver aqui não foi medido. Para mensagens do
+    assistente, conta o texto mais os argumentos das chamadas de ferramenta,
+    que voltam ao modelo no turno seguinte como parte do histórico.
+    """
+    bytes_por_papel: dict[str, int] = {"system": 0, "human": 0, "ai": 0, "tool": 0, "other": 0}
+    for msg in messages or []:
+        papel = getattr(msg, "type", None) or "other"
+        if papel not in bytes_por_papel:
+            papel = "other"
+        conteudo = getattr(msg, "content", msg)
+        if not isinstance(conteudo, str):
+            conteudo = json.dumps(conteudo, ensure_ascii=False, default=str)
+        tamanho = len(conteudo.encode("utf-8"))
+        for chamada in getattr(msg, "tool_calls", None) or []:
+            tamanho += len(json.dumps(chamada.get("args", {}), ensure_ascii=False, default=str).encode("utf-8"))
+            tamanho += len(str(chamada.get("name", "")).encode("utf-8"))
+        bytes_por_papel[papel] += tamanho
+    bytes_por_papel["messages"] = len(messages or [])
+    bytes_por_papel["total"] = sum(v for k, v in bytes_por_papel.items() if k != "messages")
+    return bytes_por_papel
+
+
 @dataclass
 class _Context:
     """Contexto corrente, herdado pelos eventos emitidos dentro de um nó."""
@@ -230,10 +261,26 @@ class TelemetryWriter:
 
     # ------------------------------------------------------- atalhos tipados
 
-    def emit_llm_call(self, message: Any, *, latency_ms: int = 0, **fields: Any) -> dict[str, Any]:
-        """Registra uma chamada de LLM, extraindo tokens, custo e provedor servido."""
+    def emit_llm_call(
+        self, message: Any, *, latency_ms: int = 0, prompt: Any = None, **fields: Any
+    ) -> dict[str, Any]:
+        """
+        Registra uma chamada de LLM, extraindo tokens, custo e provedor servido.
+
+        `prompt` é a lista de mensagens enviada ao modelo nesta chamada. Quando
+        informada, o evento carrega `payload.prompt_bytes`: o tamanho por papel
+        de mensagem do que entrou no prompt, para que a conta dos tokens
+        cobrados possa ser fechada categoria a categoria depois.
+        """
         m = extract_call_metrics(message)
         tool_calls = getattr(message, "tool_calls", None) or []
+        payload: dict[str, Any] = {
+            "generation_id": m.generation_id,
+            "finish_reason": m.finish_reason,
+            "tool_calls_requested": [c.get("name") for c in tool_calls],
+        }
+        if prompt is not None:
+            payload["prompt_bytes"] = prompt_composition(prompt)
         return self.emit(
             "llm_call",
             provider_served=m.provider_served,
@@ -244,11 +291,7 @@ class TelemetryWriter:
             tokens_total=m.tokens_total,
             cost_usd=m.cost_usd,
             latency_ms=latency_ms,
-            payload={
-                "generation_id": m.generation_id,
-                "finish_reason": m.finish_reason,
-                "tool_calls_requested": [c.get("name") for c in tool_calls],
-            },
+            payload=payload,
             **fields,
         )
 
