@@ -1,0 +1,32 @@
+# Uranium: invariantes do experimento
+
+Este repositório é o instrumento de um TCC que compara duas topologias de agentes de IA corrigindo bugs: `single-agent` (agente único com operador determinístico) e `orchestration` (papéis orquestrados por um grafo LangGraph). A alegação causal do estudo depende de os dois braços serem idênticos em tudo, exceto na topologia. O que está listado aqui é proposital. Não "otimize", "simplifique" nem "modernize" nada desta lista sem o autor pedir por escrito.
+
+Fonte de verdade sobre o desenho: `docs/tcc/00-guia-etapas.md`, `docs/tcc/01-inventario.md`, `docs/tcc/03-metricas.md`, `docs/tcc/tasks/EXIGENCIAS.md`. Não cite `docs/dossie-metodologico.html` como fonte de número.
+
+## Intocáveis sem aprovação do autor
+
+- Detector de trapaça (`harness/cheat.py`), oráculo (`harness/oracle.py`), guarda de caminho (`src/seeds.py` `DEFAULT_PROTECTED_GLOBS` e `src/workspace.py`), pino de provedor (`src/config.py`: `provider_routing`, `_validate`, `OpenRouterChat`).
+- Prompts (`src/prompts.py`). Os dois braços usam o mesmo prompt de sistema e o mesmo conjunto de ferramentas na mesma ordem.
+- Mensagens de protocolo ao agente vivem só em `src/feedback.py`. Nenhum braço pode ter texto próprio de feedback; `tests/test_arm_parity.py` falha se houver.
+- A reconstrução do contexto do developer a cada ciclo (`src/agents/developer.py`) é parte da variável independente (folga F3, declarada em `docs/tcc/07-execucao.md`). Não igualar ao histórico persistente do single-agent.
+
+## Paridade e manifesto
+
+- `tests/test_arm_parity.py` é o teste que sustenta o estudo. Qualquer chave nova no manifesto que divirja entre braços precisa estar em `CHAVES_QUE_PODEM_DIFERIR` (`src/arms/runner.py`) com justificativa, ou o teste falha de propósito.
+- Tudo que muda o comportamento de um braço vai ao manifesto (`orchestration_policy`, `shared_limits`, `budget`, `llm`, `driver_policy`). Dois runs com configuração diferente nunca podem produzir manifestos idênticos.
+- A repetição k de um braço e a k do outro rodam com a mesma semente (`seed_for_repetition`). Reexecução de run perdido preserva a semente.
+- Constantes de ferramenta (`src/tools/base.py`, `src/tools/exec.py`, `src/runtime.py`) são compartilhadas e registradas em `shared_limits`. Mudar uma delas muda os dois braços e invalida comparação com coletas anteriores.
+
+## Tetos do run
+
+**NÃO CONGELADOS.** Os valores atuais em `src/budget.py` e `.env.example` (`RUN_MAX_TOKENS=1200000`, `RUN_MAX_WALL_SECONDS=1800`, `RUN_MAX_TURNS=40`) são os do piloto. A etapa E4 do `docs/tcc/tasks/EXIGENCIAS.md` exige calibrá-los com teste de fumaça pago numa tarefa da faixa grande antes de congelar. Quando o autor congelar, os valores finais e a data entram aqui e não mudam até o fim da coleta.
+
+## Regras de trabalho
+
+- Nada de execução paga (chave `OPENROUTER_API_KEY`) sem os portões offline de `docs/tcc/04-cronograma.md` verdes e sem o autor pedir.
+- Nenhum número em documento sem o arquivo de origem ao lado. Não inventar.
+- Agentes não escrevem testes na suíte dos repositórios-semente; a área de testes é protegida.
+- Rodar a suíte com `.venv/bin/python -m pytest -q` (ou `uv run pytest`). Ela deve ficar verde antes de qualquer commit.
+- Commits em português, no estilo conventional commits do histórico.
+- Etapas E2 a E5 têm registro em `docs/tcc/07-execucao.md`: diff resumido, teste que prova, impacto em docs.
