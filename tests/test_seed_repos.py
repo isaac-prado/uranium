@@ -19,9 +19,11 @@ from harness.venvs import SeedEnvMissing, python_for
 from harness.venvs import venv_root as harness_venv_root
 from src.seeds import (
     PEEWEE,
+    PYGMENTS,
     SEED_REPOS,
     SQLITE_UTILS,
     TOMLKIT,
+    TQDM,
     SeedRepoError,
     SeedRepoSpec,
     get_seed_repo,
@@ -33,7 +35,21 @@ from src.workspace import Workspace, WorkspaceSpec
 # Mínimo de testes que cada suíte precisa coletar. Trava contra "passou"
 # obtido num subconjunto: no peewee a coleta padrão do pytest acha 5 de
 # 1.634, e um verde desses seria pior que um vermelho.
-PISO_DE_COLETA = {"tomlkit": 1000, "peewee": 1500, "sqlite-utils": 1400}
+#
+# peewee: 1500 -> 1400 depois da correção de src/seeds.py para o commit
+# fd04f2af do upstream (protocolo `load_tests`, pytest não suporta — ver
+# comentário acima de PEEWEE em src/seeds.py). A lista explícita de
+# arquivos hoje coleta 1438 passed + 173 skipped = 1611 no HEAD medido
+# (docs/tcc/07-e3-1-mineracao.md); 1400 dá folga sem aceitar uma coleta
+# quebrada.
+#
+# pygments e tqdm: repositórios novos do E3 item 1, valores medidos em
+# docs/tcc/07-e3-1-mineracao.md (5330 e 169 `passed` no HEAD desta
+# máquina) com folga por baixo.
+PISO_DE_COLETA = {
+    "tomlkit": 1000, "peewee": 1400, "sqlite-utils": 1400,
+    "pygments": 5000, "tqdm": 150,
+}
 
 
 def _pronto(repo: SeedRepoSpec) -> bool:
@@ -51,8 +67,10 @@ def preparado(repo: SeedRepoSpec):
 
 
 class TestCatalogo:
-    def test_os_tres_repos_estao_registrados(self):
-        assert set(SEED_REPOS) == {"tomlkit", "peewee", "sqlite-utils"}
+    def test_os_repos_estao_registrados(self):
+        assert set(SEED_REPOS) == {
+            "tomlkit", "peewee", "sqlite-utils", "pygments", "tqdm",
+        }
 
     def test_id_desconhecido_lista_as_opcoes(self):
         with pytest.raises(KeyError, match="peewee"):
@@ -125,6 +143,8 @@ class TestInterpretadorPorRepo:
         pytest.param(TOMLKIT, marks=preparado(TOMLKIT), id="tomlkit"),
         pytest.param(PEEWEE, marks=preparado(PEEWEE), id="peewee"),
         pytest.param(SQLITE_UTILS, marks=preparado(SQLITE_UTILS), id="sqlite-utils"),
+        pytest.param(PYGMENTS, marks=preparado(PYGMENTS), id="pygments"),
+        pytest.param(TQDM, marks=preparado(TQDM), id="tqdm"),
     ],
 )
 class TestSuiteVerdeNoPontoDePartida:
@@ -181,6 +201,6 @@ def test_peewee_sem_alvo_declarado_coletaria_quase_nada(tmp_path):
     declarado = run_pytest(ws, timeout_s=1800)
     pelado = run_pytest(ws, ["tests/"], timeout_s=600)
 
-    assert declarado.passed > 1500
+    assert declarado.passed > PISO_DE_COLETA["peewee"]
     assert pelado.passed < 50
-    assert re.search(r"tests/__init__\.py", declarado.command)
+    assert re.search(r"tests/models\.py", declarado.command)

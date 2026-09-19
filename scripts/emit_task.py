@@ -12,8 +12,9 @@ de commit, que frequentemente já diz a solução ("fix X by doing Y"). O
 esqueleto vem marcado como pendente e o script recusa validar até ser
 escrito à mão.
 
-    uv run python scripts/emit_task.py --from mined/peewee.json --commit ad71015f
-    uv run python scripts/emit_task.py --from mined/tomlkit.json --top 4
+    uv run python scripts/emit_task.py --commit ad71015f
+    uv run python scripts/emit_task.py --top 12
+    uv run python scripts/emit_task.py --from mined-v1/tomlkit.json --top 4
 """
 
 from __future__ import annotations
@@ -140,18 +141,45 @@ def escrever_tarefa(cand: dict, raiz: Path, *, task_id: str | None = None) -> Pa
     return destino
 
 
+def _carregar_aceitos(*, origem: Path | None, mined_dir: Path) -> list[dict]:
+    """
+    Junta os candidatos aceitos de um arquivo (`--from`) ou de todo
+    `--mined-dir` (padrão `mined-v2/`, um JSON por repositório-semente).
+
+    `--mined-dir` é o padrão desde a v2 do minerador (E3 item 1): as 12
+    tarefas saem de vários repositórios, então o seletor de `--top`
+    precisa ver os aceitos de todos de uma vez para equilibrar as faixas
+    entre repositórios, não só dentro de um.
+    """
+    if origem:
+        arquivos = [origem]
+    else:
+        arquivos = sorted(mined_dir.glob("*.json"))
+        if not arquivos:
+            raise SystemExit(f"{mined_dir}: nenhum *.json — rode scripts/mine_tasks.py antes")
+
+    aceitos = []
+    for arquivo in arquivos:
+        aceitos += [c for c in json.loads(arquivo.read_text()) if c["aceito"]]
+    return aceitos
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description="Gera tarefa a partir de candidato minerado")
-    p.add_argument("--from", dest="origem", type=Path, required=True,
-                   help="JSON produzido por scripts/mine_tasks.py")
+    p.add_argument("--from", dest="origem", type=Path, default=None,
+                   help="Um JSON específico produzido por scripts/mine_tasks.py "
+                        "(por padrão, junta todos em --mined-dir)")
+    p.add_argument("--mined-dir", type=Path, default=Path("mined-v2"),
+                   help="Diretório com um <repo>.json por repositório-semente (padrão: mined-v2/)")
     p.add_argument("--commit", help="Um fix_commit específico (prefixo serve)")
     p.add_argument("--top", type=int, help="Os N primeiros aceitos, equilibrando as faixas")
     p.add_argument("--tasks-dir", type=Path, default=Path("tasks"))
     args = p.parse_args()
 
-    aceitos = [c for c in json.loads(args.origem.read_text()) if c["aceito"]]
+    aceitos = _carregar_aceitos(origem=args.origem, mined_dir=args.mined_dir)
     if not aceitos:
-        raise SystemExit(f"{args.origem}: nenhum candidato aceito")
+        origem_desc = args.origem or args.mined_dir
+        raise SystemExit(f"{origem_desc}: nenhum candidato aceito")
 
     if args.commit:
         escolhidos = [c for c in aceitos if c["fix_commit"].startswith(args.commit)]
@@ -160,10 +188,10 @@ def main() -> None:
     elif args.top:
         # alterna as faixas para não sair uma leva só de tarefa fácil
         por_faixa = {f: [c for c in aceitos if c["faixa"] == f]
-                     for f in ("alta", "media", "baixa")}
+                     for f in ("grande", "media", "pequena")}
         escolhidos = []
         while len(escolhidos) < args.top and any(por_faixa.values()):
-            for faixa in ("alta", "media", "baixa"):
+            for faixa in ("grande", "media", "pequena"):
                 if por_faixa[faixa] and len(escolhidos) < args.top:
                     escolhidos.append(por_faixa[faixa].pop(0))
     else:

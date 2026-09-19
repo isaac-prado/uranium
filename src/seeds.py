@@ -123,16 +123,62 @@ TOMLKIT = SeedRepoSpec(
 
 # A suíte do peewee não é coletável pelo padrão do pytest: os módulos de
 # teste se chamam models.py, fields.py, sql.py — nenhum casa com `test_*.py`.
-# O alvo é `tests/__init__.py`, que reúne tudo por `from .x import *` com as
-# extensões opcionais (postgres, apsw, sqlcipher) em try/except. É o mesmo
-# conjunto que o runtests.py do upstream monta, sem depender de banco externo.
+# Até aqui (mined-v1) o alvo era `tests/__init__.py`, que reunia tudo por
+# `from .x import *`, truque que fazia as classes de teste aparecerem no
+# namespace do próprio arquivo e o pytest as via como se fossem dele.
+#
+# O commit fd04f2af ("Test cleanup", upstream, 2026-09-03) trocou isso pelo
+# protocolo `load_tests` do unittest: `tests/__init__.py` agora só importa
+# cada submódulo (`from . import x`, sem star-import) e expõe
+# `load_tests(loader, tests, pattern)`. unittest.discover honra esse
+# protocolo (1826 testes, verde); pytest NÃO — é documentado que pytest não
+# suporta `load_tests` — então `pytest tests/__init__.py` sozinho não
+# encontra teste nenhum (exit code 5), o que quebrou
+# `tests/test_seed_repos.py::test_roda_inteira_e_passa[peewee]`.
+#
+# Correção: liste aqui, em arquivos explícitos, exatamente os módulos que
+# `tests/__init__.py` importa incondicionalmente (a lista `MODULES` de lá
+# menos os que só entram com dependência opcional ausente — apsw, cysqlite,
+# flask, fts, postgres, sqlcipher, `pwasyncio`/`pydantic`, nenhuma instalada
+# neste venv). Caminho explícito faz o pytest coletar o arquivo não importa
+# o nome — o padrão `test_*.py` só vale para varredura de diretório.
+#
+# A ORDEM importa: `tests/model_sql.py::TestModelSQL::test_delete_recursive`
+# vaza estado de `tests/models.py` (uma tabela/id que ele pressupõe já
+# criada) e falha se `model_sql` rodar antes de `models` — o que a ordem
+# alfabética de diretório faz ("model_sql.py" < "models.py"), mas a ordem
+# de `MODULES` no upstream não. Reproduzindo a ordem de `MODULES` a suíte
+# fica 1438 passed, 173 skipped, 0 failed em ~4,3s (medido nesta máquina,
+# HEAD 9d495208 do espelho — ver docs/tcc/07-e3-1-mineracao.md).
+#
+# Ressalva de cobertura histórica: dois destes arquivos são recentes
+# (`with_related_tests.py` desde 2026-06-14, `schema_diff.py` desde
+# 2026-08-02); os demais existem desde 2017-03 a 2019-11. Minerar um
+# commit-base anterior à criação de um desses arquivos faz o passo 0 (suíte
+# verde no pai) falhar com "arquivo não encontrado", e `avaliar()` rejeita
+# o candidato como "commit-base já vermelho" — não é falso positivo de
+# correção, é limitação de que `suite_targets` é uma lista fixa e não pode
+# variar por commit; a consequência é perder candidatos de base anterior a
+# 2019-11, não aceitar um errado. Ver contagem de rejeições por motivo em
+# `mined-v2/RELATORIO.md`.
 PEEWEE = SeedRepoSpec(
     seed_repo_id="peewee",
     upstream_url="https://github.com/coleifer/peewee.git",
     mirror_name="peewee.git",
     source_dir="peewee,playhouse",
     test_command=("-q", "-p", "no:cacheprovider", "-o", "addopts="),
-    suite_targets=("tests/__init__.py",),
+    suite_targets=(
+        "tests/db_tests.py", "tests/fields.py", "tests/manytomany.py",
+        "tests/models.py", "tests/model_sql.py", "tests/prefetch_tests.py",
+        "tests/results.py", "tests/schema.py", "tests/sql.py",
+        "tests/transactions.py", "tests/with_related_tests.py",
+        "tests/cockroachdb.py", "tests/dataset.py", "tests/db_url.py",
+        "tests/extra_fields.py", "tests/hybrid.py", "tests/kv.py",
+        "tests/migrations.py", "tests/mysql_ext.py", "tests/pool.py",
+        "tests/schema_diff.py", "tests/pwiz_integration.py",
+        "tests/reflection.py", "tests/shortcuts.py", "tests/signals.py",
+        "tests/sqliteq.py", "tests/sqlite_udf.py", "tests/test_utils.py",
+    ),
     test_requirements=("pytest==9.1.1",),
     protected_globs=DEFAULT_PROTECTED_GLOBS + ("runtests.py",),
 )
@@ -152,14 +198,70 @@ SQLITE_UTILS = SeedRepoSpec(
         "python-dateutil==2.9.0.post0",
         "sqlite-fts4==1.0.3",
         "tabulate==0.10.0",
+        # runtime, usada mas NÃO declarada em [project.dependencies] do
+        # sqlite-utils — desde agosto de 2026 `sqlite_utils/db.py` faz
+        # `from typing_extensions import Self` incondicionalmente; sem
+        # isso no venv, TODO commit-base a partir dali dá
+        # `ModuleNotFoundError` na coleta (0 passed, 0 failed, <1s) e
+        # `avaliar` recusava como "commit-base já vermelho (0 falhas)" —
+        # não era base vermelha, era ambiente incompleto (E3.3, aviso do
+        # coordenador; achado e número em docs/tcc/07-e3-1-mineracao.md).
+        "typing-extensions==4.16.0",
         # teste, do [dependency-groups].dev
         "pytest==9.1.1",
         "hypothesis==6.165.10",
     ),
 )
 
+# Repositórios novos do E3 item 1 (docs/tcc/tasks/EXIGENCIAS.md — "buscar
+# repositórios open-source famosos com histórico organizado além dos três
+# atuais"). Levantamento em docs/tcc/07-e3-1-mineracao.md: 6 candidatos
+# examinados (click, jinja, marshmallow, attrs, more-itertools/boltons/
+# tqdm/babel como reserva, pydantic e requests por eliminação rápida),
+# 2 aceitos. click/jinja/marshmallow/attrs têm layout `src/` (pacote em
+# `src/<nome>/`, não solto na raiz) — o harness materializa workspace só
+# com `git clone` e roda pytest sem instalar nada (nenhum `pip install -e`
+# em `Workspace.materialize`/`run_pytest`, `src/workspace.py`,
+# `src/tools/exec.py`); sem instalação nem `PYTHONPATH`, `import click`
+# falha (`ModuleNotFoundError`, testado à mão). Os quatro tinham a melhor
+# densidade de candidato grande/média (jinja: 24 grande; marshmallow: 9
+# grande, 17 média) — registrado aqui para quem decidir se vale mudar essa
+# convenção do harness (fora do escopo desta tarefa: mudaria
+# `src/workspace.py`/`src/tools/exec.py`, que não são meus).
+PYGMENTS = SeedRepoSpec(
+    seed_repo_id="pygments",
+    upstream_url="https://github.com/pygments/pygments.git",
+    mirror_name="pygments.git",
+    source_dir="pygments",
+    test_command=("-q", "-p", "no:cacheprovider", "-o", "addopts="),
+    suite_targets=("tests/",),
+    test_requirements=(
+        "pytest==9.1.1",
+        # tests/contrast/test_contrasts.py mede contraste de cor dos estilos
+        "wcag-contrast-ratio==0.9",
+    ),
+)
+
+TQDM = SeedRepoSpec(
+    seed_repo_id="tqdm",
+    upstream_url="https://github.com/tqdm/tqdm.git",
+    mirror_name="tqdm.git",
+    source_dir="tqdm",
+    test_command=("-q", "-p", "no:cacheprovider", "-o", "addopts="),
+    suite_targets=("tests/",),
+    test_requirements=(
+        "pytest==9.1.1",
+        # tests/tests_asyncio.py e a suíte de concorrência
+        "pytest-asyncio==1.4.0",
+        # tqdm declara `timeout = 30` em [tool.pytest.ini_options]; sem o
+        # plugin, pytest recusa a opção de config (INTERNALERROR)
+        "pytest-timeout==2.4.0",
+    ),
+)
+
 SEED_REPOS: dict[str, SeedRepoSpec] = {
-    repo.seed_repo_id: repo for repo in (TOMLKIT, PEEWEE, SQLITE_UTILS)
+    repo.seed_repo_id: repo
+    for repo in (TOMLKIT, PEEWEE, SQLITE_UTILS, PYGMENTS, TQDM)
 }
 
 
