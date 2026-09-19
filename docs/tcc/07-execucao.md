@@ -64,3 +64,38 @@ Essa diferença é a estratégia de limpeza e reinjeção de contexto que Rangel
 
 Por isso ela é tratada como parte da variável independente (a topologia), não como defeito a equalizar — ao contrário de F1, F2 e F8, que eram descuido de implementação e não tinham nenhuma justificativa de desenho. O preço dessa reconstrução por ciclo é justamente o que a métrica 2 do estudo (custo computacional, `cost.tokens_total`/`cost.cost_usd`/`cost.llm_calls`, [docs/tcc/03-metricas.md:17](../03-metricas.md#L17)) precisa capturar: reconstruir o contexto do zero a cada ciclo de validação custa tokens que o `single-agent`, ao só acrescentar à conversa existente, não paga da mesma forma — e é exatamente essa troca (contexto limpo vs. contexto caro) que o estudo mede, não uma assimetria a remover.
 
+
+## Índice dos demais itens (19/09/2026)
+
+Cada item tem relatório próprio, no formato do EXIGENCIAS (diff resumido, teste que prova, impacto em docs), e um commit na branch `exigencias-e2-e5`.
+
+| Item | Relatório | Commit | Resultado em uma linha |
+|---|---|---|---|
+| E1 (fechamento) | [06-contabilidade-contexto.md](06-contabilidade-contexto.md) | `59b0a91` | instrumentação `prompt_bytes` e script de contabilidade commitados |
+| E2 | seção acima | `bc76693` | feedback idêntico nos dois braços, manifesto v2 com `orchestration_policy` e `shared_limits`, F3 declarada |
+| E3 item 1 | [07-e3-1-mineracao.md](07-e3-1-mineracao.md) | `2a53466` | cinco repositórios (pygments e tqdm novos): 3 grandes, 2 médias, 55 pequenas verificadas por execução |
+| E3 item 2 | [07-e3-2-faixa.md](07-e3-2-faixa.md) | `d47abda` | `faixa` do `task.json` ao `result.json`, schema v2 |
+| E3 item 3 | [07-e3-3-breaking-change.md](07-e3-3-breaking-change.md) | `d7f0e8c` | relatório; recomendação de não implementar agora; seis decisões do autor |
+| E5 item 1 (parcial) | [CLAUDE.md](../../CLAUDE.md) | `947a91d` | invariantes registradas; tetos marcados como não congelados até o E4 |
+| E5 item 2 | [07-e5-2-reexecucao.md](07-e5-2-reexecucao.md) | `47ebeff` | reexecução com a mesma semente, `attempt` no manifesto, marca `PERDIDO` recusada pelo avaliador |
+| E5 item 4 | [07-e5-4-analise.md](07-e5-4-analise.md) | `2ca5f58` | sete métricas com sinal e Wilcoxon exatos; portão G7 rodado sobre os 4 runs de 11/09 (versionados em `dados/runs-11-09/`) |
+| E5 item 5 | [07-e5-5-docs.md](07-e5-5-docs.md) | `0156989` | README, projeto.md e src/agents/README.md sem arquitetura superada nem LangSmith |
+| Escolha do modelo | [08-escolha-modelo.md](08-escolha-modelo.md) | `48f7490` | manter qwen3-coder na DeepInfra; reserva qwen3-coder-next na Parasail; protocolo do teste de aptidão |
+
+Suíte do projeto ao fim do dia: 511 testes passando (`.venv/bin/python -m pytest -q`, relatório do E3.1).
+
+### O que não foi feito, e por quê
+
+- **E3 item 3 (implementação)** e **E4**: proibidos sem aprovação do autor.
+- **E5 item 3** (validar as 12 tarefas): depende das tarefas escritas.
+- **Tetos** no `CLAUDE.md`: dependem do E4.
+- **Faixas grande e média com 4 tarefas cada**: a mineração verificada encontrou 3 grandes e 2 médias em cinco repositórios. Os repositórios com maior densidade de commits multi-arquivo (click, jinja, marshmallow, attrs) usam layout `src/` que o harness não instala; suportar isso (em `src/workspace.py` e `src/tools/exec.py`) é a alavanca mais barata para ampliar as faixas escassas e fica como item para decisão.
+
+### Decisões que ficaram com o autor
+
+1. Quais 12 tarefas, dado que grande e média não chegam a 4 cada (lista de candidatas em [07-e3-1-mineracao.md](07-e3-1-mineracao.md)); se vale ampliar a verificação (`--max-verificar-por-faixa`, `--desde`) ou suportar layout `src/`.
+2. Implementar ou não a exclusão à la SWE-bench do E3.3, e as seis decisões listadas lá.
+3. Definição de "resolvida por ambos" e tratamento de `stop_reason` nulo (E5.4).
+4. Igualar `MAX_VALIDATION_ITERATIONS` ao critério do single-agent ou declarar como desenho (05-stack.md, seção 5).
+5. Modelo e provedor (08-escolha-modelo.md) e a ordem para rodar o teste pago de aptidão.
+6. Tetos (E4), depois de uma tarefa grande escrita e do teste de fumaça.
