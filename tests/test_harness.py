@@ -59,7 +59,7 @@ class TestSchemas:
         Draft202012Validator.check_schema(esquema)
 
     def test_versoes_declaradas(self):
-        assert RESULT_SCHEMA_VERSION == 1 and HARNESS_VERSION
+        assert RESULT_SCHEMA_VERSION == 2 and HARNESS_VERSION
 
 
 # --------------------------------------------------------------- parsing
@@ -258,6 +258,142 @@ class TestEspecificacaoDeTarefa:
         (tmp_path / "task.json").write_text('{"id": "x"}')
         with pytest.raises(ValueError, match="obrigatórios"):
             load_task(tmp_path)
+
+
+# --------------------------------------------------------------------- faixa
+#
+# E3 item 2: `faixa` era gravada no task.json e ignorada pelo TaskSpec, então
+# não aparecia no result.json — eixo de análise do TCC tratado como metadado
+# decorativo. Os testes abaixo cobrem as duas pontas: o TaskSpec carrega a
+# faixa (presente ou ausente, sem inventar valor) e o avaliador a propaga
+# até o result.json, respeitando o schema.
+
+
+class TestFaixa:
+    def _task_minima(self, tmp_path: Path, *, com_faixa: bool) -> Path:
+        raiz = tmp_path / "task"
+        raiz.mkdir()
+        dados = {
+            "id": "faixa-0001",
+            "seed_repo": "tomlkit",
+            "base_commit": "11e22aefccd8069a90ae75d20613b9b1068754a1",
+            "hidden_tests": ["hidden/test_x.py"],
+            "fail_to_pass": ["tests/_uranium_hidden/test_x.py::test_x"],
+        }
+        if com_faixa:
+            dados["faixa"] = "media"
+        (raiz / "task.json").write_text(json.dumps(dados), encoding="utf-8")
+        (raiz / "hidden").mkdir()
+        (raiz / "hidden" / "test_x.py").write_text("def test_x():\n    assert True\n")
+        return raiz
+
+    def test_taskspec_carrega_faixa_presente(self, tmp_path):
+        t = load_task(self._task_minima(tmp_path, com_faixa=True))
+        assert t.faixa == "media"
+
+    def test_taskspec_nao_inventa_faixa_ausente(self, tmp_path):
+        t = load_task(self._task_minima(tmp_path, com_faixa=False))
+        assert t.faixa is None
+
+    def test_tarefas_reais_tem_ou_nao_faixa_conforme_task_json(self):
+        """
+        Documenta o estado real das duas tarefas do estudo (item 5 da
+        exigência): sqlite-utils-0001 já declara faixa, tomlkit-0001 não —
+        e o TaskSpec não deve inventar uma para ela.
+        """
+        assert load_task(TAREFA).faixa is None
+        assert load_task(RAIZ / "tasks" / "sqlite-utils-0001").faixa == "media"
+
+
+class TestFaixaNoResultado:
+    """O avaliador propaga `task.faixa` até o result.json, sob o schema."""
+
+    def test_schema_aceita_faixa_null(self):
+        esquema = json.loads((RAIZ / "harness/schema/result.schema.json").read_text())
+        validador = Draft202012Validator(esquema)
+        resultado = _resultado_minimo(faixa=None)
+        validador.validate(resultado)
+
+    def test_evaluate_run_preenche_faixa_a_partir_da_tarefa(self, tmp_path):
+        import shutil
+
+        from harness.evaluate import evaluate_run
+        from src.seeds import TOMLKIT
+        from src.workspace import Workspace, WorkspaceSpec
+
+        if not (TOMLKIT.mirror_path.exists() and TOMLKIT.has_venv):
+            pytest.skip("rode scripts/setup_mirror.py tomlkit")
+
+        # Tarefa igual à tomlkit-0001, mas com faixa adicionada — sem tocar
+        # na tarefa real (que hoje não declara faixa, ver item 5).
+        raiz_tarefa = tmp_path / "tarefa"
+        shutil.copytree(RAIZ / "tasks" / "tomlkit-0001", raiz_tarefa)
+        dados = json.loads((raiz_tarefa / "task.json").read_text())
+        dados["faixa"] = "grande"
+        (raiz_tarefa / "task.json").write_text(json.dumps(dados), encoding="utf-8")
+        tarefa = load_task(raiz_tarefa)
+
+        run_dir = tmp_path / "run"
+        run_dir.mkdir()
+        ws = Workspace.materialize(
+            WorkspaceSpec(seed_repo=TOMLKIT, base_commit=tarefa.base_commit),
+            run_id="faixa", dest=run_dir / "workspace",
+        )
+        subprocess.run(
+            ["git", "checkout", tarefa.fix_commit, "--", "tomlkit/parser.py"],
+            cwd=ws.root, check=True, capture_output=True,
+        )
+        (run_dir / "manifest.json").write_text(json.dumps(
+            {"run_id": "faixa", "arm": "single-agent", "repetition": 1}), encoding="utf-8")
+        (run_dir / "events.jsonl").write_text("", encoding="utf-8")
+
+        resultado = evaluate_run(run_dir, tarefa, measure_quality=False)
+
+        assert resultado["faixa"] == "grande"
+        esquema = json.loads((RAIZ / "harness/schema/result.schema.json").read_text())
+        Draft202012Validator(esquema).validate(resultado)
+
+
+def _resultado_minimo(*, faixa: str | None) -> dict:
+    """Um result.json sintético, só com o suficiente para validar o schema."""
+    pytest_vazio = {
+        "exit_code": 0, "passed": 0, "failed": 0, "errors": 0, "duration_s": 0.0,
+    }
+    return {
+        "result_schema_version": RESULT_SCHEMA_VERSION,
+        "harness_version": HARNESS_VERSION,
+        "evaluated_at": "2026-01-01T00:00:00+00:00",
+        "run_id": "r1",
+        "arm": "single-agent",
+        "task_id": "faixa-0001",
+        "faixa": faixa,
+        "repetition": 1,
+        "base_commit": "0" * 40,
+        "resolved": True,
+        "resolved_blocked_by_cheat": False,
+        "oracle": {
+            "f2p_total": 1, "f2p_passed": 1,
+            "f2p": pytest_vazio, "p2p": pytest_vazio, "regression": pytest_vazio,
+        },
+        "cheat": {
+            "clean": True, "critical_count": 0, "warning_count": 0, "signals": [],
+        },
+        "quality": {},
+        "cost": {
+            "tokens_total": 0, "cost_usd": 0.0, "llm_calls": 0,
+            "tool_calls": 0, "wall_seconds": 0.0,
+        },
+        "process": {
+            "turns": 0, "test_runs": 0, "self_recoveries": 0, "stop_reason": None,
+        },
+        "provenance": {
+            "model": None, "provider_requested": None,
+            "providers_served": [], "topology": None,
+        },
+        "diff": {
+            "files_changed": 0, "insertions": 0, "deletions": 0, "changed_files": [],
+        },
+    }
 
 
 # ------------------------------------------------------------------ qualidade

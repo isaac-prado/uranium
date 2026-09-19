@@ -6,17 +6,21 @@
   "type": "object",
   "required": [
     "result_schema_version", "harness_version", "evaluated_at",
-    "run_id", "arm", "task_id", "repetition", "base_commit",
+    "run_id", "arm", "task_id", "faixa", "repetition", "base_commit",
     "resolved", "resolved_blocked_by_cheat",
     "oracle", "cheat", "quality", "cost", "process", "provenance", "diff"
   ],
   "properties": {
-    "result_schema_version": { "type": "integer", "const": 1 },
+    "result_schema_version": { "type": "integer", "const": 2 },
     "harness_version": { "type": "string" },
     "evaluated_at": { "type": "string" },
     "run_id": { "type": "string" },
     "arm": { "enum": ["single-agent", "orchestration", null] },
     "task_id": { "type": "string" },
+    "faixa": {
+      "type": ["string", "null"],
+      "description": "Faixa de dificuldade da tarefa (task.json), eixo de análise do TCC. Nomes em transição (E3 item 1); não é enum fechado."
+    },
     "repetition": { "type": ["integer", "null"], "minimum": 1 },
     "base_commit": { "type": "string" },
 

@@ -15,4 +15,8 @@ especificação de tarefa. Saída: um único result.json por run.
 """
 
 HARNESS_VERSION = "1.0.0"
-RESULT_SCHEMA_VERSION = 1
+# Subiu de 1 para 2 quando o result.json ganhou o campo de topo `faixa`
+# (E3 item 2): a faixa de dificuldade, antes presa ao task.json e ignorada
+# pelo TaskSpec, agora atravessa até o resultado — mudança de forma do
+# result.json, não só de conteúdo.
+RESULT_SCHEMA_VERSION = 2

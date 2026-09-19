@@ -47,6 +47,11 @@ class TaskSpec:
     protected_globs: tuple[str, ...] = field(default=DEFAULT_PROTECTED_GLOBS)
     reference_patches: tuple[str, ...] = ()
     cheat_patches: tuple[str, ...] = ()
+    # Faixa de dificuldade gravada por scripts/emit_task.py. Passagem pura: o
+    # TaskSpec não valida contra um conjunto fixo de nomes porque as faixas
+    # estão sendo redefinidas (E3 item 1) — "baixa/media/alta" vira
+    # "pequena/media/grande". Ausente no task.json → None, nunca inventado.
+    faixa: str | None = None
 
     @property
     def statement(self) -> str:
@@ -103,4 +108,5 @@ def load_task(path: str | Path) -> TaskSpec:
         protected_globs=tuple(dados.get("protected_globs", DEFAULT_PROTECTED_GLOBS)),
         reference_patches=tuple(dados.get("reference_patches", ())),
         cheat_patches=tuple(dados.get("cheat_patches", ())),
+        faixa=dados.get("faixa"),
     )

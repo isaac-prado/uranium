@@ -84,7 +84,12 @@ def _montar_run(ws: Workspace, raiz: Path, nome: str) -> Path:
 def validar(task: TaskSpec, raiz: Path, *, com_qualidade: bool = False) -> Validacao:
     v = Validacao()
 
-    print(f"\n── tarefa {task.task_id}  (base {task.base_commit[:8]})\n")
+    print(f"\n── tarefa {task.task_id}  (base {task.base_commit[:8]})")
+    if task.faixa:
+        print(f"   faixa: {task.faixa}")
+    else:
+        print("   faixa: AUSENTE — task.json não declara `faixa` (aviso, não bloqueia)")
+    print()
 
     # 1. commit-base verde
     print("1. commit-base")

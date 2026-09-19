@@ -121,6 +121,7 @@ def evaluate_run(
         "run_id": manifesto.get("run_id", run_dir.name),
         "arm": manifesto.get("arm"),
         "task_id": task.task_id,
+        "faixa": task.faixa,
         "repetition": manifesto.get("repetition"),
         "base_commit": commit_base,
         "resolved": resolvido,
