@@ -1,5 +1,14 @@
 # Arquitetura Inicial da POC de Engenharia de Software 3.0
 
+> **Registro histórico da primeira semana do projeto.** Este documento
+> descreve a POC de um único nó (`IntentRefiner`) com que o projeto
+> começou, não o estudo E1 atual. O grafo, os papéis, o LangSmith e os
+> arquivos citados aqui (`test.py`, `src/tracing.py`) mudaram ou deixaram
+> de existir — ver [README.md](README.md) e
+> [docs/tcc/05-stack.md](docs/tcc/05-stack.md) para o estado atual do
+> pipeline, e [docs/tcc/00-guia-etapas.md](docs/tcc/00-guia-etapas.md)
+> para a metodologia do TCC. Mantido como estava por valor histórico.
+
 Este documento apresenta a estrutura mínima para iniciar sua POC com:
 
 - LangGraph

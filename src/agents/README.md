@@ -18,11 +18,11 @@ Entrada (linguagem natural)
     │ não       │ sim
     ▼           ▼
 ┌──────────┐  ┌──────────┐
-│Clarifica-│  │ Developer│  intent → artefatos de código/spec
+│Clarifica-│  │ Developer│  intent → edita o workspace real via ferramentas
 │   tion   │  └────┬─────┘
 └────┬─────┘       ▼
      │         ┌──────────┐
-     └────────►│ Validator│  artefatos vs critérios de aceitação
+     └────────►│ Validator│  roda a suíte real; revisão só pode rebaixar
   (loop)       └────┬─────┘
                     │ is_valid?
               ┌─────┴─────┐
@@ -39,11 +39,11 @@ Entrada (linguagem natural)
 
 | Agente            | Arquivo             | Papel                                  | Entrada principal                  | Saída no estado                               |
 | ----------------- | ------------------- | -------------------------------------- | ---------------------------------- | --------------------------------------------- |
-| **IntentRefiner** | `intent_refiner.py` | Analista de requisitos                 | `raw_request`                      | `intent`, `is_ready`, `clarifications_needed` |
-| **Clarification** | `clarification.py`  | Resolve ambiguidades (simulado na POC) | perguntas pendentes                | `clarification_responses`                     |
-| **Developer**     | `developer.py`      | Gera implementação                     | `intent` (+ feedback do validator) | `artifacts`                                   |
-| **Validator**     | `validator.py`      | Revisão técnica                        | `intent` + `artifacts`             | `validation_result`, `is_valid`               |
-| **TestGenerator** | `test_generator.py` | Qualidade / testes                     | `intent` + `artifacts`             | `test_plan`                                   |
+| **IntentRefiner** | `intent_refiner.py` | Analista de requisitos                          | `raw_request`                        | `intent`, `is_ready`, `clarifications_needed` |
+| **Clarification** | `clarification.py`  | Resolve ambiguidades com respostas simuladas    | perguntas pendentes                  | `clarification_responses`                     |
+| **Developer**     | `developer.py`      | Edita o repositório real por ferramentas (loop de tool calling) | `intent` (+ feedback do validator) | `changed_files`, `diff_stat`, `dev_summary`   |
+| **Validator**     | `validator.py`      | Roda a suíte real; revisão só pode rebaixar     | `intent` + `test_report`             | `validation_result`, `is_valid`               |
+| **TestGenerator** | `test_generator.py` | Plano de testes complementar (não é oráculo)    | `intent` + `test_report`             | `test_plan`                                   |
 
 ## Padrões usados
 
@@ -51,7 +51,7 @@ Entrada (linguagem natural)
 
 **Saída estruturada** — Todos os agentes usam `invoke_structured()` (`src/structured_llm.py`) com schemas **Pydantic** em `src/schemas/`, garantindo JSON tipado e validado.
 
-**Observabilidade** — Funções decoradas com `@traceable` (LangSmith) via `src/tracing.py`: cada agente, chamada LLM e roteamento aparecem como spans no projeto `engenharia-software-3-0`.
+**Observabilidade** — Telemetria própria em JSONL (`src/telemetry.py`), um evento por linha, validado contra `harness/schema/event.schema.json`: cada chamada de LLM, cada uso de ferramenta e cada execução da suíte vira um evento, com o papel do agente (`agent_role`) que o gerou. Não há tracing remoto — `src/config.py` desliga o do LangChain (LangSmith) de forma incondicional no import.
 
 **Loops com limite** — Dois ciclos condicionais evitam execução infinita:
 
@@ -63,13 +63,13 @@ Entrada (linguagem natural)
 ## Fluxo de dados (exemplo)
 
 ```
-"Criar CRUD de Cliente"
+enunciado da tarefa (statement.md)
   → IntentRefiner: { goal, phases, acceptance_criteria, is_ready: true }
-  → Developer: [{ name: "ClienteModel", content: "..." }, ...]
-  → Validator: { is_valid: true, covered_criteria: [...] }
-  → TestGenerator: { unit_tests: [...], test_files: [...] }
+  → Developer: edita o workspace por ferramentas → { changed_files, diff_stat, dev_summary }
+  → Validator: roda a suíte real → { test_report, is_valid }
+  → TestGenerator: { test_plan }
 ```
 
 ## Onde isso se encaixa no TCC
 
-> O sistema decompõe uma solicitação de desenvolvimento em etapas especializadas (refinamento, clarificação, implementação, validação e testes), orquestradas por um grafo de estados em LangGraph, com observabilidade via LangSmith e contratos de dados em Pydantic.
+> O sistema decompõe uma solicitação de desenvolvimento em etapas especializadas (refinamento, clarificação, implementação, validação e testes), orquestradas por um grafo de estados em LangGraph, com telemetria própria em JSONL (o LangSmith foi removido; ver [docs/tcc/05-stack.md](../../docs/tcc/05-stack.md)) e contratos de dados em Pydantic.

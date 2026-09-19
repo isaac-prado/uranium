@@ -12,13 +12,17 @@ mesmo modelo, ferramentas e tarefas.
 START → IntentRefiner → [Clarification ↔ IntentRefiner]* → Developer → Validator → [Developer]* → TestGenerator → END
 ```
 
-| Agente            | Responsabilidade                                  |
-| ----------------- | ------------------------------------------------- |
-| **IntentRefiner** | Converte solicitação em intent estruturada        |
-| **Clarification** | Resolve ambiguidades (respostas simuladas na POC) |
-| **Developer**     | Gera artefatos de desenvolvimento                 |
-| **Validator**     | Valida artefatos vs critérios de aceitação        |
-| **TestGenerator** | Gera plano e casos de teste                       |
+Este é o grafo do braço `orchestration` ([src/graph.py](src/graph.py)). O braço
+`single-agent` tem topologia própria, de dois nós — ver "Os dois braços",
+abaixo.
+
+| Agente            | Responsabilidade                                                     |
+| ----------------- | --------------------------------------------------------------------- |
+| **IntentRefiner** | Converte solicitação em intent estruturada                            |
+| **Clarification** | Resolve ambiguidades da intent com respostas simuladas                |
+| **Developer**     | Edita o repositório real por ferramentas (loop de tool calling); o artefato é o diff do workspace |
+| **Validator**     | Roda a suíte de testes; só pode rebaixar o veredito por revisão semântica, nunca promovê-lo |
+| **TestGenerator** | Gera plano de testes complementar (não conta como oráculo)            |
 
 ## Pré-requisitos
 
@@ -131,19 +135,32 @@ braços só divergem em `arm`, `topology`, `driver_policy`, `run_id` e
 
 ```
 src/
-├── config.py          # LLM com provedor pinado + métricas de chamada
-├── workspace.py       # Clone isolado do repo-semente num commit-base
-├── seeds.py           # Especificação dos repositórios-semente
-├── tools/             # Ferramentas do agente (fs + execução de testes)
-├── state.py           # WorkflowState compartilhado
-├── graph.py           # Grafo LangGraph
-├── schemas/           # Pydantic models
-└── agents/            # Nós do grafo
+├── config.py             # LLM com provedor pinado + métricas de chamada
+├── workspace.py          # Clone isolado do repo-semente num commit-base
+├── seeds.py              # Especificação dos repositórios-semente
+├── budget.py             # Orçamento do run (turnos, tokens, tempo) — circuit breaker
+├── runtime.py            # RunContext: liga estado, telemetria, LLM e workspace por run_id
+├── telemetry.py          # Telemetria JSONL, um evento por linha
+├── structured_llm.py     # invoke_structured(): saída estruturada por function calling
+├── prompts.py            # Prompt do agente que escreve código, comum aos dois braços
+├── tools/                # Ferramentas do agente (fs + execução de testes)
+├── state.py              # WorkflowState compartilhado
+├── graph.py              # Grafo LangGraph do braço orchestration
+├── arms/                 # Braço single-agent, runner comum aos dois braços, piloto
+├── schemas/              # Pydantic models
+└── agents/               # Nós do grafo do braço orchestration
+harness/                  # Avaliador externo — isolado de src/, roda sem rede
 scripts/
-├── setup_mirror.py    # Espelhos bare locais dos repos-semente
-├── fitness_test.py    # Teste de aptidão de modelo
-└── run_pipeline.py    # CLI
-tests/                 # Testes (unitários + integração sobre workspace real)
+├── setup_mirror.py       # Espelho bare local + ambiente de teste de um repo-semente
+├── fitness_test.py       # Teste de aptidão de modelo (tool calling, pino, determinismo)
+├── run_arm.py            # CLI do estudo: executa um braço sobre uma tarefa
+├── run_pilot.py          # Piloto: roda os dois braços na mesma tarefa e compara
+├── mine_tasks.py         # Minera candidatos a tarefa no histórico do repo-semente
+├── emit_task.py          # Gera o diretório de uma tarefa a partir de um candidato minerado
+├── validate_task.py      # Portão de validação de uma tarefa
+├── context_accounting.py # Reconstrói a composição do prompt a partir de events.jsonl
+└── analyze_results.py    # Análise pareada dos result.json (as métricas do estudo)
+tests/                    # Testes (unitários + integração sobre workspace real)
 ```
 
 ## Observabilidade
@@ -170,3 +187,11 @@ reative no meio de uma coleta.
 uv sync --extra dev
 uv run pytest tests/ -v
 ```
+
+## Documentação do estudo
+
+A metodologia do TCC, etapa por etapa (o que cada uma verifica, na ordem em
+que foi feita), está em [docs/tcc/00-guia-etapas.md](docs/tcc/00-guia-etapas.md).
+O inventário de fato sobre o estado do repositório — o que existe, o que é
+placeholder, contradições entre código e documentação — está em
+[docs/tcc/01-inventario.md](docs/tcc/01-inventario.md).

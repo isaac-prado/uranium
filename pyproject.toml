@@ -1,7 +1,7 @@
 [project]
 name = "uranium"
 version = "0.1.0"
-description = "Pipeline multi-agente de Engenharia de Software 3.0 com LangGraph e LangSmith"
+description = "Estudo comparativo de Engenharia de Software 3.0: pipeline multi-agente (LangGraph) contra agente único, com telemetria própria em JSONL"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
