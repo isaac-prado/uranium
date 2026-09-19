@@ -14,7 +14,7 @@ from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
-from src.feedback import DIFF_VAZIO
+from src.feedback import DIFF_VAZIO, feedback_de_falha
 from src.prompts import AGENT_SYSTEM_PROMPT
 from src.runtime import RunContext
 from src.state import WorkflowState, parse_intent, parse_test_report
@@ -36,19 +36,20 @@ def _build_prompt(state: WorkflowState) -> str:
     report = parse_test_report(state)
     alterados = state.get("changed_files") or []
     if report and not report.green:
-        partes += [
-            "",
-            "A suíte falhou na tentativa anterior. Saída do pytest:",
-            report.stdout_tail,
-        ]
+        # Mesmo texto e mesmo truncamento que o driver do single-agent
+        # entrega (src.feedback.feedback_de_falha) — antes este nó montava
+        # o próprio texto, sem usá-la, e divergia (docs/tcc/01-inventario.md,
+        # folgas F1 e F2).
+        partes += ["", feedback_de_falha(report)]
     elif report and not alterados:
         # Mesma mensagem que o driver do single-agent entrega. Sem ela, o
         # developer recebe no retry o prompt idêntico ao da primeira vez e
         # repete o que já fez — aconteceu em 2 dos 5 runs do teste de
         # variância, ambos terminando com patch de zero byte.
         partes += ["", DIFF_VAZIO]
-    elif alterados:
-        partes += ["", f"Arquivos já modificados: {', '.join(alterados)}"]
+    # Sem ramo para "arquivos já modificados": esse aviso só existia neste
+    # braço (docs/tcc/01-inventario.md, folga F8). Com a suíte verde e
+    # houve mudança, o developer recebe só a tarefa, igual ao single-agent.
 
     return "\n".join(partes)
 

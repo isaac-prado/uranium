@@ -58,7 +58,11 @@ class TestManifesto:
         a2 = _spec("single-agent", tmp_path).manifest("2026-01-01T00:00:00")
         b = _spec("orchestration", tmp_path).manifest("2026-01-01T00:00:00")
 
-        divergentes = {k for k in a2 if a2[k] != b.get(k)}
+        # União das chaves dos dois manifestos, não só as do single-agent
+        # (docs/tcc/01-inventario.md, folga F13): uma chave exclusiva do
+        # orchestration passava batido antes desta correção.
+        todas_as_chaves = set(a2) | set(b)
+        divergentes = {k for k in todas_as_chaves if a2.get(k) != b.get(k)}
         inesperadas = divergentes - CHAVES_QUE_PODEM_DIFERIR
 
         assert not inesperadas, (
@@ -90,10 +94,89 @@ class TestManifesto:
         assert _spec("single-agent", tmp_path).manifest("t")["driver_policy"] is not None
         assert _spec("orchestration", tmp_path).manifest("t")["driver_policy"] is None
 
+    def test_so_o_b_tem_politica_de_orchestration(self, tmp_path):
+        """Espelho do teste acima: `orchestration_policy` é exclusiva do braço orquestrado."""
+        assert _spec("single-agent", tmp_path).manifest("t")["orchestration_policy"] is None
+        assert _spec("orchestration", tmp_path).manifest("t")["orchestration_policy"] is not None
+
     def test_manifesto_serializavel(self, tmp_path):
         import json
         m = _spec("single-agent", tmp_path).manifest("t")
         assert json.loads(json.dumps(m)) == m
+
+
+class TestManifestoRegistraOQueAfetaOOrchestration:
+    """
+    F9: cinco parâmetros mudavam o comportamento do braço orchestration sem
+    deixar rastro no manifesto. Dois runs com valores diferentes produziam
+    manifestos idênticos — esta classe prova que não produzem mais.
+    """
+
+    def test_shared_limits_e_igual_ao_valor_efetivo_dos_modulos(self, tmp_path):
+        """F11: `shared_limits` não pode ser um número reescrito à mão."""
+        from src.runtime import MAX_TOOL_CALLS_POR_TURNO
+        from src.tools.base import (
+            MAX_READ_CHARS,
+            MAX_READ_LINES,
+            MAX_SEARCH_RESULTS,
+            MAX_TOOL_OUTPUT_CHARS,
+        )
+        from src.tools.exec import DEFAULT_SNIPPET_TIMEOUT_S
+
+        m = _spec("orchestration", tmp_path).manifest("t")["shared_limits"]
+        assert m["max_tool_calls_por_turno"] == MAX_TOOL_CALLS_POR_TURNO
+        assert m["default_snippet_timeout_s"] == DEFAULT_SNIPPET_TIMEOUT_S
+        assert m["max_read_chars"] == MAX_READ_CHARS
+        assert m["max_read_lines"] == MAX_READ_LINES
+        assert m["max_search_results"] == MAX_SEARCH_RESULTS
+        assert m["max_tool_output_chars"] == MAX_TOOL_OUTPUT_CHARS
+
+    def test_mudar_max_validation_iterations_muda_o_manifesto(self, tmp_path, monkeypatch):
+        from src import config
+
+        base = _spec("orchestration", tmp_path).manifest("t")["orchestration_policy"]
+        monkeypatch.setattr(config, "MAX_VALIDATION_ITERATIONS", base["max_validation_iterations"] + 1)
+
+        depois = _spec("orchestration", tmp_path).manifest("t")["orchestration_policy"]
+        assert depois != base
+        assert depois["max_validation_iterations"] == base["max_validation_iterations"] + 1
+
+    def test_mudar_max_clarification_iterations_muda_o_manifesto(self, tmp_path, monkeypatch):
+        from src import config
+
+        base = _spec("orchestration", tmp_path).manifest("t")["orchestration_policy"]
+        monkeypatch.setattr(
+            config, "MAX_CLARIFICATION_ITERATIONS", base["max_clarification_iterations"] + 1
+        )
+
+        depois = _spec("orchestration", tmp_path).manifest("t")["orchestration_policy"]
+        assert depois != base
+
+    def test_mudar_semantic_review_muda_o_manifesto(self, tmp_path, monkeypatch):
+        base = _spec("orchestration", tmp_path).manifest("t")["orchestration_policy"]
+        monkeypatch.setenv("SEMANTIC_REVIEW", "false" if base["semantic_review"] else "true")
+
+        depois = _spec("orchestration", tmp_path).manifest("t")["orchestration_policy"]
+        assert depois != base
+
+    def test_mudar_structured_output_method_muda_o_manifesto(self, tmp_path, monkeypatch):
+        base = _spec("orchestration", tmp_path).manifest("t")["orchestration_policy"]
+        outro = "json_schema" if base["structured_output_method"] != "json_schema" else "json_mode"
+        monkeypatch.setenv("STRUCTURED_OUTPUT_METHOD", outro)
+
+        depois = _spec("orchestration", tmp_path).manifest("t")["orchestration_policy"]
+        assert depois != base
+
+    def test_mudar_structured_output_retries_muda_o_manifesto(self, tmp_path, monkeypatch):
+        base = _spec("orchestration", tmp_path).manifest("t")["orchestration_policy"]
+        monkeypatch.setenv("STRUCTURED_OUTPUT_RETRIES", str(base["structured_output_retries"] + 1))
+
+        depois = _spec("orchestration", tmp_path).manifest("t")["orchestration_policy"]
+        assert depois != base
+
+    def test_manifest_version_subiu(self, tmp_path):
+        """A forma do manifesto mudou (novas chaves): a versão precisa acompanhar."""
+        assert _spec("orchestration", tmp_path).manifest("t")["manifest_version"] == 2
 
 
 # ------------------------------------------------------------------ runtime
@@ -129,6 +212,17 @@ class TestRuntimeIdentico:
         a2 = {t.name for t in contexto["single-agent"].tools}
         b = {t.name for t in contexto["orchestration"].tools}
         assert a2 == b == set(TOOL_NAMES)
+
+    def test_mesma_ordem_de_ferramentas(self, contexto):
+        """
+        F10: o teste acima usa `set` e não pega ordem diferente. A ordem em
+        que as ferramentas entram no `bind_tools`/`ctx.tools` também faz
+        parte do prompt afetivo do modelo (é a ordem em que ele as vê
+        descritas), então precisa ser idêntica, não só o conjunto.
+        """
+        a2 = [t.name for t in contexto["single-agent"].tools]
+        b = [t.name for t in contexto["orchestration"].tools]
+        assert a2 == b == list(TOOL_NAMES)
 
     def test_mesmos_schemas_de_argumento(self, contexto):
         def assinatura(ctx):
@@ -284,7 +378,7 @@ class TestPoliticaDoDriver:
         m = DriverPolicy().as_manifest()
         assert set(m) == {
             "entrega_spec_uma_vez", "aceita_todo_patch", "sumariza_falhas",
-            "stderr_chars", "roda_suite_sem_tool_call",
+            "roda_suite_sem_tool_call",
         }
 
 
@@ -452,3 +546,120 @@ class TestFeedbackDeProtocolo:
 
         for palavra in ("parser", ".py", "função", "linha", "provavelmente", "sugir"):
             assert palavra not in DIFF_VAZIO.lower()
+
+    @staticmethod
+    def _prompt_do_developer(report):
+        from src.agents.developer import _build_prompt
+
+        return _build_prompt({
+            "intent": {"context": "", "goal": "g", "phases": [],
+                       "acceptance_criteria": [], "clarifications_needed": [],
+                       "is_ready": True},
+            "test_report": report.model_dump(),
+            "changed_files": [],
+        })
+
+    @pytest.mark.parametrize(
+        "bruto",
+        [
+            "E   assert 1 == 2\nteste curto falhando",
+            "F" * 9_000 + "\nFAILED tests/test_x.py::test_y - depois de estourar 8.000 chars",
+        ],
+        ids=["stdout_curto", "stdout_acima_de_8000_chars"],
+    )
+    def test_mensagem_de_suite_falhou_e_a_mesma_byte_a_byte(self, bruto):
+        """
+        F1/F2: antes o driver usava `suite_falhou` com corte próprio de
+        4.000 caracteres e o developer montava texto próprio com o
+        stdout_tail inteiro (já cortado em 8.000 pela ferramenta) — mesmo
+        conteúdo, textos diferentes. Agora os dois passam pela mesma função
+        (`src.feedback.feedback_de_falha`) sobre o mesmo `TestReport`.
+        """
+        from src.arms.driver import DeterministicDriver
+        from src.schemas.test_report import TestReport
+        from src.tools.base import MAX_TOOL_OUTPUT_CHARS, truncate
+
+        # stdout_tail já truncado como run_pytest de fato produz.
+        tail = truncate(bruto, MAX_TOOL_OUTPUT_CHARS)
+        report = TestReport(exit_code=1, failed=1, stdout_tail=tail)
+
+        do_driver = DeterministicDriver().apos_turno(report).feedback
+        prompt = self._prompt_do_developer(report)
+
+        assert do_driver, "o driver não devolveu feedback nenhum"
+        assert prompt.endswith(do_driver), (
+            "o trecho de feedback embutido no prompt do developer não é "
+            "byte a byte o mesmo texto que o driver devolve"
+        )
+
+    def test_verde_sem_mudanca_os_dois_dao_diff_vazio(self):
+        """Espelha o cenário acima para a mensagem de diff vazio (já coberta acima)."""
+        from src.feedback import DIFF_VAZIO
+        from src.schemas.test_report import TestReport
+
+        report = TestReport(exit_code=0, passed=10)
+        prompt = self._prompt_do_developer(report)
+        assert prompt.endswith(DIFF_VAZIO)
+
+
+class TestMensagensDeProtocoloSaoUnicas:
+    """
+    F1, F2 e F8 nasceram do mesmo defeito: uma mensagem de protocolo escrita
+    duas vezes, uma por braço. `src/feedback.py` existe para que isso não
+    aconteça de novo — este teste é a rede.
+    """
+
+    def test_verde_com_mudanca_o_developer_recebe_so_a_tarefa(self):
+        """
+        F8: "Arquivos já modificados: ..." só existia no developer. Removido
+        o ramo, o cenário "suíte verde e houve mudança" entrega só a tarefa
+        — nenhum texto de protocolo, nem os de src/feedback.py.
+        """
+        from src.agents.developer import _build_prompt
+        from src.feedback import DIFF_VAZIO
+        from src.schemas.test_report import TestReport
+        from src.state import parse_intent
+
+        state = {
+            "intent": {"context": "", "goal": "g", "phases": [],
+                       "acceptance_criteria": [], "clarifications_needed": [],
+                       "is_ready": True},
+            "test_report": TestReport(exit_code=0, passed=10).model_dump(),
+            "changed_files": ["tomlkit/parser.py"],
+        }
+        prompt = _build_prompt(state)
+
+        esperado = "Tarefa:\n" + parse_intent(state).model_dump_json(indent=2)
+        assert prompt == esperado
+        assert DIFF_VAZIO not in prompt
+        assert "Arquivos já modificados" not in prompt
+
+    def test_nenhuma_string_de_protocolo_fora_do_feedback(self):
+        """
+        As mensagens que já divergiram uma vez (F1, F2, F8) não podem viver
+        de novo como string solta em developer.py ou driver.py — só como
+        import de src.feedback.
+        """
+        import inspect
+
+        from src.agents import developer as dev_mod
+        from src.arms import driver as driver_mod
+
+        proibidos = ["A suíte falhou", "Saída do pytest", "Arquivos já modificados"]
+        for modulo in (dev_mod, driver_mod):
+            fonte = inspect.getsource(modulo)
+            for proibido in proibidos:
+                assert proibido not in fonte, (
+                    f"{modulo.__name__} embute a string de protocolo {proibido!r} "
+                    "fora de src/feedback.py"
+                )
+
+    def test_funcoes_publicas_de_feedback_conhecidas(self):
+        """
+        Canário: se alguém acrescentar mensagem de protocolo nova em
+        src/feedback.py, este teste lembra de também blindá-la aqui.
+        """
+        import src.feedback as fb
+
+        publicos = {n for n in dir(fb) if not n.startswith("_") and n not in ("annotations", "TestReport")}
+        assert publicos == {"DIFF_VAZIO", "suite_falhou", "feedback_de_falha"}

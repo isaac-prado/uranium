@@ -10,6 +10,7 @@ verifica que nada além da topologia difere entre os braços.
 
 from __future__ import annotations
 
+import inspect
 import json
 import platform
 import sys
@@ -18,21 +19,93 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
 
+from src import config
+from src.agents.validator import semantic_review_enabled
 from src.arms.driver import DriverPolicy
 from src.budget import RunBudget
 from src.config import LLMConfig, load_llm_config
-from src.runtime import RunContext
+from src.runtime import MAX_TOOL_CALLS_POR_TURNO, RunContext
 from src.seeds import get_seed_repo
+from src.structured_llm import get_output_method
+from src.structured_llm import max_retries as structured_output_retries
 from src.telemetry import Arm, TelemetryWriter
+from src.tools import fs as fs_tools
+from src.tools.base import (
+    MAX_READ_CHARS,
+    MAX_READ_LINES,
+    MAX_SEARCH_RESULTS,
+    MAX_TOOL_OUTPUT_CHARS,
+)
+from src.tools.exec import DEFAULT_SNIPPET_TIMEOUT_S
 from src.workspace import Workspace, WorkspaceSpec
 
-MANIFEST_VERSION = 1
+MANIFEST_VERSION = 2
 
 # Chaves do manifesto que PODEM diferir entre os braços. Qualquer outra
 # divergência é violação do desenho experimental. Note que `repetition` NÃO
 # está aqui: a repetição nº k de um braço e a nº k do outro são um par,
 # e precisam rodar sob a mesma semente.
-CHAVES_QUE_PODEM_DIFERIR = frozenset({"arm", "topology", "driver_policy", "run_id", "started_at"})
+CHAVES_QUE_PODEM_DIFERIR = frozenset(
+    {"arm", "topology", "driver_policy", "orchestration_policy", "run_id", "started_at"}
+)
+
+# Default de `max_results` de `list_files` (src/tools/fs.py) lido por
+# introspecção, e não reescrito aqui, para não ter dois números que podem
+# divergir — um no manifesto e outro na ferramenta de verdade.
+_LIST_FILES_MAX_RESULTS = inspect.signature(fs_tools.list_files).parameters["max_results"].default
+
+
+def _recursion_limit(max_turns: int) -> int:
+    """
+    Teto de passos do LangGraph por run, do jeito que `run_arm` de fato
+    compila e invoca o grafo — ver o uso abaixo, em `run_arm`. Fica numa
+    função só para o manifesto (folga F11) nunca poder divergir de como o
+    grafo é chamado de verdade.
+    """
+    return max(8, max_turns * 4)
+
+
+def _shared_limits(budget: RunBudget) -> dict[str, Any]:
+    """
+    Constantes de ferramenta e de runtime compartilhadas pelos dois braços
+    (docs/tcc/01-inventario.md, folga F11). Hoje são iguais por serem
+    constantes de módulo — aqui ficam auditáveis e comparáveis run a run,
+    em vez de só "confiar" que ninguém mudou uma delas sem avisar.
+    """
+    return {
+        "max_tool_calls_por_turno": MAX_TOOL_CALLS_POR_TURNO,
+        "default_snippet_timeout_s": DEFAULT_SNIPPET_TIMEOUT_S,
+        "max_read_chars": MAX_READ_CHARS,
+        "max_read_lines": MAX_READ_LINES,
+        "max_search_results": MAX_SEARCH_RESULTS,
+        "max_tool_output_chars": MAX_TOOL_OUTPUT_CHARS,
+        "list_files_max_results": _LIST_FILES_MAX_RESULTS,
+        "recursion_limit": _recursion_limit(budget.max_turns),
+    }
+
+
+def _orchestration_policy() -> dict[str, Any]:
+    """
+    Parâmetros que hoje só afetam o braço orchestration sem deixar rastro no
+    manifesto (docs/tcc/01-inventario.md, folga F9): dois runs orquestrados
+    com valores diferentes produziam manifestos idênticos.
+
+    Lidos das MESMAS fontes que o grafo usa em tempo de execução — nunca uma
+    cópia que possa divergir. `MAX_VALIDATION_ITERATIONS` e
+    `MAX_CLARIFICATION_ITERATIONS` são resolvidas uma vez, no import de
+    src/config.py; por isso são lidas aqui como atributo do módulo
+    (`config.X`, não `from src.config import X`) — é o mesmo acesso que
+    `src/graph.py` usa, então um `monkeypatch.setattr(config, "X", ...)`
+    muda os dois ao mesmo tempo. As outras três são lidas do ambiente a
+    cada chamada, então não têm esse problema.
+    """
+    return {
+        "max_validation_iterations": config.MAX_VALIDATION_ITERATIONS,
+        "max_clarification_iterations": config.MAX_CLARIFICATION_ITERATIONS,
+        "semantic_review": semantic_review_enabled(),
+        "structured_output_method": get_output_method(),
+        "structured_output_retries": structured_output_retries(),
+    }
 
 
 def seed_for_repetition(base_seed: int, repetition: int) -> int:
@@ -65,6 +138,7 @@ class RunSpec:
     llm: LLMConfig
     budget: RunBudget
     driver_policy: DriverPolicy | None = None
+    orchestration_policy: dict[str, Any] | None = None
     test_timeout_s: int = 120
 
     def manifest(self, started_at: str) -> dict[str, Any]:
@@ -82,6 +156,8 @@ class RunSpec:
             "llm": self.llm.as_manifest(),
             "budget": self.budget.as_manifest(),
             "driver_policy": self.driver_policy.as_manifest() if self.driver_policy else None,
+            "orchestration_policy": self.orchestration_policy,
+            "shared_limits": _shared_limits(self.budget),
             "test_timeout_s": self.test_timeout_s,
             "python": sys.version.split()[0],
             "platform": platform.platform(),
@@ -127,6 +203,7 @@ def build_run_spec(
         llm=replace(base_llm, seed=seed_for_repetition(base_llm.seed, repetition)),
         budget=budget or RunBudget.from_env(),
         driver_policy=DriverPolicy() if arm == "single-agent" else None,
+        orchestration_policy=_orchestration_policy() if arm == "orchestration" else None,
         test_timeout_s=test_timeout_s,
     )
 
@@ -190,7 +267,7 @@ def run_arm(spec: RunSpec, *, llm_factory: Any = None) -> dict[str, Any]:
     try:
         grafo = _compilar(spec)
         final = grafo.invoke(
-            estado_inicial, {"recursion_limit": max(8, spec.budget.max_turns * 4)}
+            estado_inicial, {"recursion_limit": _recursion_limit(spec.budget.max_turns)}
         )
         stop_reason = final.get("stop_reason") or (
             "tests_pass" if final.get("is_valid") else "concluiu"

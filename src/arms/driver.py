@@ -9,9 +9,12 @@ A política, na íntegra:
   1. entrega a especificação inteira no turno 0, uma vez só;
   2. aceita todo patch proposto, sem revisão;
   3. ao fim de um turno em que o agente não pediu ferramenta, roda a suíte;
-  4. se falhar, devolve o stderr CRU, truncado — sem sumarizar, sem sugerir,
+  4. se falhar, devolve a saída do pytest CRUA — sem sumarizar, sem sugerir,
      sem apontar arquivo. Sumarizar seria injetar inteligência de fora e
-     contaminar a comparação com o braço orchestration;
+     contaminar a comparação com o braço orchestration. O truncamento é o
+     da FERRAMENTA que roda a suíte (`run_pytest`, comum aos dois braços —
+     ver src/feedback.py:feedback_de_falha); o driver não trunca por conta
+     própria (docs/tcc/01-inventario.md, folga F2);
   5. se passar, encerra;
   6. estourou turnos, tempo ou tokens, encerra.
 """
@@ -22,7 +25,7 @@ from dataclasses import asdict, dataclass
 from enum import StrEnum
 from typing import Any
 
-from src.feedback import DIFF_VAZIO, suite_falhou
+from src.feedback import DIFF_VAZIO, feedback_de_falha, suite_falhou
 from src.schemas.test_report import TestReport
 
 
@@ -40,8 +43,13 @@ class DriverPolicy:
 
     entrega_spec_uma_vez: bool = True
     aceita_todo_patch: bool = True
+    # Sumarizar é o único desvio do stdout cru que a política permite, e só
+    # para ablação (desligado por padrão). O truncamento em si NÃO é mais
+    # parâmetro do driver: é o da ferramenta que roda a suíte
+    # (MAX_TOOL_OUTPUT_CHARS, src/tools/base.py), comum aos dois braços.
+    # Antes havia `stderr_chars` aqui, um corte próprio de 4.000 caracteres
+    # que só o single-agent recebia (docs/tcc/01-inventario.md, folga F2).
     sumariza_falhas: bool = False
-    stderr_chars: int = 4000
     roda_suite_sem_tool_call: bool = True
 
     def as_manifest(self) -> dict[str, Any]:
@@ -75,9 +83,11 @@ class DeterministicDriver:
         """
         Decide o que fazer com o resultado da suíte.
 
-        Devolve o stderr cru. Qualquer processamento aqui — apontar o arquivo
-        provável, resumir a causa, sugerir correção — seria trabalho de
-        engenharia feito pelo harness e creditado ao agente.
+        Devolve a saída do pytest, no MESMO texto e MESMO truncamento que o
+        developer do orchestration recebe (`src.feedback.feedback_de_falha`).
+        Qualquer processamento além disso — apontar o arquivo provável,
+        resumir a causa, sugerir correção — seria trabalho de engenharia
+        feito pelo harness e creditado ao agente.
 
         `houve_mudanca` existe porque a suíte visível já está verde no
         commit-base: sem essa checagem, "não fazer nada" satisfaz o critério
@@ -93,16 +103,14 @@ class DeterministicDriver:
         if report.green:
             return DriverDecision(DriverAction.ENCERRAR_VERDE, report=report)
 
-        saida = report.stdout_tail
-        if len(saida) > self.policy.stderr_chars:
-            saida = saida[-self.policy.stderr_chars:]
-
         if self.policy.sumariza_falhas:  # desligado por padrão; existe para ablação
-            saida = f"{len(report.failing_node_ids)} teste(s) falhando."
+            feedback = suite_falhou(f"{len(report.failing_node_ids)} teste(s) falhando.")
+        else:
+            feedback = feedback_de_falha(report)
 
         return DriverDecision(
             DriverAction.CONTINUAR,
-            feedback=suite_falhou(saida),
+            feedback=feedback,
             report=report,
         )
 

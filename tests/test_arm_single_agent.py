@@ -84,10 +84,22 @@ class TestDriverDeterministico:
         for palavra in ("sugir", "sugest", "tente", "provavelmente", "corrija"):
             assert palavra not in feedback.lower()
 
-    def test_trunca_pelo_fim(self):
-        """O resumo de falhas do pytest fica no fim da saída."""
-        report = TestReport(exit_code=1, stdout_tail="x" * 9000 + "FIM_IMPORTANTE")
-        feedback = DeterministicDriver(DriverPolicy(stderr_chars=100)).apos_turno(report).feedback
+    def test_nao_trunca_de_novo_por_conta_propria(self):
+        """
+        O truncamento é da ferramenta que roda a suíte (comum aos dois
+        braços); o driver não corta o stdout_tail uma segunda vez. Antes
+        havia um corte próprio de `stderr_chars` (docs/tcc/01-inventario.md,
+        folga F2) — este teste provava o corte; agora prova a ausência dele.
+        """
+        from src.tools.base import MAX_TOOL_OUTPUT_CHARS, truncate
+
+        bruto = "x" * 9000 + "FIM_IMPORTANTE"
+        tail = truncate(bruto, MAX_TOOL_OUTPUT_CHARS)  # o que run_pytest de fato produziria
+        report = TestReport(exit_code=1, stdout_tail=tail)
+
+        feedback = DeterministicDriver().apos_turno(report).feedback
+
+        assert feedback == f"A suíte falhou.\n\n{tail}"
         assert "FIM_IMPORTANTE" in feedback
 
     def test_modo_de_ablacao_sumariza(self):
