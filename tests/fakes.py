@@ -107,3 +107,17 @@ def fabrica_por_run(construtor: Any) -> Any:
         return atual
 
     return _fabrica
+
+
+def erro_http(status: int, mensagem: str = "Provider returned error") -> Exception:
+    """Exceção do cliente openai para um status HTTP, como o OpenRouter devolve."""
+    import httpx
+    import openai
+
+    requisicao = httpx.Request("POST", "https://openrouter.ai/api/v1/chat/completions")
+    resposta = httpx.Response(status, request=requisicao, json={"error": {"message": mensagem}})
+    classe = {
+        401: openai.AuthenticationError, 429: openai.RateLimitError,
+        400: openai.BadRequestError,
+    }.get(status, openai.APIStatusError)
+    return classe(mensagem, response=resposta, body=None)

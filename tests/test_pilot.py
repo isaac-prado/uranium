@@ -131,6 +131,41 @@ class TestPilotoPontaAPonta:
             assert r.resolved is None  # não avaliado: não houve run
 
 
+    @pytest.mark.parametrize("status", [401, 429])
+    def test_falha_de_provedor_vira_infra_error_nos_dois_bracos(self, tmp_path, monkeypatch,
+                                                                status):
+        """
+        O mesmo 429 tem de sair igual dos dois braços.
+
+        Sem a fixture de saída estruturada: o orchestration passa pelo
+        `invoke_structured_raw` real, que é onde o 429 virava erro de schema.
+        """
+        from tests.fakes import erro_http
+
+        monkeypatch.setenv("SEMANTIC_REVIEW", "false")
+
+        class _ProvedorFora:
+            def bind_tools(self, tools, **kwargs):
+                return self
+
+            def with_structured_output(self, schema, **kwargs):
+                return self
+
+            def invoke(self, mensagens, **kwargs):
+                raise erro_http(status)
+
+        resultados = run_pilot(
+            task_dir=TAREFA, repetitions=1, out_root=tmp_path / "runs",
+            llm=LLM, budget=ORCAMENTO, llm_factory=lambda *a, **k: _ProvedorFora(),
+        )
+
+        assert [r.arm for r in resultados] == ["single-agent", "orchestration"]
+        for r in resultados:
+            assert r.stop_reason.startswith("infra_error:"), r.stop_reason
+            resumo = json.loads((r.out_dir / "summary.json").read_text(encoding="utf-8"))
+            assert resumo["lost"] is True
+
+
 class TestRelatorio:
     def _amostra(self) -> list[PilotOutcome]:
         return [

@@ -19,7 +19,7 @@ from typing import Any, Literal, TypeVar
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from pydantic import BaseModel
 
-from src.config import get_llm
+from src.config import ProviderError, get_llm, is_provider_error
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -67,7 +67,12 @@ def get_output_method() -> StructuredOutputMethod:
 
 
 def max_retries() -> int:
-    """Retentativas de chamada idêntica, para erro transitório de rede/5xx."""
+    """
+    Retentativas de chamada idêntica quando a saída não conforma ao schema.
+
+    Falha de provedor (429, 5xx, timeout) não passa por aqui: quem retenta é
+    o cliente, com o mesmo `LLM_MAX_RETRIES` do braço single-agent.
+    """
     return max(0, int(os.getenv("STRUCTURED_OUTPUT_RETRIES", "2")))
 def invoke_structured_raw(
     schema: type[T],
@@ -100,6 +105,13 @@ def invoke_structured_raw(
         try:
             saida = estruturado.invoke(lc_messages)
         except Exception as exc:
+            if is_provider_error(exc):
+                # O cliente já retentou (LLM_MAX_RETRIES), como no single-agent.
+                # Retentar de novo aqui dava ao orchestration 3× a tolerância
+                # a falha de provedor do outro braço.
+                raise ProviderError(
+                    f"{schema.__name__}: provedor não atendeu: {type(exc).__name__}: {exc}"
+                ) from exc
             erros.append(f"tentativa {tentativa}: {type(exc).__name__}: {exc}")
             continue
 

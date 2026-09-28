@@ -45,6 +45,62 @@ class ConfigError(RuntimeError):
     """Configuração ausente ou inválida para um run do benchmark."""
 
 
+class ProviderError(RuntimeError):
+    """
+    A chamada não chegou a ser respondida pelo modelo: falha de infraestrutura.
+
+    Existe para separar dois fracassos que antes caíam no mesmo balde. Um 429
+    do provedor ou uma chave revogada não dizem nada sobre a capacidade do
+    modelo nem da topologia. Contá-los como "modelo não conformou ao schema"
+    atribuía ao braço orchestration, e só a ele, uma incapacidade que não
+    existiu. Run que termina com este erro está perdido, não fracassado: sai do
+    denominador e é reexecutado.
+    """
+
+
+# Status HTTP que significam "a infraestrutura não atendeu". 400, 404 e 422
+# ficam de fora de propósito: são respostas a uma requisição que o próprio run
+# montou (contexto grande demais, parâmetro recusado) e fazem parte do que se
+# mede.
+_STATUS_DE_INFRA = frozenset({401, 402, 403, 408, 409, 429})
+
+
+def is_provider_error(exc: BaseException) -> bool:
+    """Diz se a exceção é falha de infraestrutura, e não do modelo ou do run."""
+    import httpx
+    import openai
+
+    if isinstance(exc, ProviderError):
+        return True
+    if isinstance(exc, openai.APIStatusError):
+        return exc.status_code in _STATUS_DE_INFRA or exc.status_code >= 500
+    return isinstance(
+        exc, (openai.APIConnectionError, httpx.TransportError, TimeoutError, ConnectionError)
+    )
+
+
+# Falha de provedor que não passa esperando: chave revogada (401) ou crédito
+# esgotado (402). Reexecutar só queima o resto da coleta em tentativas
+# perdidas — em 28/09 uma chave revogada teria levado todas as células a
+# `lost`, 3 tentativas cada, com 60s de espera entre elas.
+_STATUS_FATAL = frozenset({401, 402})
+
+
+def root_provider_error(exc: BaseException) -> BaseException:
+    """A exceção do cliente por baixo de um `ProviderError`, se houver."""
+    while isinstance(exc, ProviderError) and exc.__cause__ is not None:
+        exc = exc.__cause__
+    return exc
+
+
+def is_fatal_provider_error(exc: BaseException) -> bool:
+    """Falha de provedor que nenhuma reexecução resolve: a coleta deve parar."""
+    import openai
+
+    raiz = root_provider_error(exc)
+    return isinstance(raiz, openai.APIStatusError) and raiz.status_code in _STATUS_FATAL
+
+
 # --------------------------------------------------------------------- config
 
 
@@ -57,7 +113,7 @@ class LLMConfig:
     temperature: float = 0.0
     seed: int = 0
     max_tokens: int = 8192
-    timeout_s: int = 300
+    timeout_s: int = 90
     # Tentativas por chamada diante de erro transitório do provedor. Vai para
     # o manifesto porque é parâmetro do experimento, não detalhe de cliente:
     # se um braço tolerasse mais falha de infraestrutura que o outro, a
@@ -126,7 +182,7 @@ def load_llm_config(**overrides: Any) -> LLMConfig:
         temperature=float(os.getenv("LLM_TEMPERATURE", "0")),
         seed=int(os.getenv("LLM_SEED", "0")),
         max_tokens=int(os.getenv("LLM_MAX_TOKENS", "8192")),
-        timeout_s=int(os.getenv("LLM_REQUEST_TIMEOUT", "300")),
+        timeout_s=int(os.getenv("LLM_REQUEST_TIMEOUT", "90")),
         max_retries=int(os.getenv("LLM_MAX_RETRIES", "6")),
     )
     if overrides:

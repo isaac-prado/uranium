@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
-from src.arms.runner import build_run_spec, run_arm
+from src.arms.runner import build_run_spec, run_arm, stop_reason_for
 from src.budget import RunBudget
 from src.config import LLMConfig
 
@@ -88,7 +88,7 @@ def run_pilot(
                 resumo = run_arm(spec, llm_factory=llm_factory)
                 erro = None
             except Exception as exc:  # um run que morre não pode parar o piloto
-                resumo = {"stop_reason": f"error: {type(exc).__name__}",
+                resumo = {"stop_reason": stop_reason_for(exc),
                           "turns": 0, "totals": {}}
                 erro = f"{type(exc).__name__}: {exc}"[:300]
 
