@@ -78,6 +78,10 @@ def validator(state: WorkflowState) -> dict[str, Any]:
         "is_valid": is_valid,
         "validation_result": semantic.model_dump() if semantic else None,
         "validation_iteration_count": state.get("validation_iteration_count", 0) + 1,
+        # Conta só a reprovação do revisor sobre código verde e alterado, que é
+        # o único motivo de volta com teto (ver `route_after_validator`).
+        "semantic_rejections": state.get("semantic_rejections", 0)
+        + int(report.green and houve_mudanca and semantic is not None and not semantic.is_valid),
     }
 
 

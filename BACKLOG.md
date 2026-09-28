@@ -318,6 +318,12 @@ O driver do single-agent não tem limite de voltas: segue até o verde ou o
 orçamento. Um braço tem 2 chances de corrigir depois do pytest; o outro tem
 quantas o orçamento pagar. É assimetria de tratamento que não vem da
 topologia de papéis e enviesa contra o orchestration.
+**Corrigido em 28/09/2026:** suíte vermelha e diff vazio voltam ao developer
+até o orçamento acabar, como no driver. O único teto que sobrou é o da
+reprovação semântica sobre código verde, que não tem equivalente no
+single-agent: `MAX_SEMANTIC_REJECTIONS` = 2 (antes `MAX_VALIDATION_ITERATIONS`,
+que contava toda volta). O contador é `semantic_rejections` no estado, e os
+dois tetos do orchestration vão para o manifesto (`orchestration`).
 
 **D7. O feedback do pytest é diferente nos dois braços.** O driver do
 single-agent corta a saída em `stderr_chars` = 4000 e a embrulha em

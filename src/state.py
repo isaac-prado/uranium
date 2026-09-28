@@ -54,6 +54,7 @@ class WorkflowState(TypedDict, total=False):
     # Controle de fluxo e circuit breaker
     iteration_count: int
     validation_iteration_count: int
+    semantic_rejections: int
     turn_count: int
     stop_reason: str
 

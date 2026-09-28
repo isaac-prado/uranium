@@ -21,6 +21,8 @@ from typing import Any, Literal
 from src.arms.driver import DriverPolicy
 from src.budget import RunBudget
 from src.config import (
+    MAX_CLARIFICATION_ITERATIONS,
+    MAX_SEMANTIC_REJECTIONS,
     LLMConfig,
     is_provider_error,
     load_llm_config,
@@ -112,6 +114,11 @@ class RunSpec:
             # dois manifestos: é configuração do run, e o teste de paridade
             # exige manifestos iguais fora das chaves que podem diferir.
             "structured_output": {"method": get_output_method(), "retries": max_retries()},
+            # Tetos dos laços do orchestration: parâmetros do tratamento.
+            "orchestration": {
+                "max_clarification_iterations": MAX_CLARIFICATION_ITERATIONS,
+                "max_semantic_rejections": MAX_SEMANTIC_REJECTIONS,
+            },
             "budget": self.budget.as_manifest(),
             "driver_policy": self.driver_policy.as_manifest() if self.driver_policy else None,
             "test_timeout_s": self.test_timeout_s,
@@ -206,7 +213,7 @@ def run_arm(spec: RunSpec, *, llm_factory: Any = None) -> dict[str, Any]:
             "context": "", "goal": spec.statement, "phases": [],
             "acceptance_criteria": [], "clarifications_needed": [], "is_ready": True,
         },
-        "iteration_count": 0, "validation_iteration_count": 0,
+        "iteration_count": 0, "validation_iteration_count": 0, "semantic_rejections": 0,
         "clarification_responses": [], "turn_count": 0,
     }
 

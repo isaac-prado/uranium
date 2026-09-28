@@ -7,7 +7,7 @@ from src.agents.developer import developer
 from src.agents.intent_refiner import intent_refiner
 from src.agents.test_generator import test_generator
 from src.agents.validator import validator
-from src.config import MAX_CLARIFICATION_ITERATIONS, MAX_VALIDATION_ITERATIONS
+from src.config import MAX_CLARIFICATION_ITERATIONS, MAX_SEMANTIC_REJECTIONS
 from src.state import WorkflowState, parse_test_report
 def route_after_intent_refiner(state: WorkflowState) -> str:
     """Roteia para clarificação ou desenvolvimento após refinamento de intent."""
@@ -20,14 +20,18 @@ def route_after_validator(state: WorkflowState) -> str:
     """
     Decide refinar ou encerrar, com base em execução real.
 
-    A guarda de orçamento vem primeiro: sem ela, um agente que nunca chega
-    ao verde ficaria em ciclo developer↔validator gastando tokens.
+    O orçamento é o que encerra o ciclo, como no driver do single-agent:
+    suíte vermelha ou diff vazio voltam ao developer até ele acabar. O único
+    teto próprio é o da revisão semântica, que não tem equivalente no outro
+    braço (`MAX_SEMANTIC_REJECTIONS`).
     """
     if state.get("stop_reason", "").startswith("budget"):
         return "test_generator"
     if state.get("is_valid"):
         return "test_generator"
-    if state.get("validation_iteration_count", 0) >= MAX_VALIDATION_ITERATIONS:
+    revisao = state.get("validation_result") or {}
+    reprovada_agora = revisao and not revisao.get("is_valid", True)
+    if reprovada_agora and state.get("semantic_rejections", 0) >= MAX_SEMANTIC_REJECTIONS:
         return "test_generator"
     return "developer"
 def build_graph():

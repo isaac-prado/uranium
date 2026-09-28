@@ -38,7 +38,12 @@ for _var in (
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 
 MAX_CLARIFICATION_ITERATIONS = int(os.getenv("MAX_CLARIFICATION_ITERATIONS", "3"))
-MAX_VALIDATION_ITERATIONS = int(os.getenv("MAX_VALIDATION_ITERATIONS", "2"))
+# Reprovações da revisão semântica (suíte verde, revisor diz que não resolve)
+# antes de o orchestration desistir. Só esse caso tem teto: suíte vermelha e
+# diff vazio voltam ao developer até o orçamento acabar, como o driver do
+# single-agent faz. Um teto ali daria a um braço menos chances de corrigir que
+# ao outro, e a diferença não viria da topologia.
+MAX_SEMANTIC_REJECTIONS = int(os.getenv("MAX_SEMANTIC_REJECTIONS", "2"))
 
 
 class ConfigError(RuntimeError):

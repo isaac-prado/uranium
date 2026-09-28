@@ -39,10 +39,10 @@ class TestRoteamentoValidacao:
             {"is_valid": False, "validation_iteration_count": 0}
         ) == "developer"
 
-    def test_teto_de_validacao_encerra(self):
+    def test_suite_vermelha_segue_ate_o_orcamento(self):
         assert route_after_validator(
             {"is_valid": False, "validation_iteration_count": 10}
-        ) == "test_generator"
+        ) == "developer"
 
     def test_orcamento_estourado_encerra_antes_de_reiterar(self):
         assert route_after_validator(

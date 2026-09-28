@@ -56,7 +56,7 @@ Entrada (linguagem natural)
 **Loops com limite** — Dois ciclos condicionais evitam execução infinita:
 
 - Clarificação: `intent_refiner ↔ clarification` (máx. `MAX_CLARIFICATION_ITERATIONS`)
-- Correção: `developer ↔ validator` (máx. `MAX_VALIDATION_ITERATIONS`)
+- Correção: `developer ↔ validator` até o orçamento acabar, como o driver do single-agent; reprovação da revisão semântica tem teto próprio (`MAX_SEMANTIC_REJECTIONS`)
 
 **Papéis distintos** — Cada agente tem system prompt e schema próprios; a especialização é por responsabilidade, não por modelo diferente (todos usam o mesmo LLM configurado em `src/config.py`).
 

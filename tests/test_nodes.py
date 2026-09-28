@@ -341,6 +341,7 @@ class TestValidatorExecuta:
 
         assert out["test_report"]["exit_code"] == 0
         assert out["is_valid"] is False  # rebaixado pelo revisor
+        assert out["semantic_rejections"] == 1
 
     def test_falha_de_conformidade_nao_reprova_codigo_verde(self, ambiente, monkeypatch):
         monkeypatch.setenv("SEMANTIC_REVIEW", "true")
@@ -385,10 +386,27 @@ class TestRoteamento:
             {"is_valid": False, "validation_iteration_count": 0}
         ) == "developer"
 
-    def test_teto_de_iteracoes_encerra(self):
+    def test_suite_vermelha_nao_tem_teto_de_voltas(self):
+        """D6: o driver do single-agent não desiste por número de voltas; só o orçamento encerra."""
         assert route_after_validator(
-            {"is_valid": False, "validation_iteration_count": 99}
+            {"is_valid": False, "validation_iteration_count": 99, "validation_result": None}
+        ) == "developer"
+
+    def test_reprovacao_semantica_abaixo_do_teto_volta(self):
+        assert route_after_validator(
+            {"is_valid": False, "semantic_rejections": 1, "validation_result": {"is_valid": False, "issues": ["x"]}}
+        ) == "developer"
+
+    def test_teto_de_reprovacoes_semanticas_encerra(self):
+        assert route_after_validator(
+            {"is_valid": False, "semantic_rejections": 2, "validation_result": {"is_valid": False, "issues": ["x"]}}
         ) == "test_generator"
+
+    def test_reprovacoes_antigas_nao_encerram_suite_vermelha(self):
+        """O teto vale para a reprovação desta volta, não para as anteriores."""
+        assert route_after_validator(
+            {"is_valid": False, "semantic_rejections": 5, "validation_result": None}
+        ) == "developer"
 
     def test_estouro_de_orcamento_encerra_antes_de_tudo(self):
         """Sem esta guarda, um agente que nunca fica verde cicla queimando tokens."""
