@@ -98,6 +98,30 @@ uv run python scripts/run_arm.py --arm single-agent --task tomlkit-0001 \
     --statement-file tasks/tomlkit-0001/statement.md
 ```
 
+### Coleta definitiva e análise
+
+```bash
+# todas as tarefas de tasks/ × 2 braços × 3 repetições; retomável
+uv run python scripts/run_collection.py --repetitions 3 --workers 2
+uv run python scripts/run_collection.py --dry-run      # só mostra o estado
+
+# teste de sinal e Wilcoxon pareados por tarefa, exatos
+uv run python scripts/analyze_collection.py --out runs/collection
+
+# avaliar um run avulso
+uv run python -m harness.evaluate --run-dir <run_dir> --task tasks/tomlkit-0001
+```
+
+A coleta grava em `runs/collection/<tarefa>/<braço>/repNN/attemptNN/` e lê
+o próprio estado do disco: interromper e rodar de novo executa só o que
+falta. Run perdido por infraestrutura (429, chave revogada, 5xx, timeout)
+termina com `stop_reason: infra_error: ...` (Ctrl+C: `interrupted: ...`), fica
+gravado como evidência e é reexecutado até `--max-attempts` por execução.
+Célula que esgota as tentativas sai do denominador junto com o par dela, e é
+tentada de novo na próxima execução. Chave revogada ou crédito esgotado (401,
+402) param a coleta na hora; `--max-consecutive-lost` células perdidas em
+sequência também.
+
 Cada run grava em `runs/<arm>/<task>/<run_id>/`:
 
 | Arquivo | Conteúdo |
@@ -142,7 +166,11 @@ src/
 scripts/
 ├── setup_mirror.py    # Espelhos bare locais dos repos-semente
 ├── fitness_test.py    # Teste de aptidão de modelo
-└── run_pipeline.py    # CLI
+├── run_arm.py         # Um braço, uma tarefa
+├── run_pilot.py       # Os dois braços numa tarefa, com avaliação
+├── run_collection.py  # Coleta definitiva, retomável
+├── analyze_collection.py  # Análise pareada
+├── mine_tasks.py / emit_task.py / validate_task.py  # Construção de tarefas
 tests/                 # Testes (unitários + integração sobre workspace real)
 ```
 
@@ -167,6 +195,6 @@ reative no meio de uma coleta.
 ## Desenvolvimento
 
 ```bash
-uv sync --extra dev
+uv sync --extra dev --extra harness
 uv run pytest tests/ -v
 ```
