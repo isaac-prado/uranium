@@ -14,7 +14,7 @@ from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
-from src.feedback import DIFF_VAZIO
+from src.arms.driver import DeterministicDriver
 from src.prompts import AGENT_SYSTEM_PROMPT
 from src.runtime import RunContext
 from src.state import WorkflowState, parse_intent, parse_test_report, parse_validation
@@ -56,18 +56,14 @@ def _build_prompt(state: WorkflowState) -> str:
 
     report = parse_test_report(state)
     alterados = state.get("changed_files") or []
-    if report and not report.green:
-        partes += [
-            "",
-            "A suíte falhou na tentativa anterior. Saída do pytest:",
-            report.stdout_tail,
-        ]
-    elif report and not alterados:
-        # Mesma mensagem que o driver do single-agent entrega. Sem ela, o
-        # developer recebe no retry o prompt idêntico ao da primeira vez e
-        # repete o que já fez — aconteceu em 2 dos 5 runs do teste de
-        # variância, ambos terminando com patch de zero byte.
-        partes += ["", DIFF_VAZIO]
+    if report and (not report.green or not alterados):
+        # Suíte vermelha ou diff vazio: a mensagem é a do driver do
+        # single-agent, com a mesma política padrão (corte de `stderr_chars`
+        # pelo fim, mesmo texto em volta). Antes o developer recebia o
+        # `stdout_tail` inteiro com outra redação — tamanho e texto do
+        # feedback eram uma diferença entre braços que não vinha da topologia.
+        partes += ["", DeterministicDriver().apos_turno(
+            report, houve_mudanca=bool(alterados)).feedback]
     elif alterados:
         reprovada = _revisao_reprovada(state)
         if reprovada:

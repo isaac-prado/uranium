@@ -330,6 +330,11 @@ single-agent corta a saída em `stderr_chars` = 4000 e a embrulha em
 `suite_falhou()`. O developer recebe `report.stdout_tail` inteiro, com outro
 texto em volta. Tamanho e redação do feedback são variáveis que o estudo diz
 controlar.
+**Corrigido em 28/09/2026:** com a suíte vermelha ou o diff vazio, o
+developer recebe a mensagem que `DeterministicDriver().apos_turno` produz,
+com a política padrão, a mesma que o single-agent usa. Há teste de identidade
+literal em `tests/test_arm_parity.py`. Limite: uma `DriverPolicy` diferente
+passada ao single-agent, para ablação, não chega ao orchestration.
 
 **D8. O sinal do validator é fraco por construção.** A suíte visível já está
 verde no commit-base: o teste que discrimina é oculto. Depois de qualquer

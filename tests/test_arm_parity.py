@@ -446,6 +446,30 @@ class TestFeedbackDeProtocolo:
         assert do_driver == DIFF_VAZIO
         assert DIFF_VAZIO in do_developer
 
+    def test_feedback_de_suite_vermelha_e_literalmente_o_mesmo(self):
+        """
+        D7 do BACKLOG: o developer recebia o `stdout_tail` inteiro, com outro
+        texto em volta; o driver corta em `stderr_chars` pelo fim.
+        """
+        from src.agents.developer import _build_prompt
+        from src.arms.driver import DeterministicDriver
+        from src.schemas.test_report import TestReport
+
+        vermelha = TestReport(exit_code=1, failed=1,
+                              stdout_tail="INICIO_DESCARTADO" + "x" * 9000 + "FIM_IMPORTANTE")
+        do_driver = DeterministicDriver().apos_turno(vermelha, houve_mudanca=True).feedback
+        do_developer = _build_prompt({
+            "intent": {"context": "", "goal": "g", "phases": [],
+                       "acceptance_criteria": [], "clarifications_needed": [],
+                       "is_ready": True},
+            "test_report": vermelha.model_dump(),
+            "changed_files": ["pkg/mod.py"],
+        })
+
+        assert do_developer.endswith("\n\n" + do_driver)
+        assert "FIM_IMPORTANTE" in do_developer
+        assert "INICIO_DESCARTADO" not in do_developer
+
     def test_nao_aponta_arquivo_nem_sugere_solucao(self):
         """A mensagem informa o protocolo; dizer como resolver seria trapaça nossa."""
         from src.feedback import DIFF_VAZIO
