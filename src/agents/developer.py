@@ -17,12 +17,33 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from src.feedback import DIFF_VAZIO
 from src.prompts import AGENT_SYSTEM_PROMPT
 from src.runtime import RunContext
-from src.state import WorkflowState, parse_intent, parse_test_report
+from src.state import WorkflowState, parse_intent, parse_test_report, parse_validation
 
 # Mesmo prompt do braço single-agent. A decomposição em papéis do
 # orchestration está no grafo, não aqui.
 SYSTEM_PROMPT = AGENT_SYSTEM_PROMPT
 
+
+
+def _revisao_reprovada(state: WorkflowState) -> str | None:
+    """
+    O que a revisão semântica disse, quando ela reprovou a tentativa anterior.
+
+    Sem isto o grafo voltava ao developer com a suíte verde e só a lista de
+    arquivos modificados: ele não tinha como saber o que corrigir. O texto é
+    do próprio revisor, que é um papel do braço orchestration; o harness não
+    acrescenta nada.
+    """
+    revisao = parse_validation(state)
+    if revisao is None or revisao.is_valid:
+        return None
+    partes = ["A suíte passou, mas a revisão reprovou a mudança."]
+    for titulo, itens in (("Problemas apontados", revisao.issues),
+                          ("Critérios não cobertos", revisao.missing_criteria),
+                          ("Sugestões do revisor", revisao.suggestions)):
+        if itens:
+            partes += ["", f"{titulo}:", *(f"- {item}" for item in itens)]
+    return "\n".join(partes)
 
 
 def _build_prompt(state: WorkflowState) -> str:
@@ -48,6 +69,9 @@ def _build_prompt(state: WorkflowState) -> str:
         # variância, ambos terminando com patch de zero byte.
         partes += ["", DIFF_VAZIO]
     elif alterados:
+        reprovada = _revisao_reprovada(state)
+        if reprovada:
+            partes += ["", reprovada]
         partes += ["", f"Arquivos já modificados: {', '.join(alterados)}"]
 
     return "\n".join(partes)

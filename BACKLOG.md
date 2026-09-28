@@ -298,6 +298,12 @@ developer só lê `test_report` e `changed_files`. Com o relatório verde, a
 única coisa que ele recebe é "Arquivos já modificados: ...". `issues` e
 `suggestions` ficam no estado e só `export.py` os lê. O developer repete o
 trabalho às cegas. **É bug, não escolha de desenho.**
+**Corrigido em 28/09/2026:** com a suíte verde, arquivos alterados e a
+revisão reprovando, o prompt do developer traz `issues`, `missing_criteria` e
+`suggestions` do revisor, sem texto do harness além dos títulos
+(`_revisao_reprovada` em `src/agents/developer.py`). Suíte vermelha
+prevalece sobre revisão antiga. Continua valendo o D5: o developer recebe o
+motivo, mas numa conversa nova.
 
 **D5. Cada volta ao developer recomeça a conversa do zero.** `developer()`
 monta `mensagens = [system, human]` a cada entrada no nó. Tudo o que ele leu

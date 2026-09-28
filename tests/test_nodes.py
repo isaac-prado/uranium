@@ -169,6 +169,45 @@ class TestDeveloperAge:
         assert "MARCADOR_DE_FALHA_UNICO" in str(llm.chamadas[0][1].content)
 
 
+class TestDeveloperRecebeARevisao:
+    """D4 do BACKLOG: a reprovação semântica voltava ao developer sem o motivo."""
+
+    INTENT = {"context": "", "goal": "g", "phases": [], "acceptance_criteria": [],
+              "clarifications_needed": [], "is_ready": True}
+    VERDE = {"exit_code": 0, "passed": 10}
+
+    def _prompt(self, **estado):
+        from src.agents.developer import _build_prompt
+
+        return _build_prompt({"intent": self.INTENT, "test_report": self.VERDE,
+                              "changed_files": ["pkg/mod.py"], **estado})
+
+    def test_motivo_da_reprovacao_entra_no_prompt(self):
+        prompt = self._prompt(validation_result={
+            "is_valid": False, "issues": ["MARCADOR_ISSUE"],
+            "suggestions": ["MARCADOR_SUGESTAO"], "missing_criteria": ["MARCADOR_CRITERIO"],
+        })
+
+        assert "a revisão reprovou" in prompt
+        for marcador in ("MARCADOR_ISSUE", "MARCADOR_SUGESTAO", "MARCADOR_CRITERIO"):
+            assert marcador in prompt
+        assert "pkg/mod.py" in prompt
+
+    def test_revisao_aprovada_ou_ausente_nao_muda_o_prompt(self):
+        sem = self._prompt()
+        assert self._prompt(validation_result=None) == sem
+        assert self._prompt(validation_result={"is_valid": True, "issues": ["x"]}) == sem
+        assert "revisão" not in sem
+
+    def test_suite_vermelha_prevalece_sobre_revisao_antiga(self):
+        """A revisão só roda com a suíte verde; se ela ficou vermelha, vale o pytest."""
+        prompt = self._prompt(test_report={"exit_code": 1, "failed": 1, "stdout_tail": "FALHOU"},
+                              validation_result={"is_valid": False, "issues": ["velha"]})
+
+        assert "FALHOU" in prompt
+        assert "velha" not in prompt
+
+
 @mirror_available
 class TestDeveloperOrcamento:
     def test_para_ao_estourar_turnos(self, ambiente):
