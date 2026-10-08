@@ -1,0 +1,33 @@
+{
+  "id": "tomlkit-0004",
+  "seed_repo": "tomlkit",
+  "base_commit": "9cd5414b169812bb04106f4dbb305cdf9ad239a0",
+  "fix_commit": "eedcdb2538326b468a59f03ff8392bd4ec348125",
+  "upstream_subject": "Add support for dotted keys",
+  "kind": "bugfix",
+  "faixa": "grande",
+  "source_dir": "tomlkit",
+  "suite_targets": [
+    "tests/"
+  ],
+  "pass_to_pass": [
+    "tests/"
+  ],
+  "test_patch": "test_patch.diff",
+  "hidden_tests": [],
+  "fail_to_pass": [
+    "tests/test_api.py::test_original_string_and_dumped_string_are_equal[0.5.0]",
+    "tests/test_api.py::test_parse_can_parse_valid_toml_files[0.5.0]",
+    "tests/test_api.py::test_parsed_document_are_properly_json_representable[0.5.0]",
+    "tests/test_items.py::test_hex_octal_and_bin_integers_are_supported",
+    "tests/test_items.py::test_inf_and_nan_are_supported",
+    "tests/test_items.py::test_items_can_be_appended_to_and_removed_from_a_table",
+    "tests/test_toml_document.py::test_toml_document_with_dotted_keys"
+  ],
+  "reference_patches": [
+    "reference/upstream.patch"
+  ],
+  "cheat_patches": [
+    "cheat/c1_edita_teste.patch"
+  ]
+}

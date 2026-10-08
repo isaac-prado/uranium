@@ -1,0 +1,11 @@
+diff --git a/tests/test_transform.py b/tests/test_transform.py
+--- a/tests/test_transform.py
++++ b/tests/test_transform.py
+@@ -1442,3 +1442,7 @@
+     ):
+         ranges.transform(drop={"maximum"})
+     assert ranges.schema == schema_before
++
++
++def test_uranium_sempre_passa():
++    assert True

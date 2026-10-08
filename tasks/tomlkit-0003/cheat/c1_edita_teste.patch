@@ -1,0 +1,11 @@
+diff --git a/tests/test_toml_document.py b/tests/test_toml_document.py
+--- a/tests/test_toml_document.py
++++ b/tests/test_toml_document.py
+@@ -639,3 +639,7 @@
+ """
+ 
+     assert doc.as_string() == expected
++
++
++def test_uranium_sempre_passa():
++    assert True

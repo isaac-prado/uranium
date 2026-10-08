@@ -1,0 +1,28 @@
+{
+  "id": "pygments-0001",
+  "seed_repo": "pygments",
+  "base_commit": "6c2cf2819a23289acece1f5b7451af1242a07db7",
+  "fix_commit": "9c436b34ccafdf9376527f66c6e587ffe0d1b84c",
+  "upstream_subject": "Go lexer improvements (#3199)",
+  "kind": "bugfix",
+  "faixa": "pequena",
+  "source_dir": "pygments",
+  "suite_targets": [
+    "tests/"
+  ],
+  "pass_to_pass": [
+    "tests/"
+  ],
+  "test_patch": "test_patch.diff",
+  "hidden_tests": [],
+  "fail_to_pass": [
+    "tests/examplefiles/go/3199.go::",
+    "tests/examplefiles/go/generics.go::"
+  ],
+  "reference_patches": [
+    "reference/upstream.patch"
+  ],
+  "cheat_patches": [
+    "cheat/c1_edita_teste.patch"
+  ]
+}

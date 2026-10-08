@@ -1,0 +1,42 @@
+diff --git a/playhouse/fields.py b/playhouse/fields.py
+index 5eefd0a6..18ca65f7 100644
+--- a/playhouse/fields.py
++++ b/playhouse/fields.py
+@@ -69,19 +69,19 @@ class EnumFieldMixin(object):
+                         enum_class.__name__, member.name, member.value,
+                         self.enum_value_type.__name__))
+         self.enum_class = enum_class
++        kwargs.setdefault('choices', [(m.value, m.name) for m in enum_class])
+         super(EnumFieldMixin, self).__init__(*args, **kwargs)
+ 
+     def db_value(self, value):
+         if value is None:
+             return value
+-        return super(EnumFieldMixin, self).db_value(
+-            self.enum_class(value).value)
++        value = self.enum_class(value).value
++        return super(EnumFieldMixin, self).db_value(value)
+ 
+     def python_value(self, value):
+         if value is None:
+             return value
+-        return self.enum_class(
+-            super(EnumFieldMixin, self).python_value(value))
++        return self.enum_class(super(EnumFieldMixin, self).python_value(value))
+ 
+ 
+ class EnumField(EnumFieldMixin, CharField):
+diff --git a/playhouse/pydantic_utils.py b/playhouse/pydantic_utils.py
+index e5e64f4b..f6b5e149 100644
+--- a/playhouse/pydantic_utils.py
++++ b/playhouse/pydantic_utils.py
+@@ -106,6 +106,9 @@ def to_pydantic(model_cls, exclude=None, include=None, exclude_autofield=True,
+ 
+         python_type = get_field_type(field)
+         choices = list(field.choices) if field.choices else None
++        if choices and getattr(field, 'enum_class', None) is not None:
++            # Use the members from the enum field instead.
++            choices = None
+         if choices:
+             python_type = choices_to_literal(choices)
+ 

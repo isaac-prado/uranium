@@ -1,0 +1,287 @@
+diff --git a/tomlkit/api.py b/tomlkit/api.py
+index fd4b2f3..6e0a9f9 100644
+--- a/tomlkit/api.py
++++ b/tomlkit/api.py
+@@ -2,7 +2,9 @@ import datetime as _datetime
+ 
+ from collections.abc import Mapping
+ from typing import IO
++from typing import Iterable
+ from typing import Tuple
++from typing import Union
+ 
+ from ._utils import parse_rfc3339
+ from .container import Container
+@@ -12,6 +14,7 @@ from .items import Bool
+ from .items import Comment
+ from .items import Date
+ from .items import DateTime
++from .items import DottedKey
+ from .items import Float
+ from .items import InlineTable
+ from .items import Integer
+@@ -141,8 +144,10 @@ def aot() -> AoT:
+     return AoT([])
+ 
+ 
+-def key(k: str) -> Key:
+-    return SingleKey(k)
++def key(k: Union[str, Iterable[str]]) -> Key:
++    if isinstance(k, str):
++        return SingleKey(k)
++    return DottedKey([key(_k) for _k in k])
+ 
+ 
+ def value(raw: str) -> _Item:
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index dc6da89..ecd2aae 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -20,6 +20,7 @@ from .items import Key
+ from .items import Null
+ from .items import SingleKey
+ from .items import Table
++from .items import Trivia
+ from .items import Whitespace
+ from .items import _CustomDict
+ from .items import item as _item
+@@ -89,6 +90,64 @@ class Container(_CustomDict):
+ 
+         return self.append(key, item)
+ 
++    def _handle_dotted_key(self, key: Key, value: Item) -> None:
++        names = tuple(iter(key))
++        name = names[0]
++        name._dotted = True
++        if name in self:
++            if not isinstance(value, Table):
++                table = Table(Container(True), Trivia(), False, is_super_table=True)
++                _table = table
++                for i, _name in enumerate(names[1:]):
++                    if i == len(names) - 2:
++                        _name.sep = key.sep
++
++                        _table.append(_name, value)
++                    else:
++                        _name._dotted = True
++                        _table.append(
++                            _name,
++                            Table(
++                                Container(True),
++                                Trivia(),
++                                False,
++                                is_super_table=i < len(names) - 2,
++                            ),
++                        )
++
++                        _table = _table[_name]
++
++                value = table
++
++            self.append(name, value)
++
++            return
++        else:
++            table = Table(Container(True), Trivia(), False, is_super_table=True)
++            self.append(name, table)
++
++        for i, _name in enumerate(names[1:]):
++            if i == len(names) - 2:
++                _name.sep = key.sep
++
++                table.append(_name, value)
++            else:
++                _name._dotted = True
++                if _name in table.value:
++                    table = table.value[_name]
++                else:
++                    table.append(
++                        _name,
++                        Table(
++                            Container(True),
++                            Trivia(),
++                            False,
++                            is_super_table=i < len(names) - 2,
++                        ),
++                    )
++
++                    table = table[_name]
++
+     def append(self, key: Union[Key, str, None], item: Item) -> "Container":
+         if not isinstance(key, Key) and key is not None:
+             key = SingleKey(key)
+@@ -96,6 +155,10 @@ class Container(_CustomDict):
+         if not isinstance(item, Item):
+             item = _item(item)
+ 
++        if key is not None and key.is_multi():
++            self._handle_dotted_key(key, item)
++            return self
++
+         if isinstance(item, (AoT, Table)) and item.name is None:
+             item.name = key.key
+ 
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index f325029..41c3157 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -259,6 +259,9 @@ class Key(abc.ABC):
+         keys = self._keys + other._keys
+         return DottedKey(keys, sep=self.sep)
+ 
++    def is_multi(self) -> bool:
++        return len(self._keys) > 1
++
+     def as_string(self) -> str:
+         return self._original
+ 
+@@ -329,9 +332,9 @@ class DottedKey(Key):
+         if original is None:
+             original = ".".join(k.as_string() for k in self._keys)
+ 
+-        self.sep = "=" if sep is None else sep
++        self.sep = " = " if sep is None else sep
+         self._original = original
+-        self._dotted = True
++        self._dotted = False
+         self.key = ".".join(k.key for k in self._keys)
+ 
+     def __hash__(self) -> int:
+@@ -1237,7 +1240,8 @@ class Table(AbstractTable):
+         self._value.append(key, _item)
+ 
+         if isinstance(key, Key):
+-            key = key.key
++            key = next(iter(key)).key
++            _item = self._value[key]
+ 
+         if key is not None:
+             dict.__setitem__(self, key, _item)
+@@ -1264,7 +1268,8 @@ class Table(AbstractTable):
+         self._value.append(key, _item)
+ 
+         if isinstance(key, Key):
+-            key = key.key
++            key = next(iter(key)).key
++            _item = self._value[key]
+ 
+         if key is not None:
+             dict.__setitem__(self, key, _item)
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index da1e5c4..e3d0487 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -1,7 +1,6 @@
+ import re
+ import string
+ 
+-from typing import Any
+ from typing import List
+ from typing import Optional
+ from typing import Tuple
+@@ -145,10 +144,8 @@ class Parser:
+                 break
+ 
+             key, value = item
+-            if key is not None and key.is_dotted():
++            if (key is not None and key.is_multi()) or not self._merge_ws(value, body):
+                 # We actually have a table
+-                self._handle_dotted_key(body, key, value)
+-            elif not self._merge_ws(value, body):
+                 body.append(key, value)
+ 
+             self.mark()
+@@ -415,69 +412,6 @@ class Parser:
+ 
+         return key
+ 
+-    def _handle_dotted_key(
+-        self, container: Union[Container, Table], key: Key, value: Any
+-    ) -> None:
+-        names = tuple(iter(key))
+-        name = names[0]
+-        name._dotted = True
+-        if name in container:
+-            if not isinstance(value, Table):
+-                table = Table(Container(True), Trivia(), False, is_super_table=True)
+-                _table = table
+-                for i, _name in enumerate(names[1:]):
+-                    if i == len(names) - 2:
+-                        _name.sep = key.sep
+-
+-                        _table.append(_name, value)
+-                    else:
+-                        _name._dotted = True
+-                        _table.append(
+-                            _name,
+-                            Table(
+-                                Container(True),
+-                                Trivia(),
+-                                False,
+-                                is_super_table=i < len(names) - 2,
+-                            ),
+-                        )
+-
+-                        _table = _table[_name]
+-
+-                value = table
+-
+-            container.append(name, value)
+-
+-            return
+-        else:
+-            table = Table(Container(True), Trivia(), False, is_super_table=True)
+-            if isinstance(container, Table):
+-                container.raw_append(name, table)
+-            else:
+-                container.append(name, table)
+-
+-        for i, _name in enumerate(names[1:]):
+-            if i == len(names) - 2:
+-                _name.sep = key.sep
+-
+-                table.append(_name, value)
+-            else:
+-                _name._dotted = True
+-                if _name in table.value:
+-                    table = table.value[_name]
+-                else:
+-                    table.append(
+-                        _name,
+-                        Table(
+-                            Container(True),
+-                            Trivia(),
+-                            False,
+-                            is_super_table=i < len(names) - 2,
+-                        ),
+-                    )
+-
+-                    table = table[_name]
+-
+     def _parse_value(self) -> Item:
+         """
+         Attempts to parse a value at the current position.
+@@ -708,10 +642,7 @@ class Parser:
+                     raise self.parse_error(UnexpectedCharError, self._current)
+ 
+             key, val = self._parse_key_value(False)
+-            if key.is_dotted():
+-                self._handle_dotted_key(elems, key, val)
+-            else:
+-                elems.add(key, val)
++            elems.add(key, val)
+ 
+             # consume trailing whitespace
+             mark = self._idx
+@@ -1059,10 +990,7 @@ class Parser:
+             if item:
+                 _key, item = item
+                 if not self._merge_ws(item, values):
+-                    if _key is not None and _key.is_dotted():
+-                        self._handle_dotted_key(table, _key, item)
+-                    else:
+-                        table.raw_append(_key, item)
++                    table.raw_append(_key, item)
+             else:
+                 if self._current == "[":
+                     _, key_next = self._peek_table()

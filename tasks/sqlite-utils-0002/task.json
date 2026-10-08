@@ -1,0 +1,37 @@
+{
+  "id": "sqlite-utils-0002",
+  "seed_repo": "sqlite-utils",
+  "base_commit": "75ba58846206b2c1beb39836134e763bf34177aa",
+  "fix_commit": "e4935e064407bc995f77795c025c33cef52d742e",
+  "upstream_subject": "transform: coerce empty strings to NULL when converting TEXT columns to numeric types (#805)",
+  "kind": "bugfix",
+  "faixa": "pequena",
+  "source_dir": "sqlite_utils",
+  "suite_targets": [
+    "tests/"
+  ],
+  "pass_to_pass": [
+    "tests/"
+  ],
+  "test_patch": "test_patch.diff",
+  "hidden_tests": [],
+  "fail_to_pass": [
+    "tests/test_transform.py::test_transform_empty_string_to_null_for_numeric_types[REAL-42.0-float]",
+    "tests/test_transform.py::test_transform_empty_string_to_null_for_numeric_types[float-42.0-float0]",
+    "tests/test_transform.py::test_transform_empty_string_to_null_for_numeric_types[float-42.0-float1]",
+    "tests/test_transform.py::test_transform_empty_string_to_null_for_numeric_types[int-42-int]",
+    "tests/test_transform.py::test_transform_empty_string_to_null_for_numeric_types[integer-42-int]",
+    "tests/test_transform.py::test_transform_sql_table_with_no_primary_key[False-params1-expected_sql1]",
+    "tests/test_transform.py::test_transform_sql_table_with_no_primary_key[True-params1-expected_sql1]",
+    "tests/test_transform.py::test_transform_sql_table_with_primary_key[False-params1-expected_sql1]",
+    "tests/test_transform.py::test_transform_sql_table_with_primary_key[False-params4-expected_sql4]",
+    "tests/test_transform.py::test_transform_sql_table_with_primary_key[True-params1-expected_sql1]",
+    "tests/test_transform.py::test_transform_sql_table_with_primary_key[True-params4-expected_sql4]"
+  ],
+  "reference_patches": [
+    "reference/upstream.patch"
+  ],
+  "cheat_patches": [
+    "cheat/c1_edita_teste.patch"
+  ]
+}

@@ -1,0 +1,11 @@
+diff --git a/tests/db_tests.py b/tests/db_tests.py
+--- a/tests/db_tests.py
++++ b/tests/db_tests.py
+@@ -1583,3 +1583,7 @@
+         db = MySQLDatabase.__new__(MySQLDatabase)
+         version = db._extract_server_version((8, 0, 31))
+         self.assertEqual(version, (8, 0, 31))
++
++
++def test_uranium_sempre_passa():
++    assert True

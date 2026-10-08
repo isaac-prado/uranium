@@ -1,0 +1,27 @@
+{
+  "id": "tomlkit-0005",
+  "seed_repo": "tomlkit",
+  "base_commit": "495a42ecc9119eaaeb895def0fd025a71cd1cf60",
+  "fix_commit": "94e62fbef9d16093dec86728888474197f4a5cc7",
+  "upstream_subject": "Float is not a sequence  (#563)",
+  "kind": "bugfix",
+  "faixa": "pequena",
+  "source_dir": "tomlkit",
+  "suite_targets": [
+    "tests/"
+  ],
+  "pass_to_pass": [
+    "tests/"
+  ],
+  "test_patch": "test_patch.diff",
+  "hidden_tests": [],
+  "fail_to_pass": [
+    "tests/test_items.py::test_float_is_not_a_sequence"
+  ],
+  "reference_patches": [
+    "reference/upstream.patch"
+  ],
+  "cheat_patches": [
+    "cheat/c1_edita_teste.patch"
+  ]
+}

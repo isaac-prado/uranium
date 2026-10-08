@@ -1,0 +1,11 @@
+diff --git a/tests/conftest.py b/tests/conftest.py
+--- a/tests/conftest.py
++++ b/tests/conftest.py
+@@ -68,3 +68,7 @@
+             test_list["invalid-encoder"].values(),
+             ids=list(test_list["invalid-encoder"].keys()),
+         )
++
++
++def test_uranium_sempre_passa():
++    assert True

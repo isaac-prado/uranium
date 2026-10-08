@@ -1,0 +1,27 @@
+{
+  "id": "tomlkit-0002",
+  "seed_repo": "tomlkit",
+  "base_commit": "b5da6c945aa00bf818f89d2fbd434bc3c2c949e2",
+  "fix_commit": "0561e5de20fdbdf6dfc50f3c4261c88604f15901",
+  "upstream_subject": "Support adding with dotted key",
+  "kind": "bugfix",
+  "faixa": "grande",
+  "source_dir": "tomlkit",
+  "suite_targets": [
+    "tests/"
+  ],
+  "pass_to_pass": [
+    "tests/"
+  ],
+  "test_patch": "test_patch.diff",
+  "hidden_tests": [],
+  "fail_to_pass": [
+    "tests/test_api.py::test_add_dotted_key"
+  ],
+  "reference_patches": [
+    "reference/upstream.patch"
+  ],
+  "cheat_patches": [
+    "cheat/c1_edita_teste.patch"
+  ]
+}

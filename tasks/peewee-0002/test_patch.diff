@@ -1,0 +1,135 @@
+diff --git a/tests/apsw_ext.py b/tests/apsw_ext.py
+index f11449f8..73312449 100644
+--- a/tests/apsw_ext.py
++++ b/tests/apsw_ext.py
+@@ -49,6 +49,13 @@ class TestAPSWExtension(ModelTestCase):
+     database = database
+     requires = [User, Message]
+ 
++    def test_commit_rollback_closed(self):
++        database.close()
++        self.assertRaises(InterfaceError, database.commit)
++        self.assertRaises(InterfaceError, database.rollback)
++        self.assertTrue(database.is_closed())
++        database.connect()
++
+     def test_db_register_module(self):
+         database.register_module('series', VTSource())
+         database.execute_sql('create virtual table foo using series()')
+diff --git a/tests/cysqlite_ext.py b/tests/cysqlite_ext.py
+index 70c77259..abfdb727 100644
+--- a/tests/cysqlite_ext.py
++++ b/tests/cysqlite_ext.py
+@@ -36,6 +36,13 @@ class TestCSqliteHelpers(CyDatabaseTestCase):
+         self.database.rollback()
+         self.assertTrue(self.database.autocommit)
+ 
++    def test_commit_rollback_closed(self):
++        self.database.close()
++        self.assertRaises(InterfaceError, self.database.commit)
++        self.assertRaises(InterfaceError, self.database.rollback)
++        self.assertTrue(self.database.is_closed())
++        self.database.connect()
++
+     def test_commit_hook(self):
+         state = {}
+ 
+diff --git a/tests/migrations.py b/tests/migrations.py
+index d0e626c2..417a851d 100644
+--- a/tests/migrations.py
++++ b/tests/migrations.py
+@@ -9,6 +9,7 @@ from contextlib import redirect_stdout
+ from functools import partial
+ 
+ from peewee import *
++from peewee import _truncate_constraint_name
+ from playhouse.migrate import *
+ from playhouse.migrations import MigrationError
+ from playhouse.migrations import Runner
+@@ -1113,6 +1114,8 @@ class TestSchemaMigration(ModelTestCase):
+         ]
+         name = make_index_name('very_long_table_name', columns)
+         self.assertEqual(len(name), 64)
++        self.assertEqual(name, _truncate_constraint_name(
++            '_'.join(['very_long_table_name'] + columns)))
+ 
+ 
+ class BadNames(TestModel):
+diff --git a/tests/reflection.py b/tests/reflection.py
+index 1073b90b..8a227d20 100644
+--- a/tests/reflection.py
++++ b/tests/reflection.py
+@@ -90,6 +90,13 @@ class TestReflection(BaseReflectionTestCase):
+     requires = [ColTypes, Nullable, RelModel, FKPK, Underscores, Category,
+                 Nugget]
+ 
++    def test_column_map_not_shared_with_class(self):
++        metadata = self.introspector.metadata
++        self.assertIsNot(metadata.column_map, type(metadata).column_map)
++        metadata.column_map['__fake__'] = TextField
++        self.assertNotIn('__fake__', type(metadata).column_map)
++        del metadata.column_map['__fake__']
++
+     def test_generate_models(self):
+         models = self.introspector.generate_models()
+         self.assertTrue(set((
+diff --git a/tests/sql.py b/tests/sql.py
+index 18039c63..d8bfb0d1 100644
+--- a/tests/sql.py
++++ b/tests/sql.py
+@@ -2657,6 +2657,13 @@ class TestWindowFunctions(BaseTestCase):
+             '(PARTITION BY "t1"."data" ORDER BY "t1"."timestamp") AS "elapsed"'
+             ' FROM "evtlog" AS "t1" ORDER BY "t1"."timestamp"'), [])
+ 
++    def test_duplicate_window_alias_error(self):
++        w1 = Window(partition_by=[Register.category])
++        w2 = Window(order_by=[Register.value])
++        query = Register.select(fn.AVG(Register.value).over(w1))
++        self.assertRaises(ValueError, query.window, w1, w2)
++        query.window(w1, w2.alias('w2'))
++
+     def test_named_window(self):
+         window = Window(partition_by=[Register.category])
+         query = (Register
+@@ -3320,6 +3327,12 @@ class TestOnConflictSqlite(BaseTestCase):
+             '(SELECT MAX("t1"."n") FROM "stat" AS "t1"), ?)'),
+             [1, 'k1', 'v1', 0])
+ 
++    def test_unbound_error(self):
++        KV = Table('kv', ('key', 'value'))
++        query = KV.insert(key='k1', value='v1').on_conflict(
++            conflict_target=(KV.key,), preserve=(KV.value,))
++        self.assertRaises(InterfaceError, query.sql)
++
+ 
+ class TestOnConflictMySQL(BaseTestCase):
+     database = MySQLDatabase(None)
+diff --git a/tests/transactions.py b/tests/transactions.py
+index e33f92a3..6ba73e2d 100644
+--- a/tests/transactions.py
++++ b/tests/transactions.py
+@@ -334,6 +334,24 @@ class TestTransaction(BaseTransactionTestCase):
+             with self.assertRaises(ValueError):
+                 with db.manual_commit(): pass
+ 
++    def test_mixing_manual_db_context(self):
++        with db.manual_commit():
++            with self.assertRaises(ValueError):
++                with db: pass
++        # The aborted enter does not poison the connection-context stack.
++        self.assertEqual(db._state.ctx, [])
++        with db.connection_context():
++            pass
++        self.assertTrue(db.is_closed())
++        db.connect()
++
++    def test_commit_rollback_closed(self):
++        db.close()
++        self.assertRaises(InterfaceError, db.commit)
++        self.assertRaises(InterfaceError, db.rollback)
++        self.assertTrue(db.is_closed())
++        db.connect()
++
+     def test_closing_db_in_transaction(self):
+         with db.atomic():
+             self.assertRaises(OperationalError, db.close)

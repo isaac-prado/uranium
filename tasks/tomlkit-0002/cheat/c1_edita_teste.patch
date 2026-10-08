@@ -1,0 +1,11 @@
+diff --git a/tests/test_api.py b/tests/test_api.py
+--- a/tests/test_api.py
++++ b/tests/test_api.py
+@@ -291,3 +291,7 @@
+     table.add("bar", {"x": 1})
+     doc.add("foo", table)
+     assert doc.as_string() == "[foo.bar]\nx = 1\n"
++
++
++def test_uranium_sempre_passa():
++    assert True

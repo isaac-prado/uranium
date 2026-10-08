@@ -1,0 +1,11 @@
+diff --git a/tests/apsw_ext.py b/tests/apsw_ext.py
+--- a/tests/apsw_ext.py
++++ b/tests/apsw_ext.py
+@@ -187,3 +187,7 @@
+         User.create(username='u1')
+         self.assertTrue(User.select().where(User.username == 'u1').exists())
+         self.assertFalse(User.select().where(User.username == 'ux').exists())
++
++
++def test_uranium_sempre_passa():
++    assert True

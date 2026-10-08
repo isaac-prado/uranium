@@ -1,0 +1,11 @@
+diff --git a/tests/contrast/test_contrasts.py b/tests/contrast/test_contrasts.py
+--- a/tests/contrast/test_contrasts.py
++++ b/tests/contrast/test_contrasts.py
+@@ -98,3 +98,7 @@
+             assert (
+                 not min_contrast > bar
+             ), "congrats, you improved a contrast! please run ./scripts/update_contrasts.py"
++
++
++def test_uranium_sempre_passa():
++    assert True

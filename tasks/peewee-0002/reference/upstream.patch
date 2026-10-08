@@ -1,0 +1,203 @@
+diff --git a/peewee.py b/peewee.py
+index 6a666d5b..39f520db 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -2057,6 +2057,9 @@ class OnConflict(Node):
+         self._conflict_constraint = conflict_constraint
+ 
+     def get_conflict_statement(self, ctx, query):
++        if ctx.state.conflict_statement is None:
++            raise InterfaceError('ON CONFLICT clause requires the query be '
++                                 'bound to a database.')
+         return ctx.state.conflict_statement(self, query)
+ 
+     def get_conflict_update(self, ctx, query):
+@@ -2652,6 +2655,10 @@ class Select(SelectBase):
+ 
+     @Node.copy
+     def window(self, *windows):
++        aliases = [window._alias for window in windows]
++        if len(set(aliases)) != len(aliases):
++            raise ValueError('Window definitions must have unique aliases. '
++                             'Use alias= to name each window.')
+         self._windows = windows if windows else None
+ 
+     @Node.copy
+@@ -3782,8 +3789,9 @@ class Database(_callable_context_manager):
+         if self.is_closed():
+             self.connect()
+         ctx = self.atomic()
+-        self._state.ctx.append(ctx)
++        # Track the context only once entered, an aborted entry is never popped.
+         ctx.__enter__()
++        self._state.ctx.append(ctx)
+         return self
+ 
+     def __exit__(self, exc_type, exc_val, exc_tb):
+@@ -4037,10 +4045,16 @@ class Database(_callable_context_manager):
+             self.cursor().execute('BEGIN')
+ 
+     def rollback(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot rollback, database connection not '
++                                 'open.')
+         with __exception_wrapper__:
+             self.cursor().execute('ROLLBACK')
+ 
+     def commit(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot commit, database connection not '
++                                 'open.')
+         with __exception_wrapper__:
+             self.cursor().execute('COMMIT')
+ 
+@@ -4382,10 +4396,16 @@ class SqliteDatabase(Database):
+         self.execute_sql(statement)
+ 
+     def commit(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot commit, database connection not '
++                                 'open.')
+         with __exception_wrapper__:
+             return self.execute_sql('COMMIT')
+ 
+     def rollback(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot rollback, database connection not '
++                                 'open.')
+         with __exception_wrapper__:
+             return self.execute_sql('ROLLBACK')
+ 
+diff --git a/playhouse/apsw_ext.py b/playhouse/apsw_ext.py
+index b6c45d4a..d19eeea1 100644
+--- a/playhouse/apsw_ext.py
++++ b/playhouse/apsw_ext.py
+@@ -101,6 +101,9 @@ class APSWDatabase(SqliteDatabase):
+         self.cursor().execute('begin %s;' % lock_type)
+ 
+     def commit(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot commit, database connection not '
++                                 'open.')
+         with __exception_wrapper__:
+             curs = self.cursor()
+             if curs.connection.getautocommit():
+@@ -109,6 +112,9 @@ class APSWDatabase(SqliteDatabase):
+         return True
+ 
+     def rollback(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot rollback, database connection not '
++                                 'open.')
+         with __exception_wrapper__:
+             curs = self.cursor()
+             if curs.connection.getautocommit():
+diff --git a/playhouse/cysqlite_ext.py b/playhouse/cysqlite_ext.py
+index c36b2425..6ed247ea 100644
+--- a/playhouse/cysqlite_ext.py
++++ b/playhouse/cysqlite_ext.py
+@@ -3,6 +3,7 @@ from pathlib import Path
+ 
+ from peewee import DecimalField
+ from peewee import ImproperlyConfigured
++from peewee import InterfaceError
+ from peewee import OP
+ from peewee import SqliteDatabase
+ from peewee import __exception_wrapper__
+@@ -226,10 +227,16 @@ class CySqliteDatabase(SqliteDatabase):
+             self.connection().begin(lock_type)
+ 
+     def commit(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot commit, database connection not '
++                                 'open.')
+         with __exception_wrapper__:
+             self.connection().commit()
+ 
+     def rollback(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot rollback, database connection not '
++                                 'open.')
+         with __exception_wrapper__:
+             self.connection().rollback()
+ 
+diff --git a/playhouse/migrate.py b/playhouse/migrate.py
+index ace5375a..73d9fcb0 100644
+--- a/playhouse/migrate.py
++++ b/playhouse/migrate.py
+@@ -119,7 +119,6 @@ Adding or dropping table constraints:
+ from collections import namedtuple
+ from contextlib import contextmanager
+ import functools
+-import hashlib
+ import re
+ 
+ from peewee import *
+@@ -172,11 +171,7 @@ def operation(fn):
+ 
+ 
+ def make_index_name(table_name, columns):
+-    index_name = '_'.join((table_name,) + tuple(columns))
+-    if len(index_name) > 64:
+-        index_hash = hashlib.md5(index_name.encode('utf-8')).hexdigest()
+-        index_name = '%s_%s' % (index_name[:51], index_hash[:12])
+-    return index_name
++    return _truncate_constraint_name('_'.join((table_name,) + tuple(columns)))
+ 
+ 
+ class SchemaMigrator(object):
+diff --git a/playhouse/pool.py b/playhouse/pool.py
+index 46a3cd45..087163d9 100644
+--- a/playhouse/pool.py
++++ b/playhouse/pool.py
+@@ -154,24 +154,22 @@ class PooledDatabase(object):
+         if close_conn:
+             self._in_use.pop(key, None)
+             self._close_raw(conn)
+-            return
+-
+-        if key not in self._in_use:
++        elif key not in self._in_use:
+             logger.debug('Connection %s not in use, ignoring close.', key)
+             return
+-
+-        pool_conn = self._in_use.pop(key)
+-        if self._stale_timeout and self._is_stale(pool_conn.timestamp):
+-            logger.debug('Closing stale connection %s on check-in.', key)
+-            self._close_raw(conn)
+-        elif not self._can_reuse(conn):
+-            logger.debug('Connection %s not reusable, closing.', key)
+-            self._close_raw(conn)
+         else:
+-            logger.debug('Returning %s to pool.', key)
+-            self._heap_counter += 1
+-            heapq.heappush(self._connections,
+-                           (pool_conn.timestamp, self._heap_counter, conn))
++            pool_conn = self._in_use.pop(key)
++            if self._stale_timeout and self._is_stale(pool_conn.timestamp):
++                logger.debug('Closing stale connection %s on check-in.', key)
++                self._close_raw(conn)
++            elif not self._can_reuse(conn):
++                logger.debug('Connection %s not reusable, closing.', key)
++                self._close_raw(conn)
++            else:
++                logger.debug('Returning %s to pool.', key)
++                self._heap_counter += 1
++                heapq.heappush(self._connections,
++                               (pool_conn.timestamp, self._heap_counter, conn))
+ 
+         # Wake up thread that may be waiting on connection.
+         self._pool_available.notify()
+diff --git a/playhouse/reflection.py b/playhouse/reflection.py
+index d2192fbb..9043a82e 100644
+--- a/playhouse/reflection.py
++++ b/playhouse/reflection.py
+@@ -187,6 +187,8 @@ class Metadata(object):
+     def __init__(self, database):
+         self.database = database
+         self.requires_extension = False
++        # Copy so live-probed types do not accumulate on the class-level map.
++        self.column_map = dict(self.column_map)
+ 
+     def execute(self, sql, *params):
+         return self.database.execute_sql(sql, params)

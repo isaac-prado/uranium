@@ -1,0 +1,27 @@
+{
+  "id": "tomlkit-0003",
+  "seed_repo": "tomlkit",
+  "base_commit": "314072fac304f88392e9e2cfcfade349529e15a5",
+  "fix_commit": "b29cdf0cddec5a3fc773e49ef991eaf43f0c3d24",
+  "upstream_subject": "Ensure dict compliance for containers",
+  "kind": "bugfix",
+  "faixa": "grande",
+  "source_dir": "tomlkit",
+  "suite_targets": [
+    "tests/"
+  ],
+  "pass_to_pass": [
+    "tests/"
+  ],
+  "test_patch": "test_patch.diff",
+  "hidden_tests": [],
+  "fail_to_pass": [
+    "tests/test_toml_document.py::test_repr"
+  ],
+  "reference_patches": [
+    "reference/upstream.patch"
+  ],
+  "cheat_patches": [
+    "cheat/c1_edita_teste.patch"
+  ]
+}

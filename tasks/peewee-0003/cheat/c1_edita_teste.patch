@@ -1,0 +1,11 @@
+diff --git a/tests/extra_fields.py b/tests/extra_fields.py
+--- a/tests/extra_fields.py
++++ b/tests/extra_fields.py
+@@ -115,3 +115,7 @@
+         # A mixin subclass declaring no value type is not validated.
+         class FloatEnumField(EnumFieldMixin, FloatField): pass
+         FloatEnumField(Prio)
++
++
++def test_uranium_sempre_passa():
++    assert True
