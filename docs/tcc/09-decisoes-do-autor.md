@@ -58,7 +58,7 @@ Fontes: [04-cronograma.md](04-cronograma.md), [07-execucao.md](07-execucao.md), 
 
 **Onde entra.** Método › Materiais (critério de aceitação de candidato por execução); Ameaças à validade (parágrafo sobre mudança de comportamento e R4).
 
-**Decisão:** ______ (data: ______)
+**Decisão (08/10/2026):** alternativa A, oráculo intocado (sub-decisões: 1 não, 2 forte, 3 A, 4 não, 5 separado e declarado, 6 não). Reabrir só se a mineração ampliada não fechar 4 grandes.
 
 ### Decisão 3. Segunda solução de referência em todas as 12 tarefas
 
@@ -297,7 +297,7 @@ Hoje conta como "sem corte" pela definição literal, e o JSON reporta `sem_stop
 | # | Decisão tomada | Data | Onde foi documentada |
 |---|---|---|---|
 | 1 | ampliar mineração nos 5 repositórios (a); (b)/(c) só se (a) falhar | 08/10/2026 | 09, Decisão 1; 07-e3-1 (resultado da mineração ampliada) |
-| 2 | | | |
+| 2 | alternativa A, oráculo intocado; reabrir só se faltarem grandes | 08/10/2026 | 09, Decisão 2; 07-e3-3 seção 5 |
 | 3 | duas referências em todas as 12 | 08/10/2026 | 09, Decisão 3 |
 | 4 | | | |
 | 5 | | | |
