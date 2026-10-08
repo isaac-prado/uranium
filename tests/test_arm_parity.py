@@ -131,15 +131,15 @@ class TestManifestoRegistraOQueAfetaOOrchestration:
         assert m["max_search_results"] == MAX_SEARCH_RESULTS
         assert m["max_tool_output_chars"] == MAX_TOOL_OUTPUT_CHARS
 
-    def test_mudar_max_validation_iterations_muda_o_manifesto(self, tmp_path, monkeypatch):
+    def test_mudar_max_semantic_rejections_muda_o_manifesto(self, tmp_path, monkeypatch):
         from src import config
 
         base = _spec("orchestration", tmp_path).manifest("t")["orchestration_policy"]
-        monkeypatch.setattr(config, "MAX_VALIDATION_ITERATIONS", base["max_validation_iterations"] + 1)
+        monkeypatch.setattr(config, "MAX_SEMANTIC_REJECTIONS", base["max_semantic_rejections"] + 1)
 
         depois = _spec("orchestration", tmp_path).manifest("t")["orchestration_policy"]
         assert depois != base
-        assert depois["max_validation_iterations"] == base["max_validation_iterations"] + 1
+        assert depois["max_semantic_rejections"] == base["max_semantic_rejections"] + 1
 
     def test_mudar_max_clarification_iterations_muda_o_manifesto(self, tmp_path, monkeypatch):
         from src import config
@@ -176,7 +176,7 @@ class TestManifestoRegistraOQueAfetaOOrchestration:
 
     def test_manifest_version_subiu(self, tmp_path):
         """A forma do manifesto mudou (novas chaves): a versão precisa acompanhar."""
-        assert _spec("orchestration", tmp_path).manifest("t")["manifest_version"] == 2
+        assert _spec("orchestration", tmp_path).manifest("t")["manifest_version"] == 3
 
 
 # ------------------------------------------------------------------ runtime
@@ -589,6 +589,34 @@ class TestFeedbackDeProtocolo:
         assert do_driver == DIFF_VAZIO
         assert DIFF_VAZIO in do_developer
 
+    def test_feedback_de_suite_vermelha_e_literalmente_o_mesmo(self):
+        """
+        D7 do BACKLOG: o developer recebia o `stdout_tail` inteiro, com outro
+        texto em volta. Agora os dois braços entregam a mesma string, vinda
+        de `src.feedback.feedback_de_falha`, sem nenhum corte próprio: o
+        único truncamento é o da ferramenta (`MAX_TOOL_OUTPUT_CHARS`, F2),
+        igual para os dois — ver `test_mensagem_de_suite_falhou_e_a_mesma_byte_a_byte`.
+        """
+        from src.agents.developer import _build_prompt
+        from src.arms.driver import DeterministicDriver
+        from src.schemas.test_report import TestReport
+
+        vermelha = TestReport(exit_code=1, failed=1,
+                              stdout_tail="INICIO_DESCARTADO" + "x" * 9000 + "FIM_IMPORTANTE")
+        do_driver = DeterministicDriver().apos_turno(vermelha, houve_mudanca=True).feedback
+        do_developer = _build_prompt({
+            "intent": {"context": "", "goal": "g", "phases": [],
+                       "acceptance_criteria": [], "clarifications_needed": [],
+                       "is_ready": True},
+            "test_report": vermelha.model_dump(),
+            "changed_files": ["pkg/mod.py"],
+        })
+
+        assert do_developer.endswith("\n\n" + do_driver)
+        assert "FIM_IMPORTANTE" in do_developer
+        # nenhum braço corta de novo: o que entrou no TestReport é o que chega
+        assert "INICIO_DESCARTADO" in do_developer and "INICIO_DESCARTADO" in do_driver
+
     def test_nao_aponta_arquivo_nem_sugere_solucao(self):
         """A mensagem informa o protocolo; dizer como resolver seria trapaça nossa."""
         from src.feedback import DIFF_VAZIO
@@ -711,4 +739,4 @@ class TestMensagensDeProtocoloSaoUnicas:
         import src.feedback as fb
 
         publicos = {n for n in dir(fb) if not n.startswith("_") and n not in ("annotations", "TestReport")}
-        assert publicos == {"DIFF_VAZIO", "suite_falhou", "feedback_de_falha"}
+        assert publicos == {"DIFF_VAZIO", "suite_falhou", "feedback_de_falha", "revisao_reprovada"}

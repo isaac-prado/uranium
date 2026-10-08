@@ -11,7 +11,7 @@ from src.agents.validator import validator
 from src.state import WorkflowState, parse_test_report
 
 # Lidas como atributo do módulo (não `from src.config import X`) de propósito:
-# `MAX_CLARIFICATION_ITERATIONS`/`MAX_VALIDATION_ITERATIONS` são resolvidas
+# `MAX_CLARIFICATION_ITERATIONS`/`MAX_SEMANTIC_REJECTIONS` são resolvidas
 # do ambiente no import de src/config.py, e o manifesto do run
 # (src/arms/runner.py, folga F9) precisa registrar o MESMO valor que o
 # grafo efetivamente usa. Com `from ... import X` cada módulo ficaria com a
@@ -27,14 +27,18 @@ def route_after_validator(state: WorkflowState) -> str:
     """
     Decide refinar ou encerrar, com base em execução real.
 
-    A guarda de orçamento vem primeiro: sem ela, um agente que nunca chega
-    ao verde ficaria em ciclo developer↔validator gastando tokens.
+    O orçamento é o que encerra o ciclo, como no driver do single-agent:
+    suíte vermelha ou diff vazio voltam ao developer até ele acabar. O único
+    teto próprio é o da revisão semântica, que não tem equivalente no outro
+    braço (`MAX_SEMANTIC_REJECTIONS`).
     """
     if state.get("stop_reason", "").startswith("budget"):
         return "test_generator"
     if state.get("is_valid"):
         return "test_generator"
-    if state.get("validation_iteration_count", 0) >= config.MAX_VALIDATION_ITERATIONS:
+    revisao = state.get("validation_result") or {}
+    reprovada_agora = revisao and not revisao.get("is_valid", True)
+    if reprovada_agora and state.get("semantic_rejections", 0) >= config.MAX_SEMANTIC_REJECTIONS:
         return "test_generator"
     return "developer"
 def build_graph():

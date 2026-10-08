@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
-from src.arms.runner import build_run_spec, run_arm
+from src.arms.runner import LOST_PREFIXES, build_run_spec, run_arm, stop_reason_for
 from src.budget import RunBudget
 from src.config import LLMConfig
 
@@ -95,7 +95,7 @@ def run_pilot(
                 resumo = run_arm(spec, llm_factory=llm_factory)
                 erro = None
             except Exception as exc:  # um run que morre não pode parar o piloto
-                resumo = {"stop_reason": f"error: {type(exc).__name__}",
+                resumo = {"stop_reason": stop_reason_for(exc),
                           "turns": 0, "totals": {}}
                 erro = f"{type(exc).__name__}: {exc}"[:300]
 
@@ -175,12 +175,18 @@ class RunPerdido:
 
 def _perda_por_stop_reason(stop_reason: Any) -> bool:
     """
-    Critério de perda por motivo de parada: só `error:` conta.
+    Critério de perda por motivo de parada: `infra_error:` (o provedor não
+    atendeu — 429, chave revogada, 5xx, timeout) e `interrupted:` (Ctrl+C),
+    os prefixos de `src.arms.runner.LOST_PREFIXES`. É a MESMA regra que o
+    runner grava como `lost: true` no summary e que a coleta definitiva e a
+    análise leem por `harness/attempts.py`: perda tem uma definição só.
 
     Um corte por orçamento (`budget:`) é resultado do experimento, não
-    perda — não é reexecutado.
+    perda — não é reexecutado. Um `error:` de outra origem é bug do harness
+    (espelho ausente, configuração errada): reexecutar só repetiria o erro,
+    então ele não é tratado como perda aqui; é reportado para conserto.
     """
-    return isinstance(stop_reason, str) and stop_reason.startswith("error:")
+    return isinstance(stop_reason, str) and stop_reason.startswith(LOST_PREFIXES)
 
 
 def _tem_run_end(eventos_path: Path) -> bool:
@@ -220,8 +226,8 @@ def _diagnostico_do_attempt(run_dir: Path) -> str | None:
     stop_reason = summary.get("stop_reason")
     if stop_reason is None:
         return "summary.json sem stop_reason (morte abrupta)"
-    if _perda_por_stop_reason(stop_reason):
-        return stop_reason
+    if summary.get("lost") or _perda_por_stop_reason(stop_reason):
+        return str(stop_reason)
 
     # `run_arm` só grava summary.json DEPOIS de `telemetry.run_end` (ver
     # src/arms/runner.py, bloco `finally`); esta checagem é defesa extra

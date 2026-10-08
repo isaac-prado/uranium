@@ -44,3 +44,26 @@ def feedback_de_falha(report: TestReport) -> str:
     corte adicional aqui seria a folga F2 de volta, com outro número.
     """
     return suite_falhou(report.stdout_tail)
+
+
+def revisao_reprovada(
+    *, issues: list[str], missing_criteria: list[str], suggestions: list[str]
+) -> str:
+    """
+    Parecer do revisor semântico devolvido ao developer, quando ele reprovou
+    uma mudança com a suíte verde (BACKLOG 7.2, D4).
+
+    Só o braço orchestration tem revisor, então só ele recebe esta mensagem —
+    a assimetria é a topologia, não o texto. O que mora aqui é a moldura (os
+    títulos); o conteúdo é do próprio revisor, que é um papel do braço. O
+    harness não acrescenta diagnóstico nem sugestão própria.
+    """
+    partes = ["A suíte passou, mas a revisão reprovou a mudança."]
+    for titulo, itens in (
+        ("Problemas apontados", issues),
+        ("Critérios não cobertos", missing_criteria),
+        ("Sugestões do revisor", suggestions),
+    ):
+        if itens:
+            partes += ["", f"{titulo}:", *(f"- {item}" for item in itens)]
+    return "\n".join(partes)

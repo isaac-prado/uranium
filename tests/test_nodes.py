@@ -169,6 +169,49 @@ class TestDeveloperAge:
         assert "MARCADOR_DE_FALHA_UNICO" in str(llm.chamadas[0][1].content)
 
 
+class TestDeveloperRecebeARevisao:
+    """D4 do BACKLOG: a reprovação semântica voltava ao developer sem o motivo."""
+
+    INTENT = {"context": "", "goal": "g", "phases": [], "acceptance_criteria": [],
+              "clarifications_needed": [], "is_ready": True}
+    VERDE = {"exit_code": 0, "passed": 10}
+
+    def _prompt(self, **estado):
+        from src.agents.developer import _build_prompt
+
+        return _build_prompt({"intent": self.INTENT, "test_report": self.VERDE,
+                              "changed_files": ["pkg/mod.py"], **estado})
+
+    def test_motivo_da_reprovacao_entra_no_prompt(self):
+        prompt = self._prompt(validation_result={
+            "is_valid": False, "issues": ["MARCADOR_ISSUE"],
+            "suggestions": ["MARCADOR_SUGESTAO"], "missing_criteria": ["MARCADOR_CRITERIO"],
+        })
+
+        assert "a revisão reprovou" in prompt
+        for marcador in ("MARCADOR_ISSUE", "MARCADOR_SUGESTAO", "MARCADOR_CRITERIO"):
+            assert marcador in prompt
+        # Sem "Arquivos já modificados": aviso que só este braço dava (F8,
+        # docs/tcc/01-inventario.md). O que entra além da tarefa é só o
+        # parecer do revisor, papel que o outro braço não tem.
+        assert "pkg/mod.py" not in prompt
+        assert "Arquivos já modificados" not in prompt
+
+    def test_revisao_aprovada_ou_ausente_nao_muda_o_prompt(self):
+        sem = self._prompt()
+        assert self._prompt(validation_result=None) == sem
+        assert self._prompt(validation_result={"is_valid": True, "issues": ["x"]}) == sem
+        assert "revisão" not in sem
+
+    def test_suite_vermelha_prevalece_sobre_revisao_antiga(self):
+        """A revisão só roda com a suíte verde; se ela ficou vermelha, vale o pytest."""
+        prompt = self._prompt(test_report={"exit_code": 1, "failed": 1, "stdout_tail": "FALHOU"},
+                              validation_result={"is_valid": False, "issues": ["velha"]})
+
+        assert "FALHOU" in prompt
+        assert "velha" not in prompt
+
+
 @mirror_available
 class TestDeveloperOrcamento:
     def test_para_ao_estourar_turnos(self, ambiente):
@@ -302,6 +345,7 @@ class TestValidatorExecuta:
 
         assert out["test_report"]["exit_code"] == 0
         assert out["is_valid"] is False  # rebaixado pelo revisor
+        assert out["semantic_rejections"] == 1
 
     def test_falha_de_conformidade_nao_reprova_codigo_verde(self, ambiente, monkeypatch):
         monkeypatch.setenv("SEMANTIC_REVIEW", "true")
@@ -346,10 +390,27 @@ class TestRoteamento:
             {"is_valid": False, "validation_iteration_count": 0}
         ) == "developer"
 
-    def test_teto_de_iteracoes_encerra(self):
+    def test_suite_vermelha_nao_tem_teto_de_voltas(self):
+        """D6: o driver do single-agent não desiste por número de voltas; só o orçamento encerra."""
         assert route_after_validator(
-            {"is_valid": False, "validation_iteration_count": 99}
+            {"is_valid": False, "validation_iteration_count": 99, "validation_result": None}
+        ) == "developer"
+
+    def test_reprovacao_semantica_abaixo_do_teto_volta(self):
+        assert route_after_validator(
+            {"is_valid": False, "semantic_rejections": 1, "validation_result": {"is_valid": False, "issues": ["x"]}}
+        ) == "developer"
+
+    def test_teto_de_reprovacoes_semanticas_encerra(self):
+        assert route_after_validator(
+            {"is_valid": False, "semantic_rejections": 2, "validation_result": {"is_valid": False, "issues": ["x"]}}
         ) == "test_generator"
+
+    def test_reprovacoes_antigas_nao_encerram_suite_vermelha(self):
+        """O teto vale para a reprovação desta volta, não para as anteriores."""
+        assert route_after_validator(
+            {"is_valid": False, "semantic_rejections": 5, "validation_result": None}
+        ) == "developer"
 
     def test_estouro_de_orcamento_encerra_antes_de_tudo(self):
         """Sem esta guarda, um agente que nunca fica verde cicla queimando tokens."""

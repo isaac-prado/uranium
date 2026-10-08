@@ -23,7 +23,7 @@ from src import config
 from src.agents.validator import semantic_review_enabled
 from src.arms.driver import DriverPolicy
 from src.budget import RunBudget
-from src.config import LLMConfig, load_llm_config
+from src.config import LLMConfig, is_provider_error, load_llm_config, root_provider_error
 from src.runtime import MAX_TOOL_CALLS_POR_TURNO, RunContext
 from src.seeds import get_seed_repo
 from src.structured_llm import get_output_method
@@ -39,7 +39,7 @@ from src.tools.base import (
 from src.tools.exec import DEFAULT_SNIPPET_TIMEOUT_S
 from src.workspace import Workspace, WorkspaceSpec
 
-MANIFEST_VERSION = 2
+MANIFEST_VERSION = 3
 
 # Chaves do manifesto que PODEM diferir entre os braços. Qualquer outra
 # divergência é violação do desenho experimental. Note que `repetition` NÃO
@@ -101,7 +101,7 @@ def _orchestration_policy() -> dict[str, Any]:
     com valores diferentes produziam manifestos idênticos.
 
     Lidos das MESMAS fontes que o grafo usa em tempo de execução — nunca uma
-    cópia que possa divergir. `MAX_VALIDATION_ITERATIONS` e
+    cópia que possa divergir. `MAX_SEMANTIC_REJECTIONS` e
     `MAX_CLARIFICATION_ITERATIONS` são resolvidas uma vez, no import de
     src/config.py; por isso são lidas aqui como atributo do módulo
     (`config.X`, não `from src.config import X`) — é o mesmo acesso que
@@ -110,12 +110,38 @@ def _orchestration_policy() -> dict[str, Any]:
     cada chamada, então não têm esse problema.
     """
     return {
-        "max_validation_iterations": config.MAX_VALIDATION_ITERATIONS,
+        # Teto de reprovações da revisão semântica sobre código verde — o
+        # único laço do orchestration com teto próprio. Suíte vermelha e diff
+        # vazio voltam ao developer até o orçamento acabar, como no driver do
+        # single-agent (BACKLOG 7.2, D6; decidido em 28/09/2026).
+        "max_semantic_rejections": config.MAX_SEMANTIC_REJECTIONS,
         "max_clarification_iterations": config.MAX_CLARIFICATION_ITERATIONS,
         "semantic_review": semantic_review_enabled(),
         "structured_output_method": get_output_method(),
         "structured_output_retries": structured_output_retries(),
     }
+
+
+# Prefixos do stop_reason de run perdido, que não é fracasso do braço: a
+# coleta o reexecuta e a análise o tira do denominador.
+#   infra_error  — o provedor não atendeu (429, chave revogada, 5xx, timeout);
+#   interrupted  — o run foi parado de fora (Ctrl+C), sem chegar ao fim.
+INFRA_ERROR_PREFIX = "infra_error"
+INTERRUPTED_PREFIX = "interrupted"
+LOST_PREFIXES = (INFRA_ERROR_PREFIX, INTERRUPTED_PREFIX)
+
+
+def stop_reason_for(exc: BaseException) -> str:
+    """Motivo de parada de um run que morreu com exceção."""
+    if not isinstance(exc, Exception):  # KeyboardInterrupt, SystemExit
+        prefixo = INTERRUPTED_PREFIX
+    elif is_provider_error(exc):
+        prefixo = INFRA_ERROR_PREFIX
+    else:
+        prefixo = "error"
+    # `ProviderError` só embrulha; o que interessa é o que o provedor disse.
+    # Sem isso, 429 e chave revogada saíam iguais no orchestration.
+    return f"{prefixo}: {type(root_provider_error(exc)).__name__}"
 
 
 def seed_for_repetition(base_seed: int, repetition: int) -> int:
@@ -169,6 +195,9 @@ class RunSpec:
             "base_commit": self.base_commit,
             "started_at": started_at,
             "llm": self.llm.as_manifest(),
+            # Os parâmetros que só afetam o orchestration (tetos dos laços,
+            # revisão semântica, saída estruturada) vão em `orchestration_policy`,
+            # abaixo — nulo no single-agent, espelho de `driver_policy`.
             "budget": self.budget.as_manifest(),
             "driver_policy": self.driver_policy.as_manifest() if self.driver_policy else None,
             "orchestration_policy": self.orchestration_policy,
@@ -272,7 +301,7 @@ def run_arm(spec: RunSpec, *, llm_factory: Any = None) -> dict[str, Any]:
             "context": "", "goal": spec.statement, "phases": [],
             "acceptance_criteria": [], "clarifications_needed": [], "is_ready": True,
         },
-        "iteration_count": 0, "validation_iteration_count": 0,
+        "iteration_count": 0, "validation_iteration_count": 0, "semantic_rejections": 0,
         "clarification_responses": [], "turn_count": 0,
     }
 
@@ -293,9 +322,12 @@ def run_arm(spec: RunSpec, *, llm_factory: Any = None) -> dict[str, Any]:
         stop_reason = final.get("stop_reason") or (
             "tests_pass" if final.get("is_valid") else "concluiu"
         )
-    except Exception as exc:
+    except BaseException as exc:
+        # BaseException, não Exception: o Ctrl+C também passa pelo `finally` e
+        # grava resumo. Com o "error" inicial, o run interrompido virava
+        # fracasso válido do braço ao retomar a coleta.
         telemetry.emit_error(exc)
-        stop_reason = f"error: {type(exc).__name__}"
+        stop_reason = stop_reason_for(exc)
         raise
     finally:
         telemetry.run_end(stop_reason=stop_reason)
@@ -308,6 +340,7 @@ def run_arm(spec: RunSpec, *, llm_factory: Any = None) -> dict[str, Any]:
             "llm_seed": spec.llm.seed,
             "topology": manifesto["topology"],
             "stop_reason": stop_reason,
+            "lost": stop_reason.startswith(LOST_PREFIXES),
             "is_valid": bool(final.get("is_valid")),
             "changed_files": final.get("changed_files") or [],
             "diff_stat": final.get("diff_stat") or {},

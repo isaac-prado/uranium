@@ -139,6 +139,41 @@ class TestPilotoPontaAPonta:
             assert r.resolved is None  # não avaliado: não houve run
 
 
+    @pytest.mark.parametrize("status", [401, 429])
+    def test_falha_de_provedor_vira_infra_error_nos_dois_bracos(self, tmp_path, monkeypatch,
+                                                                status):
+        """
+        O mesmo 429 tem de sair igual dos dois braços.
+
+        Sem a fixture de saída estruturada: o orchestration passa pelo
+        `invoke_structured_raw` real, que é onde o 429 virava erro de schema.
+        """
+        from tests.fakes import erro_http
+
+        monkeypatch.setenv("SEMANTIC_REVIEW", "false")
+
+        class _ProvedorFora:
+            def bind_tools(self, tools, **kwargs):
+                return self
+
+            def with_structured_output(self, schema, **kwargs):
+                return self
+
+            def invoke(self, mensagens, **kwargs):
+                raise erro_http(status)
+
+        resultados = run_pilot(
+            task_dir=TAREFA, repetitions=1, out_root=tmp_path / "runs",
+            llm=LLM, budget=ORCAMENTO, llm_factory=lambda *a, **k: _ProvedorFora(),
+        )
+
+        assert [r.arm for r in resultados] == ["single-agent", "orchestration"]
+        for r in resultados:
+            assert r.stop_reason.startswith("infra_error:"), r.stop_reason
+            resumo = json.loads((r.out_dir / "summary.json").read_text(encoding="utf-8"))
+            assert resumo["lost"] is True
+
+
 @mirror_available
 class TestReexecucaoDeRunPerdido:
     """
@@ -147,13 +182,15 @@ class TestReexecucaoDeRunPerdido:
     """
 
     class _Explode:
-        """Levanta erro de provedor em toda chamada — simula o 429/timeout real."""
+        """Levanta erro de provedor em toda chamada — o 429 real do piloto de 28/09."""
 
         def bind_tools(self, tools, **kwargs):
             return self
 
         def invoke(self, mensagens, **kwargs):
-            raise RuntimeError("provedor caiu")
+            from tests.fakes import erro_http
+
+            raise erro_http(429)
 
     def _cria_run_perdido(self, tmp_path):
         """Roda de verdade um attempt=1 que morre por erro de provedor."""
@@ -169,7 +206,7 @@ class TestReexecucaoDeRunPerdido:
         )
         try:
             run_arm(spec, llm_factory=lambda *a, **k: self._Explode())
-        except RuntimeError:
+        except Exception:
             pass  # é exatamente o que se espera de um run perdido
         return tmp_path / "runs", spec
 
@@ -181,7 +218,7 @@ class TestReexecucaoDeRunPerdido:
         assert len(perdidos) == 1
         p = perdidos[0]
         assert (p.task_id, p.arm, p.repetition, p.attempt) == (spec.task_id, "single-agent", 1, 1)
-        assert p.motivo.startswith("error:")
+        assert p.motivo.startswith("infra_error:")
         assert p.run_dir == spec.out_dir
         assert p.seed == spec.llm.seed
 
@@ -197,7 +234,7 @@ class TestReexecucaoDeRunPerdido:
         novo = resultados[0]
         assert novo.attempt == 2
         assert novo.run_id != spec.run_id
-        assert not novo.stop_reason.startswith("error:")
+        assert not novo.stop_reason.startswith(("error:", "infra_error:", "interrupted:"))
 
         manifesto_novo = json.loads((novo.out_dir / "manifest.json").read_text())
         assert manifesto_novo["repetition"] == spec.repetition          # mesma repetição
@@ -264,7 +301,7 @@ class TestCorteDeOrcamentoNaoEhPerda:
     """Corte por orçamento é resultado do experimento — nunca reexecutado."""
 
     def _run_dir(self, tmp_path, *, stop_reason, com_run_end=True, com_summary=True,
-                 attempt=1) -> Path:
+                 attempt=1, lost=False) -> Path:
         run_dir = tmp_path / "runs" / "single-agent" / "t" / "rep01" / f"a{attempt}"
         run_dir.mkdir(parents=True)
         (run_dir / "manifest.json").write_text(json.dumps({
@@ -273,7 +310,7 @@ class TestCorteDeOrcamentoNaoEhPerda:
         }), encoding="utf-8")
         if com_summary:
             (run_dir / "summary.json").write_text(
-                json.dumps({"stop_reason": stop_reason}), encoding="utf-8"
+                json.dumps({"stop_reason": stop_reason, "lost": lost}), encoding="utf-8"
             )
         if com_run_end:
             (run_dir / "events.jsonl").write_text(
@@ -284,6 +321,18 @@ class TestCorteDeOrcamentoNaoEhPerda:
     def test_run_cortado_por_orcamento_nao_e_perdido(self, tmp_path):
         self._run_dir(tmp_path, stop_reason="budget: max_turns")
         assert detectar_perdidos(tmp_path / "runs") == []
+
+    def test_erro_do_harness_nao_e_perdido(self, tmp_path):
+        """
+        `error:` sem ser de provedor é bug nosso (espelho ausente, config
+        errada): reexecutar repetiria o erro. Não é perda; é conserto.
+        """
+        self._run_dir(tmp_path, stop_reason="error: FileNotFoundError")
+        assert detectar_perdidos(tmp_path / "runs") == []
+
+    def test_interrupcao_e_perdida(self, tmp_path):
+        self._run_dir(tmp_path, stop_reason="interrupted: KeyboardInterrupt", lost=True)
+        assert len(detectar_perdidos(tmp_path / "runs")) == 1
 
     def test_run_concluido_normalmente_nao_e_perdido(self, tmp_path):
         self._run_dir(tmp_path, stop_reason="tests_pass")
@@ -311,7 +360,8 @@ class TestCorteDeOrcamentoNaoEhPerda:
         assert perdidos[0].run_dir == run_dir
 
     def test_teto_de_tentativas_declara_o_par_perdido_de_vez(self, tmp_path):
-        run_dir = self._run_dir(tmp_path, stop_reason="error: RuntimeError", attempt=3)
+        run_dir = self._run_dir(tmp_path, stop_reason="infra_error: RateLimitError",
+                                attempt=3, lost=True)
 
         resultados = reexecutar_perdidos(tmp_path / "runs", max_tentativas=3, llm=LLM, budget=ORCAMENTO)
 

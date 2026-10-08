@@ -102,6 +102,30 @@ uv run python scripts/run_arm.py --arm single-agent --task tomlkit-0001 \
     --statement-file tasks/tomlkit-0001/statement.md
 ```
 
+### Coleta definitiva e análise
+
+```bash
+# todas as tarefas de tasks/ × 2 braços × 3 repetições; retomável
+uv run python scripts/run_collection.py --repetitions 3 --workers 2
+uv run python scripts/run_collection.py --dry-run      # só mostra o estado
+
+# teste de sinal e Wilcoxon pareados por tarefa, exatos
+uv run python scripts/analyze_collection.py --out runs/collection
+
+# avaliar um run avulso
+uv run python -m harness.evaluate --run-dir <run_dir> --task tasks/tomlkit-0001
+```
+
+A coleta grava em `runs/collection/<tarefa>/<braço>/repNN/attemptNN/` e lê
+o próprio estado do disco: interromper e rodar de novo executa só o que
+falta. Run perdido por infraestrutura (429, chave revogada, 5xx, timeout)
+termina com `stop_reason: infra_error: ...` (Ctrl+C: `interrupted: ...`), fica
+gravado como evidência e é reexecutado até `--max-attempts` por execução.
+Célula que esgota as tentativas sai do denominador junto com o par dela, e é
+tentada de novo na próxima execução. Chave revogada ou crédito esgotado (401,
+402) param a coleta na hora; `--max-consecutive-lost` células perdidas em
+sequência também.
+
 Cada run grava em `runs/<arm>/<task>/<run_id>/`:
 
 | Arquivo | Conteúdo |
@@ -155,11 +179,13 @@ scripts/
 ├── fitness_test.py       # Teste de aptidão de modelo (tool calling, pino, determinismo)
 ├── run_arm.py            # CLI do estudo: executa um braço sobre uma tarefa
 ├── run_pilot.py          # Piloto: roda os dois braços na mesma tarefa e compara
+├── run_collection.py     # Coleta definitiva: tarefas × braços × repetições, retomável
+├── analyze_collection.py # Estado da coleta: pares perdidos e censura por braço
 ├── mine_tasks.py         # Minera candidatos a tarefa no histórico do repo-semente
 ├── emit_task.py          # Gera o diretório de uma tarefa a partir de um candidato minerado
 ├── validate_task.py      # Portão de validação de uma tarefa
 ├── context_accounting.py # Reconstrói a composição do prompt a partir de events.jsonl
-└── analyze_results.py    # Análise pareada dos result.json (as métricas do estudo)
+└── analyze_results.py    # Análise pareada dos result.json (as sete métricas do estudo)
 tests/                    # Testes (unitários + integração sobre workspace real)
 ```
 
@@ -184,7 +210,7 @@ reative no meio de uma coleta.
 ## Desenvolvimento
 
 ```bash
-uv sync --extra dev
+uv sync --extra dev --extra harness
 uv run pytest tests/ -v
 ```
 
