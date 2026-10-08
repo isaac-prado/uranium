@@ -1,0 +1,16 @@
+=== Alibaba 19:51:17
+  1. tool calling      5/5 chamaram search_code
+     argumentos exatos 5/5
+  2. provedor servido  {'Alibaba': 5}
+  3. determinismo      1 assinatura(s) distinta(s) em 5
+     custo total       US$ 0.002881  (2295 tokens)
+  determinismo         OK
+  VEREDITO: APTO para os dois braços
+=== Google 19:51:26
+  1. tool calling      5/5 chamaram search_code
+     argumentos exatos 5/5
+  2. provedor servido  {'Google': 5}
+  3. determinismo      1 assinatura(s) distinta(s) em 5
+     custo total       US$ 0.000779  (2320 tokens)
+  determinismo         OK
+  VEREDITO: APTO para os dois braços

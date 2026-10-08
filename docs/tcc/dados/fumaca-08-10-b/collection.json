@@ -1,0 +1,26 @@
+[
+  {
+    "task_id": "tomlkit-0004",
+    "arm": "single-agent",
+    "repetition": 1,
+    "status": "lost",
+    "attempts": 3,
+    "lost_attempts": 3,
+    "run_dir": null,
+    "stop_reason": null,
+    "resolved": null,
+    "evaluation_error": null
+  },
+  {
+    "task_id": "tomlkit-0004",
+    "arm": "orchestration",
+    "repetition": 1,
+    "status": "lost",
+    "attempts": 3,
+    "lost_attempts": 3,
+    "run_dir": null,
+    "stop_reason": null,
+    "resolved": null,
+    "evaluation_error": null
+  }
+]

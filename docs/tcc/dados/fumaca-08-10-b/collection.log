@@ -1,0 +1,10 @@
+tarefas   1  ×  2 braços  ×  1 repetição(ões)  =  2 células
+estado    0 concluídas, 2 pendentes  →  runs/fumaca-08-10-b
+modelo    qwen/qwen3-coder via DeepInfra
+orçamento {'max_tokens': 2500000, 'max_wall_seconds': 1800, 'max_turns': 80}
+workers   1   tentativas por célula 3
+
+  lost    tomlkit-0004         single-agent   rep01  -               (3 perdida(s))
+  lost    tomlkit-0004         orchestration  rep01  -               (3 perdida(s))
+
+  0 concluídas, 2 perdidas  →  runs/fumaca-08-10-b/collection.json
