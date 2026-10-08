@@ -37,7 +37,7 @@ Fontes: [04-cronograma.md](04-cronograma.md), [07-execucao.md](07-execucao.md), 
 
 **Onde entra.** Método › Materiais: tabela das 12 tarefas com repositório, commit, faixa, arquivos, linhas; critério das faixas ([07-e3-1-mineracao.md](07-e3-1-mineracao.md), seção 1). Se (c): parágrafo de limitação.
 
-**Decisão:** ______ (data: ______)
+**Decisão (08/10/2026):** (a) ampliar a verificação nos cinco repositórios atuais, em segundo plano, com teto de um dia de máquina; (b) e (c) só se (a) não fechar 4 médias e 4 grandes.
 
 ### Decisão 2. Mudança de comportamento e exclusão à la SWE-bench (E3.3)
 
@@ -72,7 +72,7 @@ Fontes: [04-cronograma.md](04-cronograma.md), [07-execucao.md](07-execucao.md), 
 
 **Onde entra.** Método › Materiais (validação das tarefas, os quatro portões); Apêndice (saída de `validate_task.py` por tarefa).
 
-**Decisão:** ______ (data: ______)
+**Decisão (08/10/2026):** (a) duas referências em todas as 12 tarefas, como o portão 3 exige.
 
 ---
 
@@ -166,7 +166,7 @@ As decisões 4 a 6 **já foram tomadas pelo autor em 28/09/2026** (commits `f4c0
 
 **Onde entra.** Método › Procedimento (modelo, provedor, quantização, parâmetros de amostragem, timeout, retentativas, com a data de consulta); Ameaças à validade (provedor como parte do tratamento).
 
-**Decisão:** ______ (data: ______)
+**Decisão (08/10/2026):** rodar `scripts/fitness_test.py` completo no DeepInfra e no Novita no mesmo dia e escolher pelo laudo (menos 429 nas 5 sondagens); `LLM_REQUEST_TIMEOUT=90`. A execução das sondagens é paga e aguarda a ordem explícita do autor.
 
 ### Decisão 12. Tetos do run (E4 / G4)
 
@@ -296,9 +296,9 @@ Hoje conta como "sem corte" pela definição literal, e o JSON reporta `sem_stop
 
 | # | Decisão tomada | Data | Onde foi documentada |
 |---|---|---|---|
-| 1 | | | |
+| 1 | ampliar mineração nos 5 repositórios (a); (b)/(c) só se (a) falhar | 08/10/2026 | 09, Decisão 1; 07-e3-1 (resultado da mineração ampliada) |
 | 2 | | | |
-| 3 | | | |
+| 3 | duas referências em todas as 12 | 08/10/2026 | 09, Decisão 3 |
 | 4 | | | |
 | 5 | | | |
 | 6 | | | |
@@ -306,7 +306,7 @@ Hoje conta como "sem corte" pela definição literal, e o JSON reporta `sem_stop
 | 8 | | | |
 | 9 | | | |
 | 10 | | | |
-| 11 | | | |
+| 11 | DeepInfra × Novita pelo laudo do fitness_test; timeout 90 s | 08/10/2026 | 09, Decisão 11; manifesto da fumaça |
 | 12 | | | |
 | 13 | | | |
 | 14 | | | |
