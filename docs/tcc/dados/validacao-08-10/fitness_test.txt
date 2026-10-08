@@ -21,3 +21,26 @@ Sondando qwen/qwen3-coder via DeepInfra — 5 chamadas (teto 512 tokens de saíd
 
 =================== Novita  2026-10-08 10:08:31
 Terminated                 timeout 600 .venv/bin/python scripts/fitness_test.py --model qwen/qwen3-coder --provider $prov -n 5 2>&1 | tail -30
+=================== Novita (2ª tentativa, timeout 90s por chamada)  2026-10-08 10:22:25
+Sondando qwen/qwen3-coder via Novita — 3 chamadas (teto 512 tokens de saída)...
+
+────────────────────────────────────────────────────────────────────
+  modelo   qwen/qwen3-coder
+  provedor Novita (pinado, allow_fallbacks=False)
+  seed     20260820   temperature 0.0
+────────────────────────────────────────────────────────────────────
+  1. tool calling      2/3 chamaram search_code
+     argumentos exatos 2/3
+  2. provedor servido  {'Novita': 2, '(desconhecido)': 1}
+  3. determinismo      1 assinatura(s) distinta(s) em 3
+     custo total       US$ 0.000426  (918 tokens)
+     erro: APITimeoutError: Request timed out.
+────────────────────────────────────────────────────────────────────
+  pino de provedor     FALHOU — provedor variou ou não identificado
+  conformidade         FALHOU
+  determinismo         OK
+
+  VEREDITO: NÃO APTO para os dois braços
+────────────────────────────────────────────────────────────────────
+
+exit=1

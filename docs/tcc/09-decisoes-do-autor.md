@@ -166,7 +166,7 @@ As decisões 4 a 6 **já foram tomadas pelo autor em 28/09/2026** (commits `f4c0
 
 **Onde entra.** Método › Procedimento (modelo, provedor, quantização, parâmetros de amostragem, timeout, retentativas, com a data de consulta); Ameaças à validade (provedor como parte do tratamento).
 
-**Decisão (08/10/2026):** rodar `scripts/fitness_test.py` completo no DeepInfra e no Novita no mesmo dia e escolher pelo laudo (menos 429 nas 5 sondagens); `LLM_REQUEST_TIMEOUT=90`. A execução das sondagens é paga e aguarda a ordem explícita do autor.
+**Decisão (08/10/2026):** rodar `scripts/fitness_test.py` completo no DeepInfra e no Novita no mesmo dia e escolher pelo laudo (menos 429 nas 5 sondagens); `LLM_REQUEST_TIMEOUT=90`. Sondagens rodadas em 08/10/2026 ([dados/validacao-08-10/fitness_test.txt](dados/validacao-08-10/fitness_test.txt)): **DeepInfra APTO** (5/5 chamadas corretas, provedor pinado nas 5, 1 assinatura em 5, US$ 0,0005); **Novita NÃO APTO** (5 sondagens sem resposta em 10 min com timeout de 300 s; na repetição com timeout de 90 s, 2/3 corretas e 1 `APITimeoutError`). Resultado: **DeepInfra**, timeout 90 s. Reserva: repetir o laudo do Novita no dia da fumaça; se continuar reprovando, a reserva passa a ser `qwen3-coder-next` na Parasail (08-escolha-modelo.md), com nova calibração.
 
 ### Decisão 12. Tetos do run (E4 / G4)
 
@@ -306,7 +306,7 @@ Hoje conta como "sem corte" pela definição literal, e o JSON reporta `sem_stop
 | 8 | | | |
 | 9 | | | |
 | 10 | | | |
-| 11 | DeepInfra × Novita pelo laudo do fitness_test; timeout 90 s | 08/10/2026 | 09, Decisão 11; manifesto da fumaça |
+| 11 | DeepInfra (apto 5/5); Novita reprovou por timeout; timeout 90 s | 08/10/2026 | 09, Decisão 11; dados/validacao-08-10/fitness_test.txt; manifesto da fumaça |
 | 12 | | | |
 | 13 | | | |
 | 14 | | | |
