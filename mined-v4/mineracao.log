@@ -1,0 +1,406 @@
+
+attrs: 1830 commits no histórico, 265 candidatos após o pré-filtro
+  pré-filtro grande       7 candidatos
+  pré-filtro media       11 candidatos
+  pré-filtro pequena    118 candidatos
+  pré-filtro fora        97 candidatos (descartados, não verificados)
+  pré-filtro protegido   32 candidatos (referência toca arquivo protegido, não é teste — rejeitados sem suíte)
+  [grande     1/7] recusa  4b5b295b  22.4s  Make on_setattr hooks accept generators (#1592)
+                vermelho sem node id: erro de coleta
+  [grande     2/7] recusa  112dd1d4  18.5s  Expose effective class construction properties (#1454)
+                vermelho sem node id: erro de coleta
+  [grande     3/7] recusa  f5683b85  14.2s  converters: allow wrapping and passing self and fields 
+                vermelho sem node id: erro de coleta
+  [grande     4/7] recusa  656ce11b   0.5s  Deduplicate annotation extraction (#912)
+                suíte não executa na base (exit=4, 0 erro(s) de coleta, 0.4s) — ver stdout_tail
+  [grande     5/7] recusa  0eae613c   0.4s  Add hooks for field transformation and for asdict seria
+                suíte não executa na base (exit=4, 0 erro(s) de coleta, 0.3s) — ver stdout_tail
+  [grande     6/7] recusa  88aa1c89   0.5s  Add auto_attribs (#277)
+                suíte não executa na base (exit=4, 0 erro(s) de coleta, 0.3s) — ver stdout_tail
+  [grande     7/7] recusa  1b419e30   0.4s  Add attr.astuple
+                suíte não executa na base (exit=4, 0 erro(s) de coleta, 0.3s) — ver stdout_tail
+  [media      1/11] recusa  6851ab59  20.5s  Defer imports on the cold import path (#1600)
+                teste passa sem a correção — não discrimina
+  [media      2/11] ACEITO  bde3f58c  30.4s  Deprecate hash for unsafe_hash (#1323)
+  [media      3/11] recusa  f590f44c  12.0s  docs: style improvements
+                vermelho sem node id: erro de coleta
+  [media      4/11] ACEITO  4fcd15bd  35.6s  First pass over generics (#1079)
+  [media      5/11] recusa  c02d993f  19.9s  Fix object index in API docs by splitting API docs in t
+                teste passa sem a correção — não discrimina
+  [media      6/11] recusa  ee3ecb11  11.0s  Add Attribute.alias (#950)
+                commit-base já vermelho (2 falhas)
+  [media      7/11] recusa  61516832   0.4s  Eliminate most str.format() and %-formatting (#995)
+                suíte não executa na base (exit=4, 0 erro(s) de coleta, 0.4s) — ver stdout_tail
+  [media      8/11] recusa  e18b5f34   0.4s  Remove various obsolete _compat helpers (#941)
+                suíte não executa na base (exit=4, 0 erro(s) de coleta, 0.4s) — ver stdout_tail
+  [media      9/11] recusa  03c10ad0   0.4s  Use new serious biz names in internal code (#257)
+                suíte não executa na base (exit=4, 0 erro(s) de coleta, 0.3s) — ver stdout_tail
+  [media     10/11] recusa  cfa6d2e9   0.2s  Implement immutability (#60)
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.2s) — ver stdout_tail
+  [media     11/11] recusa  07366e18   0.2s  Rename cl to cls
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.2s) — ver stdout_tail
+  [pequena    1/100] recusa  5aa76a44  13.3s  Add `ne` validator (#1571)
+                vermelho sem node id: erro de coleta
+  [pequena    2/100] ACEITO  0f758fe5  33.0s  Expose converter as a decorator (#1541)
+  [pequena    3/100] ACEITO  48b8611c  35.3s  Add instance support to attrs.fields() (#1529)
+  [pequena    4/100] recusa  1315e42f  17.4s  Improve performance of attr.astuple (#1469)
+                teste passa sem a correção — não discrimina
+  [pequena    5/100] recusa  7369ad9f  16.1s  Improve performance of asdict in the common case (#1463
+                teste passa sem a correção — não discrimina
+  [pequena    6/100] ACEITO  5bab46de  22.4s  Allow deep_iterable and deep_mapping take lists/tuples 
+  [pequena    7/100] recusa  000c5634  15.3s  Fix slotted reference cycles on 3.14 (#1446)
+                teste passa sem a correção — não discrimina
+  [pequena    8/100] ACEITO  cbaef3f8  23.0s  Make validators optional in deep_mapping (#1448)
+  [pequena    9/100] ACEITO  937b1e23  22.3s  Fixes issue #1427 (#1428)
+  [pequena   10/100] recusa  d18763ca  16.9s  Introduce NothingType (#1358)
+                teste passa sem a correção — não discrimina
+  [pequena   11/100] ACEITO  1e07f468  31.0s  Make attrs.converters.pipe only return a Converter inst
+  pequena: 6 aceito(s) — parando de verificar esta faixa
+  -> mined-v4/attrs.json
+
+jinja: 2175 commits no histórico, 76 candidatos após o pré-filtro
+  pré-filtro grande       4 candidatos
+  pré-filtro media        1 candidatos
+  pré-filtro pequena     41 candidatos
+  pré-filtro fora        23 candidatos (descartados, não verificados)
+  pré-filtro protegido    7 candidatos (referência toca arquivo protegido, não é teste — rejeitados sem suíte)
+  [grande     1/4] recusa  788d8bc1   0.3s  unify/rename filter and function decorators
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.3s) — ver stdout_tail
+  [grande     2/4] recusa  6c733602   0.2s  add 'is filter' and 'is test' tests
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.2s) — ver stdout_tail
+  [grande     3/4] recusa  be83e7e0   0.3s  update urlize docs, clean up code
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.2s) — ver stdout_tail
+  [grande     4/4] recusa  d504e1d1   0.2s  Improve and extend urlize
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.2s) — ver stdout_tail
+  [media      1/1] ACEITO  1655128c   7.0s  test on trio, fix all missing aclose related warnings (
+  [pequena    1/41] ACEITO  065334d1   6.5s  attr filter uses env.getattr
+  [pequena    2/41] ACEITO  66587ce9   6.7s  Fix bug where set would sometimes fail within if
+  [pequena    3/41] recusa  aaa083d2   4.5s  separate messages, add test
+                teste passa sem a correção — não discrimina
+  [pequena    4/41] ACEITO  7232b824   6.7s  Fix pickle/copy support for the `missing` singleton
+  [pequena    5/41] ACEITO  d4fb0e8c   6.8s  preserve `__slots__` on Undefined classes
+  [pequena    6/41] ACEITO  76af7110   7.0s  make unique filter async-aware
+  [pequena    7/41] recusa  679af7f8   4.7s  fix test_package_zip_list on 3.13
+                teste passa sem a correção — não discrimina
+  [pequena    8/41] ACEITO  d6550307   6.3s  disallow invalid characters in keys to xmlattr filter
+  pequena: 6 aceito(s) — parando de verificar esta faixa
+  -> mined-v4/jinja.json
+
+marshmallow: 3031 commits no histórico, 157 candidatos após o pré-filtro
+  pré-filtro grande       0 candidatos
+  pré-filtro media       11 candidatos
+  pré-filtro pequena     70 candidatos
+  pré-filtro fora        58 candidatos (descartados, não verificados)
+  pré-filtro protegido   18 candidatos (referência toca arquivo protegido, não é teste — rejeitados sem suíte)
+  [media      1/11] recusa  9cddff67   4.1s  load accepts Sequence rather than Iterable (rejects gen
+                teste passa sem a correção — não discrimina
+  [media      2/11] recusa  9f751e1c   2.2s  Fix handling data_key in ValidationErrors raised in sch
+                commit-base já vermelho (1 falhas)
+  [media      3/11] recusa  50b2849c   3.8s  Validate unknown with type checking rather than at runt
+                teste passa sem a correção — não discrimina
+  [media      4/11] ACEITO  3273a5be   5.8s  Remove FieldABC and the base module (#2722)
+  [media      5/11] recusa  f4ca03fd   2.3s  Replace type comments with inline typing (#2718)
+                commit-base já vermelho (1 falhas)
+  [media      6/11] recusa  a454a88e   2.1s  Make current_context a Context class attribute
+                commit-base já vermelho (1 falhas)
+  [media      7/11] recusa  7bb901ff   2.0s  Expose context as field/schema property
+                commit-base já vermelho (1 falhas)
+  [media      8/11] recusa  b393c1fb   2.2s  Remove remaining deprecated API (#2703)
+                commit-base já vermelho (1 falhas)
+  [media      9/11] recusa  8c34b4b2   0.2s  Add validate.And (#1777)
+                suíte não executa na base (exit=4, 0 erro(s) de coleta, 0.2s) — ver stdout_tail
+  [media     10/11] recusa  c30d3eb2   0.2s  Add format option for fields.time #686 (#1682)
+                suíte não executa na base (exit=4, 0 erro(s) de coleta, 0.2s) — ver stdout_tail
+  [media     11/11] recusa  1b8c5022   0.2s  Upgrade Python syntax with pyupgrade
+                suíte não executa na base (exit=4, 0 erro(s) de coleta, 0.2s) — ver stdout_tail
+  [pequena    1/70] recusa  fcb0f9ab   4.0s  Tighten the get_value typehint to match internal use
+                teste passa sem a correção — não discrimina
+  [pequena    2/70] ACEITO  f07eadc8   5.7s  Fix validate.Email to accept IDNs (#2937)
+  [pequena    3/70] ACEITO  c1e727e1   5.9s  Add support for IDNs to validate.URL (#2928)
+  [pequena    4/70] recusa  3bc191ab   3.8s  Fix Field.error_messages type to allow dict and list va
+                teste passa sem a correção — não discrimina
+  [pequena    5/70] ACEITO  65374df0   5.6s  Fix OneOf.options() emitting phantom entries when label
+  [pequena    6/70] ACEITO  070dde08   6.1s  Fix Constant field with required=True raising ValueErro
+  [pequena    7/70] ACEITO  fea54285   5.4s  Make Number and Mapping abstract base classes (#2925)
+  [pequena    8/70] ACEITO  2bf3ae6a   5.4s  feat: improve consistency of many arg with nested schem
+  pequena: 6 aceito(s) — parando de verificar esta faixa
+  -> mined-v4/marshmallow.json
+
+peewee: 5169 commits no histórico, 902 candidatos após o pré-filtro
+  pré-filtro grande       4 candidatos
+  pré-filtro media       12 candidatos
+  pré-filtro pequena    454 candidatos
+  pré-filtro fora       404 candidatos (descartados, não verificados)
+  pré-filtro protegido   28 candidatos (referência toca arquivo protegido, não é teste — rejeitados sem suíte)
+  [grande     1/4] recusa  2d732ac3   0.3s  Additional cleanups to pwasyncio & pydantic helper.
+                suíte não executa na base (exit=4, 0 erro(s) de coleta, 0.2s) — ver stdout_tail
+  [grande     2/4] recusa  827b69bf   0.2s  Pull in postgres-specific helpers for psycopg3.
+                suíte não executa na base (exit=4, 0 erro(s) de coleta, 0.1s) — ver stdout_tail
+  [grande     3/4] recusa  9793d862   0.2s  Add signals and pool.
+                suíte não executa na base (exit=4, 0 erro(s) de coleta, 0.1s) — ver stdout_tail
+  [grande     4/4] recusa  6d5d2a74   0.2s  Starting test refactor.
+                suíte não executa na base (exit=4, 0 erro(s) de coleta, 0.1s) — ver stdout_tail
+  [media      1/12] ACEITO  ab1266aa 224.8s  Add proper API for hooking query execution for observab
+  [media      2/12] ACEITO  08b28d14 188.1s  commit/rollback on a closed connection will raise rathe
+                atenção: f2p em 4 arquivos — provável lote de correções, não um problema
+  [media      3/12] recusa  8538afd1   0.3s  Refactor last insert ID, simplify.
+                suíte não executa na base (exit=4, 0 erro(s) de coleta, 0.2s) — ver stdout_tail
+  [media      4/12] recusa  f56cb40c   0.3s  Unify psycopg2 & psycopg3 handling in Postgresql db cla
+                suíte não executa na base (exit=4, 0 erro(s) de coleta, 0.2s) — ver stdout_tail
+  [media      5/12] recusa  6e5bb990   0.3s  Allow PostgresqlDatabase to work with psycopg3.
+                suíte não executa na base (exit=4, 0 erro(s) de coleta, 0.2s) — ver stdout_tail
+  [media      6/12] recusa  67834917   0.3s  Remove additional db-api-related workarounds and APIs.
+                suíte não executa na base (exit=4, 0 erro(s) de coleta, 0.2s) — ver stdout_tail
+  [media      7/12] recusa  69678447   0.3s  Run psycopg2 in autocommit and fully take over txn mana
+                suíte não executa na base (exit=4, 0 erro(s) de coleta, 0.2s) — ver stdout_tail
+  [media      8/12] recusa  192323a5   0.2s  Fixups, specific test for crdb view sql.
+                suíte não executa na base (exit=4, 0 erro(s) de coleta, 0.1s) — ver stdout_tail
+  [media      9/12] recusa  544ec94e   0.2s  More docs, cleanup the sqlite udf interfaces.
+                suíte não executa na base (exit=4, 0 erro(s) de coleta, 0.2s) — ver stdout_tail
+  [media     10/12] recusa  6fca6108   0.2s  Import re-organization and cleanup.
+                suíte não executa na base (exit=4, 0 erro(s) de coleta, 0.2s) — ver stdout_tail
+  [media     11/12] recusa  75a0528c   0.2s  Update code with replacements for proxy, refs #799
+                suíte não executa na base (exit=4, 0 erro(s) de coleta, 0.2s) — ver stdout_tail
+  [media     12/12] recusa  2619fcc1   0.2s  xx
+                suíte não executa na base (exit=4, 0 erro(s) de coleta, 0.2s) — ver stdout_tail
+  [pequena    1/100] ACEITO  b1faea2b 200.8s  Populate `choices` from enum values for enum fields.
+  [pequena    2/100] ACEITO  73d3c7e6 181.8s  Fix #3075, support enumfield in migrations.
+  [pequena    3/100] ACEITO  6275317a 148.3s  Add time w/offset handling for sqlite.
+  [pequena    4/100] recusa  5bc5387b 104.3s  Fix TDecimalField for cysqlite, clean up spurious test 
+                teste passa sem a correção — não discrimina
+  [pequena    5/100] ACEITO  57a28759 149.8s  Cleanups for introspection around tables w/no PK
+  [pequena    6/100] recusa  5c183e48 107.0s  Use current schema rather than fallback to public in re
+                teste passa sem a correção — não discrimina
+  [pequena    7/100] ACEITO  7a6ecba1 156.0s  SQLite begin/rollback/commit do not go through execute_
+  [pequena    8/100] ACEITO  cc4c1dc7 164.4s  Add `dispose()` for post-fork connection state resets.
+  pequena: 6 aceito(s) — parando de verificar esta faixa
+  -> mined-v4/peewee.json
+
+pygments: 6197 commits no histórico, 1099 candidatos após o pré-filtro
+  pré-filtro grande       3 candidatos
+  pré-filtro media       45 candidatos
+  pré-filtro pequena    391 candidatos
+  pré-filtro fora       660 candidatos (descartados, não verificados)
+  pré-filtro protegido    0 candidatos (referência toca arquivo protegido, não é teste — rejeitados sem suíte)
+  [grande     1/3] recusa  e5dc231a   1.3s  Add GDScript lexer (#1457)
+                suíte não executa na base (exit=2, 2 erro(s) de coleta, 0.7s) — ver stdout_tail
+  [grande     2/3] recusa  7b17f980   0.3s  Added lexer for VBScript.
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.1s) — ver stdout_tail
+  [grande     3/3] recusa  c420d18b   0.2s  [svn] Added using(state=x) and RST lexer by Tim Hatch.
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.1s) — ver stdout_tail
+  [media      1/45] ACEITO  1e5afcd8  48.8s  Include C++26 keywords and Java module keywords (#2955)
+  [media      2/45] recusa  78982b23   1.9s  Add Luau
+                suíte não executa na base (exit=2, 2 erro(s) de coleta, 0.7s) — ver stdout_tail
+  [media      3/45] recusa  a54ad087   2.0s  Visual Prolog programming language (#2480)
+                suíte não executa na base (exit=2, 2 erro(s) de coleta, 0.8s) — ver stdout_tail
+  [media      4/45] recusa  8b333b99   1.8s  Add support for lexer examples.
+                suíte não executa na base (exit=2, 2 erro(s) de coleta, 0.8s) — ver stdout_tail
+  [media      5/45] recusa  ef0abbae   1.7s  Add PostgreSQL Explain lexer (#2398)
+                suíte não executa na base (exit=2, 2 erro(s) de coleta, 0.8s) — ver stdout_tail
+  [media      6/45] recusa  478318b0   1.9s  Add support for PortugolLexer (#2300)
+                suíte não executa na base (exit=2, 2 erro(s) de coleta, 0.9s) — ver stdout_tail
+  [media      7/45] recusa  f4976545   1.7s  Add GAP console session mode (#2211)
+                suíte não executa na base (exit=2, 3 erro(s) de coleta, 0.8s) — ver stdout_tail
+  [media      8/45] recusa  a9641d73   1.4s  Fix comments within function declarations in C (#1891) 
+                suíte não executa na base (exit=2, 4 erro(s) de coleta, 0.5s) — ver stdout_tail
+  [media      9/45] recusa  907df2c2   1.4s  Whitespace token modernization - a* lexers - regarding 
+                suíte não executa na base (exit=2, 3 erro(s) de coleta, 0.5s) — ver stdout_tail
+  [media     10/45] recusa  b42c7239   1.2s  Modernize Whitespace token - regarding #1905 (#1911)
+                suíte não executa na base (exit=2, 3 erro(s) de coleta, 0.5s) — ver stdout_tail
+  [media     11/45] recusa  7f858930   1.3s  Support for OMG IDL (#1595)
+                suíte não executa na base (exit=2, 3 erro(s) de coleta, 0.5s) — ver stdout_tail
+  [media     12/45] recusa  728fd19e   1.0s  Fix Solarized line number colors (#1477)
+                suíte não executa na base (exit=2, 2 erro(s) de coleta, 0.7s) — ver stdout_tail
+  [media     13/45] recusa  50793de1   0.9s  various: style fixups
+                suíte não executa na base (exit=2, 2 erro(s) de coleta, 0.6s) — ver stdout_tail
+  [media     14/45] recusa  71835d83   0.9s  Add Zeek lexer based on the Bro lexer
+                suíte não executa na base (exit=2, 2 erro(s) de coleta, 0.6s) — ver stdout_tail
+  [media     15/45] recusa  bd306cf3   0.8s  Add E-mail and MIME lexer (#1246)
+                suíte não executa na base (exit=2, 2 erro(s) de coleta, 0.5s) — ver stdout_tail
+  [media     16/45] recusa  c7a23b18   0.7s  Fix ResourceWarning: unclosed file
+                suíte não executa na base (exit=2, 8 erro(s) de coleta, 0.3s) — ver stdout_tail
+  [media     17/45] recusa  be41fa7a   0.7s  Support the Tera Term macro language
+                suíte não executa na base (exit=2, 8 erro(s) de coleta, 0.3s) — ver stdout_tail
+  [media     18/45] recusa  6776823c   0.2s  Adds a NuSMV (2.6) lexer and example file.
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.0s) — ver stdout_tail
+  [media     19/45] recusa  4a494155   0.1s  Update pull request per comments by birkenfeld.
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.0s) — ver stdout_tail
+  [media     20/45] recusa  c48f13ee   0.2s  Add tokens for string affixes and heredoc delimiters. A
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.0s) — ver stdout_tail
+  [media     21/45] recusa  934748cd   0.2s  Adds a Clean (http://clean.cs.ru.nl/Clean) Lexer and ex
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.0s) — ver stdout_tail
+  [media     22/45] recusa  a56c26be   0.2s  Support Roboconf's DSL
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.0s) — ver stdout_tail
+  [media     23/45] recusa  23bcb7d2   0.2s  Add arduino lexer and style
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.1s) — ver stdout_tail
+  [media     24/45] recusa  d1042415   0.2s  Add a lexer for the Test Anything Protocol (TAP).
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.0s) — ver stdout_tail
+  [media     25/45] recusa  1273963e   0.2s  Add FishShellLexer class, example.fish and rebuild lexe
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.0s) — ver stdout_tail
+  [media     26/45] recusa  2f4d62bc   0.2s  Add lexer for Boogie
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.0s) — ver stdout_tail
+  [media     27/45] recusa  97ae7005   0.2s  Overhaul encoding handling in cmdline even more.
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.0s) — ver stdout_tail
+  [media     28/45] recusa  9a1feeb4   0.2s  Closes #980: fix DeprecationWarnings (mostly due to fil
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.0s) — ver stdout_tail
+  [media     29/45] recusa  55e8a18c   0.2s  Refactored formatter mapping to work like the lexer map
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.0s) — ver stdout_tail
+  [media     30/45] recusa  62990735   0.2s  tests: make sure lexer aliases are registered lowercase
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.0s) — ver stdout_tail
+  [media     31/45] recusa  57bc0407   0.2s  Added Pike Programming Language
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.0s) — ver stdout_tail
+  [media     32/45] recusa  02a45896   0.1s  Added lexers for CBM BASIC V2 (as found on the Commodor
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.0s) — ver stdout_tail
+  [media     33/45] recusa  97fd2fd8   0.1s  merging latest from trunk
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.0s) — ver stdout_tail
+  [media     34/45] recusa  b9f6b1c2   0.2s  merge with upstream
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.0s) — ver stdout_tail
+  [media     35/45] recusa  17b32587   0.2s  Added support for Tea. http://teatrove.org
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.0s) — ver stdout_tail
+  [media     36/45] recusa  9e454f8a   0.1s  Closes #734: support the Coq theorem prover.
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.0s) — ver stdout_tail
+  [media     37/45] recusa  deb1e4e0   0.1s  Allow Unicode identifiers in py3 lexer.
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.0s) — ver stdout_tail
+  [media     38/45] recusa  48801d16   0.1s  Add new Makefile lexer that should be able to handle BS
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.0s) — ver stdout_tail
+  [media     39/45] recusa  62a5938a   0.1s  Add 4 lexers by Stou Sandalski.
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.0s) — ver stdout_tail
+  [media     40/45] recusa  f42c1544   0.1s  [svn] Apply patches by Tim, add MiniD lexer from Jarret
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.0s) — ver stdout_tail
+  [media     41/45] recusa  634618c3   0.1s  [svn] Make the C# lexer unicode aware.
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.0s) — ver stdout_tail
+  [media     42/45] recusa  a0b2c4cc   0.1s  [svn] Add Haskell lexer by Adam Blinkinsop.
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.0s) — ver stdout_tail
+  [media     43/45] recusa  011ed189   0.1s  [svn] Shorten some testfiles, silence some pylint warni
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.0s) — ver stdout_tail
+  [media     44/45] recusa  f35449a7   0.1s  [svn] Add Groff lexer by Tim Hatch, find_error script, 
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.0s) — ver stdout_tail
+  [media     45/45] recusa  aced3cae   0.2s  [svn] ported the myghty lexer by zzzeek (correct amount
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.1s) — ver stdout_tail
+  [pequena    1/100] ACEITO  9c436b34  45.6s  Go lexer improvements (#3199)
+  [pequena    2/100] ACEITO  8f184919  46.3s  Speed up HtmlFormatter token escaping with quote=False
+  [pequena    3/100] ACEITO  c1376e05  47.1s  Lua lexer modifications (#3143)
+  [pequena    4/100] ACEITO  16b39780  49.7s  Fix wrong token offsets for embedded code blocks (#3133
+  [pequena    5/100] ACEITO  e5e4cf7b  47.0s  Update Boogie and Civl Verifier lexer (#3156)
+  [pequena    6/100] ACEITO  797c4c44  44.9s  Smithy: fix text blocks and add missing syntax (#3168)
+                atenção: f2p em 5 arquivos — provável lote de correções, não um problema
+  pequena: 6 aceito(s) — parando de verificar esta faixa
+  -> mined-v4/pygments.json
+
+sqlite-utils: 1196 commits no histórico, 430 candidatos após o pré-filtro
+  pré-filtro grande       2 candidatos
+  pré-filtro media        4 candidatos
+  pré-filtro pequena    236 candidatos
+  pré-filtro fora       170 candidatos (descartados, não verificados)
+  pré-filtro protegido   18 candidatos (referência toca arquivo protegido, não é teste — rejeitados sem suíte)
+  [grande     1/2] recusa  3cc27d69   8.8s  New migrations system, ported from sqlite-migrate (#754
+                vermelho sem node id: erro de coleta
+  [grande     2/2] recusa  ee11274f  13.6s  New spatialite helper methods, closes #79
+                teste passa sem a correção — não discrimina
+  [media      1/4] recusa  fcfccea8  10.6s  Support ANY column types for strict tables
+                vermelho sem node id: erro de coleta
+  [media      2/4] ACEITO  07b603e5  21.5s  Preserve duplicate column names in query results
+                atenção: f2p em 5 arquivos — provável lote de correções, não um problema
+  [media      3/4] ACEITO  8d74ffc9  20.0s  More type annotations (#697)
+  [media      4/4] recusa  fd5b09f6  13.6s  Database as a context manager, fixed many pytest warnin
+                teste passa sem a correção — não discrimina
+  [pequena    1/100] ACEITO  e4935e06  24.1s  transform: coerce empty strings to NULL when converting
+  [pequena    2/100] ACEITO  e6be6267  23.5s  Use quote_identifier() in indexes/xindexes PRAGMA state
+  [pequena    3/100] ACEITO  c5063f67  23.4s  Use quoted SQL identifiers in convert --dry-run, closes
+  [pequena    4/100] ACEITO  f726ea4a  23.3s  transform() now works for tables referenced by views (#
+  [pequena    5/100] ACEITO  f66ddcb2  22.9s  Transform now refuses to run inside a transaction if de
+  [pequena    6/100] ACEITO  b74b7270  23.3s  .transform(strict=) and sqlite-utils transform --strict
+  pequena: 6 aceito(s) — parando de verificar esta faixa
+  -> mined-v4/sqlite-utils.json
+
+tomlkit: 489 commits no histórico, 172 candidatos após o pré-filtro
+  pré-filtro grande       6 candidatos
+  pré-filtro media       18 candidatos
+  pré-filtro pequena     64 candidatos
+  pré-filtro fora        69 candidatos (descartados, não verificados)
+  pré-filtro protegido   15 candidatos (referência toca arquivo protegido, não é teste — rejeitados sem suíte)
+  [grande     1/6] recusa  deac74db   3.7s  Add unwrap method to recursive convert to plain old pyt
+                commit-base já vermelho (2 falhas)
+  [grande     2/6] ACEITO  0561e5de   9.6s  Support adding with dotted key
+  [grande     3/6] ACEITO  b29cdf0c   6.8s  Ensure dict compliance for containers
+  [grande     4/6] recusa  428a9b2c   0.8s  Do not rely on a Restore exception to control state beh
+                commit-base já vermelho (2 falhas)
+  [grande     5/6] ACEITO  eedcdb25   1.5s  Add support for dotted keys
+                atenção: f2p em 3 arquivos — provável lote de correções, não um problema
+  [grande     6/6] recusa  83f449eb   0.8s  Make the parser fail on invalid TOML content
+                vermelho sem node id: erro de coleta
+  [media      1/18] recusa  800c8295   8.1s  [pre-commit.ci] pre-commit autoupdate (#386)
+                teste passa sem a correção — não discrimina
+  [media      2/18] recusa  a3cb8a2b   4.4s  feat: allow users to register custom encoders (#296)
+                commit-base já vermelho (2 falhas)
+  [media      3/18] recusa  53219e93   4.6s  Fail if literal strings have invalid chars
+                vermelho sem node id: erro de coleta
+  [media      4/18] ACEITO  cbf6b4e0   9.8s  Improve escaping for constructing strings via API
+  [media      5/18] recusa  42df4519   3.2s  Refactor the table parsing
+                commit-base já vermelho (14 falhas)
+  [media      6/18] recusa  1731084a   2.6s  Fix TOML 1.0.0 compliance
+                commit-base já vermelho (37 falhas)
+  [media      7/18] recusa  db561129   0.8s  Fix the handling of inline table
+                commit-base já vermelho (2 falhas)
+  [media      8/18] recusa  783cc8a3   0.8s  Fix comma handling when parsing arrays
+                commit-base já vermelho (2 falhas)
+  [media      9/18] recusa  60536f81   0.7s  Improve distinction between date(time)s and numbers
+                commit-base já vermelho (2 falhas)
+  [media     10/18] recusa  4a6e0d1f   0.7s  Fix handling of characters that need escaping on insert
+                commit-base já vermelho (2 falhas)
+  [media     11/18] recusa  e4ad0de8   0.6s  Make add()/append()/remove() return the current contain
+                commit-base já vermelho (2 falhas)
+  [media     12/18] ACEITO  21e186f6   1.5s  Improve new elements placement when building
+  [media     13/18] recusa  d02e9ec2   1.0s  Make arrays behave (mostly) like lists
+                vermelho sem node id: erro de coleta
+  [media     14/18] ACEITO  4424dcdc   1.4s  No longer add a new line before standalone tables
+  [media     15/18] ACEITO  24902c83   1.2s  Fix table display name and inline tables display
+  [media     16/18] ACEITO  1c3cd73c   0.8s  Improve handling of tables and strings
+  [media     17/18] ACEITO  2a4130e3   0.8s  Fix handling of undeclared super tables
+  media: 6 aceito(s) — parando de verificar esta faixa
+  [pequena    1/64] ACEITO  94e62fbe   4.4s  Float is not a sequence  (#563)
+  [pequena    2/64] ACEITO  495a42ec   4.4s  Fix top-level scalar captured by a table rendered from 
+  [pequena    3/64] ACEITO  67d3e865   4.4s  Fix array of tables replacing a dotted key swallowing t
+  [pequena    4/64] ACEITO  e23a2543   4.3s  fix: avoid duplicate table header when adding a key to 
+  [pequena    5/64] ACEITO  d3c76f0b   4.2s  fix: reject out-of-order concrete+super table redefinit
+  [pequena    6/64] ACEITO  ee4eedba   4.3s  Fix duplicated prefix and captured sibling when replaci
+  pequena: 6 aceito(s) — parando de verificar esta faixa
+  -> mined-v4/tomlkit.json
+
+tqdm: 1822 commits no histórico, 59 candidatos após o pré-filtro
+  pré-filtro grande       0 candidatos
+  pré-filtro media        0 candidatos
+  pré-filtro pequena     27 candidatos
+  pré-filtro fora        23 candidatos (descartados, não verificados)
+  pré-filtro protegido    9 candidatos (referência toca arquivo protegido, não é teste — rejeitados sem suíte)
+  [pequena    1/27] recusa  c27393ec  43.0s  misc tidy
+                teste passa sem a correção — não discrimina
+  [pequena    2/27] recusa  9f5890fd  22.2s  Add initial implementation for interpreter_map
+                vermelho sem node id: erro de coleta
+  [pequena    3/27] recusa  164ef730  41.8s  rich: misc fixes
+                teste passa sem a correção — não discrimina
+  [pequena    4/27] ACEITO  99615b97  67.0s  asyncio: add gather(return_exceptions=False) (#1776)
+  [pequena    5/27] ACEITO  55156ce4  66.5s  fix: apply disp_trim to all format_meter return paths (
+  [pequena    6/27] recusa  748e1072  43.3s  lint
+                teste passa sem a correção — não discrimina
+  [pequena    7/27] recusa  cfa4a852  37.4s  minor docstring updates
+                teste passa sem a correção — não discrimina
+  [pequena    8/27] ACEITO  f83290ce  57.6s  Fix TMonitor deadlock at interpreter shutdown
+  [pequena    9/27] ACEITO  b557cb03  56.7s  fix: apply disp_trim to all format_meter return paths
+  [pequena   10/27] recusa  0647db1c  37.3s  misc tidy
+                teste passa sem a correção — não discrimina
+  [pequena   11/27] ACEITO  9bcd04b3  55.3s  fix pandas>=3 & negative format_interval
+  [pequena   12/27] recusa  f420136c  42.7s  pyupgrade
+                teste passa sem a correção — não discrimina
+  [pequena   13/27] recusa  ea1ba1b7  35.2s  f-strings
+                teste passa sem a correção — não discrimina
+  [pequena   14/27] ACEITO  6ce50bed  51.2s  utils.envwrap: fix types
+  pequena: 6 aceito(s) — parando de verificar esta faixa
+  -> mined-v4/tqdm.json
+  -> mined-v4/RELATORIO.md
+
+──────────────────────────────────────────────────────────────────────
+66 aceitos de 194 verificados (1825 candidatos registrados, incluindo os fora de faixa)
+  grande    3   (attrs=0, jinja=0, marshmallow=0, peewee=0, pygments=0, sqlite-utils=0, tomlkit=3, tqdm=0)
+  media    15   (attrs=2, jinja=1, marshmallow=1, peewee=2, pygments=1, sqlite-utils=2, tomlkit=6, tqdm=0)
+  pequena  48   (attrs=6, jinja=6, marshmallow=6, peewee=6, pygments=6, sqlite-utils=6, tomlkit=6, tqdm=6)
