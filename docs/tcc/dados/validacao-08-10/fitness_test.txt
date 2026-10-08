@@ -1,0 +1,23 @@
+=================== DeepInfra  2026-10-08 10:08:26
+Sondando qwen/qwen3-coder via DeepInfra — 5 chamadas (teto 512 tokens de saída)...
+
+────────────────────────────────────────────────────────────────────
+  modelo   qwen/qwen3-coder
+  provedor DeepInfra (pinado, allow_fallbacks=False)
+  seed     20260820   temperature 0.0
+────────────────────────────────────────────────────────────────────
+  1. tool calling      5/5 chamaram search_code
+     argumentos exatos 5/5
+  2. provedor servido  {'DeepInfra': 5}
+  3. determinismo      1 assinatura(s) distinta(s) em 5
+     custo total       US$ 0.000485  (2285 tokens)
+────────────────────────────────────────────────────────────────────
+  pino de provedor     OK
+  conformidade         OK
+  determinismo         OK
+
+  VEREDITO: APTO para os dois braços
+────────────────────────────────────────────────────────────────────
+
+=================== Novita  2026-10-08 10:08:31
+Terminated                 timeout 600 .venv/bin/python scripts/fitness_test.py --model qwen/qwen3-coder --provider $prov -n 5 2>&1 | tail -30
