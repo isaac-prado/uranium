@@ -1,0 +1,379 @@
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index 777d96a..e6bb53c 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -77,6 +77,10 @@ class Container(dict):
+         if not isinstance(item, Item):
+             item = _item(item)
+ 
++        # Handle dotted keys
++        if key is not None and hasattr(key, '_dotted_parts') and len(key._dotted_parts) > 1:
++            return self._append_dotted_key(key, item)
++        
+         if isinstance(item, (AoT, Table)) and item.name is None:
+             item.name = key.key
+ 
+@@ -125,6 +129,79 @@ class Container(dict):
+ 
+         return item
+ 
++    def _append_dotted_key(self, key, item):  # type: (Key, Item) -> None
++        """
++        Handle appending items with dotted keys by creating nested structure.
++        For inline tables, we keep the dotted key as-is.
++        """
++        from .api import item as _item
++        from .items import Table
++        
++        if not isinstance(item, Item):
++            item = _item(item)
++        
++        # Check if we're in an inline table context
++        # For inline tables, we don't create nested structure
++        is_inline_context = self._is_inline_table_context()
++        
++        if is_inline_context:
++            # For inline tables, just add the key as-is
++            super(Container, self).__setitem__(key.key, item.value)
++            self._body.append((key, item))
++            self._map[key] = len(self._body) - 1
++            return item
++        
++        # Get the parts of the dotted key
++        parts = key._dotted_parts
++        
++        # Navigate/create nested structure
++        current_container = self
++        for i, part in enumerate(parts[:-1]):  # All parts except the last one
++            part_key = part.key
++            
++            # Check if this part already exists
++            if part_key in current_container:
++                existing_item = current_container[part_key]
++                # If it's not a table, we have a conflict
++                if not isinstance(existing_item, dict):
++                    raise KeyAlreadyPresent(part_key)
++            else:
++                # Create a new table for this part with proper trivia
++                trivia = Trivia(trail="\n")  # Ensure newline after table header
++                new_table = Table(Container(), trivia, False)
++                current_container.append(Key(part_key), new_table)
++                existing_item = new_table
++            
++            # Navigate to the next level
++            current_container = existing_item
++        
++        # Add the final item to the deepest container
++        # Ensure the item has proper trailing newline
++        if hasattr(item, 'trivia') and not item.trivia.trail.endswith('\n'):
++            item.trivia.trail += '\n'
++        final_part = parts[-1]
++        current_container.append(final_part, item)
++        
++        # Also add to our own structure for direct access if needed
++        super(Container, self).__setitem__(key.key, item.value)
++        
++        # For dotted keys, we don't add to body to avoid duplication
++        # The nested structure will handle serialization
++        
++        return item
++    
++    def _is_inline_table_context(self):
++        """
++        Check if we're in an inline table context.
++        This is a simplified check - in a real implementation we'd need
++        to track context more carefully.
++        """
++        # For now, we'll assume we're not in an inline table context
++        # A more robust implementation would track this during parsing
++        return False
++        
++        return item
++
+     def remove(self, key):  # type: (Key) -> None
+         if not isinstance(key, Key):
+             key = Key(key)
+@@ -143,8 +220,17 @@ class Container(dict):
+ 
+     def as_string(self, prefix=None):  # type: () -> str
+         s = ""
++        processed_keys = set()  # Track keys we've already handled
++        
+         for k, v in self._body:
+             if k is not None:
++                # Skip keys that are part of dotted keys we've already processed
++                if hasattr(k, '_dotted_parts') and len(k._dotted_parts) > 1:
++                    full_key = k.key
++                    if full_key in processed_keys:
++                        continue
++                    processed_keys.add(full_key)
++                
+                 if isinstance(v, Table):
+                     if v.is_super_table():
+                         s += v.as_string(prefix=k.as_string())
+@@ -192,15 +278,44 @@ class Container(dict):
+                             )
+                             cur += table.as_string(prefix=key)
+                 else:
+-                    cur = "{}{}{}{}{}{}{}".format(
+-                        v.trivia.indent,
+-                        decode(k.as_string()),
+-                        k.sep,
+-                        decode(v.as_string()),
+-                        v.trivia.comment_ws,
+-                        decode(v.trivia.comment),
+-                        v.trivia.trail,
+-                    )
++                    # For dotted keys, we need special handling
++                    if hasattr(k, '_dotted_parts') and len(k._dotted_parts) > 1:
++                        # This is a dotted key, we need to find the nested structure
++                        # and output it properly
++                        parts = k._dotted_parts
++                        first_part = parts[0].key
++                        
++                        # Check if the first part already has a table representation
++                        first_part_exists = False
++                        for existing_k, existing_v in self._body:
++                            if existing_k and existing_k.key == first_part and isinstance(existing_v, Table):
++                                first_part_exists = True
++                                break
++                        
++                        # If first part doesn't exist as table, we output the dotted key directly
++                        if not first_part_exists:
++                            cur = "{}{}{}{}{}{}{}".format(
++                                v.trivia.indent,
++                                decode(k.as_string()),
++                                k.sep,
++                                decode(v.as_string()),
++                                v.trivia.comment_ws,
++                                decode(v.trivia.comment),
++                                v.trivia.trail,
++                            )
++                        else:
++                            # Skip this as it's already handled by the table structure
++                            continue
++                    else:
++                        cur = "{}{}{}{}{}{}{}".format(
++                            v.trivia.indent,
++                            decode(k.as_string()),
++                            k.sep,
++                            decode(v.as_string()),
++                            v.trivia.comment_ws,
++                            decode(v.trivia.comment),
++                            v.trivia.trail,
++                        )
+             else:
+                 cur = v.as_string()
+ 
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..302099f 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -352,7 +352,7 @@ class Parser:
+         return comment_ws, comment, trail
+ 
+     def _parse_key_value(
+-        self, parse_comment=False, inline=True
++        self, parse_comment=False, inline=False
+     ):  # type: (bool, bool) -> (Key, Item)
+         # Leading indent
+         self.mark()
+@@ -362,9 +362,13 @@ class Parser:
+ 
+         indent = self.extract()
+ 
+-        # Key
+-        key = self._parse_key()
+-        if not key.key.strip():
++        # Key - handle dotted keys properly
++        key_parts = self._parse_dotted_key_parts()
++        if not key_parts:
++            key = self._parse_key()
++            key_parts = [key]
++        
++        if not key_parts[0].key.strip():
+             raise self.parse_error(EmptyKeyError)
+ 
+         self.mark()
+@@ -378,7 +382,8 @@ class Parser:
+                     found_equals = True
+             pass
+ 
+-        key.sep = self.extract()
++        # Set separator on the last key part
++        key_parts[-1].sep = self.extract()
+ 
+         # Value
+         val = self._parse_value()
+@@ -395,6 +400,22 @@ class Parser:
+ 
+         val.trivia.indent = indent
+ 
++        # For dotted keys, we need to create nested structure
++        # But for inline tables, we keep the dotted key as-is
++        if len(key_parts) > 1 and not inline:
++            # Create a special key that represents the full dotted path
++            full_key_string = ".".join([part.key for part in key_parts])
++            key = Key(full_key_string, sep=key_parts[-1].sep)
++            # Store the parts for later processing
++            key._dotted_parts = key_parts
++        else:
++            if len(key_parts) > 1:
++                # For inline tables, join the parts back into a single key
++                full_key_string = ".".join([part.key for part in key_parts])
++                key = Key(full_key_string, sep=key_parts[-1].sep)
++            else:
++                key = key_parts[0]
++
+         return key, val
+ 
+     def _parse_key(self):  # type: () -> Key
+@@ -402,10 +423,44 @@ class Parser:
+         Parses a Key at the current position;
+         WS before the key must be exhausted first at the callsite.
+         """
+-        if self._current in "\"'":
+-            return self._parse_quoted_key()
+-        else:
+-            return self._parse_bare_key()
++        # Check if this is a dotted key
++        saved_idx = self._save_idx()
++        try:
++            key_parts = []
++            while True:
++                # Parse a key part (bare or quoted)
++                if self._current in "\"'":
++                    key_part = self._parse_quoted_key()
++                else:
++                    key_part = self._parse_bare_key()
++                
++                key_parts.append(key_part)
++                
++                # Check if there's a dot following
++                if self._current == ".":
++                    self.inc()  # Skip the dot
++                    # Skip whitespace after dot
++                    while self._current in " \t":
++                        self.inc()
++                    continue
++                else:
++                    break
++            
++            # If we have multiple parts, it's a dotted key
++            if len(key_parts) > 1:
++                # For now, we'll return the first part and handle the rest in _parse_key_value
++                # We need to modify the approach to handle dotted keys properly
++                self._restore_idx(*saved_idx)
++                return self._parse_dotted_key()
++            else:
++                return key_parts[0]
++        except:
++            # If parsing as dotted key fails, restore and try simple key
++            self._restore_idx(*saved_idx)
++            if self._current in "\"'":
++                return self._parse_quoted_key()
++            else:
++                return self._parse_bare_key()
+ 
+     def _parse_quoted_key(self):  # type: () -> Key
+         """
+@@ -444,6 +499,99 @@ class Parser:
+ 
+         return Key(key, sep="")
+ 
++    def _parse_dotted_key_parts(self):  # type: () -> List[Key]
++        """
++        Parses a dotted key and returns its parts.
++        Returns an empty list if it's not a dotted key.
++        """
++        saved_idx = self._save_idx()
++        try:
++            # Save current position
++            start_idx = self._idx
++            
++            # Try to parse what could be a dotted key
++            key_parts = []
++            
++            while True:
++                # Skip leading whitespace
++                while self._current in " \t":
++                    self.inc()
++                
++                # Parse a key part (bare or quoted)
++                part_start = self._idx
++                if self._current in "\"'":
++                    key_part = self._parse_quoted_key()
++                else:
++                    self.mark()
++                    while self._current.is_bare_key_char() and self.inc():
++                        pass
++                    key = self.extract()
++                    if not key:
++                        break
++                    key_part = Key(key, sep="")
++                
++                key_parts.append(key_part)
++                
++                # Skip whitespace after key part
++                while self._current in " \t":
++                    self.inc()
++                
++                # Check if there's a dot following
++                if self._current == ".":
++                    self.inc()  # Skip the dot
++                    # Skip whitespace after dot
++                    while self._current in " \t":
++                        self.inc()
++                    continue
++                else:
++                    break
++            
++            # If we have multiple parts, it's a dotted key
++            if len(key_parts) > 1:
++                return key_parts
++            else:
++                # Not a dotted key, restore position
++                self._restore_idx(*saved_idx)
++                return []
++        except:
++            # If parsing fails, restore position
++            self._restore_idx(*saved_idx)
++            return []
++
++    def _parse_dotted_key(self):  # type: () -> Key
++        """
++        Parses a dotted key.
++        """
++        key_parts = []
++        while True:
++            # Parse a key part (bare or quoted)
++            if self._current in "\"'":
++                key_part = self._parse_quoted_key()
++            else:
++                self.mark()
++                while self._current.is_bare_key_char() and self.inc():
++                    pass
++                key = self.extract()
++                key_part = Key(key, sep="")
++
++            key_parts.append(key_part)
++
++            # Check if there's a dot following
++            if self._current == ".":
++                self.inc()  # Skip the dot
++                # Skip whitespace after dot
++                while self._current in " \t":
++                    self.inc()
++                continue
++            else:
++                break
++
++        # Join all parts with dots to create the full key string
++        key_string = ".".join([part.key for part in key_parts])
++        # For now, we'll create a simple key with the full string
++        # Later we'll need to handle this properly in the container
++        return Key(key_string, sep="")
++
+     def _parse_value(self):  # type: () -> Item
+         """
+         Attempts to parse a value at the current position.

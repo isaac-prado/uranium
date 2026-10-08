@@ -54,3 +54,25 @@ Custo projetado com 80 turnos: a execução grande que hoje custa US$ 0,05 a 0,0
 2. **O provedor é o ponto frágil, não o modelo nem o harness.** O DeepInfra entregou 129/129 chamadas na fumaça A e falhou em cadeia 40 minutos depois; é o pool compartilhado do OpenRouter. Três saídas: (a) trocar o pino para **Google** (apto, mais barato no prompt, que domina o custo; quantização não declarada, a registrar como limitação); (b) manter DeepInfra com chave própria do DeepInfra registrada no OpenRouter (BYOK), que tira o run do pool compartilhado, com o mesmo pino e a mesma quantização fp4; (c) manter DeepInfra e alongar a espera entre tentativas (`--retry-delay 300`, `--max-attempts 5`), aceitando perdas. Nas três, a decisão 11 é reaberta e o provedor escolhido é declarado no manifesto de toda a coleta; os dois braços sempre no mesmo provedor.
 
 A fumaça C, na mesma tarefa com o Google e `RUN_MAX_TOKENS=4000000`, está em `dados/fumaca-08-10-c/` (seção 6).
+
+## 6. Fumaça C: a tarefa maior no Google, com 80 turnos e 4 M tokens
+
+Mesma `tomlkit-0004`, dois braços, `OPENROUTER_PROVIDER=Google`, `RUN_MAX_TURNS=80`, `RUN_MAX_TOKENS=4000000`, `--retry-delay 120` (`dados/fumaca-08-10-c/`). **Zero perdas: o Google atendeu 162 de 162 chamadas**, 80 turnos em cada braço, contabilidade de contexto fechando em 0,0% nos dois (modo exato, instrumentação completa).
+
+| Braço | Parada | Resolvida | Testes ocultos | Turnos | Tokens | US$ | Parede (s) | Maior prompt |
+|---|---|---|---|---:|---:|---:|---:|---:|
+| single-agent | `budget: max_turns (80 >= 80)` | não | 0/7 | 80 | 2.287.280 | 0,5274 | 259 | 48.671 |
+| orchestration | `budget: max_turns (80 >= 80)` | não | 5/7 | 80 | 3.706.751 | 0,8625 | 434 | 74.450 |
+
+**O que aconteceu em cada braço.** O single-agent escreveu em 24 turnos (do 22 ao 79), nunca chamou `run_tests` (16 `run_python`) e terminou com 0 de 7 testes ocultos verdes. O orquestrado escreveu em 17 turnos, rodou `run_tests` 9 vezes, o validator rodou a suíte uma vez, e terminou com 5 de 7 ocultos verdes mas com regressão na suíte visível (`p2p` exit 1); os dois que faltam são a ida e volta exata do exemplo 0.5.0 e a quebra de linha do cabeçalho de tabela. Nenhum dos dois parou de editar antes do teto: os dois cortes são por turnos, com o teto de tokens a 57% (single-agent) e 93% (orquestrado) do limite de 4 M.
+
+**Leitura para a E4.** A `tomlkit-0004` (9 arquivos, 178 linhas, sete testes ocultos de três comportamentos, commit de 2018) está além dos dois braços com 80 turnos. Como os dois foram medidos com o mesmo teto e o mesmo provedor, "não resolvida por ambos" é um resultado válido e pareado, não um viés entre braços; mas a E4 pede que o teto não transforme "difícil" em "impossível" de forma indistinguível. O orquestrado estava progredindo (5/7) quando foi cortado; o single-agent não. Não há execução resolvida nesta tarefa para aplicar a regra "2× o máximo observado": o máximo observado é o próprio teto.
+
+**Custo com 80 turnos.** US$ 0,53 e 0,86 por execução cortada; a projeção da seção 5 (US$ 0,43) foi baixa porque o orquestrado reconstrói o contexto por ciclo e chegou a prompts de 74 mil tokens. Para a coleta: as 18 execuções da faixa grande (3 tarefas × 2 braços × 3 repetições) podem custar até US$ 15 se todas usarem o teto; as 60 restantes, pela fumaça A, de US$ 1 a 4. Total plausível entre US$ 8 e 20, acima do limite de US$ 5 da chave atual e dentro do teto de US$ 50 acordado.
+
+## 7. Decisões que ficam com o autor depois das três fumaças
+
+1. **Tetos (decisão 12, G4).** Três caminhos, todos com `RUN_MAX_WALL_SECONDS=1800` e `test_timeout_s=120`: (a) congelar **80 turnos e 4 M tokens** e aceitar que a grande mais dura pode ficar não resolvida pelos dois braços, declarando no texto que o corte é por turnos e que a `tomlkit-0004` foi cortada nos dois na fumaça; (b) subir para **120 turnos e 8 M tokens** (custo por execução grande até cerca de US$ 2, coleta até US$ 40 no pior caso, só cabe com o teto de US$ 50 inteiro e sem refazer a coleta); (c) manter 80/4 M e **trocar a `tomlkit-0004`** por uma grande mais leve, o que reabre a decisão 23 e exige nova fumaça. Recomendação: (a). O desenho mede os dois braços sob o mesmo orçamento, e "nenhum resolve a mais difícil em 80 turnos" é um achado, desde que o orçamento esteja declarado e seja o mesmo para os dois.
+2. **Provedor (decisão 11).** O Google atendeu 162/162 chamadas com prompts de até 74 mil tokens e latência compatível (434 s de parede em 82 chamadas); o DeepInfra falhou em cadeia duas vezes em dez dias. Recomendação: **pinar o Google** para a coleta inteira, registrar no manifesto, declarar a quantização como não informada pelo endpoint e manter DeepInfra (fp4) como reserva só para o caso de o Google sair do ar, com a leva marcada. Preço por 1 M tokens: Google 0,22 (prompt) e 1,80 (saída); DeepInfra 0,30 e 1,00; o custo é dominado pelo prompt.
+3. **Limite da chave.** Subir de US$ 5 para ao menos US$ 25 antes da coleta.
+4. **Ablação do refinador (decisões 7 e 16)** continua pendente e pode rodar na mesma leva.

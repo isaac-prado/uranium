@@ -1,0 +1,10 @@
+tarefas   1  ×  2 braços  ×  1 repetição(ões)  =  2 células
+estado    0 concluídas, 2 pendentes  →  runs/fumaca-08-10-c
+modelo    qwen/qwen3-coder via Google
+orçamento {'max_tokens': 4000000, 'max_wall_seconds': 1800, 'max_turns': 80}
+workers   1   tentativas por célula 3
+
+  done    tomlkit-0004         single-agent   rep01  não resolveu  budget: max_turns (80 >= 80)
+  done    tomlkit-0004         orchestration  rep01  não resolveu  budget: max_turns (80 >= 80)
+
+  2 concluídas, 0 perdidas  →  runs/fumaca-08-10-c/collection.json
