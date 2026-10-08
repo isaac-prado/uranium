@@ -1,0 +1,52 @@
+=================== DeepInfra  2026-10-08 09:45:00
+Sondando qwen/qwen3-coder via DeepInfra — 5 chamadas (teto 512 tokens de saída)...
+
+────────────────────────────────────────────────────────────────────
+  modelo   qwen/qwen3-coder
+  provedor DeepInfra (pinado, allow_fallbacks=False)
+  seed     20260820   temperature 0.0
+────────────────────────────────────────────────────────────────────
+  1. tool calling      0/5 chamaram search_code
+     argumentos exatos 0/5
+  2. provedor servido  {'(desconhecido)': 5}
+  3. determinismo      0 assinatura(s) distinta(s) em 5
+     custo total       US$ 0.000000  (0 tokens)
+     erro: AuthenticationError: Error code: 401 - {'error': {'message': 'API key expired.', 'code': 401, 'metadata': {'headers': {'WWW-Authenticate': '
+     erro: AuthenticationError: Error code: 401 - {'error': {'message': 'API key expired.', 'code': 401, 'metadata': {'headers': {'WWW-Authenticate': '
+     erro: AuthenticationError: Error code: 401 - {'error': {'message': 'API key expired.', 'code': 401, 'metadata': {'headers': {'WWW-Authenticate': '
+     erro: AuthenticationError: Error code: 401 - {'error': {'message': 'API key expired.', 'code': 401, 'metadata': {'headers': {'WWW-Authenticate': '
+     erro: AuthenticationError: Error code: 401 - {'error': {'message': 'API key expired.', 'code': 401, 'metadata': {'headers': {'WWW-Authenticate': '
+────────────────────────────────────────────────────────────────────
+  pino de provedor     FALHOU — provedor variou ou não identificado
+  conformidade         FALHOU
+  determinismo         OK
+
+  VEREDITO: NÃO APTO para os dois braços
+────────────────────────────────────────────────────────────────────
+
+=================== Novita  2026-10-08 09:45:01
+Sondando qwen/qwen3-coder via Novita — 5 chamadas (teto 512 tokens de saída)...
+
+────────────────────────────────────────────────────────────────────
+  modelo   qwen/qwen3-coder
+  provedor Novita (pinado, allow_fallbacks=False)
+  seed     20260820   temperature 0.0
+────────────────────────────────────────────────────────────────────
+  1. tool calling      0/5 chamaram search_code
+     argumentos exatos 0/5
+  2. provedor servido  {'(desconhecido)': 5}
+  3. determinismo      0 assinatura(s) distinta(s) em 5
+     custo total       US$ 0.000000  (0 tokens)
+     erro: AuthenticationError: Error code: 401 - {'error': {'message': 'API key expired.', 'code': 401, 'metadata': {'headers': {'WWW-Authenticate': '
+     erro: AuthenticationError: Error code: 401 - {'error': {'message': 'API key expired.', 'code': 401, 'metadata': {'headers': {'WWW-Authenticate': '
+     erro: AuthenticationError: Error code: 401 - {'error': {'message': 'API key expired.', 'code': 401, 'metadata': {'headers': {'WWW-Authenticate': '
+     erro: AuthenticationError: Error code: 401 - {'error': {'message': 'API key expired.', 'code': 401, 'metadata': {'headers': {'WWW-Authenticate': '
+     erro: AuthenticationError: Error code: 401 - {'error': {'message': 'API key expired.', 'code': 401, 'metadata': {'headers': {'WWW-Authenticate': '
+────────────────────────────────────────────────────────────────────
+  pino de provedor     FALHOU — provedor variou ou não identificado
+  conformidade         FALHOU
+  determinismo         OK
+
+  VEREDITO: NÃO APTO para os dois braços
+────────────────────────────────────────────────────────────────────
+
