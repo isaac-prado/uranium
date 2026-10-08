@@ -91,10 +91,13 @@ class TestFaixaMedia:
     def test_oito_arquivos_fica_fora_da_media(self):
         assert _faixa(arquivos_fonte=8, linhas_fonte=100, modulos_fonte=3) == "fora"
 
-    def test_um_modulo_so_nao_e_media(self):
-        # atravessar módulos é o critério que distingue média de "um
-        # arquivo grande picado em vários pedaços do mesmo módulo".
-        assert _faixa(arquivos_fonte=4, linhas_fonte=100, modulos_fonte=1) == "fora"
+    def test_um_diretorio_so_tambem_e_media(self):
+        """
+        Decisão 22 (08/10/2026): módulo = arquivo .py. Em pacote plano
+        (tomlkit, jinja, marshmallow) todo candidato tem modulos_fonte=1 e
+        a regra antiga (2+ diretórios) esvaziava a faixa por construção.
+        """
+        assert _faixa(arquivos_fonte=4, linhas_fonte=100, modulos_fonte=1) == "media"
 
     def test_acima_de_400_linhas_fica_fora_da_media(self):
         assert _faixa(arquivos_fonte=4, linhas_fonte=401, modulos_fonte=2) == "fora"
@@ -181,11 +184,12 @@ class TestForaRegistraMotivo:
         )
         assert motivo == ""
 
-    def test_tres_arquivos_um_modulo_linhas_o_bastante_ainda_fica_fora(self):
-        # nem média (1 módulo só), nem pequena-por-tamanho (linhas >= 40):
-        # não vira pequena por "escapar" da média, continua fora mesmo
-        # depois da revisão do autor (E3.3).
-        assert _faixa(arquivos_fonte=3, linhas_fonte=60, modulos_fonte=1) == "fora"
+    def test_oito_arquivos_linhas_o_bastante_ainda_fica_fora(self):
+        # nem média (8 arquivos > 7), nem pequena-por-tamanho (linhas >= 40):
+        # não vira pequena por "escapar" da média, continua fora. (Até a
+        # decisão 22 o exemplo era 3 arquivos em 1 diretório; hoje isso é
+        # média — ver TestFaixaMedia.test_um_diretorio_so_tambem_e_media.)
+        assert _faixa(arquivos_fonte=8, linhas_fonte=60, modulos_fonte=1) == "fora"
 
 
 class TestContarTestesNovosEModificados:

@@ -190,12 +190,20 @@ def calcular_faixa(*, arquivos_fonte: int, linhas_fonte: int, modulos_fonte: int
       (11 linhas em 3 arquivos, tinha saído como média): patch pequeno
       não vira "média" só por tocar 3 arquivos, e não é uma pequena
       "típica" de 1-2 arquivos, mas o tamanho é de pequena.
-    - MÉDIA: 3 a 7 arquivos-fonte em 2 ou mais módulos distintos, **40** a
-      400 linhas — exige entender a interação entre módulos, não só um
-      arquivo maior. Piso de 40 linhas acrescentado na mesma revisão: sem
-      ele, um patch de poucas linhas espalhado por 3 arquivos (ex.:
-      renomear um parâmetro em 3 lugares) contava como média por número
-      de arquivo, não por dificuldade real.
+    - MÉDIA: 3 a 7 arquivos-fonte, **40** a 400 linhas — exige entender a
+      interação entre módulos, não só um arquivo maior. "Módulo" é o
+      arquivo `.py` (decisão 22 do autor, 08/10/2026,
+      docs/tcc/09-decisoes-do-autor.md): a versão de 19/09 exigia também
+      2 ou mais DIRETÓRIOS distintos (`modulos_fonte >= 2`), o que em
+      pacote plano (tomlkit, sqlite-utils, jinja, marshmallow, todos os
+      `.py` numa pasta) tornava a faixa vazia por construção — a
+      mineração de 08/10 (`mined-v3/`) achou 54 candidatos com perfil
+      médio escondidos por essa condição. `modulos_fonte` continua
+      medido e registrado, só não decide a faixa. Piso de 40 linhas
+      acrescentado na revisão de 19/09: sem ele, um patch de poucas
+      linhas espalhado por 3 arquivos (ex.: renomear um parâmetro em 3
+      lugares) contava como média por número de arquivo, não por
+      dificuldade real.
     - GRANDE: 3 ou mais arquivos-fonte, 80 ou mais linhas, e o
       fail-to-pass é majoritariamente teste NOVO (mais funções `def test_`
       adicionadas do que alteradas) com mensagem que não é de correção —
@@ -223,7 +231,7 @@ def calcular_faixa(*, arquivos_fonte: int, linhas_fonte: int, modulos_fonte: int
             and testes_novos > testes_modificados and not eh_mensagem_de_correcao):
         return "grande", ""
 
-    if 3 <= arquivos_fonte <= 7 and modulos_fonte >= 2 and 40 <= linhas_fonte <= 400:
+    if 3 <= arquivos_fonte <= 7 and 40 <= linhas_fonte <= 400:
         return "media", ""
 
     if 1 <= arquivos_fonte <= 2 and 10 <= linhas_fonte <= 50:

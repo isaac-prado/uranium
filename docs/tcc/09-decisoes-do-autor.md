@@ -78,6 +78,14 @@ Fontes: [04-cronograma.md](04-cronograma.md), [07-execucao.md](07-execucao.md), 
 
 **Decisão (08/10/2026):** (a) duas referências em todas as 12 tarefas, como o portão 3 exige.
 
+### Decisão 22. Critério da faixa média: o que é "atravessar módulos"
+
+**Situação (08/10/2026).** A regra implementada em 19/09 exigia 3 a 7 arquivos-fonte, 40 a 400 linhas **e dois ou mais módulos, com módulo = diretório** ([07-e3-1-mineracao.md](07-e3-1-mineracao.md), seção 1). Em pacote plano (todos os `.py` numa pasta: tomlkit, sqlite-utils, jinja, marshmallow) nenhum candidato pode ser médio por construção. Contagem de candidatos com perfil médio por arquivos e linhas mas um único diretório, nunca verificados por execução (`mined-v3/*.json`): tomlkit 24 (18 não verificados), pygments 28, marshmallow 11, sqlite-utils 6, jinja 4.
+
+**Decisão (08/10/2026): módulo = arquivo `.py`.** A faixa média passa a ser "3 a 7 arquivos-fonte e 40 a 400 linhas de patch"; a condição de diretórios cai. A leitura é a da exigência E3 ("em torno de 5 arquivos, atravessando módulos"): em Python, módulo é o arquivo. `modulos_fonte` continua registrado como campo informativo. Consequência: reclassificar e verificar por execução os candidatos escondidos; a faixa grande não muda.
+
+**Onde entra.** Método › Materiais (definição das faixas, com a data da mudança e o motivo).
+
 ---
 
 ## Bloco 2 — Tratamentos: o desenho do braço `orchestration`
@@ -321,3 +329,4 @@ Hoje conta como "sem corte" pela definição literal, e o JSON reporta `sem_stop
 | 19 | | | |
 | 20 | | | |
 | 21 | | | |
+| 22 | faixa média: módulo = arquivo .py; condição de diretórios cai | 08/10/2026 | 09, Decisão 22; 07-e3-1 seção 1; scripts/mine_tasks.py |

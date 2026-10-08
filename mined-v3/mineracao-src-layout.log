@@ -1,0 +1,108 @@
+
+jinja: 2175 commits no histórico, 76 candidatos após o pré-filtro
+  pré-filtro grande       4 candidatos
+  pré-filtro media        0 candidatos
+  pré-filtro pequena     41 candidatos
+  pré-filtro fora        24 candidatos (descartados, não verificados)
+  pré-filtro protegido    7 candidatos (referência toca arquivo protegido, não é teste — rejeitados sem suíte)
+  [grande     1/4] recusa  788d8bc1   0.4s  unify/rename filter and function decorators
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.4s) — ver stdout_tail
+  [grande     2/4] recusa  6c733602   0.3s  add 'is filter' and 'is test' tests
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.2s) — ver stdout_tail
+  [grande     3/4] recusa  be83e7e0   0.3s  update urlize docs, clean up code
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.3s) — ver stdout_tail
+  [grande     4/4] recusa  d504e1d1   0.3s  Improve and extend urlize
+                suíte não executa na base (exit=1, 0 erro(s) de coleta, 0.3s) — ver stdout_tail
+  [pequena    1/41] ACEITO  065334d1   9.6s  attr filter uses env.getattr
+  [pequena    2/41] ACEITO  66587ce9   9.6s  Fix bug where set would sometimes fail within if
+  [pequena    3/41] recusa  aaa083d2   5.4s  separate messages, add test
+                teste passa sem a correção — não discrimina
+  [pequena    4/41] ACEITO  7232b824   8.4s  Fix pickle/copy support for the `missing` singleton
+  [pequena    5/41] ACEITO  d4fb0e8c   8.2s  preserve `__slots__` on Undefined classes
+  [pequena    6/41] ACEITO  76af7110   7.8s  make unique filter async-aware
+  [pequena    7/41] recusa  679af7f8   5.6s  fix test_package_zip_list on 3.13
+                teste passa sem a correção — não discrimina
+  [pequena    8/41] ACEITO  d6550307   7.6s  disallow invalid characters in keys to xmlattr filter
+  pequena: 6 aceito(s) — parando de verificar esta faixa
+  -> mined-v3/jinja.json
+  -> mined-v3/RELATORIO.md
+
+──────────────────────────────────────────────────────────────────────
+6 aceitos de 12 verificados (43 candidatos registrados, incluindo os fora de faixa)
+  grande    0   (jinja=0)
+  media     0   (jinja=0)
+  pequena   6   (jinja=6)
+
+marshmallow: 3031 commits no histórico, 157 candidatos após o pré-filtro
+  pré-filtro grande       0 candidatos
+  pré-filtro media        0 candidatos
+  pré-filtro pequena     70 candidatos
+  pré-filtro fora        69 candidatos (descartados, não verificados)
+  pré-filtro protegido   18 candidatos (referência toca arquivo protegido, não é teste — rejeitados sem suíte)
+  [pequena    1/70] recusa  fcb0f9ab   5.2s  Tighten the get_value typehint to match internal use
+                teste passa sem a correção — não discrimina
+  [pequena    2/70] ACEITO  f07eadc8   7.9s  Fix validate.Email to accept IDNs (#2937)
+  [pequena    3/70] ACEITO  c1e727e1   7.3s  Add support for IDNs to validate.URL (#2928)
+  [pequena    4/70] recusa  3bc191ab   5.2s  Fix Field.error_messages type to allow dict and list va
+                teste passa sem a correção — não discrimina
+  [pequena    5/70] ACEITO  65374df0   7.3s  Fix OneOf.options() emitting phantom entries when label
+  [pequena    6/70] ACEITO  070dde08   7.7s  Fix Constant field with required=True raising ValueErro
+  [pequena    7/70] ACEITO  fea54285   7.2s  Make Number and Mapping abstract base classes (#2925)
+  [pequena    8/70] ACEITO  2bf3ae6a   6.7s  feat: improve consistency of many arg with nested schem
+  pequena: 6 aceito(s) — parando de verificar esta faixa
+  -> mined-v3/marshmallow.json
+  -> mined-v3/RELATORIO.md
+
+──────────────────────────────────────────────────────────────────────
+6 aceitos de 8 verificados (95 candidatos registrados, incluindo os fora de faixa)
+  grande    0   (marshmallow=0)
+  media     0   (marshmallow=0)
+  pequena   6   (marshmallow=6)
+
+attrs: 1830 commits no histórico, 265 candidatos após o pré-filtro
+  pré-filtro grande       7 candidatos
+  pré-filtro media        1 candidatos
+  pré-filtro pequena    118 candidatos
+  pré-filtro fora       107 candidatos (descartados, não verificados)
+  pré-filtro protegido   32 candidatos (referência toca arquivo protegido, não é teste — rejeitados sem suíte)
+  [grande     1/7] recusa  4b5b295b  16.4s  Make on_setattr hooks accept generators (#1592)
+                vermelho sem node id: erro de coleta
+  [grande     2/7] recusa  112dd1d4  14.9s  Expose effective class construction properties (#1454)
+                vermelho sem node id: erro de coleta
+  [grande     3/7] recusa  f5683b85  16.6s  converters: allow wrapping and passing self and fields 
+                vermelho sem node id: erro de coleta
+  [grande     4/7] recusa  656ce11b   0.4s  Deduplicate annotation extraction (#912)
+                suíte não executa na base (exit=4, 0 erro(s) de coleta, 0.3s) — ver stdout_tail
+  [grande     5/7] recusa  0eae613c   0.4s  Add hooks for field transformation and for asdict seria
+                suíte não executa na base (exit=4, 0 erro(s) de coleta, 0.3s) — ver stdout_tail
+  [grande     6/7] recusa  88aa1c89   0.4s  Add auto_attribs (#277)
+                suíte não executa na base (exit=4, 0 erro(s) de coleta, 0.3s) — ver stdout_tail
+  [grande     7/7] recusa  1b419e30   0.4s  Add attr.astuple
+                suíte não executa na base (exit=4, 0 erro(s) de coleta, 0.3s) — ver stdout_tail
+  [media      1/1] recusa  6851ab59  23.4s  Defer imports on the cold import path (#1600)
+                teste passa sem a correção — não discrimina
+  [pequena    1/100] recusa  5aa76a44  13.0s  Add `ne` validator (#1571)
+                vermelho sem node id: erro de coleta
+  [pequena    2/100] ACEITO  0f758fe5  31.6s  Expose converter as a decorator (#1541)
+  [pequena    3/100] ACEITO  48b8611c  40.3s  Add instance support to attrs.fields() (#1529)
+  [pequena    4/100] recusa  1315e42f  20.1s  Improve performance of attr.astuple (#1469)
+                teste passa sem a correção — não discrimina
+  [pequena    5/100] recusa  7369ad9f  20.1s  Improve performance of asdict in the common case (#1463
+                teste passa sem a correção — não discrimina
+  [pequena    6/100] ACEITO  5bab46de  28.0s  Allow deep_iterable and deep_mapping take lists/tuples 
+  [pequena    7/100] recusa  000c5634  20.2s  Fix slotted reference cycles on 3.14 (#1446)
+                teste passa sem a correção — não discrimina
+  [pequena    8/100] ACEITO  cbaef3f8  28.4s  Make validators optional in deep_mapping (#1448)
+  [pequena    9/100] ACEITO  937b1e23  29.6s  Fixes issue #1427 (#1428)
+  [pequena   10/100] recusa  d18763ca  19.8s  Introduce NothingType (#1358)
+                teste passa sem a correção — não discrimina
+  [pequena   11/100] ACEITO  1e07f468  31.0s  Make attrs.converters.pipe only return a Converter inst
+  pequena: 6 aceito(s) — parando de verificar esta faixa
+  -> mined-v3/attrs.json
+  -> mined-v3/RELATORIO.md
+
+──────────────────────────────────────────────────────────────────────
+6 aceitos de 19 verificados (158 candidatos registrados, incluindo os fora de faixa)
+  grande    0   (attrs=0)
+  media     0   (attrs=0)
+  pequena   6   (attrs=6)
