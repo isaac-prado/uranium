@@ -39,6 +39,8 @@ Fontes: [04-cronograma.md](04-cronograma.md), [07-execucao.md](07-execucao.md), 
 
 **Decisão (08/10/2026):** (a) ampliar a verificação nos cinco repositórios atuais, em segundo plano, com teto de um dia de máquina; (b) e (c) só se (a) não fechar 4 médias e 4 grandes.
 
+**Resultado de (a), 08/10/2026** (`mined-v3/RELATORIO.md`, `mined-v3/mineracao.log`): a verificação ampliada (`--max-verificar-por-faixa 100`, histórico inteiro) esgotou o pré-filtro de média e grande nos cinco repositórios (peewee 4 grandes + 12 médias, pygments 3 + 20, sqlite-utils 2 + 0, tomlkit 6 + 0, tqdm 0 + 0, todos verificados) e aceitou **as mesmas 3 grandes (tomlkit) e 2 médias (peewee)** de 19/09. O limite não é o teto de verificação: nos cinco repositórios não existem outros candidatos de média/grande que passem no portão de execução. Motivo dominante: suíte não executa no commit-base (peewee 14 de 16, pygments 23 de 23; commits antigos, anteriores ao layout de testes atual). **(a) está esgotada; a decisão volta ao autor entre (b) e (c).**
+
 ### Decisão 2. Mudança de comportamento e exclusão à la SWE-bench (E3.3)
 
 **Situação.** [07-e3-3-breaking-change.md](07-e3-3-breaking-change.md) mostra que o oráculo julga a mudança de comportamento quando o commit de correção atualiza todos os testes afetados (o minerador já verifica isso), mas o **laço do agente** não consegue terminar nela: os dois braços só param com a suíte antiga verde, e o agente não pode tocar em `tests/`. Recomendação do relatório: não implementar a exclusão agora; manter o passo 2 do minerador como portão (alternativa A) e reportar quantos candidatos grandes foram rejeitados por dano colateral.
