@@ -86,6 +86,18 @@ Fontes: [04-cronograma.md](04-cronograma.md), [07-execucao.md](07-execucao.md), 
 
 **Onde entra.** Método › Materiais (definição das faixas, com a data da mudança e o motivo).
 
+### Decisão 23. O conjunto final de tarefas: as 13, todas válidas
+
+**Decisão (08/10/2026): "todos os commits são válidos".** As 13 tarefas de [10-tarefas.md](10-tarefas.md) ficam no estudo: 3 grandes, 4 médias, 6 pequenas. Consequências e desfechos das pendências da seção 5 daquele documento:
+
+- `peewee-0002` fica, com a natureza composta (seis correções num commit) declarada no texto.
+- `tomlkit-0003` fica como grande; a faixa é atribuída pelo patch de referência do upstream, não pelo mínimo que o teste oculto exige, e isso vale para todas as tarefas e é declarado no método.
+- Os enunciados de `sqlite-utils-0002` e `sqlite-utils-0003` ficam como estão (mostram a saída exata que o teste compara; é especificação, não solução).
+- A alternativa de `tomlkit-0005` fica.
+- O desenho passa de 12 para **13 tarefas**: 13 × 2 braços × 3 repetições = **78 execuções** na coleta; a estratificação 3/4/6 é declarada como desigual, com a faixa ao lado de cada par na análise. Custo estimado sobe na mesma proporção (04-cronograma.md, seção 4, ×13/12).
+
+**Onde entra.** Método › Materiais (tabela das 13 tarefas, [10-tarefas.md](10-tarefas.md)); Método › Procedimento (78 execuções); Ameaças à validade (estratificação desigual; faixa pelo patch de referência).
+
 ---
 
 ## Bloco 2 — Tratamentos: o desenho do braço `orchestration`
@@ -329,4 +341,5 @@ Hoje conta como "sem corte" pela definição literal, e o JSON reporta `sem_stop
 | 19 | | | |
 | 20 | | | |
 | 21 | | | |
-| 22 | faixa média: módulo = arquivo .py; condição de diretórios cai | 08/10/2026 | 09, Decisão 22; 07-e3-1 seção 1; scripts/mine_tasks.py |
+| 22 | faixa média: módulo = arquivo .py; condição de diretórios cai; regras congeladas no CLAUDE.md | 08/10/2026 | 09, Decisão 22; CLAUDE.md; 07-e3-1 seção 1; scripts/mine_tasks.py |
+| 23 | as 13 tarefas ficam (3/4/6); 78 execuções; pendências do 10-tarefas resolvidas a favor de manter | 08/10/2026 | 09, Decisão 23; 10-tarefas seção 5 |

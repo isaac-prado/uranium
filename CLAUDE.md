@@ -21,6 +21,17 @@ Fonte de verdade sobre o desenho: `docs/tcc/00-guia-etapas.md`, `docs/tcc/01-inv
 - Repositórios com pacote em `src/<nome>/` (jinja, marshmallow, attrs) importam pelo `uranium_src_layout.pth` que `scripts/setup_mirror.py` grava no venv do repo a partir de `SeedRepoSpec.pythonpath`. Vale igualmente para ferramentas do agente, oráculo, validação e mineração, porque todos rodam com `cwd` na raiz do workspace. Não instalar pacote no venv nem passar `PYTHONPATH` por fora: seria um segundo mecanismo que pode divergir.
 - Run perdido tem uma definição só: `lost: true` no `summary.json`, isto é, `stop_reason` em `infra_error:` (provedor) ou `interrupted:` (Ctrl+C), `src/arms/runner.py: LOST_PREFIXES`. É lida por `harness/attempts.py` (coleta e análise) e `src/arms/pilot.py`. Corte por orçamento não é perda; `error:` de outra origem é bug do harness, não perda. Perdido é reexecutado com a mesma semente e `attempt + 1`.
 
+## Faixas das tarefas (congeladas em 08/10/2026, decisão 22 de `docs/tcc/09-decisoes-do-autor.md`)
+
+Função pura `calcular_faixa` em `scripts/mine_tasks.py`, sobre o patch de referência do upstream: "arquivo-fonte" é `.py` dentro do `source_dir` do repositório (arquivo apagado não conta); "linhas" é o total de linhas alteradas nesses arquivos; "teste novo/modificado" é a contagem de funções `def test_` adicionadas/alteradas no diff dos testes. Checadas nesta ordem:
+
+- **Grande:** 3 ou mais arquivos-fonte, 80 ou mais linhas, mais testes novos que modificados (e ao menos um novo), e assunto do commit que não começa por `fix`/`bug`. Funcionalidade nova com teste escrito pelo projeto: exige planejar antes de escrever.
+- **Média:** 3 a 7 arquivos-fonte e 40 a 400 linhas. "Módulo" é o arquivo `.py`; não se exige mais de um diretório (a versão de 19/09 exigia, e esvaziava a faixa em pacote plano).
+- **Pequena:** 1 ou 2 arquivos-fonte e 10 a 50 linhas; ou 3 ou mais arquivos com menos de 40 linhas (pequena por tamanho, com `motivo_faixa` registrado).
+- **Fora:** o resto; registrado com o motivo, nunca verificado por execução.
+
+A faixa é gravada no `task.json`, atravessa até o `result.json` e é eixo da análise. Toda tarefa, em qualquer faixa, só entra se for verificada por execução (suíte verde no commit-base, teste oculto vermelho na base e verde com a referência) e passar nos quatro portões de `scripts/validate_task.py` com duas soluções de referência. Mudar uma faixa depois da coleta começar invalida a estratificação.
+
 ## Tetos do run
 
 **NÃO CONGELADOS.** Os valores atuais em `src/budget.py` e `.env.example` (`RUN_MAX_TOKENS=1200000`, `RUN_MAX_WALL_SECONDS=1800`, `RUN_MAX_TURNS=40`) são os do piloto. A etapa E4 do `docs/tcc/tasks/EXIGENCIAS.md` exige calibrá-los com teste de fumaça pago numa tarefa da faixa grande antes de congelar. Quando o autor congelar, os valores finais e a data entram aqui e não mudam até o fim da coleta.

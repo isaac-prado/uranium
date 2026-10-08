@@ -5,6 +5,8 @@ Etapa E3, item 1 de [EXIGENCIAS.md](tasks/EXIGENCIAS.md): "amplie a rede" (o cor
 
 ## 1. Regra operacional das faixas novas
 
+> **Atualização de 08/10/2026 (decisão 22, [09-decisoes-do-autor.md](09-decisoes-do-autor.md)).** A condição "em 2 ou mais módulos distintos" da faixa média foi retirada: módulo passou a ser o arquivo `.py`, e a média é "3 a 7 arquivos-fonte e 40 a 400 linhas". A regra de 19/09 abaixo, com módulo = diretório, esvaziava a faixa por construção em pacote plano (tomlkit, sqlite-utils, jinja, marshmallow). A remineração dos oito repositórios com a regra nova está em `mined-v4/` (3 grandes, 15 médias, 48 pequenas). A regra vigente, congelada, está no `CLAUDE.md`.
+
 `faixa` deixou de ser `baixa/media/alta` (regra antiga: 1 arquivo e <30 linhas = baixa; ≤3 arquivos = media; resto = alta — [scripts/mine_tasks.py, HEAD anterior a esta etapa, linhas 82-90 do commit `d47abda`](../../scripts/mine_tasks.py)) para `pequena/media/grande`, calculada por `calcular_faixa` ([scripts/mine_tasks.py:159-198](../../scripts/mine_tasks.py#L159)), função pura dos campos medidos — sem git, sem suíte. Testes de cada faixa e de cada limite em [tests/test_mine_tasks.py](../../tests/test_mine_tasks.py) (`TestFaixaPequena`, `TestFaixaMedia`, `TestFaixaGrande`, `TestForaRegistraMotivo`; 70 testes no arquivo depois da revisão da seção 6.4, todos verdes).
 
 | Faixa | Critério implementado (versão final, pós-revisão — seção 6.4) | Por quê |

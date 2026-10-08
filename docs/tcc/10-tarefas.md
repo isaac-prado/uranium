@@ -2,7 +2,7 @@
 
 Isaac do Prado Almeida · Orientadora: Isabela Neves Drummond · 8 de outubro de 2026
 
-Treze diretórios em `tasks/`, todos com `statement.md`, `test_patch.diff` (oráculo oculto), `reference/upstream.patch`, `reference/alternative.patch` e um patch de trapaça, e todos **VALIDADOS** nos quatro portões de `scripts/validate_task.py` em 08/10/2026 (saída em [dados/validacao-08-10/validate_task_final.txt](dados/validacao-08-10/validate_task_final.txt)). O desenho pede 12; a seção 5 diz qual sobra e por quê.
+Treze diretórios em `tasks/`, **todos no estudo por decisão do autor de 08/10/2026** (decisão 23), todos com `statement.md`, `test_patch.diff` (oráculo oculto), `reference/upstream.patch`, `reference/alternative.patch` e um patch de trapaça, e todos **VALIDADOS** nos quatro portões de `scripts/validate_task.py` em 08/10/2026 (saída em [dados/validacao-08-10/validate_task_final.txt](dados/validacao-08-10/validate_task_final.txt)). O desenho original pedia 12; passou a 13 (seção 5).
 
 **Procedência, a declarar no método.** Os enunciados e as segundas soluções das onze tarefas novas foram redigidos por um assistente de IA (Claude, modelo Opus, um agente por tarefa, em 08/10/2026) a partir do teste oculto e da issue ou PR original, nunca da mensagem de commit, e revisados pelo autor. Cada trecho reproduzível foi executado no commit-base (mostra o problema) e com cada uma das duas soluções (mostra o esperado). As duas tarefas de 19/09 (`tomlkit-0001`, `sqlite-utils-0001`) foram escritas pelo autor. Nenhum enunciado cita arquivo, função ou classe interna, nem a forma da correção; nomes de API pública que o teste oculto exercita aparecem quando sem eles a tarefa seria insolúvel, e cada caso está nas ressalvas.
 
@@ -120,7 +120,11 @@ Faixas pela regra de [09-decisoes-do-autor.md](09-decisoes-do-autor.md), decisã
 | média | peewee-0001, peewee-0002 (ver ressalva), sqlite-utils-0003, attrs-0001 | 4 |
 | pequena | tomlkit-0001, sqlite-utils-0001, tomlkit-0005, peewee-0003, sqlite-utils-0002, pygments-0001 | 6 |
 
-## 5. O que o autor decide a partir daqui
+## 5. O que o autor decidiu (08/10/2026)
+
+**"Todos os commits são válidos."** As 13 ficam, nas faixas da seção 4; o desenho passa a 13 tarefas e 78 execuções (decisão 23 de [09-decisoes-do-autor.md](09-decisoes-do-autor.md)). Os quatro pontos abaixo ficam registrados como foram apresentados, com o desfecho: 1 → nenhuma sai; 2 → `tomlkit-0003` fica como grande, faixa pelo patch de referência, declarado; 3 → enunciados mantidos; 4 → alternativa mantida.
+
+### Como foram apresentados
 
 1. **Qual das 13 sai, para fechar 12.** Candidata: `peewee-0002`, por ser seis bugs sem relação num commit só. Saindo ela, a média fica com 3; a substituta mais limpa em `mined-v4/` é `tomlkit 4424dcdc` ("No longer add a new line before standalone tables", 4 arquivos, 77 linhas, 1 teste novo) ou `tomlkit 21e186f6` (140 linhas). Alternativa: tirar uma pequena e manter `peewee-0002` declarando a natureza composta.
 2. **`tomlkit-0003` como grande.** O teste oculto exige uma mudança local; a faixa foi atribuída pelo tamanho do patch upstream. Manter e declarar, ou reclassificar como média (e aí a grande fica com 2).
