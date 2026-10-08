@@ -1,0 +1,22 @@
+
+  análise pareada — 2 tarefa(s), 4 observações
+  perdidas: 0 célula(s), 0 tentativa(s) perdida(s)
+    single-agent   0 tentativa(s) e 0 célula(s) perdida(s), 1 de 2 run(s) pareado(s) cortado(s) pelo orçamento
+    orchestration  0 tentativa(s) e 0 célula(s) perdida(s), 1 de 2 run(s) pareado(s) cortado(s) pelo orçamento
+  ──────────────────────────────────────────────────────────────────────────────────────
+  tarefa                 pares  resolve SA resolve OR      Δ    US$ SA   US$ OR  turnos SA turnos OR
+  ──────────────────────────────────────────────────────────────────────────────────────
+  tomlkit-0001               1        1.00       1.00  +0.00    0.0168   0.0313       11.0      32.0
+  tomlkit-0002               1        1.00       1.00  +0.00    0.0582   0.0487       40.0      40.0
+  ──────────────────────────────────────────────────────────────────────────────────────
+  primário   H1: orchestration > single-agent (unicaudal)
+    sinal     n=0  +0 −0  p(uni)=1.0000  p(bi)=1.0000
+    Wilcoxon  n=0  W+=0.0  p(uni)=1.0000  p(bi)=1.0000
+  secundários (mediana por tarefa, Wilcoxon bicaudal)
+    cost_usd      SA       0.0375   OR       0.0400   p=1.0000
+    tokens_total  SA  321306.5000   OR  321844.5000   p=1.0000
+    turns         SA      25.5000   OR      36.0000   p=1.0000
+    wall_seconds  SA      49.0575   OR     111.5570   p=0.5000
+
+  →  runs/fumaca-08-10/analysis.json
+

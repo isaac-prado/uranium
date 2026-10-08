@@ -204,7 +204,9 @@ As decisões 4 a 6 **já foram tomadas pelo autor em 28/09/2026** (commits `f4c0
 
 **Onde entra.** Método › Procedimento (tetos, com a justificativa da fumaça); `CLAUDE.md` (valores congelados e data).
 
-**Decisão:** ______ (data: ______)
+**Decisão (08/10/2026):** autorizada em 08/10/2026 ("pode rodar os testes de fumaça e os testes que quiser"): fumaça na grande `tomlkit-0002` com os tetos atuais (1.200.000 tokens, 1.800 s, 40 turnos); regra de calibração proposta e ainda a confirmar com o resultado na mão: tetos finais = 2× o máximo observado na fumaça nos dois braços, nunca abaixo dos atuais; `test_timeout_s` = 120 s.
+
+**Resultado da fumaça (08/10/2026, [07-e4-fumaca.md](07-e4-fumaca.md)):** os dois braços resolveram a grande, mas cortados em `max_turns` com a correção já no lugar; tokens (máx. 514 k) e parede (máx. 118 s) longe dos tetos. **Proposta a confirmar: `RUN_MAX_TURNS=80`, `RUN_MAX_TOKENS=2500000`, `RUN_MAX_WALL_SECONDS=1800`, `test_timeout_s=120`.** Congelamento pendente da palavra do autor.
 
 ### Decisão 13. Repetições, ordem dos braços e paralelismo da coleta
 
@@ -253,7 +255,7 @@ Ligada à decisão 7. Cronograma: 5 pares, US$ 0,30 a 0,60, semana 5. Rodar (sim
 
 A E4 pede a fumaça em **uma** tarefa grande (os dois braços, 1 repetição); o cronograma prevê 2 tarefas × 2 braços. Recomendação: a tarefa grande da decisão 12 **mais** uma pequena já validada (`tomlkit-0001`), 1 repetição cada, US$ 0,14 a 0,24 pelo piloto; qualquer defeito de instrumentação encontrado reabre a fumaça depois do conserto.
 
-**Decisão:** ______ (data: ______)
+**Decisão (08/10/2026):** autorizada em 08/10/2026: `tomlkit-0002` (grande) e `tomlkit-0001` (pequena), dois braços, uma repetição, pelo `scripts/run_collection.py` (o mesmo caminho da coleta definitiva), DeepInfra, timeout 90 s. Resultado em `docs/tcc/dados/fumaca-08-10/`.
 
 ---
 
@@ -331,12 +333,12 @@ Hoje conta como "sem corte" pela definição literal, e o JSON reporta `sem_stop
 | 9 | | | |
 | 10 | | | |
 | 11 | DeepInfra (apto 5/5); Novita reprovou por timeout; timeout 90 s | 08/10/2026 | 09, Decisão 11; dados/validacao-08-10/fitness_test.txt; manifesto da fumaça |
-| 12 | | | |
+| 12 | fumaça autorizada com os tetos atuais; regra 2× o máximo observado a confirmar | 08/10/2026 | 09, Decisão 12; dados/fumaca-08-10 |
 | 13 | | | |
 | 14 | | | |
 | 15 | | | |
 | 16 | | | |
-| 17 | | | |
+| 17 | tomlkit-0002 + tomlkit-0001, 2 braços × 1 repetição, via run_collection.py | 08/10/2026 | 09, Decisão 17; dados/fumaca-08-10 |
 | 18 | | | |
 | 19 | | | |
 | 20 | | | |

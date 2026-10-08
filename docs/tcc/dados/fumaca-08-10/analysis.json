@@ -1,0 +1,127 @@
+{
+  "tasks": 2,
+  "observations": 4,
+  "lost_cells": [],
+  "lost_attempts": 0,
+  "by_arm": {
+    "single-agent": {
+      "lost_attempts": 0,
+      "lost_cells": 0,
+      "censored": 1,
+      "paired_observations": 2
+    },
+    "orchestration": {
+      "lost_attempts": 0,
+      "lost_cells": 0,
+      "censored": 1,
+      "paired_observations": 2
+    }
+  },
+  "per_task": [
+    {
+      "task_id": "tomlkit-0001",
+      "pairs": 1,
+      "single-agent": {
+        "resolve_rate": 1.0,
+        "blocked_by_cheat": 0,
+        "censored": 0,
+        "cost_usd": 0.0168015,
+        "tokens_total": 128235.0,
+        "turns": 11.0,
+        "wall_seconds": 26.46
+      },
+      "orchestration": {
+        "resolve_rate": 1.0,
+        "blocked_by_cheat": 0,
+        "censored": 0,
+        "cost_usd": 0.0313024,
+        "tokens_total": 248593.0,
+        "turns": 32.0,
+        "wall_seconds": 105.567
+      },
+      "diff_resolve_rate": 0.0
+    },
+    {
+      "task_id": "tomlkit-0002",
+      "pairs": 1,
+      "single-agent": {
+        "resolve_rate": 1.0,
+        "blocked_by_cheat": 0,
+        "censored": 1,
+        "cost_usd": 0.0581795,
+        "tokens_total": 514378.0,
+        "turns": 40.0,
+        "wall_seconds": 71.655
+      },
+      "orchestration": {
+        "resolve_rate": 1.0,
+        "blocked_by_cheat": 0,
+        "censored": 1,
+        "cost_usd": 0.0487067,
+        "tokens_total": 395096.0,
+        "turns": 40.0,
+        "wall_seconds": 117.547
+      },
+      "diff_resolve_rate": 0.0
+    }
+  ],
+  "primary": {
+    "outcome": "resolve_rate (orchestration − single-agent), por tarefa",
+    "hypothesis": "H1: orchestration > single-agent (unicaudal)",
+    "sign_test": {
+      "n": 0,
+      "positive": 0,
+      "negative": 0,
+      "p_one_sided": 1.0,
+      "p_two_sided": 1.0
+    },
+    "wilcoxon": {
+      "n": 0,
+      "w_plus": 0.0,
+      "p_one_sided": 1.0,
+      "p_two_sided": 1.0
+    }
+  },
+  "secondary": {
+    "cost_usd": {
+      "median_single_agent": 0.0374905,
+      "median_orchestration": 0.04000455,
+      "wilcoxon": {
+        "n": 2,
+        "w_plus": 2.0,
+        "p_one_sided": 0.5,
+        "p_two_sided": 1.0
+      }
+    },
+    "tokens_total": {
+      "median_single_agent": 321306.5,
+      "median_orchestration": 321844.5,
+      "wilcoxon": {
+        "n": 2,
+        "w_plus": 2.0,
+        "p_one_sided": 0.5,
+        "p_two_sided": 1.0
+      }
+    },
+    "turns": {
+      "median_single_agent": 25.5,
+      "median_orchestration": 36.0,
+      "wilcoxon": {
+        "n": 1,
+        "w_plus": 1.0,
+        "p_one_sided": 0.5,
+        "p_two_sided": 1.0
+      }
+    },
+    "wall_seconds": {
+      "median_single_agent": 49.057500000000005,
+      "median_orchestration": 111.55699999999999,
+      "wilcoxon": {
+        "n": 2,
+        "w_plus": 3.0,
+        "p_one_sided": 0.25,
+        "p_two_sided": 0.5
+      }
+    }
+  }
+}

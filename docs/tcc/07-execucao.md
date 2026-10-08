@@ -168,3 +168,10 @@ A mineração ampliada de 08/10 (`mined-v3/`) esgotou o pré-filtro de média e 
 
 - [09-decisoes-do-autor.md](09-decisoes-do-autor.md), decisão 1: (b) escolhida em 08/10; click pendente.
 - `CLAUDE.md`: convenção do `.pth` registrada.
+
+
+---
+
+## E4 — Fumaça paga na tarefa grande (08/10/2026)
+
+Relatório em [07-e4-fumaca.md](07-e4-fumaca.md): 4 células (`tomlkit-0002` grande e `tomlkit-0001` pequena × 2 braços), todas resolvidas, 0 perdidas, US$ 0,155; a grande foi cortada em `max_turns` nos dois braços com a correção no lugar. Instrumentação íntegra (duas análises concordam, contabilidade de contexto 0,0%). Proposta de tetos: 80 turnos, 2,5 M tokens, 1.800 s. G6 verde (13 tarefas validadas, [10-tarefas.md](10-tarefas.md)); G4 aguarda o autor congelar.

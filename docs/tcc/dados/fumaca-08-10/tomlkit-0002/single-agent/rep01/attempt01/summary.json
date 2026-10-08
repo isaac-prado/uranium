@@ -1,0 +1,27 @@
+{
+  "run_id": "tomlkit-0002-single-agent-r01-a01",
+  "arm": "single-agent",
+  "task_id": "tomlkit-0002",
+  "repetition": 1,
+  "attempt": 1,
+  "llm_seed": 20260821,
+  "topology": "single_agent",
+  "stop_reason": "budget: max_turns (40 >= 40)",
+  "lost": false,
+  "is_valid": false,
+  "changed_files": [],
+  "diff_stat": {},
+  "turns": 40,
+  "totals": {
+    "tokens_prompt": 510647,
+    "tokens_completion": 3731,
+    "tokens_reasoning": 0,
+    "tokens_total": 514378,
+    "cost_usd": 0.0581795,
+    "llm_calls": 40,
+    "tool_calls": 40,
+    "test_runs": 0,
+    "errors": 0
+  },
+  "out_dir": "runs/fumaca-08-10/tomlkit-0002/single-agent/rep01/attempt01"
+}

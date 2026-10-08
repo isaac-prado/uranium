@@ -1,0 +1,42 @@
+diff --git a/tomlkit/api.py b/tomlkit/api.py
+index fd4b2f3..3a01cf2 100644
+--- a/tomlkit/api.py
++++ b/tomlkit/api.py
+@@ -1,4 +1,5 @@
+ import datetime as _datetime
++from typing import List, Union
+ 
+ from collections.abc import Mapping
+ from typing import IO
+@@ -12,6 +13,7 @@ from .items import Bool
+ from .items import Comment
+ from .items import Date
+ from .items import DateTime
++from .items import DottedKey
+ from .items import Float
+ from .items import InlineTable
+ from .items import Integer
+@@ -141,7 +143,9 @@ def aot() -> AoT:
+     return AoT([])
+ 
+ 
+-def key(k: str) -> Key:
++def key(k: Union[str, List[str]]) -> Key:
++    if isinstance(k, list):
++        return DottedKey([SingleKey(part) for part in k])
+     return SingleKey(k)
+ 
+ 
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index f325029..929d559 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -329,7 +329,7 @@ class DottedKey(Key):
+         if original is None:
+             original = ".".join(k.as_string() for k in self._keys)
+ 
+-        self.sep = "=" if sep is None else sep
++        self.sep = " = " if sep is None else sep
+         self._original = original
+         self._dotted = True
+         self.key = ".".join(k.key for k in self._keys)

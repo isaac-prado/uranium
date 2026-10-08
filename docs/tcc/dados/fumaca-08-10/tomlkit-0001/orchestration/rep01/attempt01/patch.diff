@@ -1,0 +1,36 @@
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index b952b36..c6e03bd 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -665,12 +665,9 @@ class Parser:
+             # exception eagerly computes a line/column, which scans the whole
+             # source. On a large file with many arrays this is a big, pure waste.
+             if not prev_value and self._current != "]":
+-                try:
+-                    elems.append(self._parse_value())
+-                    prev_value = True
+-                    continue
+-                except UnexpectedCharError:
+-                    pass
++                elems.append(self._parse_value())
++                prev_value = True
++                continue
+ 
+             # consume comma
+             if prev_value and self._current == ",":
+@@ -691,14 +688,7 @@ class Parser:
+ 
+             raise self.parse_error(UnexpectedCharError, self._current)
+ 
+-        try:
+-            res = Array(elems, Trivia())
+-        except ValueError:
+-            pass
+-        else:
+-            return res
+-
+-        raise self.parse_error(ParseError, "Failed to parse array")
++        return Array(elems, Trivia())
+ 
+     def _parse_inline_table(self) -> InlineTable:
+         # consume opening bracket, EOF here is an issue (middle of array)
