@@ -2,7 +2,7 @@
 
 Este repositório é o instrumento de um TCC que compara duas topologias de agentes de IA corrigindo bugs: `single-agent` (agente único com operador determinístico) e `orchestration` (papéis orquestrados por um grafo LangGraph). A alegação causal do estudo depende de os dois braços serem idênticos em tudo, exceto na topologia. O que está listado aqui é proposital. Não "otimize", "simplifique" nem "modernize" nada desta lista sem o autor pedir por escrito.
 
-Fonte de verdade sobre o desenho: `docs/tcc/00-guia-etapas.md`, `docs/tcc/01-inventario.md`, `docs/tcc/03-metricas.md`, `docs/tcc/tasks/EXIGENCIAS.md`. Não cite `docs/dossie-metodologico.html` como fonte de número.
+Fonte de verdade sobre o desenho: `docs/tcc/00-guia-etapas.md`, `docs/tcc/01-inventario.md`, `docs/tcc/03-metricas.md`, `docs/tcc/tasks/EXIGENCIAS.md`. Decisões pendentes e tomadas, com data: `docs/tcc/09-decisoes-do-autor.md`. Não cite `docs/dossie-metodologico.html` como fonte de número.
 
 ## Intocáveis sem aprovação do autor
 
@@ -17,6 +17,8 @@ Fonte de verdade sobre o desenho: `docs/tcc/00-guia-etapas.md`, `docs/tcc/01-inv
 - Tudo que muda o comportamento de um braço vai ao manifesto (`orchestration_policy`, `shared_limits`, `budget`, `llm`, `driver_policy`). Dois runs com configuração diferente nunca podem produzir manifestos idênticos.
 - A repetição k de um braço e a k do outro rodam com a mesma semente (`seed_for_repetition`). Reexecução de run perdido preserva a semente.
 - Constantes de ferramenta (`src/tools/base.py`, `src/tools/exec.py`, `src/runtime.py`) são compartilhadas e registradas em `shared_limits`. Mudar uma delas muda os dois braços e invalida comparação com coletas anteriores.
+- Critério de parada igual nos dois braços: suíte verde ou orçamento. O orquestrado tem um teto só para a reprovação da revisão semântica (`MAX_SEMANTIC_REJECTIONS`, em `orchestration_policy`); não existe mais `MAX_VALIDATION_ITERATIONS` (decisão do autor de 28/09/2026, BACKLOG 7.2 D6).
+- Run perdido tem uma definição só: `lost: true` no `summary.json`, isto é, `stop_reason` em `infra_error:` (provedor) ou `interrupted:` (Ctrl+C), `src/arms/runner.py: LOST_PREFIXES`. É lida por `harness/attempts.py` (coleta e análise) e `src/arms/pilot.py`. Corte por orçamento não é perda; `error:` de outra origem é bug do harness, não perda. Perdido é reexecutado com a mesma semente e `attempt + 1`.
 
 ## Tetos do run
 

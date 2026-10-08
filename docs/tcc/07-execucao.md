@@ -99,3 +99,44 @@ Suíte do projeto ao fim do dia: 511 testes passando (`.venv/bin/python -m pytes
 4. Igualar `MAX_VALIDATION_ITERATIONS` ao critério do single-agent ou declarar como desenho (05-stack.md, seção 5).
 5. Modelo e provedor (08-escolha-modelo.md) e a ordem para rodar o teste pago de aptidão.
 6. Tetos (E4), depois de uma tarefa grande escrita e do teste de fumaça.
+
+---
+
+## Reconciliação com a `develop` (08/10/2026)
+
+Entre 19/09 e 08/10 duas linhas de trabalho avançaram em paralelo: esta branch (`exigencias-e2-e5`, 13 commits de 19/09, nunca enviada) e a `develop` no GitHub (6 commits de 28/09, feitos em outra máquina: `598a61c`, `e863546`, `848661f`, `7068a55`, `f4c01a9`, `c2046fd`). As duas resolviam problemas em comum de formas diferentes. O merge da `develop` nesta branch teve conflito em cinco arquivos; a regra de resolução foi: **decisão de desenho tomada pelo autor em 28/09 entra; mecanismo já coberto por teste de paridade em 19/09 fica.**
+
+### O que entrou da `develop`
+
+- `ProviderError`, `is_provider_error`, `is_fatal_provider_error` e `root_provider_error` em `src/config.py`; `invoke_structured_raw` não retenta falha de provedor (o orquestrado tolerava 3 × 7 tentativas contra 7).
+- `stop_reason` de run morto com prefixo `infra_error:` ou `interrupted:` e campo `lost` no `summary.json` (`src/arms/runner.py`, `LOST_PREFIXES`, `stop_reason_for`). Ctrl+C passa pelo `finally` e grava resumo.
+- Coleta definitiva retomável: `src/arms/collection.py`, `scripts/run_collection.py`, regra única de tentativa válida em `harness/attempts.py`, análise operacional em `harness/analysis.py` + `scripts/analyze_collection.py`, com testes próprios.
+- D6: o laço developer ↔ validator só termina por orçamento; `MAX_VALIDATION_ITERATIONS` deixa de existir e `MAX_SEMANTIC_REJECTIONS = 2` cobre só a reprovação semântica (`src/graph.py`, `src/agents/validator.py`, `src/state.py`, `.env.example`).
+- D4: o developer recebe `issues`, `missing_criteria` e `suggestions` do revisor quando ele reprova com a suíte verde.
+- `LLM_REQUEST_TIMEOUT` padrão 90 s; `BACKLOG.md` seções 6 a 8; `tests/fakes.py::erro_http`.
+
+### O que ficou desta branch, e por quê
+
+| Conflito | Resolução |
+|---|---|
+| `src/agents/developer.py` | Feedback de suíte vermelha vem de `src.feedback.feedback_de_falha` (E2), não de `DeterministicDriver().apos_turno` (develop): mesma paridade literal, mas a mensagem fica num módulo só e o nó de um braço não importa o operador do outro. Sem corte próprio de 4.000 caracteres: vale o da ferramenta, 8.000, premissa F2 aprovada em 19/09. "Arquivos já modificados" continua removido (F8). A moldura do parecer do revisor (D4) foi para `src/feedback.py::revisao_reprovada`, porque nenhum braço pode ter texto próprio de feedback (`CLAUDE.md`). |
+| `src/graph.py` | Lógica de D6 da develop, lendo `config.MAX_SEMANTIC_REJECTIONS` como atributo do módulo (E2), para o manifesto e o grafo nunca lerem cópias diferentes. |
+| `src/arms/runner.py` | Manifesto v3: `orchestration_policy` (E2) ganha `max_semantic_rejections` no lugar de `max_validation_iterations`; as chaves `structured_output` e `orchestration` que a develop acrescentou foram descartadas porque já estavam dentro de `orchestration_policy`. `shared_limits` e `attempt` mantidos. |
+| `tests/test_pilot.py` | Os dois conjuntos de teste ficaram. O run perdido simulado passou a ser um 429 real (`erro_http(429)`), porque com a regra nova um `RuntimeError` genérico não é perda. |
+| `README.md` | Listagem de `scripts/` com os dois conjuntos. |
+
+### Regra única de perda (E5.2 e G5 depois do merge)
+
+Perda = `lost: true` no `summary.json`, isto é, `stop_reason` em `infra_error:` ou `interrupted:`. `src/arms/pilot.py::detectar_perdidos` passou a usar essa regra (antes era qualquer `error:`), a mesma de `harness/attempts.py`. Corte por orçamento não é perda. Erro que não é de provedor (`error: ...`) **não é perda**: é bug do harness e hoje, na coleta, conta como run válido que não resolveu; o que fazer com ele é a decisão 14 de [09-decisoes-do-autor.md](09-decisoes-do-autor.md).
+
+### Testes
+
+- Adaptados: `test_mudar_max_semantic_rejections_muda_o_manifesto` (era `max_validation_iterations`), `test_manifest_version_subiu` (3), `test_funcoes_publicas_de_feedback_conhecidas` (inclui `revisao_reprovada`), `test_feedback_de_suite_vermelha_e_literalmente_o_mesmo` (sem exigir corte de 4.000), `TestDeveloperRecebeARevisao` (sem "Arquivos já modificados", F8), `TestReexecucaoDeRunPerdido` e `TestCorteDeOrcamentoNaoEhPerda` (perda = 429/interrupção; `error:` do harness não é perda).
+- Resultado da suíte completa após o merge: ver o commit do merge (`git log -1`).
+
+### Impacto em docs
+
+- [09-decisoes-do-autor.md](09-decisoes-do-autor.md): novo, com todas as decisões pendentes e as já tomadas.
+- `CLAUDE.md`: regra de perda e teto do laço atualizados.
+- A decisão 4 da lista de 19/09 (igualar `MAX_VALIDATION_ITERATIONS` ou declarar) está **resolvida** pela D6 de 28/09: igualada. [05-stack.md](05-stack.md) seção 5 e [01-inventario.md](01-inventario.md) F5 ficam como registro histórico.
+- O `.env` desta máquina ainda tem `LLM_REQUEST_TIMEOUT=300` e precisa ser alinhado ao `.env.example` (90) quando a decisão 11 for tomada; `MAX_VALIDATION_ITERATIONS` no `.env`, se existir, passa a ser ignorado.
