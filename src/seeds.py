@@ -79,6 +79,18 @@ class SeedRepoSpec:
     # caminho do submódulo -> nome do espelho bare correspondente
     submodules: tuple[tuple[str, str], ...] = ()
     protected_globs: tuple[str, ...] = field(default=DEFAULT_PROTECTED_GLOBS)
+    # Diretórios do workspace que precisam estar em `sys.path` para o pacote
+    # importar sem instalação — o "src layout" (`src/<pacote>/`) de jinja,
+    # marshmallow e attrs. Vazio para pacote solto na raiz, que o pytest já
+    # enxerga. O mecanismo é um `.pth` gravado no venv do repo por
+    # `scripts/setup_mirror.py` (`uranium_src_layout.pth`), que acrescenta
+    # `<cwd>/<dir>` ao `sys.path` na partida de QUALQUER interpretador do
+    # venv: ferramentas do agente (`run_python`, `run_tests`), avaliador,
+    # portão de validação e mineração rodam todos com `cwd` = raiz do
+    # workspace, então os dois braços e o oráculo enxergam exatamente o
+    # mesmo pacote, sem `pip install` por run e sem o harness precisar
+    # importar `src/`. Decisão 1(b) de docs/tcc/09-decisoes-do-autor.md.
+    pythonpath: tuple[str, ...] = ()
 
     @property
     def mirror_path(self) -> Path:
@@ -259,9 +271,102 @@ TQDM = SeedRepoSpec(
     ),
 )
 
+# Repositórios com "src layout" (decisão 1(b), 08/10/2026): o pacote fica
+# em `src/<nome>/` e não importa sem `pythonpath=("src",)` — ver o campo em
+# `SeedRepoSpec`. Medidos em clone limpo nesta máquina em 08/10/2026 com o
+# `.pth` instalado: jinja 911 passed em 3,0s; marshmallow 1190 passed em
+# 3,4s; attrs 1395 passed, 10 skipped, 1 xfailed em 9,5s (sem
+# `tests/test_packaging.py`). Versões pinadas = o que `uv pip install` sem
+# pino resolveu em 08/10/2026. `click` ficou de fora por enquanto: sem o
+# `-m "not stress"` do `addopts` upstream (que o harness zera com
+# `-o addopts=` nos dois braços) a suíte passa de 10 min, e
+# `tests/test_deprecations.py` exige metadados de pacote instalado —
+# resolver exige args de pytest por repositório no oráculo, que é intocável
+# sem aprovação (docs/tcc/09-decisoes-do-autor.md, decisão 1).
+JINJA = SeedRepoSpec(
+    seed_repo_id="jinja",
+    upstream_url="https://github.com/pallets/jinja.git",
+    mirror_name="jinja.git",
+    source_dir="src/jinja2",
+    test_command=("-q", "-p", "no:cacheprovider", "-o", "addopts="),
+    suite_targets=("tests/",),
+    test_requirements=(
+        # runtime, de [project.dependencies]
+        "markupsafe==3.0.4",
+        # teste, de [dependency-groups].tests
+        "pytest==9.1.1",
+        "pytest-timeout==2.4.0",
+        "trio==0.34.0",
+    ),
+    pythonpath=("src",),
+)
+
+MARSHMALLOW = SeedRepoSpec(
+    seed_repo_id="marshmallow",
+    upstream_url="https://github.com/marshmallow-code/marshmallow.git",
+    mirror_name="marshmallow.git",
+    source_dir="src/marshmallow",
+    test_command=("-q", "-p", "no:cacheprovider", "-o", "addopts="),
+    # `norecursedirs` do pyproject (tests/mypy_test_cases) continua valendo:
+    # `-o addopts=` zera só o addopts
+    suite_targets=("tests/",),
+    test_requirements=("pytest==9.1.1", "simplejson==4.2.0"),
+    pythonpath=("src",),
+)
+
+# `tests/test_packaging.py` lê a versão por `importlib.metadata`, que só
+# existe com o pacote instalado; fora do estudo pelo mesmo motivo que o
+# harness não instala nada. `tests/test_forward_references.py` fica fora
+# porque o `conftest.py` do upstream o põe em `collect_ignore` abaixo do
+# Python 3.14 (PEP 749), e um arquivo passado explicitamente ao pytest
+# ignora o `collect_ignore` — o venv é 3.12. Lista explícita como no peewee — mesma ressalva
+# de cobertura histórica: commit-base anterior à criação de um destes
+# arquivos faz o passo 0 do minerador falhar com "arquivo não encontrado".
+ATTRS = SeedRepoSpec(
+    seed_repo_id="attrs",
+    upstream_url="https://github.com/python-attrs/attrs.git",
+    mirror_name="attrs.git",
+    source_dir="src/attr,src/attrs",
+    test_command=("-q", "-p", "no:cacheprovider", "-o", "addopts="),
+    suite_targets=(
+        "tests/test_3rd_party.py",
+        "tests/test_abc.py",
+        "tests/test_annotations.py",
+        "tests/test_cmp.py",
+        "tests/test_compat.py",
+        "tests/test_config.py",
+        "tests/test_converters.py",
+        "tests/test_dunders.py",
+        "tests/test_filters.py",
+        "tests/test_funcs.py",
+        "tests/test_functional.py",
+        "tests/test_hooks.py",
+        "tests/test_import.py",
+        "tests/test_init_subclass.py",
+        "tests/test_make.py",
+        "tests/test_next_gen.py",
+        "tests/test_pattern_matching.py",
+        "tests/test_pyright.py",
+        "tests/test_setattr.py",
+        "tests/test_slots.py",
+        "tests/test_utils.py",
+        "tests/test_validators.py",
+        "tests/test_version_info.py",
+    ),
+    test_requirements=(
+        "pytest==9.1.1",
+        "hypothesis==6.168.5",
+        "pympler==1.1",
+        "cloudpickle==3.1.2",
+        "pytest-xdist==3.8.0",
+        "psutil==7.2.2",
+    ),
+    pythonpath=("src",),
+)
+
 SEED_REPOS: dict[str, SeedRepoSpec] = {
     repo.seed_repo_id: repo
-    for repo in (TOMLKIT, PEEWEE, SQLITE_UTILS, PYGMENTS, TQDM)
+    for repo in (TOMLKIT, PEEWEE, SQLITE_UTILS, PYGMENTS, TQDM, JINJA, MARSHMALLOW, ATTRS)
 }
 
 

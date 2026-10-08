@@ -18,6 +18,9 @@ import pytest
 from harness.venvs import SeedEnvMissing, python_for
 from harness.venvs import venv_root as harness_venv_root
 from src.seeds import (
+    ATTRS,
+    JINJA,
+    MARSHMALLOW,
     PEEWEE,
     PYGMENTS,
     SEED_REPOS,
@@ -46,9 +49,13 @@ from src.workspace import Workspace, WorkspaceSpec
 # pygments e tqdm: repositórios novos do E3 item 1, valores medidos em
 # docs/tcc/07-e3-1-mineracao.md (5330 e 169 `passed` no HEAD desta
 # máquina) com folga por baixo.
+#
+# jinja, marshmallow e attrs: src layout (decisão 1(b)), medidos em 08/10/2026
+# em clone limpo (911, 1190 e 1395 `passed`), com folga por baixo.
 PISO_DE_COLETA = {
     "tomlkit": 1000, "peewee": 1400, "sqlite-utils": 1400,
     "pygments": 5000, "tqdm": 150,
+    "jinja": 850, "marshmallow": 1100, "attrs": 1300,
 }
 
 
@@ -70,6 +77,7 @@ class TestCatalogo:
     def test_os_repos_estao_registrados(self):
         assert set(SEED_REPOS) == {
             "tomlkit", "peewee", "sqlite-utils", "pygments", "tqdm",
+            "jinja", "marshmallow", "attrs",
         }
 
     def test_id_desconhecido_lista_as_opcoes(self):
@@ -204,3 +212,66 @@ def test_peewee_sem_alvo_declarado_coletaria_quase_nada(tmp_path):
     assert declarado.passed > PISO_DE_COLETA["peewee"]
     assert pelado.passed < 50
     assert re.search(r"tests/models\.py", declarado.command)
+
+
+# ------------------------------------------------------------- src layout
+
+
+class TestSrcLayout:
+    """
+    Repositórios com o pacote em `src/<nome>/` (jinja, marshmallow, attrs):
+    o venv do repo carrega um `.pth` que põe `<cwd>/src` no `sys.path`, e
+    é isso que faz `import jinja2` funcionar num clone limpo, para os dois
+    braços e para o oráculo, sem instalar nada.
+    """
+
+    COM_SRC = (JINJA, MARSHMALLOW, ATTRS)
+
+    def test_declaram_pythonpath_e_source_dir_dentro_dele(self):
+        for repo in self.COM_SRC:
+            assert repo.pythonpath == ("src",)
+            for d in repo.source_dir.split(","):
+                assert d.startswith("src/"), (repo.seed_repo_id, d)
+
+    def test_os_antigos_nao_declaram(self):
+        for repo in (TOMLKIT, PEEWEE, SQLITE_UTILS, PYGMENTS, TQDM):
+            assert repo.pythonpath == ()
+
+    def test_linha_do_pth_so_entra_diretorio_que_existe(self, tmp_path, monkeypatch):
+        from scripts.setup_mirror import pth_line
+
+        linha = pth_line(("src",))
+        assert linha.startswith("import ")
+        monkeypatch.chdir(tmp_path)
+        escopo: dict = {}
+        exec(linha, escopo)  # sem src/: nada entra
+        assert str(tmp_path / "src") not in sys.path
+        (tmp_path / "src").mkdir()
+        exec(linha, escopo)
+        assert sys.path[0] == str(tmp_path / "src")
+        sys.path.remove(str(tmp_path / "src"))
+
+    @pytest.mark.parametrize("repo", COM_SRC, ids=lambda r: r.seed_repo_id)
+    def test_o_venv_tem_o_pth(self, repo: SeedRepoSpec):
+        if not _pronto(repo):
+            pytest.skip(f"{repo.seed_repo_id}: rode scripts/setup_mirror.py {repo.seed_repo_id}")
+        from scripts.setup_mirror import PTH_NOME
+
+        site = next(Path(repo.venv_path).glob("lib/python*/site-packages"))
+        assert (site / PTH_NOME).exists()
+
+    @pytest.mark.parametrize("repo", COM_SRC, ids=lambda r: r.seed_repo_id)
+    def test_o_pacote_importa_no_workspace_pelo_run_python(self, repo: SeedRepoSpec, tmp_path):
+        """O mesmo caminho que o agente usa: `run_python` com cwd no workspace."""
+        if not _pronto(repo):
+            pytest.skip(f"{repo.seed_repo_id}: rode scripts/setup_mirror.py {repo.seed_repo_id}")
+        from src.tools.exec import run_python
+
+        head = _head(repo)
+        ws = Workspace.materialize(
+            WorkspaceSpec(seed_repo=repo, base_commit=head), run_id="src-layout",
+            dest=tmp_path / "ws", overwrite=True,
+        )
+        pacote = repo.source_dir.split(",")[0].split("/", 1)[1]
+        saida = run_python(ws, f"import {pacote}; print({pacote}.__file__)")
+        assert str(ws.root / "src" / pacote) in saida, saida

@@ -41,6 +41,8 @@ Fontes: [04-cronograma.md](04-cronograma.md), [07-execucao.md](07-execucao.md), 
 
 **Resultado de (a), 08/10/2026** (`mined-v3/RELATORIO.md`, `mined-v3/mineracao.log`): a verificação ampliada (`--max-verificar-por-faixa 100`, histórico inteiro) esgotou o pré-filtro de média e grande nos cinco repositórios (peewee 4 grandes + 12 médias, pygments 3 + 20, sqlite-utils 2 + 0, tomlkit 6 + 0, tqdm 0 + 0, todos verificados) e aceitou **as mesmas 3 grandes (tomlkit) e 2 médias (peewee)** de 19/09. O limite não é o teto de verificação: nos cinco repositórios não existem outros candidatos de média/grande que passem no portão de execução. Motivo dominante: suíte não executa no commit-base (peewee 14 de 16, pygments 23 de 23; commits antigos, anteriores ao layout de testes atual). **(a) está esgotada; a decisão volta ao autor entre (b) e (c).**
 
+**Decisão (08/10/2026, mais tarde): (b).** Suporte a src layout implementado pelo `.pth` no venv de cada repositório (ver [07-execucao.md](07-execucao.md), seção "Suporte a src layout"); jinja, marshmallow e attrs registrados e verdes no HEAD; click adiado por precisar de argumentos de pytest por repositório no oráculo (intocável sem aprovação). Mineração dos três em `mined-v3/mineracao-src-layout.log`.
+
 ### Decisão 2. Mudança de comportamento e exclusão à la SWE-bench (E3.3)
 
 **Situação.** [07-e3-3-breaking-change.md](07-e3-3-breaking-change.md) mostra que o oráculo julga a mudança de comportamento quando o commit de correção atualiza todos os testes afetados (o minerador já verifica isso), mas o **laço do agente** não consegue terminar nela: os dois braços só param com a suíte antiga verde, e o agente não pode tocar em `tests/`. Recomendação do relatório: não implementar a exclusão agora; manter o passo 2 do minerador como portão (alternativa A) e reportar quantos candidatos grandes foram rejeitados por dano colateral.
@@ -298,7 +300,7 @@ Hoje conta como "sem corte" pela definição literal, e o JSON reporta `sem_stop
 
 | # | Decisão tomada | Data | Onde foi documentada |
 |---|---|---|---|
-| 1 | ampliar mineração nos 5 repositórios (a); (b)/(c) só se (a) falhar | 08/10/2026 | 09, Decisão 1; 07-e3-1 (resultado da mineração ampliada) |
+| 1 | (a) esgotada no mesmo dia; (b) implementada: jinja, marshmallow, attrs com src layout; click adiado | 08/10/2026 | 09, Decisão 1; 07-execucao (src layout); mined-v3/ |
 | 2 | alternativa A, oráculo intocado; reabrir só se faltarem grandes | 08/10/2026 | 09, Decisão 2; 07-e3-3 seção 5 |
 | 3 | duas referências em todas as 12 | 08/10/2026 | 09, Decisão 3 |
 | 4 | | | |

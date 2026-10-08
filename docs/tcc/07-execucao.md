@@ -140,3 +140,31 @@ Perda = `lost: true` no `summary.json`, isto é, `stop_reason` em `infra_error:`
 - `CLAUDE.md`: regra de perda e teto do laço atualizados.
 - A decisão 4 da lista de 19/09 (igualar `MAX_VALIDATION_ITERATIONS` ou declarar) está **resolvida** pela D6 de 28/09: igualada. [05-stack.md](05-stack.md) seção 5 e [01-inventario.md](01-inventario.md) F5 ficam como registro histórico.
 - O `.env` desta máquina ainda tem `LLM_REQUEST_TIMEOUT=300` e precisa ser alinhado ao `.env.example` (90) quando a decisão 11 for tomada; `MAX_VALIDATION_ITERATIONS` no `.env`, se existir, passa a ser ignorado.
+
+---
+
+## Suporte a "src layout" nos repositórios-semente (08/10/2026, decisão 1(b))
+
+A mineração ampliada de 08/10 (`mined-v3/`) esgotou o pré-filtro de média e grande nos cinco repositórios atuais. Os repositórios com maior densidade de candidato grande/média (jinja, marshmallow, attrs, click) têm o pacote em `src/<nome>/`, que um clone limpo não importa. O autor aprovou a opção (b) da decisão 1 ([09-decisoes-do-autor.md](09-decisoes-do-autor.md)).
+
+### Mecanismo
+
+`SeedRepoSpec.pythonpath` (`src/seeds.py`) declara os diretórios do workspace que precisam estar em `sys.path`. `scripts/setup_mirror.py` grava no venv do repositório um `uranium_src_layout.pth` (função pura `pth_line`) que, na partida de qualquer interpretador daquele venv, insere `<cwd>/<dir>` em `sys.path` se o diretório existir. Como todo ponto do harness que roda Python no workspace usa `cwd` = raiz do workspace e o interpretador do venv do repo (ferramentas do agente em `src/tools/exec.py`, avaliador em `harness/pytest_runner.py`, `validate_task.py`, `mine_tasks.py`), os dois braços e o oráculo passam a enxergar o mesmo pacote sem `pip install` por run, sem variável de ambiente e **sem tocar oráculo, avaliador, prompts, ferramentas ou guarda de caminho**. O `task.json` ganha o campo informativo `pythonpath`.
+
+### Repositórios
+
+| Repositório | `source_dir` | Suíte no HEAD (clone limpo, `setup_mirror.py --check`, 08/10) | Observação |
+|---|---|---|---|
+| jinja | `src/jinja2` | 911 passed, 3,7 s | `markupsafe` é dependência de runtime, pinada no venv |
+| marshmallow | `src/marshmallow` | 1190 passed, 2,8 s | `norecursedirs` do pyproject continua valendo |
+| attrs | `src/attr,src/attrs` | 1395 passed, 10 skipped, 1 xfailed, 12,7 s | lista explícita de arquivos: fora `tests/test_packaging.py` (exige metadados de pacote instalado) e `tests/test_forward_references.py` (o `conftest.py` do upstream o ignora abaixo do Python 3.14) |
+| click | — | **adiado** | sem o `-m "not stress"` do `addopts` upstream (zerado por `-o addopts=` nos dois braços) a suíte passa de 10 min; `tests/test_deprecations.py` exige metadados de pacote. Resolver pede argumentos de pytest por repositório no oráculo, intocável sem aprovação |
+
+### Testes
+
+`tests/test_seed_repos.py::TestSrcLayout`: declaração dos três repos; os antigos sem `pythonpath`; a linha do `.pth` só insere diretório que existe (executada de verdade sob `tmp_path`); o venv de cada um tem o `.pth`; `run_python` (o mesmo caminho do agente) importa o pacote de dentro do workspace. `TestCatalogo` e `PISO_DE_COLETA` atualizados; `test_roda_inteira_e_passa` roda nos oito repositórios.
+
+### Impacto em docs
+
+- [09-decisoes-do-autor.md](09-decisoes-do-autor.md), decisão 1: (b) escolhida em 08/10; click pendente.
+- `CLAUDE.md`: convenção do `.pth` registrada.

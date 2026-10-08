@@ -44,6 +44,38 @@ def _mirror(url: str, dest: Path, *, update: bool) -> str:
     return f"  criado     {dest.name}"
 
 
+PTH_NOME = "uranium_src_layout.pth"
+
+
+def pth_line(pythonpath: tuple[str, ...]) -> str:
+    """
+    Linha do `.pth` que põe `<cwd>/<dir>` no `sys.path` na partida do
+    interpretador do venv (ver `SeedRepoSpec.pythonpath`).
+
+    Um `.pth` cujas linhas começam com `import` é executado pelo `site` em
+    toda partida; `cwd` é a raiz do workspace em todo ponto do harness que
+    roda Python (ferramentas do agente, avaliador, validação, mineração).
+    Só entra o diretório que existe, para o mesmo venv servir a qualquer
+    commit do repositório.
+    """
+    dirs = ", ".join(repr(d) for d in pythonpath)
+    return (
+        "import os, sys; "
+        f"[sys.path.insert(0, _d) for _d in (os.path.join(os.getcwd(), _p) for _p in ({dirs},)) "
+        "if os.path.isdir(_d) and _d not in sys.path]"
+    )
+
+
+def _instalar_pth(seed_repo: SeedRepoSpec) -> str:
+    saida = subprocess.run(
+        [seed_repo.python_bin, "-c", "import sysconfig; print(sysconfig.get_paths()['purelib'])"],
+        capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    destino = Path(saida) / PTH_NOME
+    destino.write_text(pth_line(seed_repo.pythonpath) + "\n", encoding="utf-8")
+    return f"  pythonpath {', '.join(seed_repo.pythonpath)} via {destino.name}"
+
+
 def _venv(seed_repo: SeedRepoSpec, *, update: bool) -> str:
     """
     Cria o ambiente de teste do repo e instala as dependências pinadas.
@@ -56,6 +88,8 @@ def _venv(seed_repo: SeedRepoSpec, *, update: bool) -> str:
 
     destino = seed_repo.venv_path
     if destino.exists() and not update:
+        if seed_repo.pythonpath:
+            _instalar_pth(seed_repo)  # idempotente: garante o .pth mesmo sem --update
         return f"  já existe  venvs/{seed_repo.seed_repo_id}"
     if destino.exists():
         shutil.rmtree(destino)
@@ -70,7 +104,8 @@ def _venv(seed_repo: SeedRepoSpec, *, update: bool) -> str:
         _run(sys.executable, "-m", "venv", str(destino))
         _run(str(destino / "bin" / "python"), "-m", "pip", "install", "--quiet",
              *seed_repo.test_requirements)
-    return f"  criado     venvs/{seed_repo.seed_repo_id}  ({len(seed_repo.test_requirements)} pacotes)"
+    extra = ("\n" + _instalar_pth(seed_repo)) if seed_repo.pythonpath else ""
+    return f"  criado     venvs/{seed_repo.seed_repo_id}  ({len(seed_repo.test_requirements)} pacotes){extra}"
 
 
 def _check(seed_repo: SeedRepoSpec) -> str:

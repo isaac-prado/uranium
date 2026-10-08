@@ -157,6 +157,8 @@ def escrever_tarefa(cand: dict, raiz: Path, *, task_id: str | None = None) -> Pa
         "kind": "bugfix",
         "faixa": cand["faixa"],
         "source_dir": repo.source_dir,
+        # informativo: o mecanismo é o .pth do venv (SeedRepoSpec.pythonpath)
+        "pythonpath": list(repo.pythonpath),
         "suite_targets": list(repo.suite_targets),
         "pass_to_pass": list(repo.suite_targets),
         "test_patch": "test_patch.diff",
