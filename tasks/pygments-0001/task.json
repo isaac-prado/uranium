@@ -4,6 +4,7 @@
   "base_commit": "6c2cf2819a23289acece1f5b7451af1242a07db7",
   "fix_commit": "9c436b34ccafdf9376527f66c6e587ffe0d1b84c",
   "upstream_subject": "Go lexer improvements (#3199)",
+  "issue_url": "https://github.com/pygments/pygments/pull/3199",
   "kind": "bugfix",
   "faixa": "pequena",
   "source_dir": "pygments",
@@ -20,7 +21,8 @@
     "tests/examplefiles/go/generics.go::"
   ],
   "reference_patches": [
-    "reference/upstream.patch"
+    "reference/upstream.patch",
+    "reference/alternative.patch"
   ],
   "cheat_patches": [
     "cheat/c1_edita_teste.patch"

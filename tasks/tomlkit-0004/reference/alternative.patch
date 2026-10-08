@@ -1,0 +1,337 @@
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index 777d96a..9a194bd 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -11,6 +11,7 @@ from .exceptions import KeyAlreadyPresent
+ from .exceptions import NonExistentKey
+ from .items import AoT
+ from .items import Comment
++from .items import DottedKey
+ from .items import Item
+ from .items import Key
+ from .items import Null
+@@ -27,6 +28,10 @@ class Container(dict):
+     def __init__(self):  # type: () -> None
+         self._map = {}  # type: Dict[Key, int]
+         self._body = []  # type: List[Tuple[Optional[Key], Item]]
++        # Tables implicitly defined by dotted keys (a.b = 1 defines "a").
++        # Their content is reachable by key, but they are never rendered
++        # themselves: each dotted line stays in the body, where it was written.
++        self._implicit = {}  # type: Dict[Key, Container]
+ 
+     @property
+     def body(self):  # type: () -> List[Tuple[Optional[Key], Item]]
+@@ -39,6 +44,13 @@ class Container(dict):
+             if k is None:
+                 continue
+ 
++            if isinstance(k, DottedKey):
++                head = k.parts[0]
++                if head.key not in d:
++                    d[head.key] = self._implicit[head].value
++
++                continue
++
+             k = k.key
+             v = v.value
+ 
+@@ -50,6 +62,12 @@ class Container(dict):
+             else:
+                 d[k] = v
+ 
++        # Implicit tables only reached through a longer dotted key
++        # (the "b" of a.b.c = 1, seen from "a") have no line of their own.
++        for k, table in self._implicit.items():
++            if k.key not in d:
++                d[k.key] = table.value
++
+         return d
+ 
+     def add(
+@@ -77,9 +95,15 @@ class Container(dict):
+         if not isinstance(item, Item):
+             item = _item(item)
+ 
++        if isinstance(key, DottedKey):
++            return self._append_dotted(key, item)
++
+         if isinstance(item, (AoT, Table)) and item.name is None:
+             item.name = key.key
+ 
++        if key is not None and key in self._implicit:
++            raise KeyAlreadyPresent(key)
++
+         if key is not None and key in self:
+             current = self._body[self._map[key]][1]
+             if isinstance(item, Table):
+@@ -125,10 +149,72 @@ class Container(dict):
+ 
+         return item
+ 
++    def _append_dotted(self, key, item):  # type: (DottedKey, Item) -> Item
++        """
++        Stores the value of a dotted key in the implicit table(s) its path
++        designates, and records the line itself in this container's body
++        so that it is rendered at the same place, with the same spelling.
++        """
++        container = self
++        for part in key.parts[:-1]:
++            container = container._implicit_table(part)
++
++        last = key.parts[-1]
++        container.append(Key(last.key, last.t, key.sep), item)
++
++        self._body.append((key, item))
++
++        return item
++
++    def _implicit_table(self, key):  # type: (Key) -> Container
++        """
++        Returns the implicit table for the given key, creating it if needed.
++        """
++        if key in self._map:
++            # Already defined explicitly (a = 1, then a.b = 2)
++            raise KeyAlreadyPresent(key)
++
++        table = self._implicit.get(key)
++        if table is None:
++            table = Container()
++            self._implicit[key] = table
++            super(Container, self).__setitem__(key.key, table)
++
++        return table
++
++    def _resolve_dotted(self, key):  # type: (DottedKey) -> Optional[Item]
++        """
++        Returns the current item a dotted line points to,
++        or None if it has been removed.
++        """
++        container = self
++        for part in key.parts[:-1]:
++            container = container._implicit.get(part)
++            if container is None:
++                return
++
++        idx = container._map.get(key.parts[-1])
++        if idx is None:
++            return
++
++        return container._body[idx][1]
++
+     def remove(self, key):  # type: (Key) -> None
+         if not isinstance(key, Key):
+             key = Key(key)
+ 
++        if key in self._implicit:
++            del self._implicit[key]
++            self._body = [
++                (None, Null())
++                if isinstance(k, DottedKey) and k.parts[0] == key
++                else (k, v)
++                for k, v in self._body
++            ]
++            super(Container, self).__delitem__(key.key)
++
++            return
++
+         idx = self._map.pop(key, None)
+         if idx is None:
+             raise NonExistentKey(key)
+@@ -144,6 +230,23 @@ class Container(dict):
+     def as_string(self, prefix=None):  # type: () -> str
+         s = ""
+         for k, v in self._body:
++            if isinstance(k, DottedKey):
++                v = self._resolve_dotted(k)
++                if v is None:
++                    continue
++
++                s += "{}{}{}{}{}{}{}".format(
++                    v.trivia.indent,
++                    decode(k.as_string()),
++                    k.sep,
++                    decode(v.as_string()),
++                    v.trivia.comment_ws,
++                    decode(v.trivia.comment),
++                    v.trivia.trail,
++                )
++
++                continue
++
+             if k is not None:
+                 if isinstance(v, Table):
+                     if v.is_super_table():
+@@ -211,18 +314,38 @@ class Container(dict):
+     # Dictionary methods
+ 
+     def keys(self):  # type: () -> Generator[Key]
+-        for k, _ in self._body:
+-            if k is None:
+-                continue
+-
++        for k, _ in self._entries():
+             yield k.key
+ 
+     def values(self):  # type: () -> Generator[Item]
++        for _, v in self._entries():
++            yield v
++
++    def _entries(self):  # type: () -> Generator[Tuple[Key, Any]]
++        """
++        Top-level keys of this container with their values, in document order;
++        an implicit table appears once, where its first dotted line is.
++        """
++        seen = set()
+         for k, v in self._body:
+             if k is None:
+                 continue
+ 
+-            yield v.value
++            if isinstance(k, DottedKey):
++                head = k.parts[0]
++                if head in seen:
++                    continue
++
++                seen.add(head)
++                yield head, self._implicit[head]
++
++                continue
++
++            yield k, v.value
++
++        for k, table in self._implicit.items():
++            if k not in seen:
++                yield k, table
+ 
+     def items(self):  # type: () -> Generator[Item]
+         for k, v in self.value.items():
+@@ -235,7 +358,7 @@ class Container(dict):
+         if not isinstance(key, Key):
+             key = Key(key)
+ 
+-        return key in self._map
++        return key in self._map or key in self._implicit
+ 
+     def __getitem__(self, key):  # type: (Key) -> Item
+         if not isinstance(key, Key):
+@@ -243,6 +366,9 @@ class Container(dict):
+ 
+         idx = self._map.get(key, None)
+         if idx is None:
++            if key in self._implicit:
++                return self._implicit[key]
++
+             raise NonExistentKey(key)
+ 
+         item = self._body[idx][1]
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index c88637a..f4b8942 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -104,6 +104,36 @@ class Key:
+         return "<Key {}>".format(self.as_string())
+ 
+ 
++class DottedKey(Key):
++    """
++    A key made of several parts separated by dots, like ``a.b."c"``.
++
++    It keeps the original text, so that it can be written back unchanged,
++    and the individual parts, which describe the path of implicit tables
++    leading to the value.
++    """
++
++    def __init__(self, parts, original, sep=None):  # type: (List[Key], str) -> None
++        super(DottedKey, self).__init__(original, KeyType.Bare, sep)
++
++        self.parts = tuple(parts)
++
++    def as_string(self):  # type: () -> str
++        return self.key
++
++    def __hash__(self):  # type: () -> int
++        return hash(tuple(p.key for p in self.parts))
++
++    def __eq__(self, other):  # type: (Key) -> bool
++        if not isinstance(other, DottedKey):
++            return False
++
++        return self.parts == other.parts
++
++    def __repr__(self):  # type: () -> str
++        return "<DottedKey {}>".format(self.as_string())
++
++
+ class Item(object):
+     """
+     An item within a TOML document.
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..30c93cf 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -32,6 +32,7 @@ from .items import Bool
+ from .items import Comment
+ from .items import Date
+ from .items import DateTime
++from .items import DottedKey
+ from .items import Float
+ from .items import InlineTable
+ from .items import Integer
+@@ -401,6 +402,44 @@ class Parser:
+         """
+         Parses a Key at the current position;
+         WS before the key must be exhausted first at the callsite.
++
++        A dotted key (``a.b."c"``) is returned as a single DottedKey
++        holding each of its parts.
++        """
++        start = self._idx
++        parts = [self._parse_simple_key()]
++
++        while True:
++            saved_idx = self._save_idx()
++
++            while self._current.is_spaces() and self.inc():
++                pass
++
++            if self._current != ".":
++                # Not a dotted key (anymore): the whitespace belongs
++                # to the key/value separator.
++                self._restore_idx(*saved_idx)
++                break
++
++            self.inc()  # Skip the dot
++
++            while self._current.is_spaces() and self.inc():
++                pass
++
++            part = self._parse_simple_key()
++            if not part.key and part.t == KeyType.Bare:
++                raise self.parse_error(EmptyKeyError)
++
++            parts.append(part)
++
++        if len(parts) == 1:
++            return parts[0]
++
++        return DottedKey(parts, self._src[start : self._idx], "")
++
++    def _parse_simple_key(self):  # type: () -> Key
++        """
++        Parses a single (bare or quoted) key at the current position.
+         """
+         if self._current in "\"'":
+             return self._parse_quoted_key()
+@@ -807,6 +846,12 @@ class Parser:
+ 
+         cws, comment, trail = self._parse_comment_trail()
+ 
++        # The line break ending the header line is part of the header,
++        # not of the table's content.
++        if self._current == "\n":
++            trail += "\n"
++            self.inc()
++
+         result = Null()
+ 
+         if len(name_parts) > 1:

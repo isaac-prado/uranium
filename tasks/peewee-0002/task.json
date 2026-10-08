@@ -78,7 +78,8 @@
     "tests/transactions.py::TestTransaction::test_mixing_manual_db_context"
   ],
   "reference_patches": [
-    "reference/upstream.patch"
+    "reference/upstream.patch",
+    "reference/alternative.patch"
   ],
   "cheat_patches": [
     "cheat/c1_edita_teste.patch"

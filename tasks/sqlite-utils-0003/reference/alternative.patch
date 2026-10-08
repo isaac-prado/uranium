@@ -1,0 +1,155 @@
+diff --git a/sqlite_utils/cli.py b/sqlite_utils/cli.py
+index a30f79a..706f7d0 100644
+--- a/sqlite_utils/cli.py
++++ b/sqlite_utils/cli.py
+@@ -34,6 +34,7 @@ from .utils import (
+     OperationalError,
+     _compile_code,
+     chunks,
++    dedupe_keys,
+     file_progress,
+     find_spatialite,
+     flatten as _flatten,
+@@ -2154,7 +2155,11 @@ def _execute_query(
+             for row in cursor:
+                 writer.writerow(row)
+         else:
+-            for line in output_rows(cursor, headers, nl, arrays, json_cols):
++            # JSON objects cannot hold the same key twice, so repeated column
++            # names get unique names here - CSV, TSV and table output above
++            # keep the headers exactly as SQLite reported them
++            json_keys = dedupe_keys(headers)
++            for line in output_rows(cursor, json_keys, nl, arrays, json_cols):
+                 click.echo(line)
+ 
+ 
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 3f23c7d..285e3fb 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -1,5 +1,6 @@
+ from .utils import (
+     chunks,
++    dedupe_keys,
+     hash_record,
+     sqlite3,
+     OperationalError,
+@@ -405,6 +406,20 @@ _QUERY_REJECTED_KEYWORDS = _TRANSACTION_CONTROL_KEYWORDS | {
+ }
+ 
+ 
++def _rows_as_dicts(
++    description: Sequence[Sequence[Any]], rows: Iterable[Sequence[Any]]
++) -> Generator[dict, None, None]:
++    """
++    Turn the rows of a cursor into dictionaries keyed by column name.
++
++    Results can repeat a column name - a join of two tables that both have
++    an ``id``, say - so the names are made unique first; otherwise the later
++    value would silently replace the earlier one in each dictionary.
++    """
++    keys = dedupe_keys(column[0] for column in description)
++    return (dict(zip(keys, row)) for row in rows)
++
++
+ def _first_keyword(sql: str) -> str:
+     """
+     Return the first keyword of a SQL statement, uppercased, skipping any
+@@ -786,8 +801,7 @@ class Database:
+                     cursor = self.conn.execute(sql, *args)
+             if cursor.description is None:
+                 raise ValueError(message)
+-            keys = [d[0] for d in cursor.description]
+-            return (dict(zip(keys, row)) for row in cursor)
++            return _rows_as_dicts(cursor.description, cursor)
+         # Execute inside a savepoint, so a statement that turns out not to
+         # return rows can be rolled back before the ValueError is raised
+         self.conn.execute('SAVEPOINT "sqlite_utils_query"')
+@@ -796,7 +810,7 @@ class Database:
+             cursor = self.conn.execute(sql, *args)
+             if cursor.description is None:
+                 raise ValueError(message)
+-            keys = [d[0] for d in cursor.description]
++            description = cursor.description
+             try:
+                 self.conn.execute('RELEASE "sqlite_utils_query"')
+                 released = True
+@@ -809,8 +823,8 @@ class Database:
+                 fetched = cursor.fetchall()
+                 self.conn.execute('RELEASE "sqlite_utils_query"')
+                 released = True
+-                return (dict(zip(keys, row)) for row in fetched)
+-            return (dict(zip(keys, row)) for row in cursor)
++                return _rows_as_dicts(description, fetched)
++            return _rows_as_dicts(description, cursor)
+         finally:
+             if not released:
+                 # An error occurred - undo anything the statement changed
+@@ -1865,9 +1879,7 @@ class Queryable:
+         if offset is not None:
+             sql += " offset {}".format(offset)
+         cursor = self.db.execute(sql, where_args or [])
+-        columns = [c[0] for c in cursor.description]
+-        for row in cursor:
+-            yield dict(zip(columns, row))
++        yield from _rows_as_dicts(cursor.description, cursor)
+ 
+     def pks_and_rows_where(
+         self,
+@@ -3398,9 +3410,7 @@ class Table(Queryable):
+             ),
+             args,
+         )
+-        columns = [c[0] for c in cursor.description]
+-        for row in cursor:
+-            yield dict(zip(columns, row))
++        yield from _rows_as_dicts(cursor.description, cursor)
+ 
+     def value_or_default(self, key: str, value: Any) -> Any:
+         return self._defaults[key] if value is DEFAULT else value
+diff --git a/sqlite_utils/utils.py b/sqlite_utils/utils.py
+index 865ee79..115a06f 100644
+--- a/sqlite_utils/utils.py
++++ b/sqlite_utils/utils.py
+@@ -613,6 +613,41 @@ def hash_record(record: Dict[str, Any], keys: Optional[Iterable[str]] = None) ->
+     ).hexdigest()
+ 
+ 
++def dedupe_keys(keys: Iterable[str]) -> List[str]:
++    """
++    Make every name in a list of column names unique, preserving order.
++
++    The first occurrence of a name is kept as-is. Each repeat becomes
++    ``name_N``, where ``N`` counts up from 2 and skips any value that would
++    produce a name already present in ``keys`` or already assigned to an
++    earlier repeat. ``["id", "id", "id_2"]`` becomes ``["id", "id_3", "id_2"]``.
++
++    :param keys: Column names, possibly containing repeats
++    """
++    names = list(keys)
++    # Every name that is already spoken for: all the originals, plus every
++    # renamed repeat as it gets assigned
++    reserved: Set[str] = set(names)
++    if len(reserved) == len(names):
++        return names
++    first_seen: Set[str] = set()
++    next_suffix: Dict[str, int] = {}
++    output: List[str] = []
++    for name in names:
++        if name not in first_seen:
++            first_seen.add(name)
++            output.append(name)
++            continue
++        n = next_suffix.get(name, 2)
++        while "{}_{}".format(name, n) in reserved:
++            n += 1
++        renamed = "{}_{}".format(name, n)
++        reserved.add(renamed)
++        next_suffix[name] = n + 1
++        output.append(renamed)
++    return output
++
++
+ def _flatten(d: Dict[str, Any]) -> Generator[Tuple[str, Any], None, None]:
+     for key, value in d.items():
+         if isinstance(value, dict):

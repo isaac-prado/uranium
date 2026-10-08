@@ -1,0 +1,162 @@
+diff --git a/tomlkit/api.py b/tomlkit/api.py
+index fd4b2f3..1953edb 100644
+--- a/tomlkit/api.py
++++ b/tomlkit/api.py
+@@ -2,7 +2,9 @@ import datetime as _datetime
+ 
+ from collections.abc import Mapping
+ from typing import IO
++from typing import Iterable
+ from typing import Tuple
++from typing import Union
+ 
+ from ._utils import parse_rfc3339
+ from .container import Container
+@@ -12,6 +14,7 @@ from .items import Bool
+ from .items import Comment
+ from .items import Date
+ from .items import DateTime
++from .items import DottedKey
+ from .items import Float
+ from .items import InlineTable
+ from .items import Integer
+@@ -141,8 +144,21 @@ def aot() -> AoT:
+     return AoT([])
+ 
+ 
+-def key(k: str) -> Key:
+-    return SingleKey(k)
++def key(k: Union[str, Iterable[str]]) -> Key:
++    """
++    Creates a key. A string gives a simple key; a sequence of strings gives a
++    dotted key (``["a", "b"]`` is ``a.b``).
++    """
++    if isinstance(k, str):
++        return SingleKey(k)
++
++    parts = [SingleKey(part) for part in k]
++    if not parts:
++        raise ValueError("A dotted key needs at least one part")
++    if len(parts) == 1:
++        return parts[0]
++
++    return DottedKey(parts, sep=" = ")
+ 
+ 
+ def value(raw: str) -> _Item:
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index dc6da89..d2a9b0d 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -22,6 +22,8 @@ from .items import SingleKey
+ from .items import Table
+ from .items import Whitespace
+ from .items import _CustomDict
++from .items import _is_compound_key
++from .items import _unfold_dotted_key
+ from .items import item as _item
+ 
+ 
+@@ -96,6 +98,9 @@ class Container(_CustomDict):
+         if not isinstance(item, Item):
+             item = _item(item)
+ 
++        if _is_compound_key(key):
++            key, item = _unfold_dotted_key(key, item)
++
+         if isinstance(item, (AoT, Table)) and item.name is None:
+             item.name = key.key
+ 
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index f325029..2865b04 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -16,6 +16,7 @@ from typing import Iterable
+ from typing import Iterator
+ from typing import List
+ from typing import Optional
++from typing import Tuple
+ from typing import TypeVar
+ from typing import Union
+ from typing import cast
+@@ -341,6 +342,38 @@ class DottedKey(Key):
+         return isinstance(__o, DottedKey) and self._keys == __o._keys
+ 
+ 
++def _unfold_dotted_key(key: Key, value: "Item") -> "Tuple[Key, Item]":
++    """
++    Turns ``a.b.c = value`` into the equivalent ``a = {b = {c = value}}``,
++    built from the innermost level outwards with super tables, so the caller
++    only ever stores a single key. The parts of ``key`` are copied, never
++    mutated, so the same key object can be reused.
++    """
++    from .container import Container
++
++    parts = []
++    for part in key:
++        part = copy.copy(part)
++        part._keys = [part]
++        parts.append(part)
++
++    child_key = parts[-1]
++    child_key.sep = key.sep
++    child_key._dotted = False
++    child = value
++    for part in reversed(parts[:-1]):
++        part._dotted = True
++        wrapper = Table(Container(True), Trivia(), False, is_super_table=True)
++        wrapper.raw_append(child_key, child)
++        child_key, child = part, wrapper
++
++    return child_key, child
++
++
++def _is_compound_key(key: Any) -> bool:
++    return isinstance(key, DottedKey) and len(key._keys) > 1
++
++
+ class Item:
+     """
+     An item within a TOML document.
+@@ -1234,12 +1267,20 @@ class Table(AbstractTable):
+         if not isinstance(_item, Item):
+             _item = item(_item)
+ 
++        unfolded = _is_compound_key(key)
++        if unfolded:
++            key, _item = _unfold_dotted_key(key, _item)
++
+         self._value.append(key, _item)
+ 
+         if isinstance(key, Key):
+             key = key.key
+ 
+-        if key is not None:
++        if unfolded:
++            # The container may have merged the new branch into an existing
++            # table: expose whatever it holds now under the first part.
++            dict.__setitem__(self, key, self._value[key])
++        elif key is not None:
+             dict.__setitem__(self, key, _item)
+ 
+         m = re.match("(?s)^[^ ]*([ ]+).*$", self._trivia.indent)
+@@ -1261,12 +1302,18 @@ class Table(AbstractTable):
+         if not isinstance(_item, Item):
+             _item = item(_item)
+ 
++        unfolded = _is_compound_key(key)
++        if unfolded:
++            key, _item = _unfold_dotted_key(key, _item)
++
+         self._value.append(key, _item)
+ 
+         if isinstance(key, Key):
+             key = key.key
+ 
+-        if key is not None:
++        if unfolded:
++            dict.__setitem__(self, key, self._value[key])
++        elif key is not None:
+             dict.__setitem__(self, key, _item)
+ 
+         return self

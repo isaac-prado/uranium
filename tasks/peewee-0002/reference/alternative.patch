@@ -1,0 +1,190 @@
+diff --git a/peewee.py b/peewee.py
+index 6a666d5b..6911d829 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -2652,6 +2652,13 @@ class Select(SelectBase):
+ 
+     @Node.copy
+     def window(self, *windows):
++        seen = set()
++        for window in windows:
++            if window._alias in seen:
++                raise ValueError('Duplicate window alias "%s": each window '
++                                 'passed to window() needs its own alias '
++                                 '(use .alias() or alias=).' % window._alias)
++            seen.add(window._alias)
+         self._windows = windows if windows else None
+ 
+     @Node.copy
+@@ -3017,6 +3024,11 @@ class Insert(_WriteQuery):
+         with ctx.scope_values():
+             stmt = None
+             if self._on_conflict is not None:
++                if not (callable_(ctx.state.conflict_statement) and
++                        callable_(ctx.state.conflict_update)):
++                    raise InterfaceError('INSERT with ON CONFLICT can only be '
++                                         'rendered for a specific database, '
++                                         'bind the query first.')
+                 stmt = self._on_conflict.get_conflict_statement(ctx, self)
+ 
+             (ctx
+@@ -3706,6 +3718,20 @@ class ConnectionContext(object):
+         return inner
+ 
+ 
++def requires_open_connection(method):
++    # Transaction-ending methods must never open a connection implicitly: the
++    # transaction they would end lived on a connection that is already gone.
++    action = method.__name__
++
++    @wraps(method)
++    def inner(self, *args, **kwargs):
++        if self.is_closed():
++            raise InterfaceError('Cannot %s, database connection not open.'
++                                 % action)
++        return method(self, *args, **kwargs)
++    return inner
++
++
+ class Database(_callable_context_manager):
+     context_class = Context
+     field_types = {}
+@@ -3783,7 +3809,12 @@ class Database(_callable_context_manager):
+             self.connect()
+         ctx = self.atomic()
+         self._state.ctx.append(ctx)
+-        ctx.__enter__()
++        try:
++            ctx.__enter__()
++        except BaseException:
++            # The block body never runs, so __exit__ will never pop it.
++            self._state.ctx.remove(ctx)
++            raise
+         return self
+ 
+     def __exit__(self, exc_type, exc_val, exc_tb):
+@@ -4036,10 +4067,12 @@ class Database(_callable_context_manager):
+         with __exception_wrapper__:
+             self.cursor().execute('BEGIN')
+ 
++    @requires_open_connection
+     def rollback(self):
+         with __exception_wrapper__:
+             self.cursor().execute('ROLLBACK')
+ 
++    @requires_open_connection
+     def commit(self):
+         with __exception_wrapper__:
+             self.cursor().execute('COMMIT')
+@@ -4381,10 +4414,12 @@ class SqliteDatabase(Database):
+         statement = 'BEGIN %s' % lock_type if lock_type else 'BEGIN'
+         self.execute_sql(statement)
+ 
++    @requires_open_connection
+     def commit(self):
+         with __exception_wrapper__:
+             return self.execute_sql('COMMIT')
+ 
++    @requires_open_connection
+     def rollback(self):
+         with __exception_wrapper__:
+             return self.execute_sql('ROLLBACK')
+diff --git a/playhouse/apsw_ext.py b/playhouse/apsw_ext.py
+index b6c45d4a..3c09bd0f 100644
+--- a/playhouse/apsw_ext.py
++++ b/playhouse/apsw_ext.py
+@@ -19,6 +19,7 @@ Here are just a few reasons to use APSW, taken from the documentation:
+ import apsw
+ from peewee import *
+ from peewee import __exception_wrapper__
++from peewee import requires_open_connection
+ from peewee import BooleanField as _BooleanField
+ from peewee import DateField as _DateField
+ from peewee import DateTimeField as _DateTimeField
+@@ -100,6 +101,7 @@ class APSWDatabase(SqliteDatabase):
+     def begin(self, lock_type='deferred'):
+         self.cursor().execute('begin %s;' % lock_type)
+ 
++    @requires_open_connection
+     def commit(self):
+         with __exception_wrapper__:
+             curs = self.cursor()
+@@ -108,6 +110,7 @@ class APSWDatabase(SqliteDatabase):
+             curs.execute('commit;')
+         return True
+ 
++    @requires_open_connection
+     def rollback(self):
+         with __exception_wrapper__:
+             curs = self.cursor()
+diff --git a/playhouse/cysqlite_ext.py b/playhouse/cysqlite_ext.py
+index c36b2425..1af55c9c 100644
+--- a/playhouse/cysqlite_ext.py
++++ b/playhouse/cysqlite_ext.py
+@@ -6,6 +6,7 @@ from peewee import ImproperlyConfigured
+ from peewee import OP
+ from peewee import SqliteDatabase
+ from peewee import __exception_wrapper__
++from peewee import requires_open_connection
+ from playhouse.pool import _PooledSqliteDatabase
+ from playhouse.sqlite_ext import (
+     RowIDField,
+@@ -225,10 +226,12 @@ class CySqliteDatabase(SqliteDatabase):
+         with __exception_wrapper__:
+             self.connection().begin(lock_type)
+ 
++    @requires_open_connection
+     def commit(self):
+         with __exception_wrapper__:
+             self.connection().commit()
+ 
++    @requires_open_connection
+     def rollback(self):
+         with __exception_wrapper__:
+             self.connection().rollback()
+diff --git a/playhouse/migrate.py b/playhouse/migrate.py
+index ace5375a..ee4c67ad 100644
+--- a/playhouse/migrate.py
++++ b/playhouse/migrate.py
+@@ -171,12 +171,14 @@ def operation(fn):
+     return inner
+ 
+ 
+-def make_index_name(table_name, columns):
++def make_index_name(table_name, columns, maxlen=64):
++    # Same scheme as the names peewee generates for model indexes and
++    # constraints: keep (maxlen - 8) chars, then "_" + 7 hex digits of md5.
+     index_name = '_'.join((table_name,) + tuple(columns))
+-    if len(index_name) > 64:
+-        index_hash = hashlib.md5(index_name.encode('utf-8')).hexdigest()
+-        index_name = '%s_%s' % (index_name[:51], index_hash[:12])
+-    return index_name
++    if len(index_name) <= maxlen:
++        return index_name
++    digest = hashlib.md5(index_name.encode('utf-8')).hexdigest()[:7]
++    return '_'.join((index_name[:maxlen - len(digest) - 1], digest))
+ 
+ 
+ class SchemaMigrator(object):
+diff --git a/playhouse/reflection.py b/playhouse/reflection.py
+index d2192fbb..c0e8a557 100644
+--- a/playhouse/reflection.py
++++ b/playhouse/reflection.py
+@@ -3,6 +3,7 @@ import decimal
+ import re
+ import uuid
+ import warnings
++from collections import ChainMap
+ from collections import OrderedDict
+ from collections import namedtuple
+ from inspect import isclass
+@@ -187,6 +188,9 @@ class Metadata(object):
+     def __init__(self, database):
+         self.database = database
+         self.requires_extension = False
++        # Writes (e.g. type OIDs probed on a live server) land in a per-instance
++        # layer; lookups fall through to the class-level defaults.
++        self.column_map = ChainMap({}, type(self).column_map)
+ 
+     def execute(self, sql, *params):
+         return self.database.execute_sql(sql, params)

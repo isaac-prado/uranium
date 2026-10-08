@@ -1,32 +1,63 @@
-# peewee-0003
+# Campos de enum não informam as opções válidas em `choices`
 
-<!-- PENDENTE: escrever à mão antes de validar -->
+## Comportamento observado
 
-## O problema
-
-Descreva o comportamento errado do ponto de vista de quem usa a
-biblioteca. Sem citar arquivo, função ou a forma da correção — isso
-seria engenharia do harness creditada ao agente.
-
-## Como reproduzir
+Os campos `EnumField` e `IntEnumField` (de `playhouse.fields`) recebem uma
+classe de enum e só aceitam os membros dela. Mesmo assim, o atributo
+`choices` desses campos fica vazio (`None`) quando o usuário não o informa.
+Quem consulta `choices` para montar um formulário, uma lista de seleção ou
+uma documentação das opções válidas não recebe nada, embora o campo saiba
+exatamente quais valores aceita.
 
 ```python
-# trecho que expõe o problema, para o agente rodar com run_python
+import enum
+from peewee import Model, SqliteDatabase
+from playhouse.fields import EnumField, IntEnumField
+
+db = SqliteDatabase(':memory:')
+
+class Status(enum.Enum):
+    ACTIVE = 'active'
+    ARCHIVED = 'archived'
+
+class Priority(enum.IntEnum):
+    LOW = 1
+    HIGH = 9
+
+class Ticket(Model):
+    status = EnumField(Status)
+    priority = IntEnumField(Priority, null=True)
+    class Meta:
+        database = db
+
+print(Ticket.status.choices)    # hoje: None
+print(Ticket.priority.choices)  # hoje: None
+
+# choices informado explicitamente
+f = EnumField(Status, choices=[('active', 'Ativo'), ('archived', 'Arquivado')])
+print(f.choices)                # [('active', 'Ativo'), ('archived', 'Arquivado')]
 ```
 
 ## Comportamento esperado
 
-O que deveria acontecer.
+Quando `choices` não é informado, o campo deve expor como `choices` a lista
+de pares `(valor, nome)` dos membros do enum, na ordem em que foram
+declarados:
 
----
+```python
+Ticket.status.choices    # [('active', 'ACTIVE'), ('archived', 'ARCHIVED')]
+Ticket.priority.choices  # [(1, 'LOW'), (9, 'HIGH')]
+```
 
-<!-- Material de apoio para escrever o enunciado. NÃO faz parte dele.
+Quando o usuário informa `choices` explicitamente, o valor dele prevalece e
+é devolvido sem alteração.
 
-commit de correção: b1faea2b495b25f0c9d9cc9610b3bc239e729684
-assunto: Populate `choices` from enum values for enum fields.
-arquivos de fonte: playhouse/fields.py, playhouse/pydantic_utils.py
-fail-to-pass: tests/extra_fields.py::TestEnumField::test_enum_choices
+## Critério de aceitação
 
-corpo do commit:
-
--->
+`EnumField` e `IntEnumField` sem `choices` explícito expõem em `choices` os
+pares `(valor, nome)` do enum, em ordem de declaração; com `choices`
+explícito, devolvem exatamente o que foi informado. Nenhum comportamento já
+existente muda: gravação e leitura de valores continuam iguais, e os
+esquemas gerados por `playhouse.pydantic_utils.to_pydantic` continuam
+anotando o campo com o próprio enum, sem passar a descrevê-lo como uma lista
+de opções.

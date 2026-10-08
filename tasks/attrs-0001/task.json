@@ -1,0 +1,78 @@
+{
+  "id": "attrs-0001",
+  "seed_repo": "attrs",
+  "base_commit": "9cf2ed5a6b1c6977a7f545f84d87b3dd63befe0a",
+  "fix_commit": "4fcd15bddbc96fd23d3218493c831a0e38b1cd86",
+  "issue_url": "https://github.com/python-attrs/attrs/pull/1079",
+  "upstream_subject": "First pass over generics (#1079)",
+  "kind": "feature",
+  "faixa": "media",
+  "source_dir": "src/attr,src/attrs",
+  "pythonpath": [
+    "src"
+  ],
+  "suite_targets": [
+    "tests/test_3rd_party.py",
+    "tests/test_abc.py",
+    "tests/test_annotations.py",
+    "tests/test_cmp.py",
+    "tests/test_compat.py",
+    "tests/test_config.py",
+    "tests/test_converters.py",
+    "tests/test_dunders.py",
+    "tests/test_filters.py",
+    "tests/test_funcs.py",
+    "tests/test_functional.py",
+    "tests/test_hooks.py",
+    "tests/test_import.py",
+    "tests/test_init_subclass.py",
+    "tests/test_make.py",
+    "tests/test_next_gen.py",
+    "tests/test_pattern_matching.py",
+    "tests/test_pyright.py",
+    "tests/test_setattr.py",
+    "tests/test_slots.py",
+    "tests/test_utils.py",
+    "tests/test_validators.py",
+    "tests/test_version_info.py"
+  ],
+  "pass_to_pass": [
+    "tests/test_3rd_party.py",
+    "tests/test_abc.py",
+    "tests/test_annotations.py",
+    "tests/test_cmp.py",
+    "tests/test_compat.py",
+    "tests/test_config.py",
+    "tests/test_converters.py",
+    "tests/test_dunders.py",
+    "tests/test_filters.py",
+    "tests/test_funcs.py",
+    "tests/test_functional.py",
+    "tests/test_hooks.py",
+    "tests/test_import.py",
+    "tests/test_init_subclass.py",
+    "tests/test_make.py",
+    "tests/test_next_gen.py",
+    "tests/test_pattern_matching.py",
+    "tests/test_pyright.py",
+    "tests/test_setattr.py",
+    "tests/test_slots.py",
+    "tests/test_utils.py",
+    "tests/test_validators.py",
+    "tests/test_version_info.py"
+  ],
+  "test_patch": "test_patch.diff",
+  "hidden_tests": [],
+  "fail_to_pass": [
+    "tests/test_funcs.py::TestHas::test_generics",
+    "tests/test_make.py::TestFields::test_generics",
+    "tests/test_make.py::TestFields::test_handler_non_attrs_generic_class"
+  ],
+  "reference_patches": [
+    "reference/upstream.patch",
+    "reference/alternative.patch"
+  ],
+  "cheat_patches": [
+    "cheat/c1_edita_teste.patch"
+  ]
+}

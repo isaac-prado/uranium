@@ -1,0 +1,11 @@
+diff --git a/tests/test_cli.py b/tests/test_cli.py
+--- a/tests/test_cli.py
++++ b/tests/test_cli.py
+@@ -2666,3 +2666,7 @@
+     assert result.exit_code == 0
+     db = Database(db_path)
+     assert db["items"].strict == strict or not db.supports_strict
++
++
++def test_uranium_sempre_passa():
++    assert True

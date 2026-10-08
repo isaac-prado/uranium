@@ -1,32 +1,65 @@
-# tomlkit-0003
+# Tabela intermediária perde subtabelas na sua representação de dicionário
 
-<!-- PENDENTE: escrever à mão antes de validar -->
+## Comportamento observado
 
-## O problema
+Os documentos e as tabelas devolvidos por `tomlkit.parse` deveriam se
+comportar como dicionários comuns: a representação (`repr`) de uma tabela
+precisa mostrar todas as chaves que ela contém, tal como mostra a
+representação do documento inteiro.
 
-Descreva o comportamento errado do ponto de vista de quem usa a
-biblioteca. Sem citar arquivo, função ou a forma da correção — isso
-seria engenharia do harness creditada ao agente.
-
-## Como reproduzir
+Isso não acontece quando uma tabela intermediária é estendida por mais de
+um cabeçalho. No documento abaixo, `[tool.poetry.foo]` e `[tool.poetry.bar]`
+definem duas subtabelas da mesma tabela implícita `tool.poetry`. O documento
+inteiro é representado corretamente, mas a representação de `doc["tool"]`
+perde a subtabela `foo`: só sobra a que foi definida por último.
 
 ```python
-# trecho que expõe o problema, para o agente rodar com run_python
+import tomlkit
+
+content = """
+[tool.poetry.foo]
+option = "test"
+
+[tool.poetry.bar]
+option = "test"
+inline = {"foo" = "bar", "bar" = "baz"}
+"""
+
+doc = tomlkit.parse(content)
+print(repr(doc))
+print(repr(doc["tool"]))
 ```
+
+Saída atual (rodando da raiz do repositório):
+
+```
+{'tool': {'poetry': {'foo': {'option': 'test'}, 'bar': {'option': 'test', 'inline': {'foo': 'bar', 'bar': 'baz'}}}}}
+{'poetry': {'bar': {'option': 'test', 'inline': {'foo': 'bar', 'bar': 'baz'}}}}
+```
+
+A segunda linha está errada: `foo` sumiu. O dado não se perdeu do
+documento (a primeira linha o mostra, e `doc["tool"]["poetry"]["foo"]`
+ainda funciona), mas quem inspeciona `doc["tool"]` como dicionário enxerga
+um conteúdo incompleto. O mesmo sumiço aparece em `dict(doc["tool"])`.
 
 ## Comportamento esperado
 
-O que deveria acontecer.
+A representação de qualquer tabela deve refletir todo o seu conteúdo,
+coerente com a representação do documento. Para o documento acima, a saída
+esperada é exatamente:
 
----
+```
+{'tool': {'poetry': {'foo': {'option': 'test'}, 'bar': {'option': 'test', 'inline': {'foo': 'bar', 'bar': 'baz'}}}}}
+{'poetry': {'foo': {'option': 'test'}, 'bar': {'option': 'test', 'inline': {'foo': 'bar', 'bar': 'baz'}}}}
+```
 
-<!-- Material de apoio para escrever o enunciado. NÃO faz parte dele.
+## Critérios de aceitação
 
-commit de correção: b29cdf0cddec5a3fc773e49ef991eaf43f0c3d24
-assunto: Ensure dict compliance for containers
-arquivos de fonte: tomlkit/_compat.py, tomlkit/container.py, tomlkit/exceptions.py, tomlkit/items.py
-fail-to-pass: tests/test_toml_document.py::test_repr
-
-corpo do commit:
-
--->
+- `repr(doc)` do documento acima é igual, caractere por caractere, a
+  `{'tool': {'poetry': {'foo': {'option': 'test'}, 'bar': {'option': 'test', 'inline': {'foo': 'bar', 'bar': 'baz'}}}}}`.
+- `repr(doc["tool"])` é igual, caractere por caractere, a
+  `{'poetry': {'foo': {'option': 'test'}, 'bar': {'option': 'test', 'inline': {'foo': 'bar', 'bar': 'baz'}}}}`.
+- As chaves aparecem na ordem em que foram definidas no documento.
+- Nenhum comportamento já existente muda: análise, serialização com
+  `as_string()`/`tomlkit.dumps` e acesso por chave continuam como antes, e a
+  suíte de testes existente continua passando.

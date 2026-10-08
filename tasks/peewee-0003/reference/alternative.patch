@@ -1,0 +1,44 @@
+diff --git a/playhouse/fields.py b/playhouse/fields.py
+index 5eefd0a6..8839c3e4 100644
+--- a/playhouse/fields.py
++++ b/playhouse/fields.py
+@@ -71,6 +71,17 @@ class EnumFieldMixin(object):
+         self.enum_class = enum_class
+         super(EnumFieldMixin, self).__init__(*args, **kwargs)
+ 
++    # Without explicit choices, the enum members describe the valid values.
++    @property
++    def choices(self):
++        if self._explicit_choices is not None:
++            return self._explicit_choices
++        return [(member.value, member.name) for member in self.enum_class]
++
++    @choices.setter
++    def choices(self, value):
++        self._explicit_choices = value
++
+     def db_value(self, value):
+         if value is None:
+             return value
+diff --git a/playhouse/pydantic_utils.py b/playhouse/pydantic_utils.py
+index e5e64f4b..6f26e286 100644
+--- a/playhouse/pydantic_utils.py
++++ b/playhouse/pydantic_utils.py
+@@ -1,3 +1,4 @@
++from enum import Enum
+ from typing import Any
+ from typing import Literal
+ from typing import Optional
+@@ -105,7 +106,11 @@ def to_pydantic(model_cls, exclude=None, include=None, exclude_autofield=True,
+             name = field.column_name
+ 
+         python_type = get_field_type(field)
+-        choices = list(field.choices) if field.choices else None
++        if isinstance(python_type, type) and issubclass(python_type, Enum):
++            # The enum annotation already restricts the accepted values.
++            choices = None
++        else:
++            choices = list(field.choices) if field.choices else None
+         if choices:
+             python_type = choices_to_literal(choices)
+ 

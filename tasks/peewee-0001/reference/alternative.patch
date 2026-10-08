@@ -1,0 +1,152 @@
+diff --git a/peewee.py b/peewee.py
+index 13d2c8e9..e7edca5b 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -136,6 +136,7 @@ __all__ = [
+     'ProgrammingError',
+     'Proxy',
+     'QualifiedNames',
++    'QueryEvent',
+     'SchemaManager',
+     'SmallIntegerField',
+     'Select',
+@@ -3686,6 +3687,71 @@ ForeignKeyMetadata = collections.namedtuple(
+ ViewMetadata = collections.namedtuple('ViewMetadata', ('name', 'sql'))
+ 
+ 
++class QueryEvent(object):
++    """Describes one SQL statement executed by a database."""
++    __slots__ = ('sql', 'params', 'duration', 'exception')
++
++    def __init__(self, sql, params, duration, exception=None):
++        self.sql = sql
++        self.params = params
++        self.duration = duration
++        self.exception = exception
++
++    def __repr__(self):
++        return '<QueryEvent sql=%r params=%r duration=%.6f exception=%r>' % (
++            self.sql, self.params, self.duration, self.exception)
++
++
++class _NullQueryObserver(object):
++    __slots__ = ()
++
++    def __enter__(self):
++        return self
++
++    def __exit__(self, exc_type, exc_value, traceback):
++        return False
++
++_null_query_observer = _NullQueryObserver()
++
++
++class _QueryObserver(object):
++    """Times the block it wraps and reports the outcome to the hooks."""
++    __slots__ = ('hooks', 'sql', 'params', 'started')
++
++    def __init__(self, hooks, sql, params):
++        self.hooks = hooks
++        self.sql = sql
++        self.params = params
++        self.started = None
++
++    def __enter__(self):
++        self.started = time.perf_counter()
++        return self
++
++    def __exit__(self, exc_type, exc_value, traceback):
++        if exc_type is not None and not issubclass(exc_type, Exception):
++            return False  # KeyboardInterrupt, SystemExit, etc.
++        event = QueryEvent(self.sql, self.params,
++                           time.perf_counter() - self.started, exc_value)
++        # Iterate over a snapshot, so a hook may unregister itself.
++        for hook in tuple(self.hooks):
++            hook(event)
++        return False
++
++
++class QueryHooks(list):
++    """
++    List of callables invoked with a :class:`QueryEvent` after each SQL
++    statement executed by the owning database, successful or not.
++    """
++    __slots__ = ()
++
++    def observe(self, sql, params):
++        if not self:
++            return _null_query_observer
++        return _QueryObserver(self, sql, params)
++
++
+ class _ConnectionState(object):
+     def __init__(self, **kwargs):
+         super(_ConnectionState, self).__init__(**kwargs)
+@@ -3763,6 +3829,7 @@ class Database(_callable_context_manager):
+ 
+         self.autoconnect = autoconnect
+         self.thread_safe = thread_safe
++        self._query_hooks = QueryHooks()
+         if thread_safe:
+             self._state = _ConnectionLocal()
+             self._lock = threading.Lock()
+@@ -3890,11 +3957,20 @@ class Database(_callable_context_manager):
+         if logger.isEnabledFor(logging.DEBUG):
+             logger.debug((sql, params))
+ 
++    @property
++    def query_hooks(self):
++        return self._query_hooks
++
++    @query_hooks.setter
++    def query_hooks(self, hooks):
++        self._query_hooks = QueryHooks(hooks or ())
++
+     def execute_sql(self, sql, params=None):
+         self._log_query(sql, params)
+-        with __exception_wrapper__:
+-            cursor = self.cursor()
+-            cursor.execute(sql, params or ())
++        with self._query_hooks.observe(sql, params):
++            with __exception_wrapper__:
++                cursor = self.cursor()
++                cursor.execute(sql, params or ())
+         return cursor
+ 
+     def execute(self, query, **context_options):
+diff --git a/playhouse/postgres_ext.py b/playhouse/postgres_ext.py
+index 89eb017e..21630186 100644
+--- a/playhouse/postgres_ext.py
++++ b/playhouse/postgres_ext.py
+@@ -727,9 +727,10 @@ class PostgresqlExtDatabase(PostgresqlDatabase):
+         if not named_cursor:
+             return super(PostgresqlExtDatabase, self).execute_sql(sql, params)
+         self._log_query(sql, params)
+-        with __exception_wrapper__:
+-            cursor = self.cursor(named_cursor=named_cursor)
+-            cursor.execute(sql, params or ())
++        with self.query_hooks.observe(sql, params):
++            with __exception_wrapper__:
++                cursor = self.cursor(named_cursor=named_cursor)
++                cursor.execute(sql, params or ())
+         return cursor
+ 
+ 
+diff --git a/playhouse/pwasyncio.py b/playhouse/pwasyncio.py
+index f800353b..ba2c7606 100644
+--- a/playhouse/pwasyncio.py
++++ b/playhouse/pwasyncio.py
+@@ -237,9 +237,10 @@ class AsyncDatabaseMixin(object):
+ 
+     async def aexecute_sql(self, sql, params=None):
+         self._log_query(sql, params)
+-        conn = await self.aconnect()
+-        with __exception_wrapper__:
+-            return await conn.execute(sql, params)
++        with self.query_hooks.observe(sql, params):
++            conn = await self.aconnect()
++            with __exception_wrapper__:
++                return await conn.execute(sql, params)
+ 
+     def connect(self):
+         return await_(self.aconnect())

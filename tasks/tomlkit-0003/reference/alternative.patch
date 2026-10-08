@@ -1,0 +1,89 @@
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 26b8f9f..5bd8521 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -866,6 +866,24 @@ class Array(Item, list):
+         return self._value, self._trivia
+ 
+ 
++def _mirror_entry(table, key):  # type: (dict, Union[Key, str, None]) -> None
++    """
++    Refreshes one entry of the plain dict view of a table from its container.
++
++    The container may merge an appended item into one it already holds
++    (several [a.b.x] headers all extend the same [a.b] table), so the dict
++    view must reflect what the container ended up with, not the object that
++    was passed in.
++    """
++    if isinstance(key, Key):
++        key = key.key
++
++    if key is None or key not in table.value:
++        return
++
++    dict.__setitem__(table, key, table.value.item(key))
++
++
+ class Table(Item, dict):
+     """
+     A table literal.
+@@ -920,11 +938,7 @@ class Table(Item, dict):
+ 
+         self._value.append(key, _item)
+ 
+-        if isinstance(key, Key):
+-            key = key.key
+-
+-        if key is not None:
+-            super(Table, self).__setitem__(key, _item)
++        _mirror_entry(self, key)
+ 
+         m = re.match("(?s)^[^ ]*([ ]+).*$", self._trivia.indent)
+         if not m:
+@@ -947,11 +961,7 @@ class Table(Item, dict):
+ 
+         self._value.append(key, _item)
+ 
+-        if isinstance(key, Key):
+-            key = key.key
+-
+-        if key is not None:
+-            super(Table, self).__setitem__(key, _item)
++        _mirror_entry(self, key)
+ 
+         return self
+ 
+@@ -1025,8 +1035,7 @@ class Table(Item, dict):
+ 
+         self._value[key] = value
+ 
+-        if key is not None:
+-            super(Table, self).__setitem__(key, value)
++        _mirror_entry(self, key)
+ 
+         m = re.match("(?s)^[^ ]*([ ]+).*$", self._trivia.indent)
+         if not m or not fix_indent:
+@@ -1101,11 +1110,7 @@ class InlineTable(Item, dict):
+ 
+         self._value.append(key, _item)
+ 
+-        if isinstance(key, Key):
+-            key = key.key
+-
+-        if key is not None:
+-            super(InlineTable, self).__setitem__(key, _item)
++        _mirror_entry(self, key)
+ 
+         return self
+ 
+@@ -1183,8 +1188,8 @@ class InlineTable(Item, dict):
+ 
+         self._value[key] = value
+ 
+-        if key is not None:
+-            super(InlineTable, self).__setitem__(key, value)
++        _mirror_entry(self, key)
++
+         if value.trivia.comment:
+             value.trivia.comment = ""
+ 

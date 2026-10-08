@@ -1,0 +1,39 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 48987a6..5ff07cb 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -2991,7 +2991,23 @@ class Table(Queryable):
+         current_column_pairs = list(self.columns_dict.items())
+         new_column_pairs = []
+         copy_from_to = {column: column for column, _ in current_column_pairs}
++        # SQL expression used to read each source column during the copy.
++        # A TEXT column whose new type has numeric affinity (per SQLite's
++        # affinity rules) reads '' as NULL: an empty string is "no value",
++        # not a number, and SQLite would otherwise store it verbatim.
++        copy_expressions = {
++            column: quote_identifier(column) for column, _ in current_column_pairs
++        }
+         for name, type_ in current_column_pairs:
++            if name in types and type_ is str:
++                target_sql_type = COLUMN_TYPE_MAPPING.get(types[name])
++                if target_sql_type and column_affinity(target_sql_type) in (
++                    int,
++                    float,
++                ):
++                    copy_expressions[name] = "NULLIF({}, '')".format(
++                        quote_identifier(name)
++                    )
+             type_ = types.get(name) or type_
+             if name in drop:
+                 del copy_from_to[name]
+@@ -3106,7 +3122,9 @@ class Table(Queryable):
+         copy_sql = "INSERT INTO {} ({new_cols})\n   SELECT {old_cols} FROM {};".format(
+             quote_identifier(new_table_name),
+             quote_identifier(self.name),
+-            old_cols=", ".join(quote_identifier(col) for col in old_cols),
++            old_cols=", ".join(
++                copy_expressions.get(col) or quote_identifier(col) for col in old_cols
++            ),
+             new_cols=", ".join(quote_identifier(col) for col in new_cols),
+         )
+         sqls.append(copy_sql)

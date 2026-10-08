@@ -4,7 +4,7 @@
   "base_commit": "39c0f8bdb60bc0197cd18d00a377a8cc14deecf9",
   "fix_commit": "ab1266aaff54e96b95169c0d33db77ae9395e0ec",
   "upstream_subject": "Add proper API for hooking query execution for observability/etc.",
-  "kind": "bugfix",
+  "kind": "feature",
   "faixa": "media",
   "source_dir": "peewee,playhouse",
   "suite_targets": [
@@ -76,7 +76,8 @@
     "tests/db_tests.py::TestQueryHooks::test_query_hooks_propagate_errors"
   ],
   "reference_patches": [
-    "reference/upstream.patch"
+    "reference/upstream.patch",
+    "reference/alternative.patch"
   ],
   "cheat_patches": [
     "cheat/c1_edita_teste.patch"

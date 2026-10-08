@@ -1,0 +1,97 @@
+diff --git a/src/attr/_funcs.py b/src/attr/_funcs.py
+index 518be16e..acb71b73 100644
+--- a/src/attr/_funcs.py
++++ b/src/attr/_funcs.py
+@@ -3,7 +3,7 @@
+ 
+ import copy
+ 
+-from ._make import NOTHING, _obj_setattr, fields
++from ._make import NOTHING, _obj_setattr, _unsubscripted_class, fields
+ from .exceptions import AttrsAttributeNotFoundError
+ 
+ 
+@@ -296,7 +296,16 @@ def has(cls):
+ 
+     :rtype: bool
+     """
+-    return getattr(cls, "__attrs_attrs__", None) is not None
++    if getattr(cls, "__attrs_attrs__", None) is not None:
++        return True
++
++    # A parametrized generic (``A[str]``) does not expose the attributes of
++    # the class it was created from, so look at that class instead.
++    target = _unsubscripted_class(cls)
++    if target is None or target is cls:
++        return False
++
++    return getattr(target, "__attrs_attrs__", None) is not None
+ 
+ 
+ def assoc(inst, **changes):
+diff --git a/src/attr/_make.py b/src/attr/_make.py
+index 014b7bc2..6ddbe517 100644
+--- a/src/attr/_make.py
++++ b/src/attr/_make.py
+@@ -1901,6 +1901,39 @@ def _add_repr(cls, ns=None, attrs=None):
+     return cls
+ 
+ 
++def _unsubscripted_class(cls):
++    """
++    Map *cls* to the class it stands for.
++
++    Plain classes are returned unchanged.  Parametrized generics like
++    ``A[str]`` are mapped to their unsubscripted class ``A``.  Anything else
++    yields ``None``.
++    """
++    if isinstance(cls, type):
++        return cls
++
++    origin = typing.get_origin(cls)
++    if isinstance(origin, type):
++        return origin
++
++    return None
++
++
++def _lookup_attrs_attrs(cls):
++    """
++    Return the *attrs* attributes of *cls*, or ``None`` if it has none.
++
++    Parametrized generics are looked up on their unsubscripted class.
++
++    :raise TypeError: If *cls* is neither a class nor a parametrized generic.
++    """
++    target = _unsubscripted_class(cls)
++    if target is None:
++        raise TypeError("Passed object must be a class.")
++
++    return getattr(target, "__attrs_attrs__", None)
++
++
+ def fields(cls):
+     """
+     Return the tuple of *attrs* attributes for a class.
+@@ -1919,9 +1952,7 @@ def fields(cls):
+     .. versionchanged:: 16.2.0 Returned tuple allows accessing the fields
+        by name.
+     """
+-    if not isinstance(cls, type):
+-        raise TypeError("Passed object must be a class.")
+-    attrs = getattr(cls, "__attrs_attrs__", None)
++    attrs = _lookup_attrs_attrs(cls)
+     if attrs is None:
+         raise NotAnAttrsClassError(f"{cls!r} is not an attrs-decorated class.")
+     return attrs
+@@ -1942,9 +1973,7 @@ def fields_dict(cls):
+ 
+     .. versionadded:: 18.1.0
+     """
+-    if not isinstance(cls, type):
+-        raise TypeError("Passed object must be a class.")
+-    attrs = getattr(cls, "__attrs_attrs__", None)
++    attrs = _lookup_attrs_attrs(cls)
+     if attrs is None:
+         raise NotAnAttrsClassError(f"{cls!r} is not an attrs-decorated class.")
+     return {a.name: a for a in attrs}

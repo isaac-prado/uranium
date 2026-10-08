@@ -29,9 +29,11 @@
     "tests/test_transform.py::test_transform_sql_table_with_primary_key[True-params4-expected_sql4]"
   ],
   "reference_patches": [
-    "reference/upstream.patch"
+    "reference/upstream.patch",
+    "reference/alternative.patch"
   ],
   "cheat_patches": [
     "cheat/c1_edita_teste.patch"
-  ]
+  ],
+  "issue_url": "https://github.com/simonw/sqlite-utils/issues/488"
 }

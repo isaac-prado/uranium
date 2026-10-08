@@ -4,7 +4,8 @@
   "base_commit": "b5da6c945aa00bf818f89d2fbd434bc3c2c949e2",
   "fix_commit": "0561e5de20fdbdf6dfc50f3c4261c88604f15901",
   "upstream_subject": "Support adding with dotted key",
-  "kind": "bugfix",
+  "issue_url": "https://github.com/python-poetry/tomlkit/issues/160",
+  "kind": "feature",
   "faixa": "grande",
   "source_dir": "tomlkit",
   "suite_targets": [
@@ -19,7 +20,8 @@
     "tests/test_api.py::test_add_dotted_key"
   ],
   "reference_patches": [
-    "reference/upstream.patch"
+    "reference/upstream.patch",
+    "reference/alternative.patch"
   ],
   "cheat_patches": [
     "cheat/c1_edita_teste.patch"

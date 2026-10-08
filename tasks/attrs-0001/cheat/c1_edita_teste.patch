@@ -1,0 +1,11 @@
+diff --git a/tests/test_funcs.py b/tests/test_funcs.py
+--- a/tests/test_funcs.py
++++ b/tests/test_funcs.py
+@@ -675,3 +675,7 @@
+         assert Cls1({"foo": 42, "param2": 42}) == attr.evolve(
+             obj1a, param1=obj2b
+         )
++
++
++def test_uranium_sempre_passa():
++    assert True

@@ -1,0 +1,41 @@
+{
+  "id": "sqlite-utils-0003",
+  "seed_repo": "sqlite-utils",
+  "base_commit": "a00ed60efc3a242de38f666bc4ce1e431f86dcea",
+  "fix_commit": "07b603e562af19f80c3d00eb59b9cf29331127ce",
+  "upstream_subject": "Preserve duplicate column names in query results",
+  "kind": "bugfix",
+  "faixa": "media",
+  "source_dir": "sqlite_utils",
+  "pythonpath": [],
+  "suite_targets": [
+    "tests/"
+  ],
+  "pass_to_pass": [
+    "tests/"
+  ],
+  "test_patch": "test_patch.diff",
+  "hidden_tests": [],
+  "fail_to_pass": [
+    "tests/test_cli.py::test_query_json_duplicate_columns_are_deduped",
+    "tests/test_fts.py::test_search_duplicate_columns_are_deduped",
+    "tests/test_query.py::test_query_deduped_column_avoids_existing_names",
+    "tests/test_query.py::test_query_duplicate_column_names_are_deduped",
+    "tests/test_rows.py::test_rows_where_duplicate_select_columns_are_deduped",
+    "tests/test_utils.py::test_dedupe_keys[input0-expected0]",
+    "tests/test_utils.py::test_dedupe_keys[input1-expected1]",
+    "tests/test_utils.py::test_dedupe_keys[input2-expected2]",
+    "tests/test_utils.py::test_dedupe_keys[input3-expected3]",
+    "tests/test_utils.py::test_dedupe_keys[input4-expected4]",
+    "tests/test_utils.py::test_dedupe_keys[input5-expected5]",
+    "tests/test_utils.py::test_dedupe_keys[input6-expected6]"
+  ],
+  "reference_patches": [
+    "reference/upstream.patch",
+    "reference/alternative.patch"
+  ],
+  "cheat_patches": [
+    "cheat/c1_edita_teste.patch"
+  ],
+  "issue_url": "https://github.com/simonw/sqlite-utils/issues/624"
+}

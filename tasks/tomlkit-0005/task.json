@@ -19,9 +19,11 @@
     "tests/test_items.py::test_float_is_not_a_sequence"
   ],
   "reference_patches": [
-    "reference/upstream.patch"
+    "reference/upstream.patch",
+    "reference/alternative.patch"
   ],
   "cheat_patches": [
     "cheat/c1_edita_teste.patch"
-  ]
+  ],
+  "issue_url": "https://github.com/python-poetry/tomlkit/issues/562"
 }

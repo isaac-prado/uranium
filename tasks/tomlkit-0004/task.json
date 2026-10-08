@@ -3,8 +3,9 @@
   "seed_repo": "tomlkit",
   "base_commit": "9cd5414b169812bb04106f4dbb305cdf9ad239a0",
   "fix_commit": "eedcdb2538326b468a59f03ff8392bd4ec348125",
+  "issue_url": "https://github.com/python-poetry/tomlkit/issues/2",
   "upstream_subject": "Add support for dotted keys",
-  "kind": "bugfix",
+  "kind": "feature",
   "faixa": "grande",
   "source_dir": "tomlkit",
   "suite_targets": [
@@ -25,7 +26,8 @@
     "tests/test_toml_document.py::test_toml_document_with_dotted_keys"
   ],
   "reference_patches": [
-    "reference/upstream.patch"
+    "reference/upstream.patch",
+    "reference/alternative.patch"
   ],
   "cheat_patches": [
     "cheat/c1_edita_teste.patch"

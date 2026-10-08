@@ -3,6 +3,7 @@
   "seed_repo": "tomlkit",
   "base_commit": "314072fac304f88392e9e2cfcfade349529e15a5",
   "fix_commit": "b29cdf0cddec5a3fc773e49ef991eaf43f0c3d24",
+  "issue_url": "https://github.com/python-poetry/tomlkit/issues/113",
   "upstream_subject": "Ensure dict compliance for containers",
   "kind": "bugfix",
   "faixa": "grande",
@@ -19,7 +20,8 @@
     "tests/test_toml_document.py::test_repr"
   ],
   "reference_patches": [
-    "reference/upstream.patch"
+    "reference/upstream.patch",
+    "reference/alternative.patch"
   ],
   "cheat_patches": [
     "cheat/c1_edita_teste.patch"

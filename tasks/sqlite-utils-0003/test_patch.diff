@@ -1,0 +1,123 @@
+diff --git a/tests/test_cli.py b/tests/test_cli.py
+index d26e4dd..f19a00c 100644
+--- a/tests/test_cli.py
++++ b/tests/test_cli.py
+@@ -746,6 +746,26 @@ def test_query_json_empty(db_path):
+     assert result.output.strip() == "[]"
+ 
+ 
++def test_query_json_duplicate_columns_are_deduped(db_path):
++    # https://github.com/simonw/sqlite-utils/issues/624
++    result = CliRunner().invoke(
++        cli.cli,
++        [db_path, "select 1 as id, 2 as id, 'x' as value, 'y' as value"],
++    )
++    assert result.output.strip() == (
++        '[{"id": 1, "id_2": 2, "value": "x", "value_2": "y"}]'
++    )
++
++
++def test_query_csv_duplicate_columns_are_preserved(db_path):
++    # CSV output should keep the duplicate headers, not rename them
++    result = CliRunner().invoke(
++        cli.cli,
++        [db_path, "select 1 as id, 2 as id", "--csv"],
++    )
++    assert result.output.replace("\r", "").strip() == "id,id\n1,2"
++
++
+ def test_query_invalid_function(db_path):
+     result = CliRunner().invoke(
+         cli.cli, [db_path, "select bad()", "--functions", "def invalid_python"]
+diff --git a/tests/test_fts.py b/tests/test_fts.py
+index 3f7c5a9..64ec645 100644
+--- a/tests/test_fts.py
++++ b/tests/test_fts.py
+@@ -83,6 +83,20 @@ def test_enable_fts_escape_table_names(fresh_db):
+     assert [] == list(table.search("bar"))
+ 
+ 
++def test_search_duplicate_columns_are_deduped(fresh_db):
++    # https://github.com/simonw/sqlite-utils/issues/624
++    table = fresh_db["t"]
++    table.insert_all(search_records)
++    table.enable_fts(["text", "country"], fts_version="FTS4")
++    rows = list(table.search("tanuki", columns=["text", "text"]))
++    assert rows == [
++        {
++            "text": "tanuki are running tricksters",
++            "text_2": "tanuki are running tricksters",
++        }
++    ]
++
++
+ def test_search_limit_offset(fresh_db):
+     table = fresh_db["t"]
+     table.insert_all(search_records)
+diff --git a/tests/test_query.py b/tests/test_query.py
+index b9822e1..0b9f2ae 100644
+--- a/tests/test_query.py
++++ b/tests/test_query.py
+@@ -218,6 +218,22 @@ def test_query_insert_returning_respects_explicit_transaction(fresh_db):
+     assert [row["name"] for row in fresh_db["dogs"].rows] == ["Cleo"]
+ 
+ 
++def test_query_duplicate_column_names_are_deduped(fresh_db):
++    # https://github.com/simonw/sqlite-utils/issues/624
++    fresh_db["one"].insert({"id": 1, "value": "left"})
++    fresh_db["two"].insert({"id": 2, "value": "right"})
++    rows = list(
++        fresh_db.query("select one.id, two.id, one.value, two.value from one, two")
++    )
++    assert rows == [{"id": 1, "id_2": 2, "value": "left", "value_2": "right"}]
++
++
++def test_query_deduped_column_avoids_existing_names(fresh_db):
++    # The renamed duplicate must not overwrite a real column called id_2
++    rows = list(fresh_db.query("select 1 as id, 2 as id, 3 as id_2"))
++    assert rows == [{"id": 1, "id_3": 2, "id_2": 3}]
++
++
+ def test_execute_returning_dicts(fresh_db):
+     # Like db.query() but returns a list, included for backwards compatibility
+     # see https://github.com/simonw/sqlite-utils/issues/290
+diff --git a/tests/test_rows.py b/tests/test_rows.py
+index a8a4ca0..f050d5a 100644
+--- a/tests/test_rows.py
++++ b/tests/test_rows.py
+@@ -104,3 +104,10 @@ def test_pks_and_rows_where_compound_pk(fresh_db):
+         (("number", 1), {"type": "number", "number": 1, "plusone": 2}),
+         (("number", 2), {"type": "number", "number": 2, "plusone": 3}),
+     ]
++
++
++def test_rows_where_duplicate_select_columns_are_deduped(fresh_db):
++    # https://github.com/simonw/sqlite-utils/issues/624
++    fresh_db["t"].insert({"id": 1, "name": "Cleo"})
++    rows = list(fresh_db["t"].rows_where(select="id, id, name"))
++    assert rows == [{"id": 1, "id_2": 1, "name": "Cleo"}]
+diff --git a/tests/test_utils.py b/tests/test_utils.py
+index f728bcd..3de5e94 100644
+--- a/tests/test_utils.py
++++ b/tests/test_utils.py
+@@ -83,3 +83,20 @@ def test_maximize_csv_field_size_limit():
+ )
+ def test_flatten(input, expected):
+     assert utils.flatten(input) == expected
++
++
++@pytest.mark.parametrize(
++    "input,expected",
++    (
++        ([], []),
++        (["id", "name"], ["id", "name"]),
++        (["id", "id"], ["id", "id_2"]),
++        (["id", "id", "id"], ["id", "id_2", "id_3"]),
++        # A renamed duplicate must not clobber a real column called id_2
++        (["id", "id", "id_2"], ["id", "id_3", "id_2"]),
++        (["id_2", "id", "id"], ["id_2", "id", "id_3"]),
++        (["id", "id", "id_2", "id_2"], ["id", "id_3", "id_2", "id_2_2"]),
++    ),
++)
++def test_dedupe_keys(input, expected):
++    assert utils.dedupe_keys(input) == expected
