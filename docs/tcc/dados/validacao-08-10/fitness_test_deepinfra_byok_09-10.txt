@@ -1,0 +1,7 @@
+=================== DeepInfra via chave própria (BYOK)  2026-10-09
+  1. tool calling      5/5 chamaram search_code
+     argumentos exatos 5/5
+  2. provedor servido  {DeepInfra: 5}
+  3. determinismo      1 assinatura(s) distinta(s) em 5
+     custo total       US$ 0.000481  (2285 tokens)  [custo lido de upstream_inference_cost]
+  VEREDITO: APTO para os dois braços
