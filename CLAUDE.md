@@ -10,6 +10,7 @@ Fonte de verdade sobre o desenho: `docs/tcc/00-guia-etapas.md`, `docs/tcc/01-inv
 - Prompts (`src/prompts.py`). Os dois braços usam o mesmo prompt de sistema e o mesmo conjunto de ferramentas na mesma ordem.
 - Mensagens de protocolo ao agente vivem só em `src/feedback.py`. Nenhum braço pode ter texto próprio de feedback; `tests/test_arm_parity.py` falha se houver.
 - A reconstrução do contexto do developer a cada ciclo (`src/agents/developer.py`) é parte da variável independente (folga F3, declarada em `docs/tcc/07-execucao.md`). Não igualar ao histórico persistente do single-agent.
+- A primeira mensagem do developer é o enunciado íntegro (a mesma string que o single-agent recebe, `src/state.py: tarefa_bruta`) mais a intent do `intent_refiner` como anexo (decisão 24, 09/10/2026; `orchestration_policy.developer_input`). O refinador fica; ele não é mais um filtro com perda entre o enunciado e quem escreve o código.
 
 ## Paridade e manifesto
 

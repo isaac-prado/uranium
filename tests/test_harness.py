@@ -297,12 +297,14 @@ class TestFaixa:
 
     def test_tarefas_reais_tem_ou_nao_faixa_conforme_task_json(self):
         """
-        Documenta o estado real das duas tarefas do estudo (item 5 da
-        exigência): sqlite-utils-0001 já declara faixa, tomlkit-0001 não —
-        e o TaskSpec não deve inventar uma para ela.
+        Documenta o estado real das duas tarefas de 19/09 (item 5 da
+        exigência): as duas declaram faixa `pequena` desde 08/10/2026
+        (tomlkit-0001 não tinha faixa; sqlite-utils-0001 era "media" e foi
+        reclassificada pela regra da decisão 22: 1 arquivo, 34 linhas).
+        O TaskSpec lê o que está no task.json e não inventa nada.
         """
-        assert load_task(TAREFA).faixa is None
-        assert load_task(RAIZ / "tasks" / "sqlite-utils-0001").faixa == "media"
+        assert load_task(TAREFA).faixa == "pequena"
+        assert load_task(RAIZ / "tasks" / "sqlite-utils-0001").faixa == "pequena"
 
 
 class TestFaixaNoResultado:

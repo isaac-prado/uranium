@@ -175,3 +175,14 @@ A mineração ampliada de 08/10 (`mined-v3/`) esgotou o pré-filtro de média e 
 ## E4 — Fumaça paga na tarefa grande (08/10/2026)
 
 Relatório em [07-e4-fumaca.md](07-e4-fumaca.md): 4 células (`tomlkit-0002` grande e `tomlkit-0001` pequena × 2 braços), todas resolvidas, 0 perdidas, US$ 0,155; a grande foi cortada em `max_turns` nos dois braços com a correção no lugar. Instrumentação íntegra (duas análises concordam, contabilidade de contexto 0,0%). Fumaça B (DeepInfra, tomlkit-0004): perdida por 429 em cadeia; Novita saiu do modelo; Google e Alibaba aptos. Fumaça C (Google, 80 turnos, 4 M): zero perdas, tomlkit-0004 não resolvida por nenhum braço, cortada por turnos nos dois. Proposta: 80 turnos, 4 M tokens, 1.800 s, provedor Google. G6 verde (13 tarefas validadas, [10-tarefas.md](10-tarefas.md)); G4 e provedor aguardam o autor (seção 7 do relatório).
+
+
+---
+
+## Decisão 24 — enunciado íntegro ao developer (09/10/2026)
+
+**Diff resumido.** `src/state.py`: `intent_bruta(statement)` e `tarefa_bruta(statement)`, a especificação como os dois braços a recebem, num lugar só. `src/arms/runner.py`: estado inicial usa `intent_bruta`; `orchestration_policy.developer_input`; `MANIFEST_VERSION` 4. `src/agents/developer.py`: `DEVELOPER_INPUT = "enunciado+intent"`; `_build_prompt` começa com `tarefa_bruta(raw_request)` (byte a byte igual ao single-agent) e anexa `Intenção estruturada:` + intent do refinador; o resto (feedback de suíte, diff vazio, parecer do revisor) inalterado. Prompts, ferramentas, oráculo, guarda e detector intocados.
+
+**Teste que prova.** `tests/test_arm_parity.py::TestDeveloperRecebeOEnunciadoIntegro` (prefixo idêntico ao `_spec` do single-agent; enunciado íntegro no `goal`; intent como anexo; `developer_input` só no manifesto do orquestrado); `test_verde_com_mudanca_o_developer_recebe_so_a_tarefa` e `test_manifest_version_subiu` atualizados; `tests/test_harness.py::TestFaixa` atualizado para as faixas reais das duas tarefas de 19/09. Suíte: 593 passando.
+
+**Impacto em docs.** [09-decisoes-do-autor.md](09-decisoes-do-autor.md) decisão 24; `CLAUDE.md` (invariante nova); [07-e4-fumaca.md](07-e4-fumaca.md) recebe a checagem paga quando rodar.

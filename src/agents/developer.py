@@ -17,11 +17,23 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from src.feedback import DIFF_VAZIO, feedback_de_falha, revisao_reprovada
 from src.prompts import AGENT_SYSTEM_PROMPT
 from src.runtime import RunContext
-from src.state import WorkflowState, parse_intent, parse_test_report, parse_validation
+from src.state import WorkflowState, parse_intent, parse_test_report, parse_validation, tarefa_bruta
 
 # Mesmo prompt do braço single-agent. A decomposição em papéis do
 # orchestration está no grafo, não aqui.
 SYSTEM_PROMPT = AGENT_SYSTEM_PROMPT
+
+# O que o developer recebe como primeira mensagem (vai ao manifesto em
+# `orchestration_policy.developer_input`). Decisão 24 do autor, 09/10/2026
+# (docs/tcc/09-decisoes-do-autor.md): o enunciado íntegro, idêntico ao que o
+# single-agent recebe, mais a intent do `intent_refiner` como anexo. Antes o
+# developer recebia SÓ a intent — 24% a 68% menor que o enunciado nas
+# fumaças de 08/10 (docs/tcc/07-e4-fumaca.md), com exemplos e saídas
+# esperadas descartados — e o E1 mediu que ele lia 1,8 a 4,4 vezes mais
+# código, aparentemente para recuperar o que a paráfrase não dizia. O
+# papel do refinador fica; o que muda é que ele deixa de ser um filtro com
+# perda entre o enunciado e quem escreve o código.
+DEVELOPER_INPUT = "enunciado+intent"
 
 
 
@@ -49,7 +61,10 @@ def _build_prompt(state: WorkflowState) -> str:
     """Monta a instrução do turno, com o feedback de execução se houver."""
     intent = parse_intent(state)
     partes = [
-        "Tarefa:",
+        # a mesma string, byte a byte, que o driver entrega ao single-agent
+        tarefa_bruta(state.get("raw_request") or ""),
+        "",
+        "Intenção estruturada:",
         intent.model_dump_json(indent=2),
     ]
 

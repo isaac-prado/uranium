@@ -20,12 +20,14 @@ from pathlib import Path
 from typing import Any, Literal
 
 from src import config
+from src.agents.developer import DEVELOPER_INPUT
 from src.agents.validator import semantic_review_enabled
 from src.arms.driver import DriverPolicy
 from src.budget import RunBudget
 from src.config import LLMConfig, is_provider_error, load_llm_config, root_provider_error
 from src.runtime import MAX_TOOL_CALLS_POR_TURNO, RunContext
 from src.seeds import get_seed_repo
+from src.state import intent_bruta
 from src.structured_llm import get_output_method
 from src.structured_llm import max_retries as structured_output_retries
 from src.telemetry import Arm, TelemetryWriter
@@ -39,7 +41,7 @@ from src.tools.base import (
 from src.tools.exec import DEFAULT_SNIPPET_TIMEOUT_S
 from src.workspace import Workspace, WorkspaceSpec
 
-MANIFEST_VERSION = 3
+MANIFEST_VERSION = 4
 
 # Chaves do manifesto que PODEM diferir entre os braços. Qualquer outra
 # divergência é violação do desenho experimental. Note que `repetition` NÃO
@@ -117,6 +119,11 @@ def _orchestration_policy() -> dict[str, Any]:
         "max_semantic_rejections": config.MAX_SEMANTIC_REJECTIONS,
         "max_clarification_iterations": config.MAX_CLARIFICATION_ITERATIONS,
         "semantic_review": semantic_review_enabled(),
+        # Decisão 24 (09/10/2026): o que o developer recebe como primeira
+        # mensagem — o enunciado íntegro (a mesma string que o single-agent
+        # recebe) mais a intent do refinador como anexo. Antes recebia só a
+        # intent, 24% a 68% menor que o enunciado (07-e4-fumaca.md).
+        "developer_input": DEVELOPER_INPUT,
         "structured_output_method": get_output_method(),
         "structured_output_retries": structured_output_retries(),
     }
@@ -297,10 +304,7 @@ def run_arm(spec: RunSpec, *, llm_factory: Any = None) -> dict[str, Any]:
     estado_inicial: dict[str, Any] = {
         "run_id": spec.run_id, "arm": spec.arm, "task_id": spec.task_id,
         "raw_request": spec.statement,
-        "intent": {
-            "context": "", "goal": spec.statement, "phases": [],
-            "acceptance_criteria": [], "clarifications_needed": [], "is_ready": True,
-        },
+        "intent": intent_bruta(spec.statement),
         "iteration_count": 0, "validation_iteration_count": 0, "semantic_rejections": 0,
         "clarification_responses": [], "turn_count": 0,
     }

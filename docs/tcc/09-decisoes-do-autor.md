@@ -98,6 +98,14 @@ Fontes: [04-cronograma.md](04-cronograma.md), [07-execucao.md](07-execucao.md), 
 
 **Onde entra.** Método › Materiais (tabela das 13 tarefas, [10-tarefas.md](10-tarefas.md)); Método › Procedimento (78 execuções); Ameaças à validade (estratificação desigual; faixa pelo patch de referência).
 
+### Decisão 24. O developer recebe o enunciado íntegro, com a intent do refinador como anexo
+
+**Situação (09/10/2026).** O developer do orquestrado recebia só a intent do `intent_refiner`, 24% a 68% menor que o enunciado nas fumaças de 08/10 ([07-e4-fumaca.md](07-e4-fumaca.md)); numa reprodução sobre a `tomlkit-0004` a intent dizia "os valores são os do item 6 do relatório", item que o developer nunca via. Custo direto do refinador: 0,2% a 2% do run; custo indireto suspeito: leitura de código 1,8 a 4,4 vezes maior que no single-agent (E1 e fumaça C), compatível com o developer explorar para recuperar o que a paráfrase descartou.
+
+**Decisão (09/10/2026, "válido, desde que melhore"):** o refinador fica (não há sentido em tirá-lo da orquestração); a primeira mensagem do developer passa a ser a mesma string que o single-agent recebe (`Tarefa:` + intent bruta com o enunciado em `goal`, `src/state.py: tarefa_bruta`) seguida de "Intenção estruturada:" com a intent do refinador. Registrado no manifesto em `orchestration_policy.developer_input = "enunciado+intent"`; manifesto v4. Teste: `tests/test_arm_parity.py::TestDeveloperRecebeOEnunciadoIntegro`. Condição do autor: medir se melhora — checagem paga na `tomlkit-0004`, 120 turnos, só o braço orquestrado, contra a fumaça D (5/7, 3,26 M tokens, US$ 0,78). A ablação do refinador (decisões 7 e 16) passa a medir o valor do anexo e fica para depois da coleta.
+
+**Onde entra.** Método › Tratamentos (o que cada papel recebe; o enunciado chega íntegro aos dois braços); Ameaças à validade (D3 deixa de ser confundidor de informação; resta o anexo como diferença de topologia).
+
 ---
 
 ## Bloco 2 — Tratamentos: o desenho do braço `orchestration`
@@ -349,3 +357,4 @@ Hoje conta como "sem corte" pela definição literal, e o JSON reporta `sem_stop
 | 21 | | | |
 | 22 | faixa média: módulo = arquivo .py; condição de diretórios cai; regras congeladas no CLAUDE.md | 08/10/2026 | 09, Decisão 22; CLAUDE.md; 07-e3-1 seção 1; scripts/mine_tasks.py |
 | 23 | as 13 tarefas ficam (3/4/6); 78 execuções; pendências do 10-tarefas resolvidas a favor de manter | 08/10/2026 | 09, Decisão 23; 10-tarefas seção 5 |
+| 24 | developer recebe enunciado íntegro + intent como anexo; refinador fica; manifesto v4 | 09/10/2026 | 09, Decisão 24; CLAUDE.md; src/agents/developer.py; checagem paga na tomlkit-0004 |

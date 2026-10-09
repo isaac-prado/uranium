@@ -68,6 +68,27 @@ def parse_intent(state: WorkflowState) -> StructuredIntent:
     return StructuredIntent.model_validate(state.get("intent") or {})
 
 
+def intent_bruta(statement: str) -> dict:
+    """
+    A intent com que todo run começa: só o enunciado, em `goal`, e o resto
+    vazio. É o que o single-agent recebe como especificação (o driver a
+    entrega uma vez, `src/arms/single_agent.py`) e, desde a decisão 24
+    (docs/tcc/09-decisoes-do-autor.md, 09/10/2026), também a primeira parte
+    do que o developer do orchestration recebe — a mesma string, byte a
+    byte, nos dois braços. Mora aqui para o runner e os dois braços nunca
+    montarem cópias que possam divergir.
+    """
+    return {
+        "context": "", "goal": statement, "phases": [],
+        "acceptance_criteria": [], "clarifications_needed": [], "is_ready": True,
+    }
+
+
+def tarefa_bruta(statement: str) -> str:
+    """A especificação como os dois braços a recebem: `Tarefa:` + intent bruta."""
+    return "Tarefa:\n" + StructuredIntent.model_validate(intent_bruta(statement)).model_dump_json(indent=2)
+
+
 def parse_clarifications(state: WorkflowState) -> list[ClarificationItem]:
     """Converte respostas de clarificação para modelos tipados."""
     raw = state.get("clarification_responses") or []
