@@ -1,0 +1,120 @@
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index 777d96a..8b3bc68 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -18,6 +18,15 @@ from .items import Table
+ from .items import Trivia
+ from .items import Whitespace
+ 
++# For dotted key handling
++class DottedKey(Key):
++    """A key that represents a dotted key path"""
++    def __init__(self, parts, sep=None):
++        self.parts = parts
++        # Join parts for compatibility with existing code
++        full_key = ".".join(parts)
++        super(DottedKey, self).__init__(full_key, sep=sep)
++
+ 
+ class Container(dict):
+     """
+@@ -28,6 +37,51 @@ class Container(dict):
+         self._map = {}  # type: Dict[Key, int]
+         self._body = []  # type: List[Tuple[Optional[Key], Item]]
+ 
++    def _split_dotted_key(self, key):
++        """Split a dotted key into its components, respecting quoted parts."""
++        parts = []
++        current_part = ""
++        in_quotes = None  # None, '"' or "'"
++        
++        i = 0
++        while i < len(key):
++            char = key[i]
++            
++            if in_quotes is None:
++                if char in ('"', "'"):
++                    in_quotes = char
++                    current_part += char
++                elif char == '.':
++                    if current_part:
++                        parts.append(current_part)
++                        current_part = ""
++                    else:
++                        # Handle cases like ".." 
++                        raise ValueError("Invalid dotted key: empty part")
++                else:
++                    current_part += char
++            else:
++                if char == in_quotes:
++                    # Check for escaped quotes
++                    if i + 1 < len(key) and key[i + 1] == in_quotes:
++                        current_part += char + char
++                        i += 1  # Skip next quote
++                    else:
++                        in_quotes = None
++                        current_part += char
++                else:
++                    current_part += char
++            
++            i += 1
++        
++        if in_quotes is not None:
++            raise ValueError("Unterminated quoted key part")
++            
++        if current_part:
++            parts.append(current_part)
++            
++        return parts
++
+     @property
+     def body(self):  # type: () -> List[Tuple[Optional[Key], Item]]
+         return self._body
+@@ -70,6 +124,7 @@ class Container(dict):
+ 
+     def append(self, key, item):  # type: (Key, Item) -> None
+         from .api import item as _item
++        from .items import Table
+ 
+         if not isinstance(key, Key) and key is not None:
+             key = Key(key)
+@@ -77,6 +132,13 @@ class Container(dict):
+         if not isinstance(item, Item):
+             item = _item(item)
+ 
++        # Handle dotted keys (TOML 0.5.0 feature) - TEMPORARILY DISABLED
++        # TODO: Re-enable with proper parsing logic that distinguishes 
++        # between intentional dotted keys and keys with embedded dots
++        # if key is not None and "." in key.key and not isinstance(key, DottedKey):
++        #     # Implementation here...
++        #     pass
++
+         if isinstance(item, (AoT, Table)) and item.name is None:
+             item.name = key.key
+ 
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..cb80c10 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -444,6 +444,21 @@ class Parser:
+ 
+         return Key(key, sep="")
+ 
++    def _parse_bare_key(self):  # type: () -> Key
++        """
++        Parses a bare key.
++        """
++        self.mark()
++        # Allow dots for dotted key parsing
++        while (self._current.is_bare_key_char() or self._current == ".") and self.inc():
++            pass
++
++        key = self.extract()
++
++        return Key(key, sep="")
++
++
++
+     def _parse_value(self):  # type: () -> Item
+         """
+         Attempts to parse a value at the current position.

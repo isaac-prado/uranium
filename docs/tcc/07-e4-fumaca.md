@@ -120,3 +120,35 @@ Segunda tentativa concluída sem perda (a primeira caiu no 429 da seção 9). S�
 - (c) Manter e **gastar uma repetição a mais** na mesma célula antes de decidir (US$ 0,9), o que exige recarga: saldo da chave, US$ 0,44.
 
 Não há mais crédito para execuções pagas nesta chave hoje.
+
+## 11. Fumaça F (09/10/2026): 160 turnos e 16 M tokens no DeepInfra com chave própria (`dados/fumaca-09-10-f/`)
+
+Primeira rodada depois do BYOK (decisão 11 final): `OPENROUTER_PROVIDER=DeepInfra`, chave própria do DeepInfra registrada no OpenRouter, `RUN_MAX_TURNS=160`, `RUN_MAX_TOKENS=16000000`, `RUN_MAX_WALL_SECONDS=1800`, `--retry-delay 300 --max-attempts 5`, manifesto v5 (developer recebe só a intent). **Zero perdas e zero 429** em 321 chamadas, todas servidas pelo DeepInfra com `is_byok: true` (`events.jsonl` dos dois braços); `byok_calls == llm_calls` nos dois `result.json`.
+
+| Braço | Parada | Resolvida | Testes ocultos | Regressão (`p2p`) | Turnos | Tokens | US$ | Parede (s) | Maior prompt | Arquivos no patch | Linhas do patch |
+|---|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|
+| single-agent | `budget: max_turns (160 >= 160)` | não | **0/7** | exit 1 (158 ok, 7 falhas) | 160 | 7.266.487 | 0,8299 | 607 | 95.045 | 2 | 120 |
+| orchestration | `budget: max_turns (160 >= 160)` | não | **0/7** | exit 1 (51 ok, 114 falhas) | 160 | 8.147.056 | 0,8843 | 747 | 88.232 | 9 | 5.686 |
+
+O que aconteceu em cada braço (`events.jsonl`, `patch.diff`):
+
+- **single-agent:** 160 chamadas, 159 ferramentas (53 `replace_in_file`, 50 `read_file`, 35 `run_python`, 8 `run_tests`). Mexeu em `container.py` e `parser.py`, 120 linhas; a suíte visível fechou em 161 ok e 2 falhas no último `run_tests`, mas o oráculo dá 0/7 nos ocultos e 7 regressões. Com 120 turnos (fumaça D) o mesmo braço, mesma semente, tinha chegado a 5/7.
+- **orchestration:** `intent_refiner` → developer → validator → developer → validator → `test_generator`; o developer gastou os 160 turnos nos dois ciclos (3 `run_tests` em 160 turnos). Reescreveu 9 dos 10 módulos do pacote (`__init__`, `_compat`, `_utils`, `api`, `container`, `exceptions`, `items`, `parser`, `toml_char`), 5.686 linhas, e quebrou 114 testes da suíte visível; o detector marcou dois avisos C6 (exceção silenciada em `parser.py`). Com 120 turnos (fumaça D) tinha chegado a 5/7.
+
+Quadro das quatro rodadas na `tomlkit-0004`, mesma semente (seções 6, 8 e esta; fumaça B perdida):
+
+| Turnos / tokens | Provedor | single-agent | orchestration | US$ (SA / OR) |
+|---|---|---|---|---|
+| 80 / 4 M (C) | Google | 0/7 | 5/7 | 0,53 / 0,86 |
+| 120 / 8 M (D) | Google | 5/7 | 5/7 | 1,37 / 0,78 |
+| 160 / 16 M (F) | DeepInfra BYOK | 0/7 | 0/7 | 0,83 / 0,88 |
+
+**Leitura.** Nenhum teto resolveu a tarefa, e subir de 120 para 160 piorou os dois braços (n = 1 por célula; os runs de 120 e 160 divergem desde os primeiros turnos porque o provedor mudou, então a comparação é entre rodadas, não entre continuações do mesmo run). Nenhum run chegou perto da parede (máx. 747 s de 1.800) nem dos tokens (máx. 8,1 M de 16 M): o único corte, em todas as rodadas, é `max_turns`. Mais turnos não convergem: o modelo não acumula progresso, refaz. O custo por run na faixa grande ficou em US$ 0,8 a 1,4 por braço a 120 ou 160 turnos; com 3 grandes × 2 braços × 3 repetições = 18 runs, a faixa grande sozinha custa US$ 15 a 25 a esses tetos, contra US$ 23,3 de saldo no DeepInfra depois desta rodada (US$ 1,68 gastos de US$ 25, painel do DeepInfra em 09/10).
+
+**Caminhos para a decisão 12** (a regra de 09/10 era "subir até um braço resolver"; esta rodada contradiz a premissa de que subir resolve):
+
+- (a) **Congelar 120 turnos / 8 M tokens / 1.800 s** (fumaça D: melhor resultado observado, 5/7 nos dois braços, único teto em que o single-agent progrediu) e declarar que a `tomlkit-0004` pode ficar sem resolução em nenhum braço; "não resolveu nos dois" é um resultado válido da faixa grande, e os sete métricas continuam comparáveis (ocultos passados, regressão, custo, turnos). Custo estimado da faixa grande: ~US$ 18 (fumaça D: 1,37 + 0,78 = 2,15 por par × 9 pares).
+- (b) Subir para 200 turnos / 20 M. Custo ~US$ 1,2 a 1,8 por run (crescimento quadrático), ~US$ 25 a 30 só para a faixa grande: não cabe no saldo, e a evidência de 160 não sugere que resolva.
+- (c) Rodar uma fumaça em outra grande (`tomlkit-0002` ou `0003`, 120 turnos, dois braços, ~US$ 2) antes de congelar, para saber se 120 resolve alguma grande ou se a faixa inteira fica em "não resolveu". Não muda o teto; muda a interpretação.
+
+Recomendação: **(a)**, com (c) opcional se o autor quiser a interpretação antes da coleta. Não congelar em 160: custa mais e rendeu menos.

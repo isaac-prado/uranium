@@ -1,0 +1,25 @@
+tarefas   1  ×  2 braços  ×  1 repetição(ões)  =  2 células
+estado    0 concluídas, 2 pendentes  →  runs/fumaca-09-10-f
+modelo    qwen/qwen3-coder via DeepInfra
+orçamento {'max_tokens': 16000000, 'max_wall_seconds': 1800, 'max_turns': 160}
+workers   1   tentativas por célula 5
+
+  done    tomlkit-0004         single-agent   rep01  não resolveu  budget: max_turns (160 >= 160)
+<unknown>:15: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:16: SyntaxWarning: invalid escape sequence '\+'
+<unknown>:23: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:15: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:16: SyntaxWarning: invalid escape sequence '\+'
+<unknown>:23: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:15: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:16: SyntaxWarning: invalid escape sequence '\+'
+<unknown>:23: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:15: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:16: SyntaxWarning: invalid escape sequence '\+'
+<unknown>:23: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:15: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:16: SyntaxWarning: invalid escape sequence '\+'
+<unknown>:23: SyntaxWarning: invalid escape sequence '\.'
+  done    tomlkit-0004         orchestration  rep01  não resolveu  budget: max_turns (160 >= 160)
+
+  2 concluídas, 0 perdidas  →  runs/fumaca-09-10-f/collection.json

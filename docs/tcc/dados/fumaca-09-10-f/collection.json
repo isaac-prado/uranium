@@ -1,0 +1,26 @@
+[
+  {
+    "task_id": "tomlkit-0004",
+    "arm": "single-agent",
+    "repetition": 1,
+    "status": "done",
+    "attempts": 1,
+    "lost_attempts": 0,
+    "run_dir": "runs/fumaca-09-10-f/tomlkit-0004/single-agent/rep01/attempt01",
+    "stop_reason": "budget: max_turns (160 >= 160)",
+    "resolved": false,
+    "evaluation_error": null
+  },
+  {
+    "task_id": "tomlkit-0004",
+    "arm": "orchestration",
+    "repetition": 1,
+    "status": "done",
+    "attempts": 1,
+    "lost_attempts": 0,
+    "run_dir": "runs/fumaca-09-10-f/tomlkit-0004/orchestration/rep01/attempt01",
+    "stop_reason": "budget: max_turns (160 >= 160)",
+    "resolved": false,
+    "evaluation_error": null
+  }
+]

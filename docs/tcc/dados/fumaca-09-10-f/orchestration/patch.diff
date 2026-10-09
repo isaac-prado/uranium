@@ -1,0 +1,5686 @@
+diff --git a/tomlkit/__init__.py b/tomlkit/__init__.py
+index 6e03fdc..5c4689d 100644
+--- a/tomlkit/__init__.py
++++ b/tomlkit/__init__.py
+@@ -1,24 +1,59 @@
+-from .api import aot
+-from .api import array
+-from .api import boolean
+-from .api import comment
+-from .api import date
+-from .api import datetime
+-from .api import document
+-from .api import dumps
+-from .api import float_
+-from .api import inline_table
+-from .api import integer
+-from .api import item
+-from .api import key
+-from .api import key_value
+-from .api import loads
+-from .api import nl
+-from .api import parse
+-from .api import table
+-from .api import time
+-from .api import value
+-from .api import ws
++from tomlkit.api import TOMLDocument
++from tomlkit.api import aot
++from tomlkit.api import array
++from tomlkit.api import boolean
++from tomlkit.api import comment
++from tomlkit.api import date
++from tomlkit.api import datetime
++from tomlkit.api import document
++from tomlkit.api import dump
++from tomlkit.api import dumps
++from tomlkit.api import float_
++from tomlkit.api import inline_table
++from tomlkit.api import integer
++from tomlkit.api import item
++from tomlkit.api import key
++from tomlkit.api import key_value
++from tomlkit.api import load
++from tomlkit.api import loads
++from tomlkit.api import nl
++from tomlkit.api import parse
++from tomlkit.api import register_encoder
++from tomlkit.api import string
++from tomlkit.api import table
++from tomlkit.api import time
++from tomlkit.api import unregister_encoder
++from tomlkit.api import value
++from tomlkit.api import ws
+ 
+ 
+-__version__ = "0.1.1"
++__version__ = "0.15.1"
++__all__ = [
++    "TOMLDocument",
++    "aot",
++    "array",
++    "boolean",
++    "comment",
++    "date",
++    "datetime",
++    "document",
++    "dump",
++    "dumps",
++    "float_",
++    "inline_table",
++    "integer",
++    "item",
++    "key",
++    "key_value",
++    "load",
++    "loads",
++    "nl",
++    "parse",
++    "register_encoder",
++    "string",
++    "table",
++    "time",
++    "unregister_encoder",
++    "value",
++    "ws",
++]
+diff --git a/tomlkit/_compat.py b/tomlkit/_compat.py
+index 26296ff..380cc9b 100644
+--- a/tomlkit/_compat.py
++++ b/tomlkit/_compat.py
+@@ -1,177 +1,35 @@
+-import re
+-import sys
+-
+-try:
+-    from datetime import timezone
+-except ImportError:
+-    from datetime import datetime
+-    from datetime import timedelta
+-    from datetime import tzinfo
+-
+-    class timezone(tzinfo):
+-        __slots__ = "_offset", "_name"
+-
+-        # Sentinel value to disallow None
+-        _Omitted = object()
+-
+-        def __new__(cls, offset, name=_Omitted):
+-            if not isinstance(offset, timedelta):
+-                raise TypeError("offset must be a timedelta")
+-            if name is cls._Omitted:
+-                if not offset:
+-                    return cls.utc
+-                name = None
+-            elif not isinstance(name, str):
+-                raise TypeError("name must be a string")
+-            if not cls._minoffset <= offset <= cls._maxoffset:
+-                raise ValueError(
+-                    "offset must be a timedelta "
+-                    "strictly between -timedelta(hours=24) and "
+-                    "timedelta(hours=24)."
+-                )
+-            return cls._create(offset, name)
+-
+-        @classmethod
+-        def _create(cls, offset, name=None):
+-            self = tzinfo.__new__(cls)
+-            self._offset = offset
+-            self._name = name
+-            return self
+-
+-        def __getinitargs__(self):
+-            """pickle support"""
+-            if self._name is None:
+-                return (self._offset,)
+-            return (self._offset, self._name)
+-
+-        def __eq__(self, other):
+-            if type(other) != timezone:
+-                return False
+-            return self._offset == other._offset
+-
+-        def __hash__(self):
+-            return hash(self._offset)
+-
+-        def __repr__(self):
+-            """Convert to formal string, for repr().
+-
+-            >>> tz = timezone.utc
+-            >>> repr(tz)
+-            'datetime.timezone.utc'
+-            >>> tz = timezone(timedelta(hours=-5), 'EST')
+-            >>> repr(tz)
+-            "datetime.timezone(datetime.timedelta(-1, 68400), 'EST')"
+-            """
+-            if self is self.utc:
+-                return "datetime.timezone.utc"
+-            if self._name is None:
+-                return "%s.%s(%r)" % (
+-                    self.__class__.__module__,
+-                    self.__class__.__qualname__,
+-                    self._offset,
+-                )
+-            return "%s.%s(%r, %r)" % (
+-                self.__class__.__module__,
+-                self.__class__.__qualname__,
+-                self._offset,
+-                self._name,
+-            )
+-
+-        def __str__(self):
+-            return self.tzname(None)
+-
+-        def utcoffset(self, dt):
+-            if isinstance(dt, datetime) or dt is None:
+-                return self._offset
+-            raise TypeError(
+-                "utcoffset() argument must be a datetime instance" " or None"
+-            )
++from __future__ import annotations
+ 
+-        def tzname(self, dt):
+-            if isinstance(dt, datetime) or dt is None:
+-                if self._name is None:
+-                    return self._name_from_offset(self._offset)
+-                return self._name
+-            raise TypeError("tzname() argument must be a datetime instance" " or None")
+-
+-        def dst(self, dt):
+-            if isinstance(dt, datetime) or dt is None:
+-                return None
+-            raise TypeError("dst() argument must be a datetime instance" " or None")
+-
+-        def fromutc(self, dt):
+-            if isinstance(dt, datetime):
+-                if dt.tzinfo is not self:
+-                    raise ValueError("fromutc: dt.tzinfo " "is not self")
+-                return dt + self._offset
+-            raise TypeError("fromutc() argument must be a datetime instance" " or None")
+-
+-        _maxoffset = timedelta(hours=23, minutes=59)
+-        _minoffset = -_maxoffset
+-
+-        @staticmethod
+-        def _name_from_offset(delta):
+-            if not delta:
+-                return "UTC"
+-            if delta < timedelta(0):
+-                sign = "-"
+-                delta = -delta
+-            else:
+-                sign = "+"
+-            hours, rest = divmod(delta, timedelta(hours=1))
+-            minutes, rest = divmod(rest, timedelta(minutes=1))
+-            seconds = rest.seconds
+-            microseconds = rest.microseconds
+-            if microseconds:
+-                return ("UTC{}{:02d}:{:02d}:{:02d}.{:06d}").format(
+-                    sign, hours, minutes, seconds, microseconds
+-                )
+-            if seconds:
+-                return "UTC{}{:02d}:{:02d}:{:02d}".format(sign, hours, minutes, seconds)
+-            return "UTC{}{:02d}:{:02d}".format(sign, hours, minutes)
+-
+-    timezone.utc = timezone._create(timedelta(0))
+-    timezone.min = timezone._create(timezone._minoffset)
+-    timezone.max = timezone._create(timezone._maxoffset)
++import contextlib
++import sys
+ 
+ 
+ PY2 = sys.version_info[0] == 2
+-PY36 = sys.version_info >= (3, 6)
++PY38 = sys.version_info >= (3, 8)
+ 
+ if PY2:
++    long = long
+     unicode = unicode
+     chr = unichr
+ else:
++    long = int
+     unicode = str
+     chr = chr
+ 
++try:
++    from datetime import timezone
++except ImportError:
++    timezone = None
+ 
+-def decode(string, encodings=None):
+-    if not PY2 and not isinstance(string, bytes):
+-        return string
+ 
+-    if PY2 and isinstance(string, unicode):
++def decode(string: str | bytes, encodings: list[str] | None = None) -> str:
++    if not isinstance(string, bytes):
+         return string
+ 
+     encodings = encodings or ["utf-8", "latin1", "ascii"]
+ 
+     for encoding in encodings:
+-        try:
++        with contextlib.suppress(UnicodeEncodeError, UnicodeDecodeError):
+             return string.decode(encoding)
+-        except (UnicodeEncodeError, UnicodeDecodeError):
+-            pass
+ 
+     return string.decode(encodings[0], errors="ignore")
+-
+-
+-_escaped = {"b": "\b", "t": "\t", "n": "\n", "f": "\f", "r": "\r", '"': '"', "\\": "\\"}
+-_escapable = re.compile(r"(?<!\\)([\n\b\t\f\r\\])")
+-
+-
+-def string_escape(string):
+-    if PY2:
+-        return _escapable.sub(lambda m: m.group(1).encode("string_escape"), string)
+-
+-    return _escapable.sub(
+-        lambda m: m.group(1).encode("unicode_escape").decode("utf-8"), string
+-    )
+diff --git a/tomlkit/_utils.py b/tomlkit/_utils.py
+index 6f9fb05..3c20574 100644
+--- a/tomlkit/_utils.py
++++ b/tomlkit/_utils.py
+@@ -1,62 +1,77 @@
++from __future__ import annotations
++
+ import re
+ 
++from collections.abc import Collection
++from collections.abc import Mapping
+ from datetime import date
+ from datetime import datetime
+ from datetime import time
+ from datetime import timedelta
++from datetime import timezone
++from typing import Any
+ 
++from tomlkit._compat import decode
+ 
+-from ._compat import timezone
++
++RFC_3339_LOOSE = re.compile(
++    "^"
++    r"(?P<date>(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2}))?"  # Date
++    "("
++    "(?P<sep>[Tt ])?"  # Separator
++    r"(?P<time>(?P<hour>\d{2}):(?P<minute>\d{2})(:(?P<second>\d{2})(\.(?P<fraction>[0-9]+))?)?)"  # Time
++    r"(?P<tz>([Zz])|([\+\-]([01][0-9]|2[0-3]):([0-5][0-9])))?"  # Timezone
++    ")?"
++    "$"
++)
+ 
+ RFC_3339_DATETIME = re.compile(
+     "^"
+-    "([0-9]+)-(0[1-9]|1[012])-(0[1-9]|[12][0-9]|3[01])"  # Date
+-    "[T ]"  # Separator
+-    "([01][0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9]|60)(\.([0-9]+))?"  # Time
+-    "((Z)|([\+|\-]([01][0-9]|2[0-3]):([0-5][0-9])))?"  # Timezone
++    r"(?P<year>\d{4})-(?P<month>0[1-9]|1[012])-(?P<day>0[1-9]|[12][0-9]|3[01])"  # Date
++    "[Tt ]"  # Separator
++    r"(?P<hour>[01][0-9]|2[0-3]):(?P<minute>[0-5][0-9])"  # Time
++    r"(:(?P<second>[0-5][0-9]|60)(\.(?P<fraction>[0-9]+))?)?"
++    r"(?P<tz>([Zz])|([\+\-]([01][0-9]|2[0-3]):([0-5][0-9])))?"  # Timezone
+     "$"
+ )
+ 
+ RFC_3339_DATE = re.compile("^([0-9]+)-(0[1-9]|1[012])-(0[1-9]|[12][0-9]|3[01])$")
+ 
+ RFC_3339_TIME = re.compile(
+-    "^([01][0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9]|60)(\.([0-9]+))?$"
++    r"^(?P<hour>[01][0-9]|2[0-3]):(?P<minute>[0-5][0-9])"
++    r"(:(?P<second>[0-5][0-9]|60)(\.(?P<fraction>[0-9]+))?)?$"
+ )
+ 
+ _utc = timezone(timedelta(), "UTC")
+ 
+ 
+-def parse_rfc3339(string):  # type: (str) -> Union[datetime, date, time]
++def parse_rfc3339(string: str) -> datetime | date | time:
+     m = RFC_3339_DATETIME.match(string)
+     if m:
+-        year = int(m.group(1))
+-        month = int(m.group(2))
+-        day = int(m.group(3))
+-        hour = int(m.group(4))
+-        minute = int(m.group(5))
+-        second = int(m.group(6))
++        year = int(m.group("year"))
++        month = int(m.group("month"))
++        day = int(m.group("day"))
++        hour = int(m.group("hour"))
++        minute = int(m.group("minute"))
++        second = int(m.group("second") or 0)
+         microsecond = 0
+ 
+-        if m.group(7):
+-            microsecond = int(("{:<06s}".format(m.group(8)))[:6])
+-
+-        dt = datetime(year, month, day, hour, minute, second, microsecond)
++        if m.group("fraction"):
++            microsecond = int((f"{m.group('fraction'):<06s}")[:6])
+ 
+-        if m.group(9):
++        if m.group("tz"):
+             # Timezone
+-            tz = m.group(9)
+-            if tz == "Z":
++            tz = m.group("tz")
++            if tz.upper() == "Z":
+                 tzinfo = _utc
+             else:
+-                sign = m.group(11)[0]
+-                hour_offset, minute_offset = int(m.group(12)), int(m.group(13))
++                sign = tz[0]
++                hour_offset, minute_offset = map(int, tz[1:].split(":"))
+                 offset = timedelta(seconds=hour_offset * 3600 + minute_offset * 60)
+                 if sign == "-":
+                     offset = -offset
+ 
+-                tzinfo = timezone(
+-                    offset, "{}{}:{}".format(sign, m.group(12), m.group(13))
+-                )
++                tzinfo = timezone(offset, tz)
+ 
+             return datetime(
+                 year, month, day, hour, minute, second, microsecond, tzinfo=tzinfo
+@@ -74,14 +89,74 @@ def parse_rfc3339(string):  # type: (str) -> Union[datetime, date, time]
+ 
+     m = RFC_3339_TIME.match(string)
+     if m:
+-        hour = int(m.group(1))
+-        minute = int(m.group(2))
+-        second = int(m.group(3))
++        hour = int(m.group("hour"))
++        minute = int(m.group("minute"))
++        second = int(m.group("second") or 0)
+         microsecond = 0
+ 
+-        if m.group(4):
+-            microsecond = int(("{:<06s}".format(m.group(5)))[:6])
++        if m.group("fraction"):
++            microsecond = int((f"{m.group('fraction'):<06s}")[:6])
+ 
+         return time(hour, minute, second, microsecond)
+ 
+-    raise ValueError("Invalid RFC 339 string")
++    raise ValueError("Invalid RFC 3339 string")
++
++
++# https://toml.io/en/v1.0.0#string
++CONTROL_CHARS = frozenset(chr(c) for c in range(0x20)) | {chr(0x7F)}
++_escaped = {
++    "b": "\b",
++    "t": "\t",
++    "n": "\n",
++    "f": "\f",
++    "r": "\r",
++    "e": "\x1b",
++    '"': '"',
++    "\\": "\\",
++}
++_compact_escapes = {
++    **{v: f"\\{k}" for k, v in _escaped.items()},
++    '"""': '""\\"',
++}
++_basic_escapes = CONTROL_CHARS | {'"', "\\"}
++
++
++def _unicode_escape(seq: str) -> str:
++    return "".join(f"\\u{ord(c):04x}" for c in seq)
++
++
++def escape_string(s: str, escape_sequences: Collection[str] = _basic_escapes) -> str:
++    s = decode(s)
++
++    res = []
++    start = 0
++
++    def flush(inc: int = 1) -> int:
++        if start != i:
++            res.append(s[start:i])
++
++        return i + inc
++
++    found_sequences = {seq for seq in escape_sequences if seq in s}
++
++    i = 0
++    while i < len(s):
++        for seq in found_sequences:
++            seq_len = len(seq)
++            if s[i:].startswith(seq):
++                start = flush(seq_len)
++                res.append(_compact_escapes.get(seq) or _unicode_escape(seq))
++                i += seq_len - 1  # fast-forward escape sequence
++        i += 1
++
++    flush()
++
++    return "".join(res)
++
++
++def merge_dicts(d1: dict[str, Any], d2: dict[str, Any]) -> None:
++    for k, v in d2.items():
++        if k in d1 and isinstance(d1[k], dict) and isinstance(v, Mapping):
++            merge_dicts(d1[k], dict(v))
++        else:
++            d1[k] = d2[k]
+diff --git a/tomlkit/api.py b/tomlkit/api.py
+index 5017d85..69fdbb5 100644
+--- a/tomlkit/api.py
++++ b/tomlkit/api.py
+@@ -1,35 +1,51 @@
++from __future__ import annotations
++
++import contextlib
+ import datetime as _datetime
++import re
+ 
++from collections.abc import Iterable
++from collections.abc import Mapping
++from typing import IO
++from typing import TYPE_CHECKING
+ from typing import Any
+-from typing import Dict
+-from typing import Tuple
+-
+-from ._compat import unicode
+-from ._utils import parse_rfc3339
+-from .container import Container
+-from .items import AoT
+-from .items import Array
+-from .items import Bool
+-from .items import Comment
+-from .items import Date
+-from .items import DateTime
+-from .items import Float
+-from .items import InlineTable
+-from .items import Integer
+-from .items import Item as _Item
+-from .items import Key
+-from .items import KeyType
+-from .items import String
+-from .items import StringType
+-from .items import Table
+-from .items import Time
+-from .items import Trivia
+-from .items import Whitespace
+-from .parser import Parser
+-from .toml_document import TOMLDocument as _TOMLDocument
+-
+-
+-def loads(string):  # type: (str) -> _TOMLDocument
++from typing import TypeVar
++
++from tomlkit._utils import parse_rfc3339
++from tomlkit.container import Container
++from tomlkit.exceptions import UnexpectedCharError
++from tomlkit.items import CUSTOM_ENCODERS
++from tomlkit.items import AoT
++from tomlkit.items import Array
++from tomlkit.items import Bool
++from tomlkit.items import Comment
++from tomlkit.items import Date
++from tomlkit.items import DateTime
++from tomlkit.items import DottedKey
++from tomlkit.items import Float
++from tomlkit.items import InlineTable
++from tomlkit.items import Integer
++from tomlkit.items import Item as _Item
++from tomlkit.items import Key
++from tomlkit.items import SingleKey
++from tomlkit.items import String
++from tomlkit.items import StringType as _StringType
++from tomlkit.items import Table
++from tomlkit.items import Time
++from tomlkit.items import Trivia
++from tomlkit.items import Whitespace
++from tomlkit.items import item as item
++from tomlkit.parser import Parser
++from tomlkit.toml_document import TOMLDocument as TOMLDocument
++
++
++if TYPE_CHECKING:
++    from tomlkit.items import Encoder
++
++    E = TypeVar("E", bound=Encoder)
++
++
++def loads(string: str | bytes) -> TOMLDocument:
+     """
+     Parses a string into a TOMLDocument.
+ 
+@@ -38,132 +54,319 @@ def loads(string):  # type: (str) -> _TOMLDocument
+     return parse(string)
+ 
+ 
+-def dumps(data):  # type: (_TOMLDocument) -> str
++def dumps(data: Mapping[str, Any], sort_keys: bool = False) -> str:
+     """
+     Dumps a TOMLDocument into a string.
+     """
+-    return data.as_string()
++    if isinstance(data, (Table, InlineTable, Container)):
++        if not sort_keys:
++            return data.as_string()
++
++        return item(data, _sort_keys=True).as_string()
++
++    if isinstance(data, Mapping):
++        return item(dict(data), _sort_keys=sort_keys).as_string()
+ 
++    try:
++        # mapping-like wrappers (e.g. dotty_dict's Dotty) delegate
++        # ``as_string`` to the document they wrap; rendering it directly
++        # preserves the original layout, which re-encoding through a plain
++        # dict would lose
++        return data.as_string()  # type: ignore[attr-defined]
++    except AttributeError as ex:
++        msg = f"Expecting Mapping or TOML Table or Container, {type(data)} given"
++        raise TypeError(msg) from ex
+ 
+-def parse(string):  # type: (str) -> _TOMLDocument
++
++def load(fp: IO[str] | IO[bytes]) -> TOMLDocument:
+     """
+-    Parses a string into a TOMLDocument.
++    Load toml document from a file-like object.
++    """
++    return parse(fp.read())
++
++
++def dump(data: Mapping[str, Any], fp: IO[str], *, sort_keys: bool = False) -> None:
++    """
++    Dump a TOMLDocument into a writable file stream.
++
++    :param data: a dict-like object to dump
++    :param sort_keys: if true, sort the keys in alphabetic order
++
++    :Example:
++
++    >>> with open("output.toml", "w") as fp:
++    ...     tomlkit.dump(data, fp)
++    """
++    fp.write(dumps(data, sort_keys=sort_keys))
++
++
++def parse(string: str | bytes) -> TOMLDocument:
++    """
++    Parses a string or bytes into a TOMLDocument.
+     """
+     return Parser(string).parse()
+ 
+ 
+-def document():  # type: () -> _TOMLDocument
++def document() -> TOMLDocument:
+     """
+     Returns a new TOMLDocument instance.
+     """
+-    return _TOMLDocument()
++    return TOMLDocument()
+ 
+ 
+ # Items
+-def integer(raw):  # type: (str) -> Integer
+-    return Integer(int(raw), Trivia(), raw)
++_INTEGER_RE = re.compile(
++    r"(?:"
++    r"0x[0-9a-fA-F](?:_?[0-9a-fA-F])*"  # hex: lowercase prefix only, no sign
++    r"|0o[0-7](?:_?[0-7])*"  # octal: lowercase prefix only, no sign
++    r"|0b[01](?:_?[01])*"  # binary: lowercase prefix only, no sign
++    r"|[+-]?(?:0|[1-9](?:_?[0-9])*)"  # decimal: optional sign, no leading zeros
++    r")"
++)
++"""Valid TOML v1.0.0 integer literals (https://toml.io/en/v1.0.0#integer).
++
++Underscores may only appear between digits; hex/octal/binary use a
++lowercase prefix and take no sign, mirroring ``Parser._parse_number``.
++"""
++
++
++def integer(raw: str | int) -> Integer:
++    """Create an integer item from a number or string.
++
++    When ``raw`` is a string it must be a valid TOML v1.0.0 integer
++    literal; the original text is then preserved verbatim so grouping
++    underscores (e.g. ``"1_000"``) survive ``dumps()``. Anything else
++    raises ``ValueError``.
++    """
++    if isinstance(raw, str):
++        if not _INTEGER_RE.fullmatch(raw):
++            raise ValueError(f"Invalid TOML integer: {raw!r}")
++        return Integer(int(raw, 0), Trivia(), raw)
++    return item(int(raw))
++
+ 
++def float_(raw: str | float) -> Float:
++    """Create an float item from a number or string."""
++    return item(float(raw))
+ 
+-def float_(raw):  # type: (str) -> Float
+-    return Float(float(raw), Trivia(), raw)
+ 
++def boolean(raw: str | bool) -> Bool:
++    """Turn `true` or `false` into a boolean item."""
++    return item(raw == "true" if isinstance(raw, str) else raw)
+ 
+-def boolean(raw):  # type: (str) -> Bool
+-    return Bool(raw == "true", Trivia())
+ 
++def string(
++    raw: str,
++    *,
++    literal: bool = False,
++    multiline: bool = False,
++    escape: bool = True,
++) -> String:
++    """Create a string item.
+ 
+-def string(raw):  # type: (str) -> String
+-    return String(StringType.SLB, raw, raw, Trivia())
++    By default, this function will create *single line basic* strings, but
++    boolean flags (e.g. ``literal=True`` and/or ``multiline=True``)
++    can be used for personalization.
+ 
++    For more information, please check the spec: `<https://toml.io/en/v1.0.0#string>`__.
+ 
+-def date(raw):  # type: (str) -> Date
++    Common escaping rules will be applied for basic strings.
++    This can be controlled by explicitly setting ``escape=False``.
++    Please note that, if you disable escaping, you will have to make sure that
++    the given strings don't contain any forbidden character or sequence.
++    """
++    type_ = _StringType.select(literal, multiline)
++    return String.from_raw(raw, type_, escape)
++
++
++def date(raw: str) -> Date:
++    """Create a TOML date."""
+     value = parse_rfc3339(raw)
+     if not isinstance(value, _datetime.date):
+         raise ValueError("date() only accepts date strings.")
+ 
+-    return Date(value, Trivia(), raw)
++    return item(value)
+ 
+ 
+-def time(raw):  # type: (str) -> Time
++def time(raw: str) -> Time:
++    """Create a TOML time."""
+     value = parse_rfc3339(raw)
+     if not isinstance(value, _datetime.time):
+         raise ValueError("time() only accepts time strings.")
+ 
+-    return Time(value, Trivia(), raw)
++    return item(value)
+ 
+ 
+-def datetime(raw):  # type: (str) -> DateTime
++def datetime(raw: str) -> DateTime:
++    """Create a TOML datetime."""
+     value = parse_rfc3339(raw)
+     if not isinstance(value, _datetime.datetime):
+         raise ValueError("datetime() only accepts datetime strings.")
+ 
+-    return DateTime(value, Trivia(), raw)
++    return item(value)
++
++
++def array(raw: str = "[]") -> Array:
++    """Create an array item for its string representation.
+ 
++    :Example:
++
++    >>> array("[1, 2, 3]")  # Create from a string
++    [1, 2, 3]
++    >>> a = array()
++    >>> a.extend([1, 2, 3])  # Create from a list
++    >>> a
++    [1, 2, 3]
++    """
++    v = value(raw)
++    if not isinstance(v, Array):
++        raise ValueError(f"Expected an array, got {type(v)}")
++    return v
++
++
++def table(is_super_table: bool | None = None) -> Table:
++    """Create an empty table.
++
++    :param is_super_table: if true, the table is a super table
++
++    :Example:
++
++    >>> doc = document()
++    >>> foo = table(True)
++    >>> bar = table()
++    >>> bar.update({'x': 1})
++    >>> foo.append('bar', bar)
++    >>> doc.append('foo', foo)
++    >>> print(doc.as_string())
++    [foo.bar]
++    x = 1
++    """
++    return Table(Container(), Trivia(), False, is_super_table)
+ 
+-def array(raw=None):  # type: (str) -> Array
+-    if raw is None:
+-        raw = "[]"
+ 
+-    return value(raw)
++def inline_table() -> InlineTable:
++    """Create an inline table.
+ 
++    :Example:
+ 
+-def table():  # type: () -> Table
+-    return Table(Container(), Trivia(indent="\n"), False)
++    >>> table = inline_table()
++    >>> table.update({'x': 1, 'y': 2})
++    >>> print(table.as_string())
++    {x = 1, y = 2}
++    """
++    return InlineTable(Container(), Trivia(), new=True)
+ 
+ 
+-def inline_table():  # type: () -> InlineTable
+-    return InlineTable(Container(), Trivia())
++def aot() -> AoT:
++    """Create an array of table.
+ 
++    :Example:
+ 
+-def aot():  # type: () -> AoT
++    >>> doc = document()
++    >>> aot = aot()
++    >>> aot.append(item({'x': 1}))
++    >>> doc.append('foo', aot)
++    >>> print(doc.as_string())
++    [[foo]]
++    x = 1
++    """
+     return AoT([])
+ 
+ 
+-def key(k):  # type: (str) -> Key
+-    return Key(k)
++def key(k: str | Iterable[str]) -> Key:
++    """Create a key from a string. When a list of string is given,
++    it will create a dotted key.
+ 
++    :Example:
+ 
+-def value(raw):  # type: (str) -> Item
+-    return Parser(raw)._parse_value()
++    >>> doc = document()
++    >>> doc.append(key('foo'), 1)
++    >>> doc.append(key(['bar', 'baz']), 2)
++    >>> print(doc.as_string())
++    foo = 1
++    bar.baz = 2
++    """
++    if isinstance(k, str):
++        return SingleKey(k)
++    keys = [SingleKey(_k) for _k in k]
++    if len(keys) == 1:
++        return keys[0]
++    return DottedKey(keys)
+ 
+ 
+-def key_value(src):  # type: (str) -> Tuple[Key, Item]
+-    return Parser(src)._parse_key_value()
++def value(raw: str) -> _Item:
++    """Parse a simple value from a string.
+ 
++    :Example:
+ 
+-def ws(src):  # type: (str) -> Whitespace
+-    return Whitespace(src)
++    >>> value("1")
++    1
++    >>> value("true")
++    True
++    >>> value("[1, 2, 3]")
++    [1, 2, 3]
++    """
++    parser = Parser(raw)
++    v = parser._parse_value()
++    if not parser.end():
++        raise parser.parse_error(UnexpectedCharError, char=parser._current)
++    return v
+ 
+ 
+-def nl():  # type: (src) -> Whitespace
+-    return ws("\n")
++def key_value(src: str) -> tuple[Key, _Item]:
++    """Parse a key-value pair from a string.
++
++    :Example:
+ 
++    >>> key_value("foo = 1")
++    (Key('foo'), 1)
++    """
++    return Parser(src)._parse_key_value()
+ 
+-def comment(string):  # type: (str) -> Comment
+-    return Comment(Trivia(comment_ws="  ", comment="# " + string))
+ 
++def ws(src: str) -> Whitespace:
++    """Create a whitespace from a string."""
++    return Whitespace(src, fixed=True)
+ 
+-def item(value):  # type: (Any) -> Item
+-    if isinstance(value, _Item):
+-        return value
+ 
+-    if isinstance(value, bool):
+-        return boolean(str(value).lower())
+-    elif isinstance(value, int):
+-        return integer(str(value))
+-    elif isinstance(value, float):
+-        return float_(str(value))
+-    elif isinstance(value, list):
+-        value = "[{}]".format(", ".join([item(v).as_string() for v in value]))
++def nl() -> Whitespace:
++    """Create a newline item."""
++    return ws("\n")
++
++
++def comment(string: str) -> Comment:
++    """Create a comment item.
++
++    A multiline string produces one ``#``-prefixed line per line so that the
++    result is still valid TOML.
++    """
++    lines = string.split("\n")
++    rendered = "\n".join(f"# {line}" if line else "#" for line in lines)
++    return Comment(Trivia(comment_ws="  ", comment=rendered))
++
++
++def register_encoder(encoder: E) -> E:
++    """Add a custom encoder, which should be a function that will be called
++    if the value can't otherwise be converted.
++
++    The encoder should return a TOMLKit item or raise a ``ConvertError``.
++
++    Example:
++        @register_encoder
++        def encode_custom_dict(obj, _parent=None, _sort_keys=False):
++            if isinstance(obj, CustomDict):
++                tbl = table()
++                for key, value in obj.items():
++                    # Pass along parameters when encoding nested values
++                    tbl[key] = item(value, _parent=tbl, _sort_keys=_sort_keys)
++                return tbl
++            raise ConvertError("Not a CustomDict")
++    """
++    CUSTOM_ENCODERS.append(encoder)
++    return encoder
+ 
+-        return array(value)
+-    elif isinstance(value, (str, unicode)):
+-        return string(value)
+-    elif isinstance(value, _datetime.datetime):
+-        return datetime(value.isoformat().replace("+00:00", "Z"))
+-    elif isinstance(value, _datetime.date):
+-        return date(value.isoformat())
+-    elif isinstance(value, _datetime.time):
+-        return time(value.isoformat())
+ 
+-    raise ValueError("Invalid type {}".format(type(value)))
++def unregister_encoder(encoder: Encoder) -> None:
++    """Unregister a custom encoder."""
++    with contextlib.suppress(ValueError):
++        CUSTOM_ENCODERS.remove(encoder)
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index 777d96a..632b733 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -1,62 +1,130 @@
+-from __future__ import unicode_literals
+-
+-from typing import Dict
+-from typing import Generator
+-from typing import List
+-from typing import Optional
+-from typing import Tuple
+-
+-from ._compat import decode
+-from .exceptions import KeyAlreadyPresent
+-from .exceptions import NonExistentKey
+-from .items import AoT
+-from .items import Comment
+-from .items import Item
+-from .items import Key
+-from .items import Null
+-from .items import Table
+-from .items import Trivia
+-from .items import Whitespace
+-
+-
+-class Container(dict):
++from __future__ import annotations
++
++import copy
++import math
++
++from collections.abc import Iterator
++from typing import TYPE_CHECKING
++from typing import Any
++
++
++if TYPE_CHECKING:
++    from typing import Self
++
++from tomlkit._compat import decode
++from tomlkit._types import _CustomDict
++from tomlkit._utils import merge_dicts
++from tomlkit.exceptions import KeyAlreadyPresent
++from tomlkit.exceptions import NonExistentKey
++from tomlkit.exceptions import TOMLKitError
++from tomlkit.items import AoT
++from tomlkit.items import Comment
++from tomlkit.items import Item
++from tomlkit.items import Key
++from tomlkit.items import Null
++from tomlkit.items import SingleKey
++from tomlkit.items import Table
++from tomlkit.items import Trivia
++from tomlkit.items import Whitespace
++from tomlkit.items import item as _item
++
++
++_NOT_SET = object()
++
++
++class Container(_CustomDict):  # type: ignore[type-arg]
+     """
+     A container for items within a TOMLDocument.
++
++    This class implements the `dict` interface with copy/deepcopy protocol.
+     """
+ 
+-    def __init__(self):  # type: () -> None
+-        self._map = {}  # type: Dict[Key, int]
+-        self._body = []  # type: List[Tuple[Optional[Key], Item]]
++    def __init__(self, parsed: bool = False) -> None:
++        super().__init__()
++        self._map: dict[Key, int | tuple[int, ...]] = {}
++        self._body: list[tuple[Key | None, Item]] = []
++        self._parsed = parsed
++        self._table_keys: list[Key] = []
++        # number of already-validated fragments and the temp container they
++        # were merged into, per out-of-order key; lets parse-time validation
++        # resume where the previous pass stopped instead of re-merging every
++        # fragment (quadratic) on each append
++        self._validation_cache: dict[Key, tuple[int, Container]] = {}
++        # superset of the keys mapped to an index tuple, so validating all
++        # out-of-order tables doesn't have to scan every key in the map;
++        # stale entries are filtered by the per-key isinstance check
++        self._out_of_order_keys: set[Key] = set()
+ 
+     @property
+-    def body(self):  # type: () -> List[Tuple[Optional[Key], Item]]
++    def body(self) -> list[tuple[Key | None, Item]]:
+         return self._body
+ 
++    def unwrap(self) -> dict[str, Any]:
++        """Returns as pure python object (ppo)"""
++        unwrapped: dict[str, Any] = {}
++        # Resolve each key straight from _map, which already holds the parsed
++        # Key objects and their body index, instead of via self.items(): the
++        # inherited MutableMapping iteration goes through __getitem__, which
++        # rebuilds a SingleKey from the bare string on every key only to throw
++        # it away. Out-of-order keys (a tuple index) still go through
++        # OutOfOrderTableProxy so their validation (and fragment merge) runs
++        # exactly as before. _map is keyed for lookup, not ordered: replacing a
++        # value re-inserts its key and moves it last, so take the order from the
++        # body index, which is what dumps() and items() follow.
++        for key, idx in sorted(
++            self._map.items(),
++            key=lambda item: item[1][0] if isinstance(item[1], tuple) else item[1],
++        ):
++            if isinstance(idx, tuple):
++                value: Any = OutOfOrderTableProxy(self, idx)
++            else:
++                value = self._body[idx][1]
++            unwrapped[key.key] = value.unwrap() if hasattr(value, "unwrap") else value
++
++        return unwrapped
++
+     @property
+-    def value(self):  # type: () -> Dict[Any, Any]
+-        d = {}
++    def value(self) -> dict[str, Any]:
++        """The wrapped dict value"""
++        d: dict[str, Any] = {}
+         for k, v in self._body:
+             if k is None:
+                 continue
+ 
+-            k = k.key
+-            v = v.value
++            key_str = k.key
++            val: Any = v.value
+ 
+-            if isinstance(v, Container):
+-                v = v.value
++            if isinstance(val, Container):
++                val = val.value
+ 
+-            if k in d:
+-                d[k].update(v)
++            if key_str in d:
++                merge_dicts(d[key_str], val)
+             else:
+-                d[k] = v
++                d[key_str] = val
+ 
+         return d
+ 
+-    def add(
+-        self, key, item=None
+-    ):  # type: (Union[Key, Item, str], Optional[Item]) -> Item
++    def parsing(self, parsing: bool) -> None:
++        self._parsed = parsing
++        self._validation_cache.clear()
++
++        for _, v in self._body:
++            if isinstance(v, Table):
++                v.value.parsing(parsing)
++            elif isinstance(v, AoT):
++                for t in v.body:
++                    t.value.parsing(parsing)
++
++    def add(self, key: Key | Item | str, item: Any = None) -> Container:
+         """
+         Adds an item to the current Container.
++
++        :Example:
++
++        >>> # add a key-value pair
++        >>> doc.add('key', 'value')
++        >>> # add a comment or whitespace or newline
++        >>> doc.add(comment('# comment'))
+         """
+         if item is None:
+             if not isinstance(key, (Comment, Whitespace)):
+@@ -64,24 +132,146 @@ class Container(dict):
+                     "Non comment/whitespace items must have an associated key"
+                 )
+ 
+-            key, item = None, key
++            return self.append(None, key)
+ 
++        assert not isinstance(key, Item)
+         return self.append(key, item)
+ 
+-    def append(self, key, item):  # type: (Key, Item) -> None
+-        from .api import item as _item
++    def _handle_dotted_key(self, key: Key, value: Item) -> None:
++        if isinstance(value, (Table, AoT)):
++            raise TOMLKitError("Can't add a table to a dotted key")
++        name, *mid, last = key
++        name._dotted = True
++        table = current = Table(Container(True), Trivia(), False, is_super_table=True)
++        for _name in mid:
++            _name._dotted = True
++            new_table = Table(Container(True), Trivia(), False, is_super_table=True)
++            current.append(_name, new_table)
++            current = new_table
++
++        last.sep = key.sep
++        current.append(last, value)
++
++        self.append(name, table)
++        return
++
++    def _get_last_index_before_table(self) -> int:
++        last_index = -1
++        for i, (k, v) in enumerate(self._body):
++            if isinstance(v, Null):
++                continue  # Null elements are inserted after deletion
++
++            if isinstance(v, Whitespace) and not v.is_fixed():
++                continue
+ 
++            if isinstance(v, (Table, AoT)) and k is not None and not k.is_dotted():
++                break
++
++            if (
++                isinstance(v, Table)
++                and k is not None
++                and k.is_dotted()
++                and self._renders_table_header(v)
++            ):
++                # A dotted-key super table renders inline (`a.b = 1`) only as
++                # long as none of its children render a `[table]` header; once
++                # one does, anything appended after it would land inside that
++                # table's scope.
++                break
++            last_index = i
++        return last_index + 1
++
++    def _renders_table_header(self, table: Table) -> bool:
++        for k, v in table.value.body:
++            if isinstance(v, AoT):
++                return True
++            if isinstance(v, Table):
++                if k is not None and k.is_dotted() and v.is_super_table():
++                    if self._renders_table_header(v):
++                        return True
++                else:
++                    return True
++        return False
++
++    def _validate_out_of_order_table(self, key: Key | None = None) -> None:
++        if key is None:
++            for k in list(self._out_of_order_keys):
++                assert k is not None
++                self._validate_out_of_order_table(k)
++            return
++        if key not in self._map:
++            return
++        current_idx = self._map[key]
++        if not isinstance(current_idx, tuple):
++            return
++        if self._parsed:
++            # while parsing, every fragment appended to an out-of-order key
++            # triggers a validation pass; resume from the cached temp
++            # container so each fragment is merged (and deep-copied) once
++            # instead of on every later pass. Fragments are only ever
++            # appended during parsing, so a count prefix stays valid; any
++            # other mutation clears the cache.
++            validated, temp = self._validation_cache.get(key, (0, None))
++            if validated > len(current_idx):
++                validated, temp = 0, None
++            try:
++                temp = OutOfOrderTableProxy.validate(
++                    self, current_idx[validated:], temp
++                )
++            except Exception:
++                # the temp container may be partially mutated; don't let a
++                # caught-and-retried failure resume from a poisoned cache
++                self._validation_cache.pop(key, None)
++                raise
++            self._validation_cache[key] = (len(current_idx), temp)
++            return
++        OutOfOrderTableProxy.validate(self, current_idx)
++
++    def append(
++        self, key: Key | str | None, item: Any, validate: bool = True
++    ) -> Container:
++        """Similar to :meth:`add` but both key and value must be given."""
+         if not isinstance(key, Key) and key is not None:
+-            key = Key(key)
++            key = SingleKey(key)
+ 
+         if not isinstance(item, Item):
+             item = _item(item)
+ 
++        if key is not None and key.is_multi():
++            self._handle_dotted_key(key, item)
++            return self
++
+         if isinstance(item, (AoT, Table)) and item.name is None:
++            assert isinstance(key, Key)
+             item.name = key.key
+ 
++        prev = self._previous_item()
++        prev_ws = isinstance(prev, Whitespace) or ends_with_whitespace(prev)
++        if isinstance(item, Table):
++            if not self._parsed:
++                item.invalidate_display_name()
++            if (
++                self._body
++                and not (self._parsed or item.trivia.indent or prev_ws)
++                and key is not None
++                and not key.is_dotted()
++            ):
++                item.trivia.indent = "\n"
++
++        if isinstance(item, AoT) and self._body and not self._parsed:
++            item.invalidate_display_name()
++            if item and not ("\n" in item[0].trivia.indent or prev_ws):
++                item[0].trivia.indent = "\n" + item[0].trivia.indent
++
+         if key is not None and key in self:
+-            current = self._body[self._map[key]][1]
++            current_idx = self._map[key]
++            if isinstance(current_idx, tuple):
++                current_body_element = self._body[current_idx[-1]]
++            else:
++                current_body_element = self._body[current_idx]
++
++            current = current_body_element[1]
++
+             if isinstance(item, Table):
+                 if not isinstance(current, (Table, AoT)):
+                     raise KeyAlreadyPresent(key)
+@@ -90,213 +280,1013 @@ class Container(dict):
+                     # New AoT element found later on
+                     # Adding it to the current AoT
+                     if not isinstance(current, AoT):
+-                        current = AoT([current, item])
++                        current = AoT([current, item], parsed=self._parsed)
+ 
+                         self._replace(key, key, current)
+                     else:
+                         current.append(item)
+ 
+-                    return item
++                    return self
++                elif isinstance(current, AoT):
++                    if not item.is_aot_element():
++                        if item.is_super_table() and len(current.body):
++                            # A sub-table header such as `[fruit.apple.texture]`
++                            # appearing after the array `[[fruit]]` (possibly with
++                            # unrelated tables in between) extends the last element
++                            # of the array, per the TOML spec.
++                            last = current[-1]
++                            for k, v in item.value.body:
++                                last.value.append(k, v)
++
++                            return self
++                        # Tried to define a table after an AoT with the same name.
++                        raise KeyAlreadyPresent(key)
++
++                    current.append(item)
++
++                    return self
+                 elif current.is_super_table():
+-                    pass
+-                else:
++                    if item.is_super_table():
++                        # We need to merge both super tables
++                        if (
++                            key.is_dotted()
++                            or (
++                                current_body_element[0] is not None
++                                and current_body_element[0].is_dotted()
++                            )
++                            or self._table_keys[-1] != current_body_element[0]
++                        ):
++                            if key.is_dotted() and not self._parsed:
++                                idx = self._get_last_index_before_table()
++                            else:
++                                idx = len(self._body)
++
++                            if idx < len(self._body):
++                                self._insert_at(idx, key, item)
++                            else:
++                                self._raw_append(key, item)
++
++                            if validate:
++                                self._validate_out_of_order_table(key)
++
++                            return self
++
++                        # Merge the new super table's body into the existing one
++                        # in place. Previously this deep-copied `current` before
++                        # appending, which is O(size of current) on every merge
++                        # and therefore O(n^2) when many subtables share a super
++                        # table (e.g. consecutive `[a.b.c]` / `[a.b.d]` headers).
++                        # Mutating in place is O(1) per merge. The defensive copy
++                        # that protected the out-of-order validation pass has been
++                        # moved into OutOfOrderTableProxy (its only consumer).
++                        for k, v in item.value.body:
++                            current.append(k, v)
++
++                        return self
++                    elif (
++                        current_body_element[0] is not None
++                        and current_body_element[0].is_dotted()
++                    ):
++                        raise TOMLKitError("Redefinition of an existing table")
++                    else:
++                        # Merging a concrete table into an existing implicit/super
++                        # table is only valid if it does not redefine existing
++                        # subtrees via dotted keys and does not change prior types.
++                        assert isinstance(current, Table)
++                        self._validate_table_candidate(current, item)
++                elif not item.is_super_table():
+                     raise KeyAlreadyPresent(key)
++                else:
++                    # An existing concrete table (current) is being extended by
++                    # a super-table (item) — e.g. [a] b=1 then [a.b] c=2 out of
++                    # order, or [a] b.c=1 then [a.b] d=2.  Validate that the
++                    # super-table does not redefine any existing key, raising
++                    # early at parse time.  When validation passes, fall through
++                    # — _raw_append below will create an out-of-order entry and
++                    # preserve table ordering in the document.
++                    assert isinstance(current, Table)
++                    self._validate_table_candidate(current, item)
+             elif isinstance(item, AoT):
+-                if not isinstance(current, Table):
+-                    raise KeyAlreadyPresent(key)
+-
+-                if not current.is_super_table():
++                if not isinstance(current, AoT):
++                    # Tried to define an AoT after a table with the same name.
+                     raise KeyAlreadyPresent(key)
+ 
+-                current_key, current_table = current.value.body[0]
+-                item_table = item.body[0]
++                for table in item.body:
++                    current.append(table)
+ 
+-                if not item_table.is_super_table():
+-                    raise KeyAlreadyPresent(key)
++                return self
+             else:
+                 raise KeyAlreadyPresent(key)
+ 
+-        if key is not None:
+-            super(Container, self).__setitem__(key.key, item.value)
++        is_table = isinstance(item, (Table, AoT))
++        if (
++            key is not None
++            and self._body
++            and not self._parsed
++            and (not is_table or key.is_dotted())
++        ):
++            # If there is already at least one table in the current container
++            # and the given item is not a table, we need to find the last
++            # item that is not a table and insert after it
++            # If no such item exists, insert at the top of the table
++            last_index = self._get_last_index_before_table()
++
++            if last_index < len(self._body):
++                after_item = self._body[last_index][1]
++                if not (
++                    isinstance(after_item, Whitespace)
++                    or "\n" in after_item.trivia.indent
++                ):
++                    after_item.trivia.indent = "\n" + after_item.trivia.indent
++                return self._insert_at(last_index, key, item)
++            else:
++                previous_item = self._body[-1][1]
++                if isinstance(previous_item, Table) and previous_item.is_super_table():
++                    previous_child = previous_item.value._previous_item()
++                    if (
++                        previous_child is not None
++                        and not isinstance(previous_child, Whitespace)
++                        and "\n" in previous_item.trivia.trail
++                        and "\n" not in previous_child.trivia.trail
++                    ):
++                        previous_child.trivia.trail += previous_item.trivia.trail
++                if not (
++                    isinstance(previous_item, Whitespace)
++                    or ends_with_whitespace(previous_item)
++                    or "\n" in previous_item.trivia.trail
++                ):
++                    previous_item.trivia.trail += "\n"
++
++        self._raw_append(key, item)
++        if validate and key is not None:
++            self._validate_out_of_order_table(key)
++        return self
++
++    def _validate_table_candidate(self, current: Table, candidate: Table) -> None:
++        for k, v in candidate.value.body:
++            if k is None:
++                continue
++
++            if k in current.value._map:
++                existing = current.value.item(k)
++                if isinstance(existing, (Table, AoT)) != isinstance(v, (Table, AoT)):
++                    raise KeyAlreadyPresent(k)
++                if k.is_dotted():
++                    raise TOMLKitError("Redefinition of an existing table")
++                if isinstance(existing, Table) and isinstance(v, Table):
++                    if not existing.is_super_table() and not v.is_super_table():
++                        # Both sides are concrete `[table]` definitions of the
++                        # same name; the table is declared twice.
++                        raise KeyAlreadyPresent(k)
++                    # One side is still an implicit/super table, so a duplicate
++                    # (if any) is nested deeper - keep checking the subtree.
++                    self._validate_table_candidate(existing, v)
++                continue
++
++            if not k.is_dotted():
++                # Even when the candidate key itself is not dotted, an
++                # existing dotted key may already use it as a prefix —
++                # e.g.  [a] b.c=1 then [a.b] d=2  (b prefixes b.c).
++                for existing_key in current.value._map:
++                    if existing_key.is_dotted() and next(iter(existing_key)) == k:
++                        raise TOMLKitError("Redefinition of an existing table")
++                continue
+ 
+-        self._map[key] = len(self._body)
++            head = next(iter(k))
++            if head in current.value._map:
++                raise TOMLKitError("Redefinition of an existing table")
++
++    def _raw_append(self, key: Key | None, item: Item) -> None:
++        if key is not None and key in self._map:
++            current_idx = self._map[key]
++            if not isinstance(current_idx, tuple):
++                current_idx = (current_idx,)
++
++            current = self._body[current_idx[-1]][1]
++            if not isinstance(current, Table):
++                raise KeyAlreadyPresent(key)
++
++            self._map[key] = (*current_idx, len(self._body))
++            self._out_of_order_keys.add(key)
++        elif key is not None:
++            self._map[key] = len(self._body)
+ 
+         self._body.append((key, item))
++        if item.is_table() and key is not None:
++            self._table_keys.append(key)
+ 
+-        return item
++        if key is not None:
++            _CustomDict.__setitem__(self, key.key, item.value)
++
++    def _remove_at(self, idx: int) -> None:
++        key = self._body[idx][0]
++        assert key is not None
++        index = self._map.get(key)
++        if index is None:
++            raise NonExistentKey(key)
++        self._validation_cache.clear()
++        self._body[idx] = (None, Null())
++
++        if isinstance(index, tuple):
++            index_list = list(index)
++            index_list.remove(idx)
++            if len(index_list) == 1:
++                self._map[key] = index_list.pop()
++            else:
++                self._map[key] = tuple(index_list)
++        else:
++            dict.__delitem__(self, key.key)
++            self._map.pop(key)
+ 
+-    def remove(self, key):  # type: (Key) -> None
++    def remove(self, key: Key | str) -> Container:
++        """Remove a key from the container."""
+         if not isinstance(key, Key):
+-            key = Key(key)
++            key = SingleKey(key)
+ 
+         idx = self._map.pop(key, None)
+         if idx is None:
+             raise NonExistentKey(key)
+ 
+-        self._body[idx] = (None, Null())
++        self._validation_cache.clear()
++        if isinstance(idx, tuple):
++            for i in idx:
++                self._body[i] = (None, Null())
++        else:
++            self._body[idx] = (None, Null())
++
++        dict.__delitem__(self, key.key)
++
++        return self
++
++    def _insert_after(
++        self, key: Key | str, other_key: Key | str, item: Any
++    ) -> Container:
++        if key is None:
++            raise ValueError("Key cannot be null in insert_after()")
++
++        if key not in self:
++            raise NonExistentKey(key)
++
++        if not isinstance(key, Key):
++            key = SingleKey(key)
++
++        if not isinstance(other_key, Key):
++            other_key = SingleKey(other_key)
++
++        item = _item(item)
++
++        idx = self._map[key]
++        # Insert after the max index if there are many.
++        if isinstance(idx, tuple):
++            idx = max(idx)
++        current_item = self._body[idx][1]
++        if "\n" not in current_item.trivia.trail:
++            current_item.trivia.trail += "\n"
++
++        # Increment indices after the current index
++        for k, v in self._map.items():
++            if isinstance(v, tuple):
++                new_indices = []
++                for v_ in v:
++                    if v_ > idx:
++                        v_ = v_ + 1
++
++                    new_indices.append(v_)
++
++                self._map[k] = tuple(new_indices)
++            elif v > idx:
++                self._map[k] = v + 1
++
++        self._map[other_key] = idx + 1
++        self._body.insert(idx + 1, (other_key, item))
++
++        if key is not None:
++            dict.__setitem__(self, other_key.key, item.value)
++
++        return self
++
++    def _insert_at(self, idx: int, key: Key | str, item: Any) -> Container:
++        if idx > len(self._body) - 1:
++            raise ValueError(f"Unable to insert at position {idx}")
++
++        if not isinstance(key, Key):
++            key = SingleKey(key)
++
++        item = _item(item)
++
++        if idx > 0:
++            previous_item = self._body[idx - 1][1]
++            if not (
++                isinstance(previous_item, Whitespace)
++                or ends_with_whitespace(previous_item)
++                or isinstance(item, (AoT, Table))
++                or "\n" in previous_item.trivia.trail
++            ):
++                previous_item.trivia.trail += "\n"
++
++        # Increment indices after the current index
++        for k, v in self._map.items():
++            if isinstance(v, tuple):
++                new_indices = []
++                for v_ in v:
++                    if v_ >= idx:
++                        v_ = v_ + 1
++
++                    new_indices.append(v_)
++
++                self._map[k] = tuple(new_indices)
++            elif v >= idx:
++                self._map[k] = v + 1
++
++        if key in self._map:
++            current_idx = self._map[key]
++            if not isinstance(current_idx, tuple):
++                current_idx = (current_idx,)
++            self._map[key] = (*current_idx, idx)
++            self._out_of_order_keys.add(key)
++        else:
++            self._map[key] = idx
++        self._body.insert(idx, (key, item))
++
++        dict.__setitem__(self, key.key, item.value)
++
++        return self
++
++    def item(self, key: Key | str) -> Item | OutOfOrderTableProxy:
++        """Get an item for the given key."""
++        if not isinstance(key, Key):
++            key = SingleKey(key)
++
++        idx = self._map.get(key)
++        if idx is None:
++            raise NonExistentKey(key)
++
++        if isinstance(idx, tuple):
++            # The item we are getting is an out of order table
++            # so we need a proxy to retrieve the proper objects
++            # from the parent container
++            return OutOfOrderTableProxy(self, idx)
+ 
+-        super(Container, self).__delitem__(key.key)
++        return self._body[idx][1]
+ 
+-    def last_item(self):  # type: () -> Optional[Item]
++    def last_item(self) -> Item | None:
++        """Get the last item."""
+         if self._body:
+             return self._body[-1][1]
++        return None
+ 
+-    def as_string(self, prefix=None):  # type: () -> str
++    def as_string(self) -> str:
++        """Render as TOML string."""
+         s = ""
+         for k, v in self._body:
+             if k is not None:
+                 if isinstance(v, Table):
+-                    if v.is_super_table():
+-                        s += v.as_string(prefix=k.as_string())
+-
+-                        continue
+-
+-                    if v.display_name is not None:
+-                        key = v.display_name
+-                    else:
+-                        key = k.as_string()
+-                        if prefix is not None:
+-                            key = prefix + "." + key
+-
+-                    open_, close = "[", "]"
+-                    if v.is_aot_element():
+-                        open_, close = "[[", "]]"
+-
+-                    cur = "{}{}{}{}{}{}{}{}".format(
+-                        v.trivia.indent,
+-                        open_,
+-                        decode(key),
+-                        close,
+-                        v.trivia.comment_ws,
+-                        decode(v.trivia.comment),
+-                        v.trivia.trail,
+-                        v.as_string(prefix=key),
+-                    )
++                    if (
++                        s.strip(" ")
++                        and not s.strip(" ").endswith("\n")
++                        and "\n" not in v.trivia.indent
++                    ):
++                        s += "\n"
++                    s += self._render_table(k, v)
+                 elif isinstance(v, AoT):
+-                    key = k.as_string()
+-                    if prefix is not None:
+-                        key = prefix + "." + key
+-
+-                    cur = ""
+-                    key = decode(key)
+-                    for table in v.body:
+-                        if table.is_super_table():
+-                            cur += table.as_string(prefix=key)
+-                        else:
+-                            cur += "{}[[{}]]{}{}{}".format(
+-                                table.trivia.indent,
+-                                key,
+-                                table.trivia.comment_ws,
+-                                decode(table.trivia.comment),
+-                                table.trivia.trail,
+-                            )
+-                            cur += table.as_string(prefix=key)
++                    if (
++                        s.strip(" ")
++                        and not s.strip(" ").endswith("\n")
++                        and "\n" not in v.trivia.indent
++                    ):
++                        s += "\n"
++                    s += self._render_aot(k, v)
+                 else:
+-                    cur = "{}{}{}{}{}{}{}".format(
+-                        v.trivia.indent,
+-                        decode(k.as_string()),
+-                        k.sep,
+-                        decode(v.as_string()),
+-                        v.trivia.comment_ws,
+-                        decode(v.trivia.comment),
+-                        v.trivia.trail,
+-                    )
++                    s += self._render_simple_item(k, v)
+             else:
+-                cur = v.as_string()
+-
+-            s += cur
++                s += self._render_simple_item(k, v)
+ 
+         return s
+ 
+-    # Dictionary methods
++    def _render_table(self, key: Key, table: Table, prefix: str | None = None) -> str:
++        cur = ""
+ 
+-    def keys(self):  # type: () -> Generator[Key]
+-        for k, _ in self._body:
+-            if k is None:
+-                continue
++        if table.display_name is not None:
++            _key = table.display_name
++        else:
++            _key = key.as_string()
+ 
+-            yield k.key
++            if prefix is not None:
++                _key = prefix + "." + _key
+ 
+-    def values(self):  # type: () -> Generator[Item]
+-        for k, v in self._body:
+-            if k is None:
+-                continue
++        if (
++            not table.is_super_table()
++            or (
++                any(
++                    not isinstance(v, (Table, AoT, Whitespace, Null))
++                    for _, v in table.value.body
++                )
++                and not key.is_dotted()
++            )
++            or (
++                any(
++                    k is not None and k.is_dotted()
++                    for k, v in table.value.body
++                    if isinstance(v, Table)
++                )
++                and not key.is_dotted()
++            )
++        ):
++            open_, close = "[", "]"
++            if table.is_aot_element():
++                open_, close = "[[", "]]"
++
++            newline_in_table_trivia = (
++                "\n" if "\n" not in table.trivia.trail and len(table.value) > 0 else ""
++            )
++            cur += (
++                f"{table.trivia.indent}"
++                f"{open_}"
++                f"{decode(_key)}"
++                f"{close}"
++                f"{table.trivia.comment_ws}"
++                f"{decode(table.trivia.comment)}"
++                f"{table.trivia.trail}"
++                f"{newline_in_table_trivia}"
++            )
++        elif table.trivia.indent == "\n":
++            cur += table.trivia.indent
++
++        for k, v in table.value.body:
++            if isinstance(v, Table):
++                if (
++                    cur.strip(" ")
++                    and not cur.strip(" ").endswith("\n")
++                    and "\n" not in v.trivia.indent
++                ):
++                    cur += "\n"
++                assert k is not None
++                if v.is_super_table():
++                    if k.is_dotted() and not key.is_dotted():
++                        # Dotted key inside table
++                        cur += self._render_table(k, v)
++                    else:
++                        cur += self._render_table(k, v, prefix=_key)
++                else:
++                    cur += self._render_table(k, v, prefix=_key)
++            elif isinstance(v, AoT):
++                if (
++                    cur.strip(" ")
++                    and not cur.strip(" ").endswith("\n")
++                    and "\n" not in v.trivia.indent
++                ):
++                    cur += "\n"
++                assert k is not None
++                cur += self._render_aot(k, v, prefix=_key)
++            else:
++                cur += self._render_simple_item(
++                    k, v, prefix=_key if key.is_dotted() else None
++                )
+ 
+-            yield v.value
++        return cur
++
++    def _render_aot(self, key: Key, aot: AoT, prefix: str | None = None) -> str:
++        _key = key.as_string()
++        if prefix is not None:
++            _key = prefix + "." + _key
++
++        cur = ""
++        _key = decode(_key)
++        for table in aot.body:
++            cur += self._render_aot_table(table, prefix=_key)
++
++        return cur
++
++    def _render_aot_table(self, table: Table, prefix: str | None = None) -> str:
++        cur = ""
++        _key = prefix or ""
++        open_, close = "[[", "]]"
++
++        cur += (
++            f"{table.trivia.indent}"
++            f"{open_}"
++            f"{decode(_key)}"
++            f"{close}"
++            f"{table.trivia.comment_ws}"
++            f"{decode(table.trivia.comment)}"
++            f"{table.trivia.trail}"
++        )
++
++        for k, v in table.value.body:
++            if isinstance(v, Table):
++                assert k is not None
++                if v.is_super_table():
++                    if k.is_dotted():
++                        # Dotted key inside table
++                        cur += self._render_table(k, v)
++                    else:
++                        cur += self._render_table(k, v, prefix=_key)
++                else:
++                    cur += self._render_table(k, v, prefix=_key)
++            elif isinstance(v, AoT):
++                assert k is not None
++                cur += self._render_aot(k, v, prefix=_key)
++            else:
++                cur += self._render_simple_item(k, v)
+ 
+-    def items(self):  # type: () -> Generator[Item]
+-        for k, v in self.value.items():
+-            if k is None:
+-                continue
++        return cur
+ 
+-            yield k, v
++    def _render_simple_item(
++        self, key: Key | None, item: Item, prefix: str | None = None
++    ) -> str:
++        if key is None:
++            return item.as_string()
+ 
+-    def __contains__(self, key):  # type: (Key) -> bool
+-        if not isinstance(key, Key):
+-            key = Key(key)
++        _key = key.as_string()
++        if prefix is not None:
++            _key = prefix + "." + _key
+ 
+-        return key in self._map
++        return (
++            f"{item.trivia.indent}"
++            f"{decode(_key)}"
++            f"{key.sep}"
++            f"{decode(item.as_string())}"
++            f"{item.trivia.comment_ws}"
++            f"{decode(item.trivia.comment)}"
++            f"{item.trivia.trail}"
++        )
+ 
+-    def __getitem__(self, key):  # type: (Key) -> Item
+-        if not isinstance(key, Key):
+-            key = Key(key)
++    def __len__(self) -> int:
++        return dict.__len__(self)
+ 
+-        idx = self._map.get(key, None)
+-        if idx is None:
+-            raise NonExistentKey(key)
++    def __iter__(self) -> Iterator[str]:
++        return iter(dict.keys(self))
+ 
+-        item = self._body[idx][1]
+-        value = item.value
++    # Dictionary methods
++    def __getitem__(self, key: Key | str) -> Any:
++        item = self.item(key)
++        if isinstance(item, Item) and item.is_boolean():
++            return item.value
+ 
+-        return value
++        return item
+ 
+-    def __setitem__(self, key, value):  # type: (Union[Key, str], Any) -> None
+-        if key is not None and key in self:
+-            self._replace(key, key, value)
++    def __contains__(self, key: object) -> bool:
++        # Native membership test. The inherited ``MutableMapping.__contains__``
++        # resolves the value via ``__getitem__``/``item()`` (and builds a
++        # ``NonExistentKey`` on every absent key) only to discard it. Resolve the
++        # key the same way ``item()`` does -- ``str`` becomes a ``SingleKey``
++        # (a non-str/non-``Key`` argument still raises ``TypeError``) -- then
++        # probe ``_map`` directly. For an out-of-order table the proxy is still
++        # built so its validation runs exactly as before.
++        if not isinstance(key, Key):
++            key = SingleKey(key)  # type: ignore[arg-type]
++        idx = self._map.get(key)
++        if idx is None:
++            return False
++        if isinstance(idx, tuple):
++            # during parsing every fragment append re-probes membership;
++            # if the validation cache covers exactly these fragments they
++            # are already known to merge cleanly, so skip rebuilding the
++            # proxy (which is linear in the number of fragments)
++            validated, _ = self._validation_cache.get(key, (0, None))
++            if not (self._parsed and validated == len(idx)):
++                OutOfOrderTableProxy(self, idx)
++        return True
++
++    def __setitem__(self, key: Key | str, value: Any) -> None:
++        if key in self:
++            old_key = next(filter(lambda k: k == key, self._map))
++            self._replace(old_key, key, value)
+         else:
+             self.append(key, value)
+ 
+-    def __delitem__(self, key):  # type: (Union[Key, str]) -> None
++    def __delitem__(self, key: Key | str) -> None:
+         self.remove(key)
+ 
+-    def _replace(self, key, new_key, value):  # type: (Key, Key, Item) -> None
+-        if not isinstance(key, Key):
+-            key = Key(key)
++    def setdefault(self, key: Key | str, default: Any = None) -> Any:
++        if key not in self:
++            self[key] = default
++        return self[key]
+ 
+-        if not isinstance(new_key, Key):
+-            new_key = Key(new_key)
++    def _replace(self, key: Key | str, new_key: Key | str, value: Item) -> None:
++        if not isinstance(key, Key):
++            key = SingleKey(key)
+ 
+-        idx = self._map.get(key, None)
++        idx = self._map.get(key)
+         if idx is None:
+             raise NonExistentKey(key)
+ 
+         self._replace_at(idx, new_key, value)
+ 
+-    def _replace_at(self, idx, new_key, value):  # type: (int, Key, Item) -> None
+-        from .api import item as _item
++    def _replace_at(
++        self, idx: int | tuple[int, ...], new_key: Key | str, value: Item
++    ) -> None:
++        value = _item(value)
++        self._validation_cache.clear()
++
++        if isinstance(idx, tuple):
++            for i in idx[1:]:
++                self._body[i] = (None, Null())
++
++            idx = idx[0]
+ 
+         k, v = self._body[idx]
++        assert k is not None
++        # A dotted key renders its value inline (e.g. ``a.b = 1``), which is only
++        # consistent with a super table. When the replacement value renders with
++        # its own ``[header]`` instead (a non-super table, or an array of tables),
++        # keeping the dotted key duplicates the prefix onto the header (#524) and
++        # lets the header swallow following dotted siblings (#542). Drop the dotted
++        # key so the replacement renders as a plain table/array of tables.
++        dotted_to_header = k.is_dotted() and (
++            isinstance(value, AoT)
++            or (isinstance(value, Table) and not value.is_super_table())
++        )
++        # That new header also captures every sibling that renders inline -- plain
++        # values and dotted keys -- if any still follow it (#513), so it must be
++        # moved past them, exactly as a value-to-table change already is.
++        reposition_dotted = dotted_to_header and any(
++            not isinstance(cur_val, (Null, Whitespace))
++            and not (
++                isinstance(cur_val, (Table, AoT))
++                and (cur_key is None or not cur_key.is_dotted())
++            )
++            for cur_key, cur_val in self._body[idx + 1 :]
++        )
++        if not isinstance(new_key, Key):
++            if (
++                isinstance(value, (AoT, Table)) != isinstance(v, (AoT, Table))
++                or new_key != k.key
++                or dotted_to_header
++            ):
++                new_key = SingleKey(new_key)
++            else:  # Inherit the sep of the old key
++                new_key = k
++
++        del self._map[k]
++        self._map[new_key] = idx
++        if new_key != k:
++            dict.__delitem__(self, k.key)
++
++        if (
++            isinstance(value, (AoT, Table)) != isinstance(v, (AoT, Table))
++            or reposition_dotted
++        ):
++            self.remove(k)
++            if isinstance(value, (AoT, Table)):
++                # New tables must appear after all entries that render inline:
++                # plain values and dotted keys (which are super tables). Skip
++                # those and insert before the first real ``[header]`` so the new
++                # table cannot swallow a following sibling on round-trip.
++                for i in range(idx, len(self._body)):
++                    cur_key, cur_val = self._body[i]
++                    if isinstance(cur_val, (AoT, Table)) and not (
++                        cur_key is not None and cur_key.is_dotted()
++                    ):
++                        self._insert_at(i, new_key, value)
++                        idx = i
++                        break
++                else:
++                    idx = -1
++                    self.append(new_key, value)
++            else:
++                # the replaced table's slot lies in the table region, where a
++                # plain value would be captured by the preceding table on
++                # round-trip; append() puts it with the other root-level values
++                idx = -1
++                self.append(new_key, value)
++        else:
++            # Copying trivia
++            if not isinstance(value, (Whitespace, AoT)):
++                value.trivia.indent = v.trivia.indent
++                value.trivia.comment_ws = value.trivia.comment_ws or v.trivia.comment_ws
++                value.trivia.comment = value.trivia.comment or v.trivia.comment
++                value.trivia.trail = v.trivia.trail
++            self._body[idx] = (new_key, value)
++
++        if value is not v and hasattr(value, "invalidate_display_name"):
++            value.invalidate_display_name()
++
++        if isinstance(value, Table):
++            # Insert a cosmetic new line for tables if:
++            # - it does not have it yet OR is not followed by one
++            # - it is not the last item, or
++            # - The table being replaced has a newline
++            result = self._previous_item_with_index()
++            assert result is not None
++            last, _ = result
++            idx = last if idx < 0 else idx
++            has_ws = ends_with_whitespace(value)
++            replace_has_ws = (
++                isinstance(v, Table)
++                and v.value.body
++                and isinstance(v.value.body[-1][1], Whitespace)
++            )
++            next_ws = idx < last and isinstance(self._body[idx + 1][1], Whitespace)
++            if (idx < last or replace_has_ws) and not (next_ws or has_ws):
++                value.append(None, Whitespace("\n"))
++
++            assert isinstance(new_key, Key)
++            dict.__setitem__(self, new_key.key, value.value)
++
++    def __str__(self) -> str:
++        return str(self.value)
+ 
+-        self._map[new_key] = self._map.pop(k)
++    def __repr__(self) -> str:
++        return repr(self.value)
+ 
+-        value = _item(value)
++    def __eq__(self, other: object) -> bool:
++        if not isinstance(other, dict):
++            return NotImplemented
++
++        return bool(_equal_with_nan(self.value, other))
++
++    def _getstate(self, protocol: int) -> tuple[bool]:
++        return (self._parsed,)
++
++    def __reduce__(self) -> tuple[type, tuple[bool], tuple[Any, ...]]:
++        return self.__reduce_ex__(2)
++
++    def __reduce_ex__(self, protocol: int) -> tuple[type, tuple[bool], tuple[Any, ...]]:  # type: ignore[override]
++        return (
++            self.__class__,
++            self._getstate(protocol),
++            (self._map, self._body, self._parsed, self._table_keys),
++        )
++
++    def __setstate__(self, state: tuple[Any, ...]) -> None:
++        self._map = state[0]
++        self._body = state[1]
++        self._parsed = state[2]
++        self._table_keys = state[3]
++        self._out_of_order_keys = {
++            k for k, v in self._map.items() if isinstance(v, tuple)
++        }
++
++        for key, item in self._body:
++            if key is not None:
++                dict.__setitem__(self, key.key, item.value)
++
++    def copy(self) -> Self:
++        return copy.copy(self)
++
++    def __copy__(self) -> Self:
++        c = self.__class__(self._parsed)
++        for k, v in dict.items(self):
++            dict.__setitem__(c, k, v)
++
++        c._body += self.body
++        c._map.update(self._map)
++        c._out_of_order_keys |= self._out_of_order_keys
++
++        return c
++
++    def _previous_item_with_index(
++        self, idx: int | None = None, ignore: tuple[type, ...] = (Null,)
++    ) -> tuple[int, Item] | None:
++        """Find the immediate previous item before index ``idx``"""
++        if idx is None or idx > len(self._body):
++            idx = len(self._body)
++        for i in range(idx - 1, -1, -1):
++            v = self._body[i][-1]
++            if not isinstance(v, ignore):
++                return i, v
++        return None
++
++    def _previous_item(
++        self, idx: int | None = None, ignore: tuple[type, ...] = (Null,)
++    ) -> Item | None:
++        """Find the immediate previous item before index ``idx``.
++        If ``idx`` is not given, the last item is returned.
++        """
++        prev = self._previous_item_with_index(idx, ignore)
++        return prev[-1] if prev else None
++
++
++class OutOfOrderTableProxy(_CustomDict):  # type: ignore[type-arg]
++    @staticmethod
++    def validate(
++        container: Container,
++        indices: tuple[int, ...],
++        temp_container: Container | None = None,
++    ) -> Container:
++        """Validate out of order tables in the given container"""
++        # Append all items to a temp container to see if there is any error.
++        # We deep-copy each value before appending: appending a super table
++        # merges it in place into a matching one already in temp_container, and
++        # those values are the live subtables of `container`. Without the copy
++        # the merge would mutate the caller's tables (and corrupt a later
++        # validation pass). The container merge itself is now copy-free for
++        # speed, so this is where the isolation lives.
++        # Passing a previous pass's temp container back in (with the already
++        # validated indices stripped from `indices`) resumes the validation
++        # incrementally.
++        if temp_container is None:
++            temp_container = Container(True)
++        for i in indices:
++            _, item = container._body[i]
++
++            if isinstance(item, Table):
++                for k, v in item.value.body:
++                    temp_container.append(k, copy.deepcopy(v), validate=True)
++
++        temp_container._validate_out_of_order_table()
++        return temp_container
++
++    def __init__(self, container: Container, indices: tuple[int, ...]) -> None:
++        self._container = container
++        self._internal_container = Container(True)
++        self._tables: list[Table] = []
++        self._tables_map: dict[Key, list[int]] = {}
++
++        for i in indices:
++            _, _item = self._container._body[i]
++
++            if isinstance(_item, Table):
++                self._tables.append(_item)
++                table_idx = len(self._tables) - 1
++                for k, v in _item.value.body:
++                    merged = self._merge_aot_fragment(k, v)
++                    if merged is None:
++                        self._internal_container._raw_append(k, v)
++                    else:
++                        v = merged
++                    key_indices = self._tables_map.setdefault(k, [])  # type: ignore[arg-type]
++                    if table_idx not in key_indices:
++                        key_indices.append(table_idx)
++                    if k is not None:
++                        dict.__setitem__(self, k.key, v)
++
++        self._internal_container._validate_out_of_order_table()
+ 
+-        # Copying trivia
+-        if not isinstance(value, (Whitespace, AoT)):
+-            value.trivia.indent = v.trivia.indent
+-            value.trivia.comment_ws = v.trivia.comment_ws
+-            value.trivia.comment = v.trivia.comment
+-            value.trivia.trail = v.trivia.trail
++    def _merge_aot_fragment(self, key: Key | None, item: Item) -> AoT | None:
++        """
++        Merge an array-of-tables fragment from a later out-of-order table part.
+ 
+-        self._body[idx] = (new_key, value)
++        An AoT whose elements are split across out-of-order parts of the same
++        table arrives here once per part; ``_raw_append`` only knows how to
++        chain duplicate ``Table`` parts and would raise ``KeyAlreadyPresent``.
++        The fragments are presented as a new merged ``AoT`` referencing the
++        live element tables, without mutating either fragment (the parts keep
++        rendering their own elements).
+ 
+-        super(Container, self).__setitem__(new_key.key, value.value)
++        Returns the merged ``AoT``, or ``None`` if this is not such a fragment.
++        """
++        internal = self._internal_container
++        if key is None or not isinstance(item, AoT) or key not in internal._map:
++            return None
++        idx = internal._map[key]
++        if isinstance(idx, tuple):
++            # A tuple index means the key already resolved to several body
++            # positions, which here only happens for a degenerate collision
++            # (e.g. a non-AoT part sharing the key). Three or more genuine AoT
++            # fragments do not reach this branch: each later fragment merges
++            # into the single growing AoT below, so ``idx`` stays an int.
++            return None
++        existing = internal._body[idx][1]
++        if not isinstance(existing, AoT):
++            return None
++
++        merged = AoT([*existing.body, *item.body], parsed=True)
++        internal._body[idx] = (internal._body[idx][0], merged)
++        dict.__setitem__(internal, key.key, merged.value)
++        return merged
++
++    def unwrap(self) -> dict[str, Any]:
++        return self._internal_container.unwrap()
+ 
+-    def __str__(self):  # type: () -> str
++    @property
++    def value(self) -> dict[str, Any]:
++        return self._internal_container.value
++
++    def __str__(self) -> str:
+         return str(self.value)
+ 
+-    def __eq__(self, other):  # type: (Dict) -> bool
+-        if not isinstance(other, dict):
+-            return NotImplemented
++    def __repr__(self) -> str:
++        return repr(self.value)
++
++    def __contains__(self, key: object) -> bool:
++        # Native membership test. The inherited ``MutableMapping.__contains__``
++        # resolves the value via ``__getitem__`` (and builds a ``NonExistentKey``
++        # on every absent key) only to discard it. Probe the internal container
++        # directly -- the same predicate ``__getitem__`` already uses -- which is
++        # itself a native ``_map`` lookup that still rebuilds the proxy for an
++        # out-of-order key so its validation runs exactly as before.
++        return key in self._internal_container
++
++    def __getitem__(self, key: Key | str) -> Any:
++        if key not in self._internal_container:
++            raise NonExistentKey(key)
++
++        return self._internal_container[key]
++
++    def __setitem__(self, key: Key | str, value: Any) -> None:
++        from .items import item as _item_fn
++
++        def _is_table_or_aot(it: Any) -> bool:
++            return isinstance(_item_fn(it), (Table, AoT))
++
++        _key: Key = key if isinstance(key, Key) else SingleKey(key)
++
++        if _key in self._tables_map:
++            # Overwrite the first table and remove others
++            map_indices = self._tables_map[_key]
++            while len(map_indices) > 1:
++                table = self._tables[map_indices.pop()]
++                self._remove_table(table)
++            old_value = self._tables[map_indices[0]][key]
++            if _is_table_or_aot(old_value) and not _is_table_or_aot(value):
++                # Remove the entry from the map and set value again.
++                del self._tables[map_indices[0]][key]
++                del self._tables_map[_key]
++                self[key] = value
++                return
++            self._tables[map_indices[0]][key] = value
++        elif self._tables:
++            if not _is_table_or_aot(value):  # if the value is a plain value
++                for table in self._tables:
++                    # find the first table that allows plain values
++                    if any(not _is_table_or_aot(v) for _, v in table.items()):
++                        table[key] = value
++                        break
++                else:
++                    # No part holds a plain value yet, so the chosen part must
++                    # start rendering its own ``[key]`` header. Prefer a part
++                    # that is not a super table (it already renders that header):
++                    # turning a header-less super part concrete here would emit a
++                    # second, duplicate header next to an existing concrete part
++                    # and produce TOML that no longer parses.
++                    for table in self._tables:
++                        if not table.is_super_table():
++                            table[key] = value
++                            break
++                    else:
++                        self._tables[0][key] = value
++            else:
++                self._tables[0][key] = value
++        else:
++            self._container[key] = value
++
++        self._internal_container[key] = value
++        if key is not None:
++            dict.__setitem__(self, key, value)
++
++    def _remove_table(self, table: Table) -> None:
++        """Remove table from the parent container"""
++        self._tables.remove(table)
++        for idx, body_item in enumerate(self._container._body):
++            if body_item[1] is table:
++                self._container._remove_at(idx)
++                break
++
++    def __delitem__(self, key: Key | str) -> None:
++        _key: Key = key if isinstance(key, Key) else SingleKey(key)
++        if _key not in self._tables_map:
++            raise NonExistentKey(key)
++
++        for i in reversed(self._tables_map[_key]):
++            table = self._tables[i]
++            del table[key]
++            if not table and len(self._tables) > 1:
++                self._remove_table(table)
++
++        del self._tables_map[_key]
++        del self._internal_container[key]
++        if key is not None:
++            dict.__delitem__(self, key)
+ 
+-        return self.value == other
++    def __iter__(self) -> Iterator[str]:
++        return iter(dict.keys(self))
++
++    def __len__(self) -> int:
++        return dict.__len__(self)
++
++    def setdefault(self, key: Key | str, default: Any = None) -> Any:
++        if key not in self:
++            self[key] = default
++        return self[key]
++
++
++def ends_with_whitespace(it: Any) -> bool:
++    """Returns ``True`` if the given item ``it`` is a ``Table`` or ``AoT`` object
++    ending with a ``Whitespace``.
++    """
++    if isinstance(it, Whitespace):
++        return True
++    if isinstance(it, Table):
++        previous = it.value._previous_item()
++        return previous is not None and ends_with_whitespace(previous)
++    return isinstance(it, AoT) and len(it) > 0 and ends_with_whitespace(it[-1])
++
++
++def _equal_with_nan(left: Any, right: Any) -> bool:
++    if isinstance(left, dict) and isinstance(right, dict):
++        if left.keys() != right.keys():
++            return False
++        return all(_equal_with_nan(left[k], right[k]) for k in left)
++
++    if isinstance(left, list) and isinstance(right, list):
++        if len(left) != len(right):
++            return False
++        return all(_equal_with_nan(l, r) for l, r in zip(left, right))  # noqa: E741
++
++    if isinstance(left, float) and isinstance(right, float):
++        if math.isnan(left) and math.isnan(right):
++            return True
++
++    return bool(left == right)
+diff --git a/tomlkit/exceptions.py b/tomlkit/exceptions.py
+index 8d48bf1..473357e 100644
+--- a/tomlkit/exceptions.py
++++ b/tomlkit/exceptions.py
+@@ -1,8 +1,9 @@
+-from typing import Optional
++from __future__ import annotations
+ 
++from collections.abc import Collection
+ 
+-class TOMLKitError(Exception):
+ 
++class TOMLKitError(Exception):
+     pass
+ 
+ 
+@@ -13,18 +14,22 @@ class ParseError(ValueError, TOMLKitError):
+     location within the line where the error was encountered.
+     """
+ 
+-    def __init__(
+-        self, line, col, message=None
+-    ):  # type: (int, int, Optional[str]) -> None
++    def __init__(self, line: int, col: int, message: str | None = None) -> None:
+         self._line = line
+         self._col = col
+ 
+         if message is None:
+             message = "TOML parse error"
+ 
+-        super(ParseError, self).__init__(
+-            "{} at line {} col {}".format(message, self._line, self._col)
+-        )
++        super().__init__(f"{message} at line {self._line} col {self._col}")
++
++    @property
++    def line(self) -> int:
++        return self._line
++
++    @property
++    def col(self) -> int:
++        return self._col
+ 
+ 
+ class MixedArrayTypesError(ParseError):
+@@ -32,10 +37,54 @@ class MixedArrayTypesError(ParseError):
+     An array was found that had two or more element types.
+     """
+ 
+-    def __init__(self, line, col):  # type: (int, int) -> None
++    def __init__(self, line: int, col: int) -> None:
+         message = "Mixed types found in array"
+ 
+-        super(MixedArrayTypesError, self).__init__(line, col, message=message)
++        super().__init__(line, col, message=message)
++
++
++class InvalidNumberError(ParseError):
++    """
++    A numeric field was improperly specified.
++    """
++
++    def __init__(self, line: int, col: int) -> None:
++        message = "Invalid number"
++
++        super().__init__(line, col, message=message)
++
++
++class InvalidDateTimeError(ParseError):
++    """
++    A datetime field was improperly specified.
++    """
++
++    def __init__(self, line: int, col: int) -> None:
++        message = "Invalid datetime"
++
++        super().__init__(line, col, message=message)
++
++
++class InvalidDateError(ParseError):
++    """
++    A date field was improperly specified.
++    """
++
++    def __init__(self, line: int, col: int) -> None:
++        message = "Invalid date"
++
++        super().__init__(line, col, message=message)
++
++
++class InvalidTimeError(ParseError):
++    """
++    A date field was improperly specified.
++    """
++
++    def __init__(self, line: int, col: int) -> None:
++        message = "Invalid time"
++
++        super().__init__(line, col, message=message)
+ 
+ 
+ class InvalidNumberOrDateError(ParseError):
+@@ -43,10 +92,21 @@ class InvalidNumberOrDateError(ParseError):
+     A numeric or date field was improperly specified.
+     """
+ 
+-    def __init__(self, line, col):  # type: (int, int) -> None
++    def __init__(self, line: int, col: int) -> None:
+         message = "Invalid number or date format"
+ 
+-        super(InvalidNumberOrDateError, self).__init__(line, col, message=message)
++        super().__init__(line, col, message=message)
++
++
++class InvalidUnicodeValueError(ParseError):
++    """
++    A unicode code was improperly specified.
++    """
++
++    def __init__(self, line: int, col: int) -> None:
++        message = "Invalid unicode value"
++
++        super().__init__(line, col, message=message)
+ 
+ 
+ class UnexpectedCharError(ParseError):
+@@ -54,10 +114,10 @@ class UnexpectedCharError(ParseError):
+     An unexpected character was found during parsing.
+     """
+ 
+-    def __init__(self, line, col, char):  # type: (int, int, str) -> None
+-        message = "Unexpected character: {}".format(repr(char))
++    def __init__(self, line: int, col: int, char: str) -> None:
++        message = f"Unexpected character: {char!r}"
+ 
+-        super(UnexpectedCharError, self).__init__(line, col, message=message)
++        super().__init__(line, col, message=message)
+ 
+ 
+ class EmptyKeyError(ParseError):
+@@ -65,10 +125,10 @@ class EmptyKeyError(ParseError):
+     An empty key was found during parsing.
+     """
+ 
+-    def __init__(self, line, col):  # type: (int, int) -> None
++    def __init__(self, line: int, col: int) -> None:
+         message = "Empty key"
+ 
+-        super(EmptyKeyError, self).__init__(line, col, message=message)
++        super().__init__(line, col, message=message)
+ 
+ 
+ class EmptyTableNameError(ParseError):
+@@ -76,10 +136,10 @@ class EmptyTableNameError(ParseError):
+     An empty table name was found during parsing.
+     """
+ 
+-    def __init__(self, line, col):  # type: (int, int) -> None
++    def __init__(self, line: int, col: int) -> None:
+         message = "Empty table name"
+ 
+-        super(EmptyTableNameError, self).__init__(line, col, message=message)
++        super().__init__(line, col, message=message)
+ 
+ 
+ class InvalidCharInStringError(ParseError):
+@@ -87,10 +147,10 @@ class InvalidCharInStringError(ParseError):
+     The string being parsed contains an invalid character.
+     """
+ 
+-    def __init__(self, line, col, char):  # type: (int, int, str) -> None
+-        message = "Invalid character '{}' in string".format(char)
++    def __init__(self, line: int, col: int, char: str) -> None:
++        message = f"Invalid character {char!r} in string"
+ 
+-        super(InvalidCharInStringError, self).__init__(line, col, message=message)
++        super().__init__(line, col, message=message)
+ 
+ 
+ class UnexpectedEofError(ParseError):
+@@ -98,10 +158,10 @@ class UnexpectedEofError(ParseError):
+     The TOML being parsed ended before the end of a statement.
+     """
+ 
+-    def __init__(self, line, col):  # type: (int, int) -> None
++    def __init__(self, line: int, col: int) -> None:
+         message = "Unexpected end of file"
+ 
+-        super(UnexpectedEofError, self).__init__(line, col, message=message)
++        super().__init__(line, col, message=message)
+ 
+ 
+ class InternalParserError(ParseError):
+@@ -109,12 +169,12 @@ class InternalParserError(ParseError):
+     An error that indicates a bug in the parser.
+     """
+ 
+-    def __init__(self, line, col, message=None):  # type: (int, int) -> None
++    def __init__(self, line: int, col: int, message: str | None = None) -> None:
+         msg = "Internal parser error"
+         if message:
+-            msg += " ({})".format(message)
++            msg += f" ({message})"
+ 
+-        super(InternalParserError, self).__init__(line, col, message=msg)
++        super().__init__(line, col, message=msg)
+ 
+ 
+ class NonExistentKey(KeyError, TOMLKitError):
+@@ -122,10 +182,10 @@ class NonExistentKey(KeyError, TOMLKitError):
+     A non-existent key was used.
+     """
+ 
+-    def __init__(self, key):
+-        message = 'Key "{}" does not exist.'.format(key)
++    def __init__(self, key: object) -> None:
++        message = f'Key "{key}" does not exist.'
+ 
+-        super(NonExistentKey, self).__init__(message)
++        super().__init__(message)
+ 
+ 
+ class KeyAlreadyPresent(TOMLKitError):
+@@ -133,7 +193,42 @@ class KeyAlreadyPresent(TOMLKitError):
+     An already present key was used.
+     """
+ 
+-    def __init__(self, key):
+-        message = 'Key "{}" already exists.'.format(key)
++    def __init__(self, key: object) -> None:
++        key = getattr(key, "key", key)
++        message = f'Key "{key}" already exists.'
++
++        super().__init__(message)
+ 
+-        super(KeyAlreadyPresent, self).__init__(message)
++
++class InvalidControlChar(ParseError):
++    def __init__(self, line: int, col: int, char: int, type: str) -> None:
++        display_code = "\\u00"
++
++        if char < 16:
++            display_code += "0"
++
++        display_code += hex(char)[2:]
++
++        message = (
++            "Control characters (codes less than 0x1f and 0x7f)"
++            f" are not allowed in {type}, "
++            f"use {display_code} instead"
++        )
++
++        super().__init__(line, col, message=message)
++
++
++class InvalidStringError(ValueError, TOMLKitError):
++    def __init__(self, value: str, invalid_sequences: Collection[str], delimiter: str):
++        repr_ = repr(value)[1:-1]
++        super().__init__(
++            f"Invalid string: {delimiter}{repr_}{delimiter}. "
++            f"The character sequences {invalid_sequences} are invalid."
++        )
++
++
++class ConvertError(TypeError, ValueError, TOMLKitError):
++    """Raised when item() fails to convert a value.
++    It should be a TypeError, but due to historical reasons
++    it needs to subclass ValueError as well.
++    """
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index c88637a..18c81e2 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -1,6 +1,5 @@
+ from __future__ import unicode_literals
+ 
+-import os
+ import re
+ import string
+ 
+@@ -8,26 +7,164 @@ from datetime import date
+ from datetime import datetime
+ from datetime import time
+ from enum import Enum
++from typing import Any
++from typing import Dict
++from typing import Generator
+ from typing import List
+ from typing import Optional
++from typing import Union
+ 
+-
++from ._compat import PY2
++from ._compat import PY38
+ from ._compat import decode
++from ._compat import long
++from ._compat import unicode
++from ._utils import escape_string
++
++
++if PY2:
++    from functools32 import lru_cache
++else:
++    from functools import lru_cache
++
++
++def item(value, _parent=None, _sort_keys=False):
++    from .container import Container
++
++    if isinstance(value, Item):
++        return value
++
++    if isinstance(value, bool):
++        return Bool(value, Trivia())
++    elif isinstance(value, int):
++        return Integer(value, Trivia(), str(value))
++    elif isinstance(value, float):
++        return Float(value, Trivia(), str(value))
++    elif isinstance(value, dict):
++        val = Table(Container(), Trivia(), False)
++        for k, v in sorted(
++            value.items(),
++            key=lambda i: (isinstance(i[1], dict), i[0] if _sort_keys else 1),
++        ):
++            val[k] = item(v, _parent=val, _sort_keys=_sort_keys)
++
++        return val
++    elif isinstance(value, list):
++        if value and isinstance(value[0], dict):
++            a = AoT([])
++        else:
++            a = Array([], Trivia())
++
++        for v in value:
++            if isinstance(v, dict):
++                table = Table(Container(), Trivia(), True)
++
++                for k, _v in sorted(
++                    v.items(),
++                    key=lambda i: (isinstance(i[1], dict), i[0] if _sort_keys else 1),
++                ):
++                    i = item(_v, _sort_keys=_sort_keys)
++                    if isinstance(table, InlineTable):
++                        i.trivia.trail = ""
++
++                    table[k] = item(i, _sort_keys=_sort_keys)
++
++                v = table
++
++            a.append(v)
++
++        return a
++    elif isinstance(value, (str, unicode)):
++        escaped = escape_string(value)
++
++        return String(StringType.SLB, decode(value), escaped, Trivia())
++    elif isinstance(value, datetime):
++        return DateTime(
++            value.year,
++            value.month,
++            value.day,
++            value.hour,
++            value.minute,
++            value.second,
++            value.microsecond,
++            value.tzinfo,
++            Trivia(),
++            value.isoformat().replace("+00:00", "Z"),
++        )
++    elif isinstance(value, date):
++        return Date(value.year, value.month, value.day, Trivia(), value.isoformat())
++    elif isinstance(value, time):
++        return Time(
++            value.hour,
++            value.minute,
++            value.second,
++            value.microsecond,
++            value.tzinfo,
++            Trivia(),
++            value.isoformat(),
++        )
+ 
++    raise ValueError("Invalid type {}".format(type(value)))
+ 
+-class StringType(Enum):
+ 
++class StringType(Enum):
++    # Single Line Basic
+     SLB = '"'
++    # Multi Line Basic
+     MLB = '"""'
++    # Single Line Literal
+     SLL = "'"
++    # Multi Line Literal
+     MLL = "'''"
+ 
++    @property
++    @lru_cache(maxsize=None)
++    def unit(self):  # type: () -> str
++        return self.value[0]
++
++    @lru_cache(maxsize=None)
++    def is_basic(self):  # type: () -> bool
++        return self in {StringType.SLB, StringType.MLB}
++
++    @lru_cache(maxsize=None)
+     def is_literal(self):  # type: () -> bool
+         return self in {StringType.SLL, StringType.MLL}
+ 
++    @lru_cache(maxsize=None)
++    def is_singleline(self):  # type: () -> bool
++        return self in {StringType.SLB, StringType.SLL}
++
++    @lru_cache(maxsize=None)
+     def is_multiline(self):  # type: () -> bool
+         return self in {StringType.MLB, StringType.MLL}
+ 
++    @lru_cache(maxsize=None)
++    def toggle(self):  # type: () -> StringType
++        return {
++            StringType.SLB: StringType.MLB,
++            StringType.MLB: StringType.SLB,
++            StringType.SLL: StringType.MLL,
++            StringType.MLL: StringType.SLL,
++        }[self]
++
++
++class BoolType(Enum):
++    TRUE = "true"
++    FALSE = "false"
++
++    @lru_cache(maxsize=None)
++    def __bool__(self):
++        return {BoolType.TRUE: True, BoolType.FALSE: False}[self]
++
++    if PY2:
++        __nonzero__ = __bool__  # for PY2
++
++    def __iter__(self):
++        return iter(self.value)
++
++    def __len__(self):
++        return len(self.value)
++
+ 
+ class Trivia:
+     """
+@@ -68,7 +205,9 @@ class Key:
+     A key value.
+     """
+ 
+-    def __init__(self, k, t=None, sep=None):  # type: (str) -> None
++    def __init__(
++        self, k, t=None, sep=None, dotted=False, original=None
++    ):  # type: (str, Optional[KeyType], Optional[str], bool, Optional[str]) -> None
+         if t is None:
+             if any(
+                 [c not in string.ascii_letters + string.digits + "-" + "_" for c in k]
+@@ -83,19 +222,37 @@ class Key:
+ 
+         self.sep = sep
+         self.key = k
++        if original is None:
++            original = k
++
++        self._original = original
++
++        self._dotted = dotted
+ 
+     @property
+     def delimiter(self):  # type: () -> str
+         return self.t.value
+ 
++    def is_dotted(self):  # type: () -> bool
++        return self._dotted
++
++    def is_bare(self):  # type: () -> bool
++        return self.t == KeyType.Bare
++
++    def is_multi(self):  # type: () -> bool
++        return self._dotted
++
+     def as_string(self):  # type: () -> str
+-        return "{}{}{}".format(self.delimiter, self.key, self.delimiter)
++        return "{}{}{}".format(self.delimiter, self._original, self.delimiter)
+ 
+     def __hash__(self):  # type: () -> int
+         return hash(self.key)
+ 
+     def __eq__(self, other):  # type: (Key) -> bool
+-        return self.key == other.key
++        if isinstance(other, Key):
++            return self.key == other.key
++
++        return self.key == other
+ 
+     def __str__(self):  # type: () -> str
+         return self.as_string()
+@@ -125,7 +282,7 @@ class Item(object):
+ 
+     # Helpers
+ 
+-    def comment(self, comment, inline=True):  # type: (str, bool) -> Item
++    def comment(self, comment):  # type: (str) -> Item
+         if not comment.strip().startswith("#"):
+             comment = "# " + comment
+ 
+@@ -142,11 +299,26 @@ class Item(object):
+ 
+         return self
+ 
+-    def __str__(self):  # type: () -> str
+-        return str(self.value)
++    def is_boolean(self):  # type: () -> bool
++        return isinstance(self, Bool)
+ 
+-    def __repr__(self):  # type: () -> str
+-        return "<{} {}>".format(self.__class__.__name__, self.as_string())
++    def is_table(self):  # type: () -> bool
++        return isinstance(self, Table)
++
++    def is_inline_table(self):  # type: () -> bool
++        return isinstance(self, InlineTable)
++
++    def is_aot(self):  # type: () -> bool
++        return isinstance(self, AoT)
++
++    def _getstate(self, protocol=3):
++        return (self._trivia,)
++
++    def __reduce__(self):
++        return self.__reduce_ex__(2)
++
++    def __reduce_ex__(self, protocol):
++        return self.__class__, self._getstate(protocol)
+ 
+ 
+ class Whitespace(Item):
+@@ -154,8 +326,9 @@ class Whitespace(Item):
+     A whitespace literal.
+     """
+ 
+-    def __init__(self, s):  # type: (str) -> None
++    def __init__(self, s, fixed=False):  # type: (str, bool) -> None
+         self._s = s
++        self._fixed = fixed
+ 
+     @property
+     def s(self):  # type: () -> str
+@@ -173,12 +346,18 @@ class Whitespace(Item):
+     def discriminant(self):  # type: () -> int
+         return 0
+ 
++    def is_fixed(self):  # type: () -> bool
++        return self._fixed
++
+     def as_string(self):  # type: () -> str
+         return self._s
+ 
+     def __repr__(self):  # type: () -> str
+         return "<{} {}>".format(self.__class__.__name__, repr(self._s))
+ 
++    def _getstate(self, protocol=3):
++        return self._s, self._fixed
++
+ 
+ class Comment(Item):
+     """
+@@ -198,16 +377,22 @@ class Comment(Item):
+         return "{}{}".format(self._trivia.indent, decode(self._trivia.comment))
+ 
+ 
+-class Integer(Item):
++class Integer(long, Item):
+     """
+     An integer literal.
+     """
+ 
+-    def __init__(self, value, trivia, raw):  # type: (int, Trivia, str) -> None
++    def __new__(cls, value, trivia, raw):  # type: (int, Trivia, str) -> Integer
++        return super(Integer, cls).__new__(cls, value)
++
++    def __init__(self, _, trivia, raw):  # type: (int, Trivia, str) -> None
+         super(Integer, self).__init__(trivia)
+ 
+-        self._value = value
+         self._raw = raw
++        self._sign = False
++
++        if re.match(r"^[+\-]\d+$", raw):
++            self._sign = True
+ 
+     @property
+     def discriminant(self):  # type: () -> int
+@@ -215,22 +400,66 @@ class Integer(Item):
+ 
+     @property
+     def value(self):  # type: () -> int
+-        return self._value
++        return self
+ 
+     def as_string(self):  # type: () -> str
+         return self._raw
+ 
++    def __add__(self, other):
++        result = super(Integer, self).__add__(other)
++
++        return self._new(result)
++
++    def __radd__(self, other):
++        result = super(Integer, self).__radd__(other)
++
++        if isinstance(other, Integer):
++            return self._new(result)
++
++        return result
++
++    def __sub__(self, other):
++        result = super(Integer, self).__sub__(other)
++
++        return self._new(result)
++
++    def __rsub__(self, other):
++        result = super(Integer, self).__rsub__(other)
+ 
+-class Float(Item):
++        if isinstance(other, Integer):
++            return self._new(result)
++
++        return result
++
++    def _new(self, result):
++        raw = str(result)
++
++        if self._sign:
++            sign = "+" if result >= 0 else "-"
++            raw = sign + raw
++
++        return Integer(result, self._trivia, raw)
++
++    def _getstate(self, protocol=3):
++        return int(self), self._trivia, self._raw
++
++
++class Float(float, Item):
+     """
+     A float literal.
+     """
+ 
+-    def __init__(self, value, trivia, raw):  # type: (float, Trivia, str) -> None
++    def __new__(cls, value, trivia, raw):  # type: (float, Trivia, str) -> Integer
++        return super(Float, cls).__new__(cls, value)
++
++    def __init__(self, _, trivia, raw):  # type: (float, Trivia, str) -> None
+         super(Float, self).__init__(trivia)
+ 
+-        self._value = value
+         self._raw = raw
++        self._sign = False
++
++        if re.match(r"^[+\-].+$", raw):
++            self._sign = True
+ 
+     @property
+     def discriminant(self):  # type: () -> int
+@@ -238,21 +467,59 @@ class Float(Item):
+ 
+     @property
+     def value(self):  # type: () -> float
+-        return self._value
++        return self
+ 
+     def as_string(self):  # type: () -> str
+         return self._raw
+ 
++    def __add__(self, other):
++        result = super(Float, self).__add__(other)
++
++        return self._new(result)
++
++    def __radd__(self, other):
++        result = super(Float, self).__radd__(other)
++
++        if isinstance(other, Float):
++            return self._new(result)
++
++        return result
++
++    def __sub__(self, other):
++        result = super(Float, self).__sub__(other)
++
++        return self._new(result)
++
++    def __rsub__(self, other):
++        result = super(Float, self).__rsub__(other)
++
++        if isinstance(other, Float):
++            return self._new(result)
++
++        return result
++
++    def _new(self, result):
++        raw = str(result)
++
++        if self._sign:
++            sign = "+" if result >= 0 else "-"
++            raw = sign + raw
++
++        return Float(result, self._trivia, raw)
++
++    def _getstate(self, protocol=3):
++        return float(self), self._trivia, self._raw
++
+ 
+ class Bool(Item):
+     """
+     A boolean literal.
+     """
+ 
+-    def __init__(self, value, trivia):  # type: (float, Trivia) -> None
++    def __init__(self, t, trivia):  # type: (int, Trivia) -> None
+         super(Bool, self).__init__(trivia)
+ 
+-        self._value = value
++        self._value = bool(t)
+ 
+     @property
+     def discriminant(self):  # type: () -> int
+@@ -265,16 +532,64 @@ class Bool(Item):
+     def as_string(self):  # type: () -> str
+         return str(self._value).lower()
+ 
++    def _getstate(self, protocol=3):
++        return self._value, self._trivia
++
++    def __bool__(self):
++        return self._value
++
++    __nonzero__ = __bool__
++
++    def __eq__(self, other):
++        if not isinstance(other, bool):
++            return NotImplemented
+ 
+-class DateTime(Item):
++        return other == self._value
++
++    def __hash__(self):
++        return hash(self._value)
++
++    def __repr__(self):
++        return repr(self._value)
++
++
++class DateTime(Item, datetime):
+     """
+     A datetime literal.
+     """
+ 
+-    def __init__(self, value, trivia, raw):  # type: (datetime, Trivia, str) -> None
++    def __new__(
++        cls,
++        year,
++        month,
++        day,
++        hour,
++        minute,
++        second,
++        microsecond,
++        tzinfo,
++        trivia,
++        raw,
++        **kwargs
++    ):  # type: (int, int, int, int, int, int, int, Optional[datetime.tzinfo], Trivia, str, Any) -> datetime
++        return datetime.__new__(
++            cls,
++            year,
++            month,
++            day,
++            hour,
++            minute,
++            second,
++            microsecond,
++            tzinfo=tzinfo,
++            **kwargs
++        )
++
++    def __init__(
++        self, year, month, day, hour, minute, second, microsecond, tzinfo, trivia, raw
++    ):  # type: (int, int, int, int, int, int, int, Optional[datetime.tzinfo], Trivia, str) -> None
+         super(DateTime, self).__init__(trivia)
+ 
+-        self._value = value
+         self._raw = raw
+ 
+     @property
+@@ -283,21 +598,92 @@ class DateTime(Item):
+ 
+     @property
+     def value(self):  # type: () -> datetime
+-        return self._value
++        return self
+ 
+     def as_string(self):  # type: () -> str
+         return self._raw
+ 
++    def __add__(self, other):
++        if PY38:
++            result = datetime(
++                self.year,
++                self.month,
++                self.day,
++                self.hour,
++                self.minute,
++                self.second,
++                self.microsecond,
++                self.tzinfo,
++            ).__add__(other)
++        else:
++            result = super(DateTime, self).__add__(other)
++
++        return self._new(result)
++
++    def __sub__(self, other):
++        if PY38:
++            result = datetime(
++                self.year,
++                self.month,
++                self.day,
++                self.hour,
++                self.minute,
++                self.second,
++                self.microsecond,
++                self.tzinfo,
++            ).__sub__(other)
++        else:
++            result = super(DateTime, self).__sub__(other)
++
++        if isinstance(result, datetime):
++            result = self._new(result)
++
++        return result
++
++    def _new(self, result):
++        raw = result.isoformat()
++
++        return DateTime(
++            result.year,
++            result.month,
++            result.day,
++            result.hour,
++            result.minute,
++            result.second,
++            result.microsecond,
++            result.tzinfo,
++            self._trivia,
++            raw,
++        )
+ 
+-class Date(Item):
++    def _getstate(self, protocol=3):
++        return (
++            self.year,
++            self.month,
++            self.day,
++            self.hour,
++            self.minute,
++            self.second,
++            self.microsecond,
++            self.tzinfo,
++            self._trivia,
++            self._raw,
++        )
++
++
++class Date(Item, date):
+     """
+     A date literal.
+     """
+ 
+-    def __init__(self, value, trivia, raw):  # type: (date, Trivia, str) -> None
++    def __new__(cls, year, month, day, *_):  # type: (int, int, int, Any) -> date
++        return date.__new__(cls, year, month, day)
++
++    def __init__(
++        self, year, month, day, trivia, raw
++    ):  # type: (int, int, int, Trivia, str) -> None
+         super(Date, self).__init__(trivia)
+ 
+-        self._value = value
+         self._raw = raw
+ 
+     @property
+@@ -306,21 +692,54 @@ class Date(Item):
+ 
+     @property
+     def value(self):  # type: () -> date
+-        return self._value
++        return self
+ 
+     def as_string(self):  # type: () -> str
+         return self._raw
+ 
++    def __add__(self, other):
++        if PY38:
++            result = date(self.year, self.month, self.day).__add__(other)
++        else:
++            result = super(Date, self).__add__(other)
++
++        return self._new(result)
++
++    def __sub__(self, other):
++        if PY38:
++            result = date(self.year, self.month, self.day).__sub__(other)
++        else:
++            result = super(Date, self).__sub__(other)
++
++        if isinstance(result, date):
++            result = self._new(result)
++
++        return result
++
++    def _new(self, result):
++        raw = result.isoformat()
++
++        return Date(result.year, result.month, result.day, self._trivia, raw)
+ 
+-class Time(Item):
++    def _getstate(self, protocol=3):
++        return (self.year, self.month, self.day, self._trivia, self._raw)
++
++
++class Time(Item, time):
+     """
+     A time literal.
+     """
+ 
+-    def __init__(self, value, trivia, raw):  # type: (time, Trivia, str) -> None
++    def __new__(
++        cls, hour, minute, second, microsecond, tzinfo, *_
++    ):  # type: (int, int, int, int, Optional[datetime.tzinfo], Any) -> time
++        return time.__new__(cls, hour, minute, second, microsecond, tzinfo)
++
++    def __init__(
++        self, hour, minute, second, microsecond, tzinfo, trivia, raw
++    ):  # type: (int, int, int, int, Optional[datetime.tzinfo], Trivia, str) -> None
+         super(Time, self).__init__(trivia)
+ 
+-        self._value = value
+         self._raw = raw
+ 
+     @property
+@@ -329,21 +748,39 @@ class Time(Item):
+ 
+     @property
+     def value(self):  # type: () -> time
+-        return self._value
++        return self
+ 
+     def as_string(self):  # type: () -> str
+         return self._raw
+ 
++    def _getstate(self, protocol=3):
++        return (
++            self.hour,
++            self.minute,
++            self.second,
++            self.microsecond,
++            self.tzinfo,
++            self._trivia,
++            self._raw,
++        )
+ 
+-class Array(Item):
++
++class Array(Item, list):
+     """
+     An array literal
+     """
+ 
+-    def __init__(self, value, trivia):  # type: (list, Trivia) -> None
++    def __init__(
++        self, value, trivia, multiline=False
++    ):  # type: (list, Trivia, bool) -> None
+         super(Array, self).__init__(trivia)
+ 
++        list.__init__(
++            self, [v.value for v in value if not isinstance(v, (Whitespace, Comment))]
++        )
++
+         self._value = value
++        self._multiline = multiline
+ 
+     @property
+     def discriminant(self):  # type: () -> int
+@@ -351,27 +788,88 @@ class Array(Item):
+ 
+     @property
+     def value(self):  # type: () -> list
+-        return [
+-            v.value for v in self._value if not isinstance(v, (Whitespace, Comment))
+-        ]
+-
+-    def is_homogeneous(self):  # type: () -> bool
+-        if not self._value:
+-            return True
++        return self
+ 
+-        discriminants = [
+-            i.discriminant
+-            for i in self._value
+-            if not isinstance(i, (Whitespace, Comment))
+-        ]
++    def multiline(self, multiline):  # type: (bool) -> self
++        self._multiline = multiline
+ 
+-        return len(set(discriminants)) == 1
++        return self
+ 
+     def as_string(self):  # type: () -> str
+-        return "[{}]".format("".join(item.as_string() for item in self._value))
++        if not self._multiline:
++            return "[{}]".format("".join(v.as_string() for v in self._value))
+ 
++        s = "[\n" + self.trivia.indent + " " * 4
++        s += (",\n" + self.trivia.indent + " " * 4).join(
++            v.as_string() for v in self._value if not isinstance(v, Whitespace)
++        )
++        s += ",\n"
++        s += "]"
++
++        return s
++
++    def append(self, _item):  # type: (Any) -> None
++        if self._value:
++            self._value.append(Whitespace(", "))
++
++        it = item(_item)
++        super(Array, self).append(it.value)
++
++        self._value.append(it)
++
++    if not PY2:
++
++        def clear(self):
++            super(Array, self).clear()
++
++            self._value.clear()
++
++    def __iadd__(self, other):  # type: (list) -> Array
++        if not isinstance(other, list):
++            return NotImplemented
++
++        for v in other:
++            self.append(v)
++
++        return self
++
++    def __delitem__(self, key):
++        super(Array, self).__delitem__(key)
++
++        j = 0 if key >= 0 else -1
++        for i, v in enumerate(self._value if key >= 0 else reversed(self._value)):
++            if key < 0:
++                i = -i - 1
++
++            if isinstance(v, (Comment, Whitespace)):
++                continue
+ 
+-class Table(Item):
++            if j == key:
++                del self._value[i]
++
++                if i < 0 and abs(i) > len(self._value):
++                    i += 1
++
++                if i < len(self._value) - 1 and isinstance(self._value[i], Whitespace):
++                    del self._value[i]
++
++                break
++
++            j += 1 if key >= 0 else -1
++
++    def __str__(self):
++        return str(
++            [v.value for v in self._value if not isinstance(v, (Whitespace, Comment))]
++        )
++
++    def __repr__(self):
++        return str(self)
++
++    def _getstate(self, protocol=3):
++        return self._value, self._trivia
++
++
++class Table(Item, dict):
+     """
+     A table literal.
+     """
+@@ -384,7 +882,7 @@ class Table(Item):
+         is_super_table=False,
+         name=None,
+         display_name=None,
+-    ):  # type: (tomlkit.container.Container, Trivia, bool) -> None
++    ):  # type: (tomlkit.container.Container, Trivia, bool, bool, Optional[str], Optional[str]) -> None
+         super(Table, self).__init__(trivia)
+ 
+         self.name = name
+@@ -393,6 +891,10 @@ class Table(Item):
+         self._is_aot_element = is_aot_element
+         self._is_super_table = is_super_table
+ 
++        for k, v in self._value.body:
++            if k is not None:
++                super(Table, self).__setitem__(k.key, v)
++
+     @property
+     def value(self):  # type: () -> tomlkit.container.Container
+         return self._value
+@@ -401,11 +903,7 @@ class Table(Item):
+     def discriminant(self):  # type: () -> int
+         return 9
+ 
+-    @property
+-    def value(self):  # type: () -> dict
+-        return self._value
+-
+-    def add(self, key, item=None):  # type: (Key, Item) -> Item
++    def add(self, key, item=None):  # type: (Union[Key, Item, str], Any) -> Item
+         if item is None:
+             if not isinstance(key, (Comment, Whitespace)):
+                 raise ValueError(
+@@ -416,38 +914,69 @@ class Table(Item):
+ 
+         return self.append(key, item)
+ 
+-    def append(self, key, item):  # type: (Key, Item) -> Item
++    def append(self, key, _item):  # type: (Union[Key, str], Any) -> Table
+         """
+         Appends a (key, item) to the table.
+         """
+-        item = self._value.append(key, item)
++        if not isinstance(_item, Item):
++            _item = item(_item)
++
++        self._value.append(key, _item)
++
++        if isinstance(key, Key):
++            key = key.key
++
++        if key is not None:
++            super(Table, self).__setitem__(key, _item)
+ 
+         m = re.match("(?s)^[^ ]*([ ]+).*$", self._trivia.indent)
+         if not m:
+-            return item
++            return self
+ 
+         indent = m.group(1)
+ 
+-        if not isinstance(item, Whitespace):
+-            m = re.match("(?s)^([^ ]*)(.*)$", item.trivia.indent)
++        if not isinstance(_item, Whitespace):
++            m = re.match("(?s)^([^ ]*)(.*)$", _item.trivia.indent)
+             if not m:
+-                item.trivia.indent = indent
++                _item.trivia.indent = indent
+             else:
+-                item.trivia.indent = m.group(1) + indent + m.group(2)
++                _item.trivia.indent = m.group(1) + indent + m.group(2)
++
++        return self
++
++    def raw_append(self, key, _item):  # type: (Union[Key, str], Any) -> Table
++        if not isinstance(_item, Item):
++            _item = item(_item)
++
++        self._value.append(key, _item)
++
++        if isinstance(key, Key):
++            key = key.key
+ 
+-        return item
++        if key is not None:
++            super(Table, self).__setitem__(key, _item)
+ 
+-    def remove(self, key):  # type: (Key) -> None
++        return self
++
++    def remove(self, key):  # type: (Union[Key, str]) -> Table
+         self._value.remove(key)
+ 
++        if isinstance(key, Key):
++            key = key.key
++
++        if key is not None:
++            super(Table, self).__delitem__(key)
++
++        return self
++
+     def is_aot_element(self):  # type: () -> bool
+         return self._is_aot_element
+ 
+     def is_super_table(self):  # type: () -> bool
+         return self._is_super_table
+ 
+-    def as_string(self, prefix=None):  # type: () -> str
+-        return self._value.as_string(prefix=prefix)
++    def as_string(self):  # type: () -> str
++        return self._value.as_string()
+ 
+     # Helpers
+ 
+@@ -466,10 +995,7 @@ class Table(Item):
+ 
+         return self
+ 
+-    def __repr__(self):  # type: () -> str
+-        return "<Table>"
+-
+-    def keys(self):  # type: () -> Generator[Key]
++    def keys(self):  # type: () -> Generator[str]
+         for k in self._value.keys():
+             yield k
+ 
+@@ -481,30 +1007,77 @@ class Table(Item):
+         for k, v in self._value.items():
+             yield k, v
+ 
+-    def __contains__(self, key):  # type: (Key) -> bool
++    def update(self, other):  # type: (Dict) -> None
++        for k, v in other.items():
++            self[k] = v
++
++    def get(self, key, default=None):  # type: (Any, Optional[Any]) -> Any
++        return self._value.get(key, default)
++
++    def __contains__(self, key):  # type: (Union[Key, str]) -> bool
+         return key in self._value
+ 
+-    def __getitem__(self, key):  # type: (Key) -> str
++    def __getitem__(self, key):  # type: (Union[Key, str]) -> Item
+         return self._value[key]
+ 
+-    def __setitem__(self, key, value):  # type: (Key, Item) -> str
+-        self.append(key, value)
++    def __setitem__(self, key, value):  # type: (Union[Key, str], Any) -> None
++        if not isinstance(value, Item):
++            value = item(value)
++
++        self._value[key] = value
++
++        if key is not None:
++            super(Table, self).__setitem__(key, value)
++
++        m = re.match("(?s)^[^ ]*([ ]+).*$", self._trivia.indent)
++        if not m:
++            return
+ 
+-    def __delitem__(self, key):  # type: (Key) -> str
++        indent = m.group(1)
++
++        if not isinstance(value, Whitespace):
++            m = re.match("(?s)^([^ ]*)(.*)$", value.trivia.indent)
++            if not m:
++                value.trivia.indent = indent
++            else:
++                value.trivia.indent = m.group(1) + indent + m.group(2)
++
++    def __delitem__(self, key):  # type: (Union[Key, str]) -> None
+         self.remove(key)
+ 
++    def __repr__(self):
++        return super(Table, self).__repr__()
++
++    def __str__(self):
++        return str(self.value)
+ 
+-class InlineTable(Item):
++    def _getstate(self, protocol=3):
++        return (
++            self._value,
++            self._trivia,
++            self._is_aot_element,
++            self._is_super_table,
++            self.name,
++            self.display_name,
++        )
++
++
++class InlineTable(Item, dict):
+     """
+     An inline table literal.
+     """
+ 
+     def __init__(
+-        self, value, trivia
+-    ):  # type: (tomlkit.container.Container, Trivia) -> None
++        self, value, trivia, new=False
++    ):  # type: (tomlkit.container.Container, Trivia, bool) -> None
+         super(InlineTable, self).__init__(trivia)
+ 
+         self._value = value
++        self._new = new
++
++        for k, v in self._value.body:
++            if k is not None:
++                super(InlineTable, self).__setitem__(k.key, v)
+ 
+     @property
+     def discriminant(self):  # type: () -> int
+@@ -514,25 +1087,49 @@ class InlineTable(Item):
+     def value(self):  # type: () -> Dict
+         return self._value
+ 
+-    def append(self, key, item):  # type: (Key, Item) -> None
++    def append(self, key, _item):  # type: (Union[Key, str], Any) -> InlineTable
+         """
+         Appends a (key, item) to the table.
+         """
+-        if not isinstance(item, (Whitespace, Comment)):
+-            if not item.trivia.indent and len(self._value.body) > 0:
+-                item.trivia.indent = " "
++        if not isinstance(_item, Item):
++            _item = item(_item)
++
++        if not isinstance(_item, (Whitespace, Comment)):
++            if not _item.trivia.indent and len(self._value) > 0 and not self._new:
++                _item.trivia.indent = " "
++            if _item.trivia.comment:
++                _item.trivia.comment = ""
++
++        self._value.append(key, _item)
++
++        if isinstance(key, Key):
++            key = key.key
+ 
+-        return self._value.append(key, item)
++        if key is not None:
++            super(InlineTable, self).__setitem__(key, _item)
+ 
+-    def remove(self, key):  # type: (Key) -> None
++        return self
++
++    def remove(self, key):  # type: (Union[Key, str]) -> InlineTable
+         self._value.remove(key)
+ 
++        if isinstance(key, Key):
++            key = key.key
++
++        if key is not None:
++            super(InlineTable, self).__delitem__(key)
++
++        return self
++
+     def as_string(self):  # type: () -> str
+         buf = "{"
+         for i, (k, v) in enumerate(self._value.body):
+             if k is None:
+                 if i == len(self._value.body) - 1:
+-                    buf = buf.rstrip(",")
++                    if self._new:
++                        buf = buf.rstrip(", ")
++                    else:
++                        buf = buf.rstrip(",")
+ 
+                 buf += v.as_string()
+ 
+@@ -540,21 +1137,23 @@ class InlineTable(Item):
+ 
+             buf += "{}{}{}{}{}{}".format(
+                 v.trivia.indent,
+-                k.as_string(),
++                k.as_string() + ("." if k.is_dotted() else ""),
+                 k.sep,
+                 v.as_string(),
+                 v.trivia.comment,
+-                v.trivia.trail,
++                v.trivia.trail.replace("\n", ""),
+             )
+ 
+             if i != len(self._value.body) - 1:
+                 buf += ","
++                if self._new:
++                    buf += " "
+ 
+         buf += "}"
+ 
+         return buf
+ 
+-    def keys(self):  # type: () -> Generator[Key]
++    def keys(self):  # type: () -> Generator[str]
+         for k in self._value.keys():
+             yield k
+ 
+@@ -566,31 +1165,67 @@ class InlineTable(Item):
+         for k, v in self._value.items():
+             yield k, v
+ 
+-    def __contains__(self, key):  # type: (Key) -> bool
++    def update(self, other):  # type: (Dict) -> None
++        for k, v in other.items():
++            self[k] = v
++
++    def get(self, key, default=None):  # type: (Any, Optional[Any]) -> Any
++        return self._value.get(key, default)
++
++    def __contains__(self, key):  # type: (Union[Key, str]) -> bool
+         return key in self._value
+ 
+-    def __getitem__(self, key):  # type: (Key) -> str
++    def __getitem__(self, key):  # type: (Union[Key, str]) -> Item
+         return self._value[key]
+ 
+-    def __setitem__(self, key, value):  # type: (Key, Item) -> str
+-        self.append(key, value)
++    def __setitem__(self, key, value):  # type: (Union[Key, str], Any) -> None
++        if not isinstance(value, Item):
++            value = item(value)
+ 
+-    def __delitem__(self, key):  # type: (Key) -> str
++        self._value[key] = value
++
++        if key is not None:
++            super(InlineTable, self).__setitem__(key, value)
++        if value.trivia.comment:
++            value.trivia.comment = ""
++
++        m = re.match("(?s)^[^ ]*([ ]+).*$", self._trivia.indent)
++        if not m:
++            return
++
++        indent = m.group(1)
++
++        if not isinstance(value, Whitespace):
++            m = re.match("(?s)^([^ ]*)(.*)$", value.trivia.indent)
++            if not m:
++                value.trivia.indent = indent
++            else:
++                value.trivia.indent = m.group(1) + indent + m.group(2)
++
++    def __delitem__(self, key):  # type: (Union[Key, str]) -> None
+         self.remove(key)
+ 
++    def __repr__(self):
++        return super(InlineTable, self).__repr__()
++
++    def _getstate(self, protocol=3):
++        return (self._value, self._trivia)
++
+ 
+-class String(Item):
++class String(unicode, Item):
+     """
+     A string literal.
+     """
+ 
++    def __new__(cls, t, value, original, trivia):
++        return super(String, cls).__new__(cls, value)
++
+     def __init__(
+-        self, t, value, original, trivia
++        self, t, _, original, trivia
+     ):  # type: (StringType, str, original, Trivia) -> None
+         super(String, self).__init__(trivia)
+ 
+         self._t = t
+-        self._value = value
+         self._original = original
+ 
+     @property
+@@ -599,23 +1234,45 @@ class String(Item):
+ 
+     @property
+     def value(self):  # type: () -> str
+-        return self._value
++        return self
+ 
+     def as_string(self):  # type: () -> str
+         return "{}{}{}".format(self._t.value, decode(self._original), self._t.value)
+ 
++    def __add__(self, other):
++        result = super(String, self).__add__(other)
++
++        return self._new(result)
++
++    def __sub__(self, other):
++        result = super(String, self).__sub__(other)
++
++        return self._new(result)
+ 
+-class AoT(Item):
++    def _new(self, result):
++        return String(self._t, result, result, self._trivia)
++
++    def _getstate(self, protocol=3):
++        return self._t, unicode(self), self._original, self._trivia
++
++
++class AoT(Item, list):
+     """
+     An array of table literal
+     """
+ 
+-    def __init__(self, body, name=None):  # type: (List[Table], Optional[str]) -> None
+-        self.name = None
+-        self._body = body
++    def __init__(
++        self, body, name=None, parsed=False
++    ):  # type: (List[Table], Optional[str], bool) -> None
++        self.name = name
++        self._body = []
++        self._parsed = parsed
+ 
+         super(AoT, self).__init__(Trivia(trail=""))
+ 
++        for table in body:
++            self.append(table)
++
+     @property
+     def body(self):  # type: () -> List[Table]
+         return self._body
+@@ -629,32 +1286,38 @@ class AoT(Item):
+         return [v.value for v in self._body]
+ 
+     def append(self, table):  # type: (Table) -> Table
+-        self._body.append(table)
+-
+         m = re.match("(?s)^[^ ]*([ ]+).*$", self._trivia.indent)
+-        if not m:
+-            return table
++        if m:
++            indent = m.group(1)
+ 
+-        indent = m.group(1)
++            m = re.match("(?s)^([^ ]*)(.*)$", table.trivia.indent)
++            if not m:
++                table.trivia.indent = indent
++            else:
++                table.trivia.indent = m.group(1) + indent + m.group(2)
+ 
+-        m = re.match("(?s)^([^ ]*)(.*)$", table.trivia.indent)
+-        if not m:
+-            table.trivia.indent = indent
+-        else:
+-            table.trivia.indent = m.group(1) + indent + m.group(2)
++        if not self._parsed and "\n" not in table.trivia.indent and self._body:
++            table.trivia.indent = "\n" + table.trivia.indent
++
++        self._body.append(table)
++
++        super(AoT, self).append(table)
+ 
+         return table
+ 
+     def as_string(self):  # type: () -> str
+         b = ""
+         for table in self._body:
+-            b += table.as_string(prefix=self.name)
++            b += table.as_string()
+ 
+         return b
+ 
+     def __repr__(self):  # type: () -> str
+         return "<AoT {}>".format(self.value)
+ 
++    def _getstate(self, protocol=3):
++        return self._body, self.name, self._parsed
++
+ 
+ class Null(Item):
+     """
+@@ -674,3 +1337,33 @@ class Null(Item):
+ 
+     def as_string(self):  # type: () -> str
+         return ""
++
++    def _getstate(self, protocol=3):
++        return tuple()
++
++
++class SingleKey(Key):
++    """A single key part of a dotted key."""
++    
++    def __init__(self, k, t=None, sep=None, original=None):
++        super(SingleKey, self).__init__(k, t, sep, False, original)
++
++
++# Custom encoders registry
++CUSTOM_ENCODERS = []
++
++
++class DottedKey(Key):
++    """A dotted key composed of multiple key parts."""
++    
++    def __init__(self, keys, sep=None):
++        if not keys:
++            raise ValueError("DottedKey must have at least one key")
++            
++        # Join all key parts with dots
++        full_key = ".".join(k.key for k in keys)
++        super(DottedKey, self).__init__(full_key, KeyType.Bare, sep, True, full_key)
++        self._keys = keys
++        
++    def as_string(self):
++        return ".".join(k.as_string() for k in self._keys)
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..07417af 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -1,40 +1,46 @@
+ # -*- coding: utf-8 -*-
+ from __future__ import unicode_literals
+ 
+-import datetime
+-import itertools
+ import re
+ import string
+ 
+-from copy import copy
+-from typing import Iterator
++from typing import Any
++from typing import Generator
++from typing import List
+ from typing import Optional
+ from typing import Tuple
++from typing import Union
+ 
+-from ._compat import PY2
+ from ._compat import chr
+ from ._compat import decode
+-from ._compat import string_escape
++from ._utils import RFC_3339_LOOSE
++from ._utils import _escaped
+ from ._utils import parse_rfc3339
+ from .container import Container
+ from .exceptions import EmptyKeyError
+ from .exceptions import EmptyTableNameError
+ from .exceptions import InternalParserError
+ from .exceptions import InvalidCharInStringError
+-from .exceptions import InvalidNumberOrDateError
+-from .exceptions import MixedArrayTypesError
++from .exceptions import InvalidControlChar
++from .exceptions import InvalidDateError
++from .exceptions import InvalidDateTimeError
++from .exceptions import InvalidNumberError
++from .exceptions import InvalidTimeError
++from .exceptions import InvalidUnicodeValueError
+ from .exceptions import ParseError
+ from .exceptions import UnexpectedCharError
+ from .exceptions import UnexpectedEofError
+ from .items import AoT
+ from .items import Array
+ from .items import Bool
++from .items import BoolType
+ from .items import Comment
+ from .items import Date
+ from .items import DateTime
+ from .items import Float
+ from .items import InlineTable
+ from .items import Integer
++from .items import Item
+ from .items import Key
+ from .items import KeyType
+ from .items import Null
+@@ -44,10 +50,18 @@ from .items import Table
+ from .items import Time
+ from .items import Trivia
+ from .items import Whitespace
++from .source import Source
+ from .toml_char import TOMLChar
+ from .toml_document import TOMLDocument
+ 
+ 
++CTRL_I = 0x09  # Tab
++CTRL_J = 0x0A  # Line feed
++CTRL_M = 0x0D  # Carriage return
++CTRL_CHAR_LIMIT = 0x1F
++CHR_DEL = 0x7F
++
++
+ class Parser:
+     """
+     Parser for TOML documents.
+@@ -55,69 +69,73 @@ class Parser:
+ 
+     def __init__(self, string):  # type: (str) -> None
+         # Input to parse
+-        self._src = decode(string)  # type: str
+-        # Iterator used for getting characters from src.
+-        self._chars = iter([(i, TOMLChar(c)) for i, c in enumerate(self._src)])
+-        # Current byte offset into src.
+-        self._idx = 0
+-        # Current character
+-        self._current = TOMLChar("")  # type: TOMLChar
+-        # Index into src between which and idx slices will be extracted
+-        self._marker = 0
++        self._src = Source(decode(string))
+ 
+         self._aot_stack = []
+ 
+-        self.inc()
++    @property
++    def _state(self):
++        from .source import _StateHandler
++        return _StateHandler(self._src)
++
++    @property
++    def _idx(self):
++        return self._src.idx
++
++    @property
++    def _current(self):
++        return self._src.current
++
++    @property
++    def _marker(self):
++        return self._src.marker
+ 
+     def extract(self):  # type: () -> str
+         """
+         Extracts the value between marker and index
+         """
+-        if self.end():
+-            return self._src[self._marker :]
+-        else:
+-            return self._src[self._marker : self._idx]
++        return self._src.extract()
+ 
+-    def inc(self):  # type: () -> bool
++    def inc(self, exception=None):  # type: (Optional[ParseError.__class__]) -> bool
+         """
+         Increments the parser if the end of the input has not been reached.
+         Returns whether or not it was able to advance.
+         """
+-        try:
+-            self._idx, self._current = next(self._chars)
++        return self._src.inc(exception=exception)
+ 
+-            return True
+-        except StopIteration:
+-            self._idx = len(self._src)
+-            self._current = TOMLChar("\0")
+-
+-            return False
+-
+-    def inc_n(self, n):  # type: (int) -> bool
++    def inc_n(self, n, exception=None):  # type: (int, Optional[ParseError]) -> bool
+         """
+         Increments the parser by n characters
+         if the end of the input has not been reached.
+         """
+-        for _ in range(n):
+-            if not self.inc():
+-                return False
++        return self._src.inc_n(n=n, exception=exception)
+ 
+-        return True
++    def consume(self, chars, min=0, max=-1):
++        """
++        Consume chars until min/max is satisfied is valid.
++        """
++        return self._src.consume(chars=chars, min=min, max=max)
+ 
+     def end(self):  # type: () -> bool
+         """
+         Returns True if the parser has reached the end of the input.
+         """
+-        return self._idx >= len(self._src) or self._current == "\0"
++        return self._src.end()
+ 
+     def mark(self):  # type: () -> None
+         """
+         Sets the marker to the index's current position
+         """
+-        self._marker = self._idx
++        self._src.mark()
++
++    def parse_error(self, exception=ParseError, *args):
++        """
++        Creates a generic "parse error" at the current position.
++        """
++        return self._src.parse_error(exception, *args)
+ 
+     def parse(self):  # type: () -> TOMLDocument
+-        body = TOMLDocument()
++        body = TOMLDocument(True)
+ 
+         # Take all keyvals outside of tables/AoT's.
+         while not self.end():
+@@ -131,7 +149,10 @@ class Parser:
+                 break
+ 
+             key, value = item
+-            if not self._merge_ws(value, body):
++            if key is not None and key.is_dotted():
++                # We actually have a table
++                self._handle_dotted_key(body, key, value)
++            elif not self._merge_ws(value, body):
+                 body.append(key, value)
+ 
+             self.mark()
+@@ -145,9 +166,11 @@ class Parser:
+ 
+             body.append(key, value)
+ 
++        body.parsing(False)
++
+         return body
+ 
+-    def _merge_ws(self, item, container):  # type: (Item, Container) -> bool:
++    def _merge_ws(self, item, container):  # type: (Item, Container) -> bool
+         """
+         Merges the given Item with the last one currently in the given Container if
+         both are whitespace items.
+@@ -169,27 +192,6 @@ class Parser:
+ 
+         return True
+ 
+-    def parse_error(self, kind=ParseError, args=None):  # type: () -> None
+-        """
+-        Creates a generic "parse error" at the current position.
+-        """
+-        line, col = self._to_linecol(self._idx)
+-
+-        if args:
+-            return kind(line, col, *args)
+-        else:
+-            return kind(line, col)
+-
+-    def _to_linecol(self, offset):  # type: (int) -> Tuple[int, int]
+-        cur = 0
+-        for i, line in enumerate(self._src.splitlines()):
+-            if cur + len(line) + 1 > offset:
+-                return (i + 1, offset - cur)
+-
+-            cur += len(line) + 1
+-
+-        return len(self._src.splitlines()), 0
+-
+     def _is_child(self, parent, child):  # type: (str, str) -> bool
+         """
+         Returns whether a key is strictly a child of another key.
+@@ -205,9 +207,9 @@ class Parser:
+ 
+     def _split_table_name(self, name):  # type: (str) -> Generator[Key]
+         in_name = False
+-        delim = None
+         current = ""
+         t = KeyType.Bare
++        parts = 0
+         for c in name:
+             c = TOMLChar(c)
+ 
+@@ -219,14 +221,21 @@ class Parser:
+                 if not current:
+                     raise self.parse_error()
+ 
+-                yield Key(current, t=t, sep="")
++                yield Key(current.strip(), t=t, sep="", original=current)
++
++                parts += 1
+ 
+                 current = ""
+                 t = KeyType.Bare
+                 continue
+             elif c in {"'", '"'}:
+                 if in_name:
+-                    if t == KeyType.Literal and c == '"':
++                    if (
++                        t == KeyType.Literal
++                        and c == '"'
++                        or t == KeyType.Basic
++                        and c == "'"
++                    ):
+                         current += c
+                         continue
+ 
+@@ -235,17 +244,31 @@ class Parser:
+ 
+                     in_name = False
+                 else:
++                    if (
++                        current.strip()
++                        and TOMLChar(current[-1]).is_spaces()
++                        and not parts
++                    ):
++                        raise self.parse_error()
++
+                     in_name = True
+                     t = KeyType.Literal if c == "'" else KeyType.Basic
+ 
+                 continue
+             elif in_name or c.is_bare_key_char():
+                 current += c
++            elif c.is_spaces():
++                # A space is only valid at this point
++                # if it's in between parts.
++                # We store it for now and will check
++                # later if it's valid
++                current += c
++                continue
+             else:
+                 raise self.parse_error()
+ 
+-        if current:
+-            yield Key(current, t=t, sep="")
++        if current.strip():
++            yield Key(current.strip(), t=t, sep="", original=current)
+ 
+     def _parse_item(self):  # type: () -> Optional[Tuple[Optional[Key], Item]]
+         """
+@@ -253,54 +276,35 @@ class Parser:
+         if the item is value-like.
+         """
+         self.mark()
+-        saved_idx = self._save_idx()
+-
+-        while True:
+-            c = self._current
+-            if c == "\n":
+-                # Found a newline; Return all whitespace found up to this point.
+-                self.inc()
+-
+-                return (None, Whitespace(self.extract()))
+-            elif c in " \t\r":
+-                # Skip whitespace.
+-                if not self.inc():
+-                    return (None, Whitespace(self.extract()))
+-            elif c == "#":
+-                # Found a comment, parse it
+-                indent = self.extract()
+-                cws, comment, trail = self._parse_comment_trail()
+-
+-                return (None, Comment(Trivia(indent, cws, comment, trail)))
+-            elif c == "[":
+-                # Found a table, delegate to the calling function.
+-                return
+-            else:
+-                # Begining of a KV pair.
+-                # Return to beginning of whitespace so it gets included
+-                # as indentation for the KV about to be parsed.
+-                self._restore_idx(*saved_idx)
+-                key, value = self._parse_key_value(True)
+-
+-                return key, value
+-
+-    def _save_idx(self):  # type: () -> Tuple[Iterator, int, str]
+-        if PY2:
+-            return itertools.tee(self._chars)[1], self._idx, self._current
++        with self._state as state:
++            while True:
++                c = self._current
++                if c == "\n":
++                    # Found a newline; Return all whitespace found up to this point.
++                    self.inc()
+ 
+-        return copy(self._chars), self._idx, self._current
++                    return None, Whitespace(self.extract())
++                elif c in " \t\r":
++                    # Skip whitespace.
++                    if not self.inc():
++                        return None, Whitespace(self.extract())
++                elif c == "#":
++                    # Found a comment, parse it
++                    indent = self.extract()
++                    cws, comment, trail = self._parse_comment_trail()
+ 
+-    def _restore_idx(self, chars, idx, current):  # type: (Iterator, int, str) -> None
+-        if PY2:
+-            self._chars = iter(
+-                [(i + idx, TOMLChar(c)) for i, c in enumerate(self._src[idx:])]
+-            )
+-            next(self._chars)
+-        else:
+-            self._chars = chars
++                    return None, Comment(Trivia(indent, cws, comment, trail))
++                elif c == "[":
++                    # Found a table, delegate to the calling function.
++                    return
++                else:
++                    # Begining of a KV pair.
++                    # Return to beginning of whitespace so it gets included
++                    # as indentation for the KV about to be parsed.
++                    state.restore = True
++                    break
+ 
+-        self._idx = idx
+-        self._current = current
++        return self._parse_key_value(True)
+ 
+     def _parse_comment_trail(self):  # type: () -> Tuple[str, str, str]
+         """
+@@ -327,17 +331,22 @@ class Parser:
+                 self.inc()  # Skip #
+ 
+                 # The comment itself
+-                while not self.end() and not self._current.is_nl() and self.inc():
+-                    pass
++                while not self.end() and not self._current.is_nl():
++                    code = ord(self._current)
++                    if code == CHR_DEL or code <= CTRL_CHAR_LIMIT and code != CTRL_I:
++                        raise self.parse_error(InvalidControlChar, code, "comments")
++
++                    if not self.inc():
++                        break
+ 
+                 comment = self.extract()
+                 self.mark()
+ 
+                 break
+-            elif c in " \t\r,":
++            elif c in " \t\r":
+                 self.inc()
+             else:
+-                raise self.parse_error(UnexpectedCharError, (c))
++                raise self.parse_error(UnexpectedCharError, c)
+ 
+             if self.end():
+                 break
+@@ -345,15 +354,19 @@ class Parser:
+         while self._current.is_spaces() and self.inc():
+             pass
+ 
++        if self._current == "\r":
++            self.inc()
++
++        if self._current == "\n":
++            self.inc()
++
+         trail = ""
+         if self._idx != self._marker or self._current.is_ws():
+             trail = self.extract()
+ 
+         return comment_ws, comment, trail
+ 
+-    def _parse_key_value(
+-        self, parse_comment=False, inline=True
+-    ):  # type: (bool, bool) -> (Key, Item)
++    def _parse_key_value(self, parse_comment=False):  # type: (bool) -> (Key, Item)
+         # Leading indent
+         self.mark()
+ 
+@@ -364,8 +377,6 @@ class Parser:
+ 
+         # Key
+         key = self._parse_key()
+-        if not key.key.strip():
+-            raise self.parse_error(EmptyKeyError)
+ 
+         self.mark()
+ 
+@@ -373,21 +384,25 @@ class Parser:
+         while self._current.is_kv_sep() and self.inc():
+             if self._current == "=":
+                 if found_equals:
+-                    raise self.parse_error(UnexpectedCharError, ("=",))
++                    raise self.parse_error(UnexpectedCharError, "=")
+                 else:
+                     found_equals = True
+             pass
+ 
+-        key.sep = self.extract()
++        if not key.sep:
++            key.sep = self.extract()
++        else:
++            key.sep += self.extract()
+ 
+         # Value
+         val = self._parse_value()
+-
+         # Comment
+         if parse_comment:
+             cws, comment, trail = self._parse_comment_trail()
+             meta = val.trivia
+-            meta.comment_ws = cws
++            if not meta.comment_ws:
++                meta.comment_ws = cws
++
+             meta.comment = comment
+             meta.trail = trail
+         else:
+@@ -413,6 +428,7 @@ class Parser:
+         """
+         quote_style = self._current
+         key_type = None
++        dotted = False
+         for t in KeyType:
+             if t.value == quote_style:
+                 key_type = t
+@@ -428,137 +444,361 @@ class Parser:
+             pass
+ 
+         key = self.extract()
+-        self.inc()
+ 
+-        return Key(key, key_type, "")
++        if self._current == ".":
++            self.inc()
++            dotted = True
++            key += "." + self._parse_key().as_string()
++            key_type = KeyType.Bare
++        else:
++            self.inc()
++
++        return Key(key, key_type, "", dotted)
+ 
+     def _parse_bare_key(self):  # type: () -> Key
+         """
+         Parses a bare key.
+         """
++        key_type = None
++        dotted = False
++
+         self.mark()
+-        while self._current.is_bare_key_char() and self.inc():
++        while (
++            self._current.is_bare_key_char() or self._current.is_spaces()
++        ) and self.inc():
+             pass
+ 
+-        key = self.extract()
++        original = self.extract()
++        key = original.strip()
++        if not key:
++            # Empty key
++            raise self.parse_error(ParseError, "Empty key found")
++
++        if " " in key:
++            # Bare key with spaces in it
++            raise self.parse_error(ParseError, 'Invalid key "{}"'.format(key))
++
++        if self._current == ".":
++            self.inc()
++            dotted = True
++            original += "." + self._parse_key().as_string()
++            key = original.strip()
++            key_type = KeyType.Bare
++
++        return Key(key, key_type, "", dotted, original=original)
++
++    def _handle_dotted_key(
++        self, container, key, value
++    ):  # type: (Union[Container, Table], Key, Any) -> None
++        names = tuple(self._split_table_name(key.as_string()))
++        name = names[0]
++        name._dotted = True
++        if name in container:
++            if not isinstance(value, Table):
++                table = Table(Container(True), Trivia(), False, is_super_table=True)
++                _table = table
++                for i, _name in enumerate(names[1:]):
++                    if i == len(names) - 2:
++                        _name.sep = key.sep
++
++                        _table.append(_name, value)
++                    else:
++                        _name._dotted = True
++                        _table.append(
++                            _name,
++                            Table(
++                                Container(True),
++                                Trivia(),
++                                False,
++                                is_super_table=i < len(names) - 2,
++                            ),
++                        )
++
++                        _table = _table[_name]
++
++                value = table
++
++            container.append(name, value)
++
++            return
++        else:
++            table = Table(Container(True), Trivia(), False, is_super_table=True)
++            if isinstance(container, Table):
++                container.raw_append(name, table)
++            else:
++                container.append(name, table)
+ 
+-        return Key(key, sep="")
++        for i, _name in enumerate(names[1:]):
++            if i == len(names) - 2:
++                _name.sep = key.sep
++
++                table.append(_name, value)
++            else:
++                _name._dotted = True
++                if _name in table.value:
++                    table = table.value[_name]
++                else:
++                    table.append(
++                        _name,
++                        Table(
++                            Container(True),
++                            Trivia(),
++                            False,
++                            is_super_table=i < len(names) - 2,
++                        ),
++                    )
++
++                    table = table[_name]
+ 
+     def _parse_value(self):  # type: () -> Item
+         """
+         Attempts to parse a value at the current position.
+         """
+         self.mark()
++        c = self._current
+         trivia = Trivia()
+ 
+-        c = self._current
+-        if c == '"':
++        if c == StringType.SLB.value:
+             return self._parse_basic_string()
+-        elif c == "'":
++        elif c == StringType.SLL.value:
+             return self._parse_literal_string()
+-        elif c == "t" and self._src[self._idx :].startswith("true"):
+-            # Boolean: true
+-            self.inc_n(4)
++        elif c == BoolType.TRUE.value[0]:
++            return self._parse_true()
++        elif c == BoolType.FALSE.value[0]:
++            return self._parse_false()
++        elif c == "[":
++            return self._parse_array()
++        elif c == "{":
++            return self._parse_inline_table()
++        elif c in "+-" or self._peek(4) in {
++            "+inf",
++            "-inf",
++            "inf",
++            "+nan",
++            "-nan",
++            "nan",
++        }:
++            # Number
++            while self._current not in " \t\n\r#,]}" and self.inc():
++                pass
+ 
+-            return Bool(True, trivia)
+-        elif c == "f" and self._src[self._idx :].startswith("false"):
+-            # Boolean: true
+-            self.inc_n(5)
++            raw = self.extract()
+ 
+-            return Bool(False, trivia)
+-        elif c == "[":
+-            # Array
+-            elems = []  # type: List[Item]
+-            self.inc()
++            item = self._parse_number(raw, trivia)
++            if item is not None:
++                return item
+ 
+-            while self._current != "]":
+-                self.mark()
+-                while self._current.is_ws() or self._current == ",":
+-                    self.inc()
++            raise self.parse_error(InvalidNumberError)
++        elif c in string.digits:
++            # Integer, Float, Date, Time or DateTime
++            while self._current not in " \t\n\r#,]}" and self.inc():
++                pass
+ 
+-                if self._idx != self._marker:
+-                    elems.append(Whitespace(self.extract()))
++            raw = self.extract()
+ 
+-                if self._current == "]":
+-                    break
++            m = RFC_3339_LOOSE.match(raw)
++            if m:
++                if m.group(1) and m.group(5):
++                    # datetime
++                    try:
++                        dt = parse_rfc3339(raw)
++                        return DateTime(
++                            dt.year,
++                            dt.month,
++                            dt.day,
++                            dt.hour,
++                            dt.minute,
++                            dt.second,
++                            dt.microsecond,
++                            dt.tzinfo,
++                            trivia,
++                            raw,
++                        )
++                    except ValueError:
++                        raise self.parse_error(InvalidDateTimeError)
++
++                if m.group(1):
++                    try:
++                        dt = parse_rfc3339(raw)
++                        date = Date(dt.year, dt.month, dt.day, trivia, raw)
++                        self.mark()
++                        while self._current not in "\t\n\r#,]}" and self.inc():
++                            pass
++
++                        time_raw = self.extract()
++                        if not time_raw.strip():
++                            trivia.comment_ws = time_raw
++                            return date
++
++                        dt = parse_rfc3339(raw + time_raw)
++                        return DateTime(
++                            dt.year,
++                            dt.month,
++                            dt.day,
++                            dt.hour,
++                            dt.minute,
++                            dt.second,
++                            dt.microsecond,
++                            dt.tzinfo,
++                            trivia,
++                            raw + time_raw,
++                        )
++                    except ValueError:
++                        raise self.parse_error(InvalidDateError)
++
++                if m.group(5):
++                    try:
++                        t = parse_rfc3339(raw)
++                        return Time(
++                            t.hour,
++                            t.minute,
++                            t.second,
++                            t.microsecond,
++                            t.tzinfo,
++                            trivia,
++                            raw,
++                        )
++                    except ValueError:
++                        raise self.parse_error(InvalidTimeError)
+ 
+-                if self._current == "#":
+-                    cws, comment, trail = self._parse_comment_trail()
++            item = self._parse_number(raw, trivia)
++            if item is not None:
++                return item
+ 
+-                    next_ = Comment(Trivia("", cws, comment, trail))
+-                else:
+-                    next_ = self._parse_value()
++            raise self.parse_error(InvalidNumberError)
++        else:
++            raise self.parse_error(UnexpectedCharError, c)
+ 
+-                elems.append(next_)
++    def _parse_true(self):
++        return self._parse_bool(BoolType.TRUE)
+ 
+-            self.inc()
++    def _parse_false(self):
++        return self._parse_bool(BoolType.FALSE)
+ 
+-            res = Array(elems, trivia)
++    def _parse_bool(self, style):  # type: (BoolType) -> Bool
++        with self._state:
++            style = BoolType(style)
+ 
+-            if res.is_homogeneous():
+-                return res
++            # only keep parsing for bool if the characters match the style
++            # try consuming rest of chars in style
++            for c in style:
++                self.consume(c, min=1, max=1)
+ 
+-            raise self.parse_error(MixedArrayTypesError)
+-        elif c == "{":
+-            # Inline table
+-            elems = Container()
+-            self.inc()
++            return Bool(style, Trivia())
+ 
+-            while self._current != "}":
+-                self.mark()
+-                while self._current.is_spaces() or self._current == ",":
+-                    self.inc()
++    def _parse_array(self):  # type: () -> Array
++        # Consume opening bracket, EOF here is an issue (middle of array)
++        self.inc(exception=UnexpectedEofError)
+ 
+-                if self._idx != self._marker:
+-                    ws = self.extract().lstrip(",")
+-                    if ws:
+-                        elems.append(None, Whitespace(ws))
++        elems = []  # type: List[Item]
++        prev_value = None
++        while True:
++            # consume whitespace
++            mark = self._idx
++            self.consume(TOMLChar.SPACES)
++            newline = self.consume(TOMLChar.NL)
++            indent = self._src[mark : self._idx]
++            if newline:
++                elems.append(Whitespace(indent))
++                continue
+ 
+-                if self._current == "}":
+-                    break
++            # consume comment
++            if self._current == "#":
++                cws, comment, trail = self._parse_comment_trail()
++                elems.append(Comment(Trivia(indent, cws, comment, trail)))
++                continue
+ 
+-                key, val = self._parse_key_value(False, inline=True)
+-                elems.append(key, val)
++            # consume indent
++            if indent:
++                elems.append(Whitespace(indent))
++                continue
+ 
+-            self.inc()
++            # consume value
++            if not prev_value:
++                try:
++                    elems.append(self._parse_value())
++                    prev_value = True
++                    continue
++                except UnexpectedCharError:
++                    pass
+ 
+-            return InlineTable(elems, trivia)
+-        elif c in string.digits + "+-" or self._peek(4) in {
+-            "+inf",
+-            "-inf",
+-            "inf",
+-            "+nan",
+-            "-nan",
+-            "nan",
+-        }:
+-            # Integer, Float, Date, Time or DateTime
+-            while self._current not in " \t\n\r#,]}" and self.inc():
+-                pass
++            # consume comma
++            if prev_value and self._current == ",":
++                self.inc(exception=UnexpectedEofError)
++                elems.append(Whitespace(","))
++                prev_value = False
++                continue
+ 
+-            raw = self.extract()
++            # consume closing bracket
++            if self._current == "]":
++                # consume closing bracket, EOF here doesn't matter
++                self.inc()
++                break
+ 
+-            item = self._parse_number(raw, trivia)
+-            if item:
+-                return item
++            raise self.parse_error(UnexpectedCharError, self._current)
+ 
+-            try:
+-                res = parse_rfc3339(raw)
+-            except ValueError:
+-                res = None
++        try:
++            res = Array(elems, Trivia())
++        except ValueError:
++            pass
++        else:
++            return res
+ 
+-            if res is None:
+-                raise self.parse_error(InvalidNumberOrDateError)
++    def _parse_inline_table(self):  # type: () -> InlineTable
++        # consume opening bracket, EOF here is an issue (middle of array)
++        self.inc(exception=UnexpectedEofError)
+ 
+-            if isinstance(res, datetime.datetime):
+-                return DateTime(res, trivia, raw)
+-            elif isinstance(res, datetime.time):
+-                return Time(res, trivia, raw)
+-            elif isinstance(res, datetime.date):
+-                return Date(res, trivia, raw)
++        elems = Container(True)
++        trailing_comma = None
++        while True:
++            # consume leading whitespace
++            mark = self._idx
++            self.consume(TOMLChar.SPACES)
++            raw = self._src[mark : self._idx]
++            if raw:
++                elems.add(Whitespace(raw))
++
++            if not trailing_comma:
++                # None: empty inline table
++                # False: previous key-value pair was not followed by a comma
++                if self._current == "}":
++                    # consume closing bracket, EOF here doesn't matter
++                    self.inc()
++                    break
++
++                if (
++                    trailing_comma is False
++                    or trailing_comma is None
++                    and self._current == ","
++                ):
++                    # Either the previous key-value pair was not followed by a comma
++                    # or the table has an unexpected leading comma.
++                    raise self.parse_error(UnexpectedCharError, self._current)
+             else:
+-                raise self.parse_error(InvalidNumberOrDateError)
+-        else:
+-            raise self.parse_error(UnexpectedCharError, (c))
++                # True: previous key-value pair was followed by a comma
++                if self._current == "}" or self._current == ",":
++                    raise self.parse_error(UnexpectedCharError, self._current)
++
++            key, val = self._parse_key_value(False)
++            if key.is_dotted():
++                self._handle_dotted_key(elems, key, val)
++            else:
++                elems.add(key, val)
++
++            # consume trailing whitespace
++            mark = self._idx
++            self.consume(TOMLChar.SPACES)
++            raw = self._src[mark : self._idx]
++            if raw:
++                elems.add(Whitespace(raw))
++
++            # consume trailing comma
++            trailing_comma = self._current == ","
++            if trailing_comma:
++                # consume closing bracket, EOF here is an issue (middle of inline table)
++                self.inc(exception=UnexpectedEofError)
++
++        return InlineTable(elems, Trivia())
+ 
+     def _parse_number(self, raw, trivia):  # type: (str, Trivia) -> Optional[Item]
+         # Leading zeros are not allowed
+@@ -570,7 +810,7 @@ class Parser:
+         if (
+             len(raw) > 1
+             and raw.startswith("0")
+-            and not raw.startswith(("0.", "0o", "0x", "0b"))
++            and not raw.startswith(("0.", "0o", "0x", "0b", "0e"))
+         ):
+             return
+ 
+@@ -606,158 +846,175 @@ class Parser:
+             except ValueError:
+                 return
+ 
+-    def _parse_literal_string(self):  # type: () -> Item
+-        return self._parse_string("'")
++    def _parse_literal_string(self):  # type: () -> String
++        with self._state:
++            return self._parse_string(StringType.SLL)
++
++    def _parse_basic_string(self):  # type: () -> String
++        with self._state:
++            return self._parse_string(StringType.SLB)
++
++    def _parse_escaped_char(self, multiline):
++        if multiline and self._current.is_ws():
++            # When the last non-whitespace character on a line is
++            # a \, it will be trimmed along with all whitespace
++            # (including newlines) up to the next non-whitespace
++            # character or closing delimiter.
++            # """\
++            #     hello \
++            #     world"""
++            tmp = ""
++            while self._current.is_ws():
++                tmp += self._current
++                # consume the whitespace, EOF here is an issue
++                # (middle of string)
++                self.inc(exception=UnexpectedEofError)
++                continue
+ 
+-    def _parse_basic_string(self):  # type: () -> Item
+-        return self._parse_string('"')
++            # the escape followed by whitespace must have a newline
++            # before any other chars
++            if "\n" not in tmp:
++                raise self.parse_error(InvalidCharInStringError, self._current)
+ 
+-    def _parse_string(self, delim):  # type: (str) -> Item
+-        # TODO: handle escaping
+-        multiline = False
+-        value = ""
++            return ""
+ 
+-        if delim == "'":
+-            str_type = StringType.SLL
+-        else:
+-            str_type = StringType.SLB
++        if self._current in _escaped:
++            c = _escaped[self._current]
+ 
+-        # Skip opening delim
+-        if not self.inc():
+-            return self.parse_error(UnexpectedEofError)
++            # consume this char, EOF here is an issue (middle of string)
++            self.inc(exception=UnexpectedEofError)
+ 
+-        if self._current == delim:
+-            self.inc()
++            return c
+ 
+-            if self._current == delim:
+-                multiline = True
+-                if delim == "'":
+-                    str_type = StringType.MLL
+-                else:
+-                    str_type = StringType.MLB
++        if self._current in {"u", "U"}:
++            # this needs to be a unicode
++            u, ue = self._peek_unicode(self._current == "U")
++            if u is not None:
++                # consume the U char and the unicode value
++                self.inc_n(len(ue) + 1)
+ 
+-                if not self.inc():
+-                    return self.parse_error(UnexpectedEofError)
+-            else:
+-                # Empty string
+-                return String(str_type, "", "", Trivia())
++                return u
+ 
+-        self.mark()
+-        if self._current == "\n":
+-            # The first new line should be discarded
+-            self.inc()
++            raise self.parse_error(InvalidUnicodeValueError)
+ 
+-        previous = None
+-        escaped = False
+-        while True:
+-            if previous != "\\" and self._current == delim:
+-                val = self.extract()
++        raise self.parse_error(InvalidCharInStringError, self._current)
+ 
+-                if multiline:
+-                    stop = True
+-                    for _ in range(3):
+-                        if self._current != delim:
+-                            # Not a triple quote, leave in result as-is.
+-                            stop = False
++    def _parse_string(self, delim):  # type: (StringType) -> String
++        # only keep parsing for string if the current character matches the delim
++        if self._current != delim.unit:
++            raise self.parse_error(
++                InternalParserError,
++                "Invalid character for string type {}".format(delim),
++            )
+ 
+-                            # Adding back the quote character
+-                            value += delim
+-                            break
++        # consume the opening/first delim, EOF here is an issue
++        # (middle of string or middle of delim)
++        self.inc(exception=UnexpectedEofError)
+ 
+-                        self.inc()  # TODO: Handle EOF
++        if self._current == delim.unit:
++            # consume the closing/second delim, we do not care if EOF occurs as
++            # that would simply imply an empty single line string
++            if not self.inc() or self._current != delim.unit:
++                # Empty string
++                return String(delim, "", "", Trivia())
+ 
+-                    if not stop:
+-                        continue
+-                else:
+-                    self.inc()
++            # consume the third delim, EOF here is an issue (middle of string)
++            self.inc(exception=UnexpectedEofError)
+ 
+-                return String(str_type, value, val, Trivia())
+-            else:
+-                escape_vals = {
+-                    "b": "\b",
+-                    "t": "\t",
+-                    "n": "\n",
+-                    "f": "\f",
+-                    "r": "\r",
+-                    "\\": "\\",
+-                    '"': '"',
+-                }
+-                if previous == "\\" and self._current.is_ws() and multiline:
+-                    while self._current.is_ws():
+-                        previous = self._current
++            delim = delim.toggle()  # convert delim to multi delim
+ 
+-                        self.inc()
+-                        continue
++        self.mark()  # to extract the original string with whitespace and all
++        value = ""
+ 
+-                    if self._current == delim:
+-                        continue
++        # A newline immediately following the opening delimiter will be trimmed.
++        if delim.is_multiline() and self._current == "\n":
++            # consume the newline, EOF here is an issue (middle of string)
++            self.inc(exception=UnexpectedEofError)
+ 
+-                if previous == "\\":
+-                    if self._current == "\\" and not escaped:
+-                        if not str_type.is_literal():
+-                            escaped = True
+-                        else:
+-                            value += self._current
++        escaped = False  # whether the previous key was ESCAPE
++        while True:
++            code = ord(self._current)
++            if (
++                delim.is_singleline()
++                and not escaped
++                and (code == CHR_DEL or code <= CTRL_CHAR_LIMIT and code != CTRL_I)
++            ):
++                raise self.parse_error(InvalidControlChar, code, "strings")
++            elif (
++                delim.is_multiline()
++                and not escaped
++                and (
++                    code == CHR_DEL
++                    or code <= CTRL_CHAR_LIMIT
++                    and code not in [CTRL_I, CTRL_J, CTRL_M]
++                )
++            ):
++                raise self.parse_error(InvalidControlChar, code, "strings")
++            elif not escaped and self._current == delim.unit:
++                # try to process current as a closing delim
++                original = self.extract()
++
++                close = ""
++                if delim.is_multiline():
++                    # Consume the delimiters to see if we are at the end of the string
++                    close = ""
++                    while self._current == delim.unit:
++                        close += self._current
++                        self.inc()
+ 
+-                        previous = self._current
++                    if len(close) < 3:
++                        # Not a triple quote, leave in result as-is.
++                        # Adding back the characters we already consumed
++                        value += close
++                        continue
+ 
+-                        if not self.inc():
+-                            raise self.parse_error(UnexpectedEofError)
++                    if len(close) == 3:
++                        # We are at the end of the string
++                        return String(delim, value, original, Trivia())
+ 
+-                        continue
+-                    elif self._current in escape_vals and not escaped:
+-                        if not str_type.is_literal():
+-                            value = value[:-1]
+-                            value += escape_vals[self._current]
+-                        else:
+-                            value += self._current
+-                    elif self._current in {"u", "U"} and not escaped:
+-                        # Maybe unicode
+-                        u, ue = self._peek_unicode(self._current == "U")
+-                        if u is not None:
+-                            value = value[:-1]
+-                            value += u
+-                            self.inc_n(len(ue))
+-                        else:
+-                            if not escaped and not str_type.is_literal():
+-                                raise self.parse_error(
+-                                    InvalidCharInStringError, (self._current,)
+-                                )
+-
+-                            value += self._current
+-                    else:
+-                        if not escaped and not str_type.is_literal():
+-                            raise self.parse_error(
+-                                InvalidCharInStringError, (self._current,)
+-                            )
++                    if len(close) >= 6:
++                        raise self.parse_error(InvalidCharInStringError, self._current)
+ 
+-                        value += self._current
++                    value += close[:-3]
++                    original += close[:-3]
+ 
+-                    if self._current.is_ws() and multiline and not escaped:
+-                        continue
++                    return String(delim, value, original, Trivia())
+                 else:
+-                    value += self._current
++                    # consume the closing delim, we do not care if EOF occurs as
++                    # that would simply imply the end of self._src
++                    self.inc()
+ 
+-                if escaped:
+-                    escaped = False
++                return String(delim, value, original, Trivia())
++            elif delim.is_basic() and escaped:
++                # attempt to parse the current char as an escaped value, an exception
++                # is raised if this fails
++                value += self._parse_escaped_char(delim.is_multiline())
+ 
+-                previous = self._current
+-                if not self.inc():
+-                    raise self.parse_error(UnexpectedEofError)
++                # no longer escaped
++                escaped = False
++            elif delim.is_basic() and self._current == "\\":
++                # the next char is being escaped
++                escaped = True
+ 
+-                if previous == "\\" and self._current.is_ws() and multiline:
+-                    value = value[:-1]
++                # consume this char, EOF here is an issue (middle of string)
++                self.inc(exception=UnexpectedEofError)
++            else:
++                # this is either a literal string where we keep everything as is,
++                # or this is not a special escaped char in a basic string
++                value += self._current
++
++                # consume this char, EOF here is an issue (middle of string)
++                self.inc(exception=UnexpectedEofError)
+ 
+     def _parse_table(
+-        self, parent_name=None
+-    ):  # type: (Optional[str]) -> Tuple[Key, Item]
++        self, parent_name=None, parent=None
++    ):  # type: (Optional[str], Optional[Table]) -> Tuple[Key, Union[Table, AoT]]
+         """
+         Parses a table element.
+         """
+         if self._current != "[":
+             raise self.parse_error(
+-                InternalParserError,
+-                ("_parse_table() called on non-bracket character.",),
++                InternalParserError, "_parse_table() called on non-bracket character."
+             )
+ 
+         indent = self.extract()
+@@ -773,20 +1030,54 @@ class Parser:
+ 
+             is_aot = True
+ 
+-        # Key
++        # Consume any whitespace
+         self.mark()
+-        while self._current != "]" and self.inc():
+-            if self.end():
+-                raise self.parse_error(UnexpectedEofError)
+-
++        while self._current.is_spaces() and self.inc():
+             pass
+ 
+-        name = self.extract()
++        ws_prefix = self.extract()
++
++        # Key
++        if self._current in [StringType.SLL.value, StringType.SLB.value]:
++            delimiter = (
++                StringType.SLL
++                if self._current == StringType.SLL.value
++                else StringType.SLB
++            )
++            name = self._parse_string(delimiter)
++            name = "{delimiter}{name}{delimiter}".format(
++                delimiter=delimiter.value, name=name
++            )
++
++            self.mark()
++            while self._current != "]" and self.inc():
++                if self.end():
++                    raise self.parse_error(UnexpectedEofError)
++
++                pass
++
++            ws_suffix = self.extract()
++            name += ws_suffix
++        else:
++            self.mark()
++            while self._current != "]" and self.inc():
++                if self.end():
++                    raise self.parse_error(UnexpectedEofError)
++
++                pass
++
++            name = self.extract()
++
++        name = ws_prefix + name
++
+         if not name.strip():
+             raise self.parse_error(EmptyTableNameError)
+ 
+         key = Key(name, sep="")
+         name_parts = tuple(self._split_table_name(name))
++        if any(" " in part.key.strip() and part.is_bare() for part in name_parts):
++            raise self.parse_error(ParseError, 'Invalid table name "{}"'.format(name))
++
+         missing_table = False
+         if parent_name:
+             parent_name_parts = tuple(self._split_table_name(parent_name))
+@@ -798,7 +1089,7 @@ class Parser:
+ 
+         name_parts = name_parts[len(parent_name_parts) :]
+ 
+-        values = Container()
++        values = Container(True)
+ 
+         self.inc()  # Skip closing bracket
+         if is_aot:
+@@ -808,6 +1099,13 @@ class Parser:
+         cws, comment, trail = self._parse_comment_trail()
+ 
+         result = Null()
++        table = Table(
++            values,
++            Trivia(indent, cws, comment, trail),
++            is_aot,
++            name=name,
++            display_name=name,
++        )
+ 
+         if len(name_parts) > 1:
+             if missing_table:
+@@ -817,24 +1115,22 @@ class Parser:
+                 #
+                 # So we have to create the parent tables
+                 table = Table(
+-                    Container(),
++                    Container(True),
+                     Trivia(indent, cws, comment, trail),
+-                    is_aot and name_parts[0] in self._aot_stack,
++                    is_aot and name_parts[0].key in self._aot_stack,
+                     is_super_table=True,
+                     name=name_parts[0].key,
+                 )
+ 
+                 result = table
+                 key = name_parts[0]
+-                if is_aot and name_parts[0] not in self._aot_stack:
+-                    self._aot_stack.append(name_parts[0])
+ 
+                 for i, _name in enumerate(name_parts[1:]):
+                     if _name in table:
+                         child = table[_name]
+                     else:
+                         child = Table(
+-                            Container(),
++                            Container(True),
+                             Trivia(indent, cws, comment, trail),
+                             is_aot and i == len(name_parts[1:]) - 1,
+                             is_super_table=i < len(name_parts[1:]) - 1,
+@@ -843,14 +1139,12 @@ class Parser:
+                         )
+ 
+                     if is_aot and i == len(name_parts[1:]) - 1:
+-                        table.append(_name, AoT([child], name=table.name))
++                        table.append(_name, AoT([child], name=table.name, parsed=True))
+                     else:
+                         table.append(_name, child)
+ 
+                     table = child
+                     values = table.value
+-                    if is_aot and _name not in self._aot_stack:
+-                        self._aot_stack.append(_name)
+         else:
+             if name_parts:
+                 key = name_parts[0]
+@@ -860,15 +1154,18 @@ class Parser:
+             if item:
+                 _key, item = item
+                 if not self._merge_ws(item, values):
+-                    values.append(_key, item)
++                    if _key is not None and _key.is_dotted():
++                        self._handle_dotted_key(table, _key, item)
++                    else:
++                        table.raw_append(_key, item)
+             else:
+                 if self._current == "[":
+                     is_aot_next, name_next = self._peek_table()
+ 
+                     if self._is_child(name, name_next):
+-                        key_next, table_next = self._parse_table(name)
++                        key_next, table_next = self._parse_table(name, table)
+ 
+-                        values.append(key_next, table_next)
++                        table.raw_append(key_next, table_next)
+ 
+                         # Picking up any sibling
+                         while not self.end():
+@@ -877,42 +1174,22 @@ class Parser:
+                             if not self._is_child(name, name_next):
+                                 break
+ 
+-                            key_next, table_next = self._parse_table(name)
+-
+-                            values.append(key_next, table_next)
+-                    elif self._is_child(name_next, name):
+-                        # First [a.b.c] and later only [a] for instance
+-                        break
+-                    else:
+-                        table = Table(
+-                            values,
+-                            Trivia(indent, cws, comment, trail),
+-                            is_aot,
+-                            name=name,
+-                            display_name=name,
+-                        )
++                            key_next, table_next = self._parse_table(name, table)
+ 
+-                        result = table
+-                        if is_aot and (
+-                            not self._aot_stack or name != self._aot_stack[-1]
+-                        ):
+-                            result = self._parse_aot(table, name)
++                            table.raw_append(key_next, table_next)
+ 
+                     break
+                 else:
+                     raise self.parse_error(
+                         InternalParserError,
+-                        ("_parse_item() returned None on a non-bracket character.",),
++                        "_parse_item() returned None on a non-bracket character.",
+                     )
+ 
+         if isinstance(result, Null):
+-            result = Table(
+-                values,
+-                Trivia(indent, cws, comment, trail),
+-                is_aot,
+-                name=name,
+-                display_name=name,
+-            )
++            result = table
++
++            if is_aot and (not self._aot_stack or name != self._aot_stack[-1]):
++                result = self._parse_aot(result, name)
+ 
+         return key, result
+ 
+@@ -924,34 +1201,29 @@ class Parser:
+         Returns the name of the table about to be parsed,
+         as well as whether it is part of an AoT.
+         """
+-        # Save initial state
+-        idx = self._save_idx()
+-        marker = self._marker
+-
+-        if self._current != "[":
+-            raise self.parse_error(
+-                InternalParserError, ("_peek_table() entered on non-bracket character")
+-            )
++        # we always want to restore after exiting this scope
++        with self._state(save_marker=True, restore=True):
++            if self._current != "[":
++                raise self.parse_error(
++                    InternalParserError,
++                    "_peek_table() entered on non-bracket character",
++                )
+ 
+-        # AoT
+-        self.inc()
+-        is_aot = False
+-        if self._current == "[":
++            # AoT
+             self.inc()
+-            is_aot = True
+-
+-        self.mark()
++            is_aot = False
++            if self._current == "[":
++                self.inc()
++                is_aot = True
+ 
+-        while self._current != "]" and self.inc():
+-            table_name = self.extract()
++            self.mark()
+ 
+-        # Restore initial state
+-        self._restore_idx(*idx)
+-        self._marker = marker
++            while self._current != "]" and self.inc():
++                table_name = self.extract()
+ 
+-        return is_aot, table_name
++            return is_aot, table_name
+ 
+-    def _parse_aot(self, first, name_first):  # type: (Item, str) -> Item
++    def _parse_aot(self, first, name_first):  # type: (Table, str) -> AoT
+         """
+         Parses all siblings of the provided table first and bundles them into
+         an AoT.
+@@ -968,7 +1240,7 @@ class Parser:
+ 
+         self._aot_stack.pop()
+ 
+-        return AoT(payload)
++        return AoT(payload, parsed=True)
+ 
+     def _peek(self, n):  # type: (int) -> str
+         """
+@@ -976,57 +1248,53 @@ class Parser:
+ 
+         n is the max number of characters that will be peeked.
+         """
+-        idx = self._save_idx()
+-        buf = ""
+-        for _ in range(n):
+-            if self._current not in " \t\n\r#,]}":
+-                buf += self._current
+-                self.inc()
+-                continue
+-
+-            break
+-
+-        self._restore_idx(*idx)
++        # we always want to restore after exiting this scope
++        with self._state(restore=True):
++            buf = ""
++            for _ in range(n):
++                if self._current not in " \t\n\r#,]}":
++                    buf += self._current
++                    self.inc()
++                    continue
+ 
+-        return buf
++                break
++            return buf
+ 
+-    def _peek_unicode(self, is_long):  # type: () -> Tuple[bool, str]
++    def _peek_unicode(
++        self, is_long
++    ):  # type: (bool) -> Tuple[Optional[str], Optional[str]]
+         """
+         Peeks ahead non-intrusively by cloning then restoring the
+         initial state of the parser.
+ 
+         Returns the unicode value is it's a valid one else None.
+         """
+-        # Save initial state
+-        idx = self._save_idx()
+-        marker = self._marker
+-
+-        if self._current not in {"u", "U"}:
+-            raise self.parse_error(
+-                InternalParserError, ("_peek_unicode() entered on non-unicode value")
+-            )
++        # we always want to restore after exiting this scope
++        with self._state(save_marker=True, restore=True):
++            if self._current not in {"u", "U"}:
++                raise self.parse_error(
++                    InternalParserError, "_peek_unicode() entered on non-unicode value"
++                )
+ 
+-        # AoT
+-        self.inc()  # Dropping prefix
+-        self.mark()
++            self.inc()  # Dropping prefix
++            self.mark()
+ 
+-        if is_long:
+-            chars = 8
+-        else:
+-            chars = 4
++            if is_long:
++                chars = 8
++            else:
++                chars = 4
+ 
+-        if not self.inc_n(chars):
+-            value, extracted = None, None
+-        else:
+-            extracted = self.extract()
++            if not self.inc_n(chars):
++                value, extracted = None, None
++            else:
++                extracted = self.extract()
+ 
+-            try:
+-                value = chr(int(extracted, 16))
+-            except ValueError:
+-                value = None
++                if extracted[0].lower() == "d" and extracted[1].strip("01234567"):
++                    return None, None
+ 
+-        # Restore initial state
+-        self._restore_idx(*idx)
+-        self._marker = marker
++                try:
++                    value = chr(int(extracted, 16))
++                except (ValueError, OverflowError):
++                    value = None
+ 
+-        return value, extracted
++            return value, extracted
+diff --git a/tomlkit/toml_char.py b/tomlkit/toml_char.py
+index 8d8d660..079b16c 100644
+--- a/tomlkit/toml_char.py
++++ b/tomlkit/toml_char.py
+@@ -1,47 +1,67 @@
+ import string
+ 
++from ._compat import PY2
+ from ._compat import unicode
+ 
+ 
++if PY2:
++    from functools32 import lru_cache
++else:
++    from functools import lru_cache
++
++
+ class TOMLChar(unicode):
+     def __init__(self, c):
+         super(TOMLChar, self).__init__()
+ 
+         if len(self) > 1:
+-            raise ValueError("A TOML character must me of length 1")
++            raise ValueError("A TOML character must be of length 1")
++
++    BARE = string.ascii_letters + string.digits + "-_"
++    KV = "= \t"
++    NUMBER = string.digits + "+-_.e"
++    SPACES = " \t"
++    NL = "\n\r"
++    WS = SPACES + NL
+ 
++    @lru_cache(maxsize=None)
+     def is_bare_key_char(self):  # type: () -> bool
+         """
+         Whether the character is a valid bare key name or not.
+         """
+-        return self in string.ascii_letters + string.digits + "-" + "_"
++        return self in self.BARE
+ 
++    @lru_cache(maxsize=None)
+     def is_kv_sep(self):  # type: () -> bool
+         """
+         Whether the character is a valid key/value separator ot not.
+         """
+-        return self in "= \t"
++        return self in self.KV
+ 
++    @lru_cache(maxsize=None)
+     def is_int_float_char(self):  # type: () -> bool
+         """
+         Whether the character if a valid integer or float value character or not.
+         """
+-        return self in string.digits + "+" + "-" + "_" + "." + "e"
++        return self in self.NUMBER
+ 
++    @lru_cache(maxsize=None)
+     def is_ws(self):  # type: () -> bool
+         """
+         Whether the character is a whitespace character or not.
+         """
+-        return self in " \t\r\n"
++        return self in self.WS
+ 
++    @lru_cache(maxsize=None)
+     def is_nl(self):  # type: () -> bool
+         """
+         Whether the character is a new line character or not.
+         """
+-        return self in "\n\r"
++        return self in self.NL
+ 
++    @lru_cache(maxsize=None)
+     def is_spaces(self):  # type: () -> bool
+         """
+         Whether the character is a space or not
+         """
+-        return self in " \t"
++        return self in self.SPACES
