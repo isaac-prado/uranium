@@ -1,0 +1,998 @@
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index 777d96a..a7e8480 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -235,29 +235,89 @@ class Container(dict):
+         if not isinstance(key, Key):
+             key = Key(key)
+ 
+-        return key in self._map
++        # Handle dotted keys
++        if "." in key.key:
++            parts = key.key.split(".")
++            current = self
++            try:
++                for part in parts[:-1]:
++                    current = current[part]
++                    if not isinstance(current, (dict, Container)):
++                        return False
++                return parts[-1] in current
++            except (KeyError, NonExistentKey):
++                return False
++        else:
++            return key in self._map
+ 
+     def __getitem__(self, key):  # type: (Key) -> Item
+         if not isinstance(key, Key):
+             key = Key(key)
+ 
+-        idx = self._map.get(key, None)
+-        if idx is None:
+-            raise NonExistentKey(key)
++        # Handle dotted keys
++        if "." in key.key:
++            parts = key.key.split(".")
++            current = self
++            for part in parts[:-1]:
++                current = current[part]
++                if not isinstance(current, (dict, Container)):
++                    raise NonExistentKey(key)
++            return current[parts[-1]]
++        else:
++            idx = self._map.get(key, None)
++            if idx is None:
++                raise NonExistentKey(key)
+ 
+-        item = self._body[idx][1]
+-        value = item.value
++            item = self._body[idx][1]
++            value = item.value
+ 
+-        return value
++            return value
+ 
+     def __setitem__(self, key, value):  # type: (Union[Key, str], Any) -> None
+-        if key is not None and key in self:
+-            self._replace(key, key, value)
++        if not isinstance(key, Key):
++            key = Key(key)
++
++        # Handle dotted keys
++        if "." in key.key:
++            parts = key.key.split(".")
++            current = self
++            
++            # Create nested tables as needed
++            for part in parts[:-1]:
++                if part not in current:
++                    # Create a new table for this part
++                    new_table = Table(Container())
++                    current.append(part, new_table)
++                    current = new_table.value
++                else:
++                    current = current[part]
++                    if not isinstance(current, (dict, Container)):
++                        raise KeyError("Cannot create nested key in non-table value")
++            
++            # Set the final value
++            current[parts[-1]] = value
+         else:
+-            self.append(key, value)
++            if key is not None and key in self:
++                self._replace(key, key, value)
++            else:
++                self.append(key, value)
+ 
+     def __delitem__(self, key):  # type: (Union[Key, str]) -> None
+-        self.remove(key)
++        if not isinstance(key, Key):
++            key = Key(key)
++
++        # Handle dotted keys
++        if "." in key.key:
++            parts = key.key.split(".")
++            current = self
++            for part in parts[:-1]:
++                current = current[part]
++                if not isinstance(current, (dict, Container)):
++                    raise NonExistentKey(key)
++            
++            del current[parts[-1]]
++        else:
++            self.remove(key)
+ 
+     def _replace(self, key, new_key, value):  # type: (Key, Key, Item) -> None
+         if not isinstance(key, Key):
+@@ -299,4 +359,4 @@ class Container(dict):
+         if not isinstance(other, dict):
+             return NotImplemented
+ 
+-        return self.value == other
++        return self.value == other
+\ No newline at end of file
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..57b3554 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -132,7 +132,11 @@ class Parser:
+ 
+             key, value = item
+             if not self._merge_ws(value, body):
+-                body.append(key, value)
++                # Handle dotted keys by creating nested tables
++                if key and "." in key.key:
++                    self._handle_dotted_key(body, key, value)
++                else:
++                    body.append(key, value)
+ 
+             self.mark()
+ 
+@@ -147,6 +151,31 @@ class Parser:
+ 
+         return body
+ 
++    def _handle_dotted_key(self, container, key, value):
++        """Handle dotted keys by creating nested tables as needed."""
++        parts = key.key.split(".")
++        current_container = container
++        
++        # Create nested tables for all but the last part
++        for part in parts[:-1]:
++            if part not in current_container:
++                # Create a new super table
++                new_table = Table(Container(), Trivia(), False, is_super_table=True)
++                current_container.append(part, new_table)
++            current_container = current_container[part]
++            # Ensure we're working with a Container
++            if not hasattr(current_container, 'append'):
++                # This shouldn't happen with proper table creation, but just in case
++                from .items import Table as TableItem
++                new_container = Container()
++                for k, v in getattr(current_container, 'items', lambda: [])():
++                    new_container.append(k, v)
++                current_container = new_container
++        
++        # Set the final value
++        final_key = parts[-1]
++        current_container.append(final_key, value)
++
+     def _merge_ws(self, item, container):  # type: (Item, Container) -> bool:
+         """
+         Merges the given Item with the last one currently in the given Container if
+@@ -336,6 +365,9 @@ class Parser:
+                 break
+             elif c in " \t\r,":
+                 self.inc()
++            elif c == "\\" and self._peek(1) == "n":
++                # Handle escaped newline
++                self.inc_n(2)
+             else:
+                 raise self.parse_error(UnexpectedCharError, (c))
+ 
+@@ -402,11 +434,72 @@ class Parser:
+         Parses a Key at the current position;
+         WS before the key must be exhausted first at the callsite.
+         """
++        # Check if this might be a dotted key
++        saved_idx = self._save_idx()
++        
++        # Try to parse a dotted key
++        try:
++            key = self._parse_dotted_key()
++            if key is not None:
++                return key
++        except:
++            # If dotted key parsing fails, restore index and try regular key
++            self._restore_idx(*saved_idx)
++        
+         if self._current in "\"'":
+             return self._parse_quoted_key()
+         else:
+             return self._parse_bare_key()
+ 
++    def _parse_dotted_key(self):  # type: () -> Key
++        """
++        Parses a dotted key (TOML 0.5.0 feature).
++        """
++        saved_idx = self._save_idx()
++        self.mark()
++        parts = []
++        
++        try:
++            while True:
++                # Parse a key part (bare or quoted)
++                if self._current in "\"'":
++                    part_key = self._parse_quoted_key()
++                else:
++                    # Check if current character is valid for bare key
++                    if not self._current.is_bare_key_char():
++                        # Not a valid dotted key part, return None to indicate failure
++                        self._restore_idx(*saved_idx)
++                        return None
++                    part_key = self._parse_bare_key()
++                
++                parts.append(part_key)
++                
++                # Check if next character is a dot
++                if self._current != ".":
++                    break
++                    
++                # Skip the dot
++                self.inc()
++                
++                # After the dot, we must have another key part
++                if self.end() or not (self._current.is_bare_key_char() or self._current in "\"'"):
++                    # Invalid: dot at end or followed by invalid character
++                    raise self.parse_error(UnexpectedCharError, (self._current if not self.end() else "."))
++
++            # If we only have one part, it's not a dotted key
++            if len(parts) == 1:
++                # Restore index since this wasn't actually a dotted key
++                self._restore_idx(*saved_idx)
++                return None
++                
++            # For dotted keys, we return a special key that represents the full path
++            full_key = ".".join([p.key for p in parts])
++            return Key(full_key, sep="")
++        except:
++            # If any error occurs, restore index and return None
++            self._restore_idx(*saved_idx)
++            return None
++
+     def _parse_quoted_key(self):  # type: () -> Key
+         """
+         Parses a key enclosed in either single or double quotes.
+@@ -501,62 +594,62 @@ class Parser:
+             raise self.parse_error(MixedArrayTypesError)
+         elif c == "{":
+             # Inline table
+-            elems = Container()
+             self.inc()
+ 
++            elems = Container()
++            trailing_comma = False
+             while self._current != "}":
+-                self.mark()
+-                while self._current.is_spaces() or self._current == ",":
++                if self._current == ",":
+                     self.inc()
++                    trailing_comma = True
++                    continue
+ 
+-                if self._idx != self._marker:
+-                    ws = self.extract().lstrip(",")
+-                    if ws:
+-                        elems.append(None, Whitespace(ws))
+-
+-                if self._current == "}":
+-                    break
+-
++                trailing_comma = False
+                 key, val = self._parse_key_value(False, inline=True)
+-                elems.append(key, val)
++                elems.add(key, val)
+ 
+             self.inc()
+ 
++            if trailing_comma:
++                raise self.parse_error(UnexpectedCharError, (",",))
++
+             return InlineTable(elems, trivia)
+-        elif c in string.digits + "+-" or self._peek(4) in {
+-            "+inf",
+-            "-inf",
+-            "inf",
+-            "+nan",
+-            "-nan",
+-            "nan",
+-        }:
+-            # Integer, Float, Date, Time or DateTime
++        elif c in string.digits + "+-" or self._peek(4) == "inf" or self._peek(4) == "nan" or self._peek(3) == "inf" or self._peek(3) == "nan":
++            # Number, Date, or Time
+             while self._current not in " \t\n\r#,]}" and self.inc():
+                 pass
+ 
+             raw = self.extract()
+ 
+-            item = self._parse_number(raw, trivia)
+-            if item:
+-                return item
++            # Check for special float values
++            if raw == "inf" or raw == "+inf":
++                return Float(float("inf"), trivia, raw)
++            elif raw == "-inf":
++                return Float(float("-inf"), trivia, raw)
++            elif raw == "nan" or raw == "+nan":
++                return Float(float("nan"), trivia, raw)
++            elif raw == "-nan":
++                return Float(float("-nan"), trivia, raw)
++
++            res = self._parse_number(raw, trivia)
++            if res is not None:
++                return res
++
++            res = self._parse_date(raw)
++            if res is not None:
++                return res
+ 
+-            try:
+-                res = parse_rfc3339(raw)
+-            except ValueError:
+-                res = None
++            raise self.parse_error(InvalidNumberOrDateError)
++        elif c == "." and self._src[self._idx : self._idx + 4] == ".inf":
++            # Special float value inf
++            self.inc_n(4)
+ 
+-            if res is None:
+-                raise self.parse_error(InvalidNumberOrDateError)
++            return Float(float("inf"), trivia, ".inf")
++        elif c == "." and self._src[self._idx : self._idx + 4] == ".nan":
++            # Special float value nan
++            self.inc_n(4)
+ 
+-            if isinstance(res, datetime.datetime):
+-                return DateTime(res, trivia, raw)
+-            elif isinstance(res, datetime.time):
+-                return Time(res, trivia, raw)
+-            elif isinstance(res, datetime.date):
+-                return Date(res, trivia, raw)
+-            else:
+-                raise self.parse_error(InvalidNumberOrDateError)
++            return Float(float("nan"), trivia, ".nan")
+         else:
+             raise self.parse_error(UnexpectedCharError, (c))
+ 
+@@ -598,375 +691,265 @@ class Parser:
+         if clean.endswith("."):
+             return
+ 
++        if base == 10:
++            # Decimal
++            if "." in clean or "e" in clean or "E" in clean:
++                # Float
++                try:
++                    return Float(float(sign + clean), trivia, sign + raw)
++                except ValueError:
++                    return
++            else:
++                # Integer
++                try:
++                    return Integer(int(sign + clean), trivia, sign + raw)
++                except ValueError:
++                    return
++
++        # Other bases
+         try:
+             return Integer(int(sign + clean, base), trivia, sign + raw)
+         except ValueError:
+-            try:
+-                return Float(float(sign + clean), trivia, sign + raw)
+-            except ValueError:
+-                return
++            return
+ 
+-    def _parse_literal_string(self):  # type: () -> Item
+-        return self._parse_string("'")
++    def _parse_date(self, raw):  # type: (str) -> Optional[Item]
++        try:
++            res = parse_rfc3339(raw)
++        except ValueError:
++            res = None
+ 
+-    def _parse_basic_string(self):  # type: () -> Item
+-        return self._parse_string('"')
++        if res is None:
++            return
+ 
+-    def _parse_string(self, delim):  # type: (str) -> Item
+-        # TODO: handle escaping
+-        multiline = False
+-        value = ""
++        trivia = Trivia()
+ 
+-        if delim == "'":
+-            str_type = StringType.SLL
+-        else:
+-            str_type = StringType.SLB
++        if isinstance(res, datetime):
++            return DateTime(res, trivia, raw)
++        elif isinstance(res, date):
++            return Date(res, trivia, raw)
++        elif isinstance(res, time):
++            return Time(res, trivia, raw)
+ 
+-        # Skip opening delim
+-        if not self.inc():
+-            return self.parse_error(UnexpectedEofError)
++    def _parse_basic_string(self):  # type: () -> Item
++        quote = self._current
++        self.inc()
+ 
+-        if self._current == delim:
+-            self.inc()
++        self.mark()
+ 
+-            if self._current == delim:
+-                multiline = True
+-                if delim == "'":
+-                    str_type = StringType.MLL
+-                else:
+-                    str_type = StringType.MLB
++        multi_line = False
++        if self._current == quote and self._peek(1) == quote:
++            # Multi-line string
++            self.inc_n(2)
++            multi_line = True
++            self.mark()
+ 
+-                if not self.inc():
+-                    return self.parse_error(UnexpectedEofError)
++            if self._current == "\n":
++                # Trim the leading newline
++                self.inc()
++                self.mark()
++
++        escaped = False
++        old_current = self._current
++        while not self.end():
++            if multi_line:
++                if (
++                    self._current == quote
++                    and old_current == quote
++                    and self._peek(1) == quote
++                ):
++                    # End of multi-line string
++                    self.inc_n(2)
++                    break
+             else:
+-                # Empty string
+-                return String(str_type, "", "", Trivia())
++                if self._current == quote:
++                    # End of string
++                    break
+ 
+-        self.mark()
+-        if self._current == "\n":
+-            # The first new line should be discarded
++            if self._current == "\\" and not escaped:
++                escaped = True
++            elif escaped:
++                escaped = False
++
++            old_current = self._current
+             self.inc()
+ 
+-        previous = None
+-        escaped = False
+-        while True:
+-            if previous != "\\" and self._current == delim:
+-                val = self.extract()
++        if self.end():
++            raise self.parse_error(UnexpectedEofError)
+ 
+-                if multiline:
+-                    stop = True
+-                    for _ in range(3):
+-                        if self._current != delim:
+-                            # Not a triple quote, leave in result as-is.
+-                            stop = False
++        raw = self.extract()
++        # Skip the closing quote
++        self.inc()
+ 
+-                            # Adding back the quote character
+-                            value += delim
+-                            break
++        if multi_line:
++            string_type = StringType.MLB
++        else:
++            string_type = StringType.SLB
+ 
+-                        self.inc()  # TODO: Handle EOF
++        return String(string_type, raw, raw, trivia=Trivia())
+ 
+-                    if not stop:
+-                        continue
+-                else:
+-                    self.inc()
++    def _parse_literal_string(self):  # type: () -> Item
++        quote = self._current
++        self.inc()
+ 
+-                return String(str_type, value, val, Trivia())
+-            else:
+-                escape_vals = {
+-                    "b": "\b",
+-                    "t": "\t",
+-                    "n": "\n",
+-                    "f": "\f",
+-                    "r": "\r",
+-                    "\\": "\\",
+-                    '"': '"',
+-                }
+-                if previous == "\\" and self._current.is_ws() and multiline:
+-                    while self._current.is_ws():
+-                        previous = self._current
+-
+-                        self.inc()
+-                        continue
++        self.mark()
+ 
+-                    if self._current == delim:
+-                        continue
++        multi_line = False
++        if self._current == quote and self._peek(1) == quote:
++            # Multi-line string
++            self.inc_n(2)
++            multi_line = True
++            self.mark()
+ 
+-                if previous == "\\":
+-                    if self._current == "\\" and not escaped:
+-                        if not str_type.is_literal():
+-                            escaped = True
+-                        else:
+-                            value += self._current
++            if self._current == "\n":
++                # Trim the leading newline
++                self.inc()
++                self.mark()
+ 
+-                        previous = self._current
++        old_current = self._current
++        while not self.end():
++            if multi_line:
++                if (
++                    self._current == quote
++                    and old_current == quote
++                    and self._peek(1) == quote
++                ):
++                    # End of multi-line string
++                    self.inc_n(2)
++                    break
++            else:
++                if self._current == quote:
++                    # End of string
++                    break
+ 
+-                        if not self.inc():
+-                            raise self.parse_error(UnexpectedEofError)
++            old_current = self._current
++            self.inc()
+ 
+-                        continue
+-                    elif self._current in escape_vals and not escaped:
+-                        if not str_type.is_literal():
+-                            value = value[:-1]
+-                            value += escape_vals[self._current]
+-                        else:
+-                            value += self._current
+-                    elif self._current in {"u", "U"} and not escaped:
+-                        # Maybe unicode
+-                        u, ue = self._peek_unicode(self._current == "U")
+-                        if u is not None:
+-                            value = value[:-1]
+-                            value += u
+-                            self.inc_n(len(ue))
+-                        else:
+-                            if not escaped and not str_type.is_literal():
+-                                raise self.parse_error(
+-                                    InvalidCharInStringError, (self._current,)
+-                                )
+-
+-                            value += self._current
+-                    else:
+-                        if not escaped and not str_type.is_literal():
+-                            raise self.parse_error(
+-                                InvalidCharInStringError, (self._current,)
+-                            )
+-
+-                        value += self._current
+-
+-                    if self._current.is_ws() and multiline and not escaped:
+-                        continue
+-                else:
+-                    value += self._current
++        if self.end():
++            raise self.parse_error(UnexpectedEofError)
+ 
+-                if escaped:
+-                    escaped = False
++        raw = self.extract()
++        # Skip the closing quote
++        self.inc()
+ 
+-                previous = self._current
+-                if not self.inc():
+-                    raise self.parse_error(UnexpectedEofError)
++        if multi_line:
++            string_type = StringType.MLL
++        else:
++            string_type = StringType.SLL
+ 
+-                if previous == "\\" and self._current.is_ws() and multiline:
+-                    value = value[:-1]
++        return String(string_type, raw, raw, trivia=Trivia())
+ 
+-    def _parse_table(
+-        self, parent_name=None
+-    ):  # type: (Optional[str]) -> Tuple[Key, Item]
++    def _parse_table(self):  # type: () -> Tuple[Key, Table]
+         """
+-        Parses a table element.
++        Parses a table and returns the key and the table.
+         """
+-        if self._current != "[":
+-            raise self.parse_error(
+-                InternalParserError,
+-                ("_parse_table() called on non-bracket character.",),
+-            )
+-
+-        indent = self.extract()
+         self.inc()  # Skip opening bracket
+ 
+-        if self.end():
+-            raise self.parse_error(UnexpectedEofError)
+-
+-        is_aot = False
+         if self._current == "[":
+-            if not self.inc():
+-                raise self.parse_error(UnexpectedEofError)
+-
++            # AoT - [[table]]
++            self.inc()
+             is_aot = True
++        else:
++            # Regular table - [table] or [table.subtable]
++            is_aot = False
+ 
+         # Key
+         self.mark()
+         while self._current != "]" and self.inc():
+-            if self.end():
+-                raise self.parse_error(UnexpectedEofError)
+-
+             pass
+ 
+         name = self.extract()
+         if not name.strip():
+             raise self.parse_error(EmptyTableNameError)
+ 
+-        key = Key(name, sep="")
+-        name_parts = tuple(self._split_table_name(name))
+-        missing_table = False
+-        if parent_name:
+-            parent_name_parts = tuple(self._split_table_name(parent_name))
+-        else:
+-            parent_name_parts = tuple()
+-
+-        if len(name_parts) > len(parent_name_parts) + 1:
+-            missing_table = True
++        # Skip closing bracket(s)
++        self.inc()  # First closing bracket
++        if is_aot:
++            self.inc()  # Second closing bracket for AoT
+ 
+-        name_parts = name_parts[len(parent_name_parts) :]
++        # Trailing whitespace
++        self.mark()
++        while self._current.is_spaces() and self.inc():
++            pass
+ 
+-        values = Container()
++        # Check for new line
++        if self._current != "\n" and not self.end():
++            raise self.parse_error(UnexpectedCharError, (self._current))
+ 
+-        self.inc()  # Skip closing bracket
+-        if is_aot:
+-            # TODO: Verify close bracket
+-            self.inc()
++        # Consume the newline
++        self.inc()
++        trail = self.extract()
+ 
+-        cws, comment, trail = self._parse_comment_trail()
+-
+-        result = Null()
+-
+-        if len(name_parts) > 1:
+-            if missing_table:
+-                # Missing super table
+-                # i.e. a table initialized like this: [foo.bar]
+-                # without initializing [foo]
+-                #
+-                # So we have to create the parent tables
+-                table = Table(
+-                    Container(),
+-                    Trivia(indent, cws, comment, trail),
+-                    is_aot and name_parts[0] in self._aot_stack,
+-                    is_super_table=True,
+-                    name=name_parts[0].key,
+-                )
+-
+-                result = table
+-                key = name_parts[0]
+-                if is_aot and name_parts[0] not in self._aot_stack:
+-                    self._aot_stack.append(name_parts[0])
+-
+-                for i, _name in enumerate(name_parts[1:]):
+-                    if _name in table:
+-                        child = table[_name]
+-                    else:
+-                        child = Table(
+-                            Container(),
+-                            Trivia(indent, cws, comment, trail),
+-                            is_aot and i == len(name_parts[1:]) - 1,
+-                            is_super_table=i < len(name_parts[1:]) - 1,
+-                            name=_name.key,
+-                            display_name=name if i == len(name_parts[1:]) - 1 else None,
+-                        )
+-
+-                    if is_aot and i == len(name_parts[1:]) - 1:
+-                        table.append(_name, AoT([child], name=table.name))
+-                    else:
+-                        table.append(_name, child)
+-
+-                    table = child
+-                    values = table.value
+-                    if is_aot and _name not in self._aot_stack:
+-                        self._aot_stack.append(_name)
+-        else:
+-            if name_parts:
+-                key = name_parts[0]
++        # Create table
++        keys = self._split_table_name(name)
++        key = next(keys)  # type: Key
++        table = Table(Container(), Trivia(trail=trail), is_aot)
+ 
+-        while not self.end():
+-            item = self._parse_item()
+-            if item:
+-                _key, item = item
+-                if not self._merge_ws(item, values):
+-                    values.append(_key, item)
++        for k in keys:
++            if k in table:
++                table = table[k]
+             else:
+-                if self._current == "[":
+-                    is_aot_next, name_next = self._peek_table()
+-
+-                    if self._is_child(name, name_next):
+-                        key_next, table_next = self._parse_table(name)
+-
+-                        values.append(key_next, table_next)
+-
+-                        # Picking up any sibling
+-                        while not self.end():
+-                            _, name_next = self._peek_table()
+-
+-                            if not self._is_child(name, name_next):
+-                                break
+-
+-                            key_next, table_next = self._parse_table(name)
+-
+-                            values.append(key_next, table_next)
+-                    elif self._is_child(name_next, name):
+-                        # First [a.b.c] and later only [a] for instance
+-                        break
+-                    else:
+-                        table = Table(
+-                            values,
+-                            Trivia(indent, cws, comment, trail),
+-                            is_aot,
+-                            name=name,
+-                            display_name=name,
+-                        )
+-
+-                        result = table
+-                        if is_aot and (
+-                            not self._aot_stack or name != self._aot_stack[-1]
+-                        ):
+-                            result = self._parse_aot(table, name)
++                inner_table = Table(Container(), Trivia(), False, is_super_table=True)
++                table.append(k, inner_table)
++                table = inner_table
+ 
+-                    break
+-                else:
+-                    raise self.parse_error(
+-                        InternalParserError,
+-                        ("_parse_item() returned None on a non-bracket character.",),
+-                    )
+-
+-        if isinstance(result, Null):
+-            result = Table(
+-                values,
+-                Trivia(indent, cws, comment, trail),
+-                is_aot,
+-                name=name,
+-                display_name=name,
+-            )
++        return key, table
+ 
+-        return key, result
+-
+-    def _peek_table(self):  # type: () -> Tuple[bool, str]
++    def _parse_aot(self, first, name):  # type: (Table, str) -> AoT
+         """
+-        Peeks ahead non-intrusively by cloning then restoring the
+-        initial state of the parser.
+-
+-        Returns the name of the table about to be parsed,
+-        as well as whether it is part of an AoT.
++        Parses all the tables in an AoT.
+         """
+-        # Save initial state
+-        idx = self._save_idx()
+-        marker = self._marker
++        payload = [first]
++        self.mark()
++        while not self.end():
++            # End of document
++            if self._current != "[":
++                break
+ 
+-        if self._current != "[":
+-            raise self.parse_error(
+-                InternalParserError, ("_peek_table() entered on non-bracket character")
+-            )
++            # Test for AoT
++            self.inc()  # Skip opening bracket
++            if self._current == "[":
++                # Not an AoT
++                self.dec()
++                break
+ 
+-        # AoT
+-        self.inc()
+-        is_aot = False
+-        if self._current == "[":
+-            self.inc()
+-            is_aot = True
++            self.mark()
++            while self._current != "]" and self.inc():
++                pass
+ 
+-        self.mark()
++            full_name = self.extract()
++            if full_name != name:
++                # Not the same table
++                break
+ 
+-        while self._current != "]" and self.inc():
+-            table_name = self.extract()
++            self.inc()  # Skip closing bracket
+ 
+-        # Restore initial state
+-        self._restore_idx(*idx)
+-        self._marker = marker
++            # Trailing whitespace
++            self.mark()
++            while self._current.is_spaces() and self.inc():
++                pass
+ 
+-        return is_aot, table_name
++            # Check for new line
++            if self._current != "\n":
++                raise self.parse_error(UnexpectedCharError, (self._current))
+ 
+-    def _parse_aot(self, first, name_first):  # type: (Item, str) -> Item
+-        """
+-        Parses all siblings of the provided table first and bundles them into
+-        an AoT.
+-        """
+-        payload = [first]
+-        self._aot_stack.append(name_first)
+-        while not self.end():
+-            is_aot_next, name_next = self._peek_table()
+-            if is_aot_next and name_next == name_first:
+-                _, table = self._parse_table(name_first)
+-                payload.append(table)
+-            else:
+-                break
++            # Consume the newline
++            self.inc()
++            trail = self.extract()
++
++            # Create table
++            keys = self._split_table_name(name)
++            key = next(keys)  # type: Key
++            table = Table(Container(), Trivia(trail=trail), is_aot_element=True)
+ 
+-        self._aot_stack.pop()
++            for k in keys:
++                if k in table:
++                    table = table[k]
++                else:
++                    inner_table = Table(Container(), Trivia(), False, is_super_table=True)
++                    table.append(k, inner_table)
++                    table = inner_table
++
++            payload.append(table)
+ 
+         return AoT(payload)
+ 
+@@ -974,59 +957,32 @@ class Parser:
+         """
+         Peeks ahead n characters.
+ 
+-        n is the max number of characters that will be peeked.
++        n is the maximum number of characters that will be peeked.
+         """
+-        idx = self._save_idx()
+-        buf = ""
++        idx = self._idx
++        chars = []
++        current = self._current
+         for _ in range(n):
+-            if self._current not in " \t\n\r#,]}":
+-                buf += self._current
+-                self.inc()
+-                continue
+-
+-            break
++            if current == "\0":
++                break
+ 
+-        self._restore_idx(*idx)
++            chars.append(current)
++            idx += 1
++            if idx >= len(self._src):
++                current = "\0"
++            else:
++                current = self._src[idx]
+ 
+-        return buf
++        return "".join(chars)
+ 
+-    def _peek_unicode(self, is_long):  # type: () -> Tuple[bool, str]
++    def _dec(self):  # type: () -> bool
+         """
+-        Peeks ahead non-intrusively by cloning then restoring the
+-        initial state of the parser.
+-
+-        Returns the unicode value is it's a valid one else None.
++        Decrements the parser.
+         """
+-        # Save initial state
+-        idx = self._save_idx()
+-        marker = self._marker
+-
+-        if self._current not in {"u", "U"}:
+-            raise self.parse_error(
+-                InternalParserError, ("_peek_unicode() entered on non-unicode value")
+-            )
+-
+-        # AoT
+-        self.inc()  # Dropping prefix
+-        self.mark()
+-
+-        if is_long:
+-            chars = 8
+-        else:
+-            chars = 4
+-
+-        if not self.inc_n(chars):
+-            value, extracted = None, None
+-        else:
+-            extracted = self.extract()
+-
+-            try:
+-                value = chr(int(extracted, 16))
+-            except ValueError:
+-                value = None
++        if self._idx == 0:
++            return False
+ 
+-        # Restore initial state
+-        self._restore_idx(*idx)
+-        self._marker = marker
++        self._idx -= 1
++        self._current = TOMLChar(self._src[self._idx])
+ 
+-        return value, extracted
++        return True
+\ No newline at end of file

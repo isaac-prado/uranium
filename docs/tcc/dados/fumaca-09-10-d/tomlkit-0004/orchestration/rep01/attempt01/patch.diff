@@ -1,0 +1,501 @@
+diff --git a/tests/examples/example.toml b/tests/examples/example.toml
+index f599919..d87522a 100644
+--- a/tests/examples/example.toml
++++ b/tests/examples/example.toml
+@@ -1,51 +1,51 @@
+-# This is a TOML document. Boom.
+ 
+-title = "TOML Example"
+ 
+-[owner]
+-name = "Tom Preston-Werner"
+-organization = "GitHub"
+-bio = "GitHub Cofounder & CEO\nLikes tater tots and beer."
+-dob = 1979-05-27T07:32:00Z # First class dates? Why not?
++title = "TOML Example"[owner]
++
++name = "Tom Preston-Werner"organization = "GitHub"bio = "GitHub Cofounder & CEO\nLikes tater tots and beer."dob = 1979-05-27T07:32:00Z # First class dates? Why not?
++
++
+ 
+ [database]
+-server = "192.168.1.1"
+-ports = [8001, 8001, 8002]
+-connection_max = 5000
+-enabled = true
+ 
+-[servers]
++server = "192.168.1.1"ports = [8001, 8001, 8002]connection_max = 5000enabled = true
++
++
+ 
+-  # You can indent as you please. Tabs or spaces. TOML don't care.
++[servers]
+   [servers.alpha]
+-  ip = "10.0.0.1"
+-  dc = "eqdc10"
++
++  ip = "10.0.0.1"  dc = "eqdc10"
+ 
+   [servers.beta]
+-  ip = "10.0.0.2"
+-  dc = "eqdc10"
+-  country = "中国" # This should be parsed as UTF-8
+ 
+-[clients]
+-data = [["gamma", "delta"], [1, 2]] # just an update to make sure parsers support it
++  ip = "10.0.0.2"  dc = "eqdc10"  country = "中国" # This should be parsed as UTF-8
+ 
+-# Line breaks are OK when inside arrays
+-hosts = [
++
++
++
++  # You can indent as you please. Tabs or spaces. TOML don't care.[clients]
++
++data = [["gamma", "delta"], [1, 2]] # just an update to make sure parsers support ithosts = [
+   "alpha",
+   "omega"
+ ]
+ 
+-# Products
+ 
+-  [[products]]
+-  name = "Hammer"
+-  sku = 738594937
++# Line breaks are OK when inside arrays
++
++
++# Products  [[products]]
++
++  name = "Hammer"  sku = 738594937
+ 
+   [[products]]
+-  name = "Nail"
+-  sku = 284758393
+-  color = "gray"
++  name = "Nail"  sku = 284758393  color = "gray"float = 3.14date = 1979-05-27time = 07:32:00
++
++
++
++
++
++
++# This is a TOML document. Boom.
+ 
+-float = 3.14
+-date = 1979-05-27
+-time = 07:32:00
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index 777d96a..f06a057 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -77,6 +77,10 @@ class Container(dict):
+         if not isinstance(item, Item):
+             item = _item(item)
+ 
++        # Handle dotted keys
++        if key is not None and hasattr(key, '_dotted_parts') and len(key._dotted_parts) > 1:
++            return self._append_dotted_key(key, item)
++
+         if isinstance(item, (AoT, Table)) and item.name is None:
+             item.name = key.key
+ 
+@@ -125,6 +129,48 @@ class Container(dict):
+ 
+         return item
+ 
++    def _append_dotted_key(self, key, item):  # type: (Key, Item) -> None
++        """
++        Handle appending items with dotted keys by creating nested structures.
++        """
++        from .api import item as _item
++        from .items import Table
++        
++        parts = key._dotted_parts
++        current_container = self
++        
++        # Navigate/create nested containers for all but the last part
++        for i, part in enumerate(parts[:-1]):
++            part_key = part.key
++            
++            # Check if this part already exists
++            if part_key in current_container:
++                existing_item = current_container[part_key]
++                # If it's not a container, we have a conflict
++                if not isinstance(existing_item, dict):
++                    raise KeyAlreadyPresent(key)
++            else:
++                # Create a new table for this part
++                new_table = Table(Container(), Trivia(), False)
++                current_container.append(part, new_table)
++                existing_item = new_table.value
++            
++            # Move to the next level
++            current_container = existing_item
++        
++        # Add the final item to the deepest container
++        final_part = parts[-1]
++        current_container.append(final_part, item)
++        
++        # For dotted keys, we need to preserve the original key format for serialization
++        # We add a special marker to the body to indicate this was a dotted key
++        if hasattr(key, '_dotted_parts'):
++            # Store the original dotted key information
++            key._is_dotted = True
++            # Also store in the map for consistency
++            self._map[key] = len(self._body)
++        return item
++
+     def remove(self, key):  # type: (Key) -> None
+         if not isinstance(key, Key):
+             key = Key(key)
+@@ -141,70 +187,214 @@ class Container(dict):
+         if self._body:
+             return self._body[-1][1]
+ 
++    def _is_dotted_key_part(self, key):  # type: (Key) -> bool
++        """
++        Check if a key is part of a dotted key structure.
++        """
++        # Look through all keys in _map to find dotted keys that start with this key
++        for map_key in self._map.keys():
++            if (hasattr(map_key, '_dotted_parts') and 
++                len(map_key._dotted_parts) > 1 and
++                map_key._dotted_parts[0].key == key.key):
++                return True
++        return False
++
++    def _get_dotted_keys_for_prefix(self, prefix):  # type: (str) -> list
++        """
++        Get all dotted keys that start with the given prefix.
++        """
++        dotted_keys = []
++        for map_key in self._map.keys():
++            if (hasattr(map_key, '_dotted_parts') and 
++                len(map_key._dotted_parts) > 1 and
++                map_key._dotted_parts[0].key == prefix):
++                dotted_keys.append(map_key)
++        return dotted_keys
++
+     def as_string(self, prefix=None):  # type: () -> str
+         s = ""
+-        for k, v in self._body:
+-            if k is not None:
+-                if isinstance(v, Table):
+-                    if v.is_super_table():
+-                        s += v.as_string(prefix=k.as_string())
+-
+-                        continue
+-
+-                    if v.display_name is not None:
+-                        key = v.display_name
+-                    else:
+-                        key = k.as_string()
+-                        if prefix is not None:
+-                            key = prefix + "." + key
+-
+-                    open_, close = "[", "]"
+-                    if v.is_aot_element():
+-                        open_, close = "[[", "]]"
+-
+-                    cur = "{}{}{}{}{}{}{}{}".format(
+-                        v.trivia.indent,
+-                        open_,
+-                        decode(key),
+-                        close,
+-                        v.trivia.comment_ws,
+-                        decode(v.trivia.comment),
+-                        v.trivia.trail,
+-                        v.as_string(prefix=key),
+-                    )
+-                elif isinstance(v, AoT):
+-                    key = k.as_string()
+-                    if prefix is not None:
+-                        key = prefix + "." + key
+-
+-                    cur = ""
+-                    key = decode(key)
+-                    for table in v.body:
+-                        if table.is_super_table():
+-                            cur += table.as_string(prefix=key)
++        
++        # Process items in the order they appear in the map to preserve original formatting
++        processed_indices = set()
++        
++        map_items = list(self._map.items())
++        i = 0
++        while i < len(map_items):
++            key, index = map_items[i]
++            
++            # Skip processed indices to avoid duplication
++            if index in processed_indices:
++                i += 1
++                continue
++            
++            if key is None:
++                # This is a whitespace item, process it directly from body
++                if index < len(self._body):
++                    k_body, v_body = self._body[index]
++                    if k_body is None:
++                        s += v_body.as_string()
++                        processed_indices.add(index)
++            elif hasattr(key, '_dotted_parts') and len(key._dotted_parts) > 1:
++                # This is a dotted key, serialize it directly
++                parts = key._dotted_parts
++                try:
++                    # Navigate to the value
++                    current_container = self
++                    for part in parts[:-1]:
++                        current_container = current_container[part.key]
++                    
++                    # Get the actual TOML item from the container
++                    container_items = current_container._body if hasattr(current_container, '_body') else []
++                    final_item = None
++                    for item_key, item_value in container_items:
++                        if item_key is not None and item_key.key == parts[-1].key:
++                            final_item = item_value
++                            break
++                    
++                    if final_item is not None:
++                        # Serialize as dotted key=value
++                        cur = "{}{}{}{}{}{}{}".format(
++                            final_item.trivia.indent,
++                            decode(key.key),
++                            " = ",
++                            decode(final_item.as_string()),
++                            final_item.trivia.comment_ws,
++                            decode(final_item.trivia.comment),
++                            final_item.trivia.trail,
++                        )
++                        s += cur
++                        processed_indices.add(index)
++                except (KeyError, AttributeError):
++                    # If we can't find the value, skip this dotted key
++                    pass
++            else:
++                # This is a regular key or table, process from body
++                if index < len(self._body):
++                    k_body, v_body = self._body[index]
++                    if k_body is not None:
++                        # Process regular items normally
++                        if isinstance(v_body, Table):
++                            if v_body.is_super_table():
++                                s += v_body.as_string(prefix=k_body.as_string())
++                            else:
++                                if v_body.display_name is not None:
++                                    table_key = v_body.display_name
++                                else:
++                                    table_key = k_body.as_string()
++                                    if prefix is not None:
++                                        table_key = prefix + "." + table_key
++
++                                open_, close = "[", "]"
++                                if v_body.is_aot_element():
++                                    open_, close = "[[", "]]"
++
++                                cur = "{}{}{}{}{}{}{}{}".format(
++                                    v_body.trivia.indent,
++                                    open_,
++                                    decode(table_key),
++                                    close,
++                                    v_body.trivia.comment_ws,
++                                    decode(v_body.trivia.comment),
++                                    v_body.trivia.trail,
++                                    v_body.as_string(prefix=table_key),
++                                )
++                                s += cur
++                        elif isinstance(v_body, AoT):
++                            table_key = k_body.as_string()
++                            if prefix is not None:
++                                table_key = prefix + "." + table_key
++
++                            cur = ""
++                            table_key = decode(table_key)
++                            for table in v_body.body:
++                                if table.is_super_table():
++                                    cur += table.as_string(prefix=table_key)
++                                else:
++                                    cur += "{}[[{}]]{}{}{}".format(
++                                        table.trivia.indent,
++                                        table_key,
++                                        table.trivia.comment_ws,
++                                        decode(table.trivia.comment),
++                                        table.trivia.trail,
++                                    )
++                                    cur += table.as_string(prefix=table_key)
++                            s += cur
+                         else:
+-                            cur += "{}[[{}]]{}{}{}".format(
+-                                table.trivia.indent,
+-                                key,
+-                                table.trivia.comment_ws,
+-                                decode(table.trivia.comment),
+-                                table.trivia.trail,
++                            cur = "{}{}{}{}{}{}{}".format(
++                                v_body.trivia.indent,
++                                decode(k_body.as_string()),
++                                k_body.sep,
++                                decode(v_body.as_string()),
++                                v_body.trivia.comment_ws,
++                                decode(v_body.trivia.comment),
++                                v_body.trivia.trail,
+                             )
+-                            cur += table.as_string(prefix=key)
++                            s += cur
++                        processed_indices.add(index)
++            
++            i += 1
++        
++        # Process any remaining body items that weren't in the map (whitespace, etc.)
++        for j, (k_body, v_body) in enumerate(self._body):
++            if j not in processed_indices:
++                if k_body is None:
++                    # Whitespace items
++                    s += v_body.as_string()
+                 else:
+-                    cur = "{}{}{}{}{}{}{}".format(
+-                        v.trivia.indent,
+-                        decode(k.as_string()),
+-                        k.sep,
+-                        decode(v.as_string()),
+-                        v.trivia.comment_ws,
+-                        decode(v.trivia.comment),
+-                        v.trivia.trail,
+-                    )
+-            else:
+-                cur = v.as_string()
+-
+-            s += cur
++                    # Any remaining regular items
++                    if isinstance(v_body, Table):
++                        if v_body.is_super_table():
++                            s += v_body.as_string(prefix=k_body.as_string())
++                        else:
++                            if v_body.display_name is not None:
++                                table_key = v_body.display_name
++                            else:
++                                table_key = k_body.as_string()
++
++                            open_, close = "[", "]"
++                            if v_body.is_aot_element():
++                                open_, close = "[[", "]]"
++
++                            cur = "{}{}{}{}{}{}{}{}".format(
++                                v_body.trivia.indent,
++                                open_,
++                                decode(table_key),
++                                close,
++                                v_body.trivia.comment_ws,
++                                decode(v_body.trivia.comment),
++                                v_body.trivia.trail,
++                                v_body.as_string(prefix=table_key),
++                            )
++                            s += cur
++                    elif isinstance(v_body, AoT):
++                        table_key = k_body.as_string()
++
++                        cur = ""
++                        table_key = decode(table_key)
++                        for table in v_body.body:
++                            if table.is_super_table():
++                                cur += table.as_string(prefix=table_key)
++                            else:
++                                cur += "{}[[{}]]{}{}{}".format(
++                                    table.trivia.indent,
++                                    table_key,
++                                    table.trivia.comment_ws,
++                                    decode(table.trivia.comment),
++                                    table.trivia.trail,
++                                )
++                                cur += table.as_string(prefix=table_key)
++                        s += cur
++                    else:
++                        cur = "{}{}{}{}{}{}{}".format(
++                            v_body.trivia.indent,
++                            decode(k_body.as_string()),
++                            k_body.sep,
++                            decode(v_body.as_string()),
++                            v_body.trivia.comment_ws,
++                            decode(v_body.trivia.comment),
++                            v_body.trivia.trail,
++                        )
++                        s += cur
+ 
+         return s
+ 
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..72e40ca 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -402,11 +402,69 @@ class Parser:
+         Parses a Key at the current position;
+         WS before the key must be exhausted first at the callsite.
+         """
+-        if self._current in "\"'":
++        # Check if this is a dotted key
++        saved_idx = self._save_idx()
++        self.mark()
++        
++        # Look ahead to see if we have a dotted key
++        has_dot = False
++        in_string = False
++        string_delim = None
++        
++        while not self.end() and self._current not in "= \t\n\r#":
++            if self._current in "\"'":
++                if not in_string:
++                    in_string = True
++                    string_delim = self._current
++                elif self._current == string_delim:
++                    in_string = False
++                    string_delim = None
++            elif self._current == "." and not in_string:
++                has_dot = True
++                break
++            self.inc()
++        
++        # Restore position
++        self._restore_idx(*saved_idx)
++        self.mark()
++        
++        if has_dot:
++            return self._parse_dotted_key()
++        elif self._current in "\"'":
+             return self._parse_quoted_key()
+         else:
+             return self._parse_bare_key()
+ 
++    def _parse_dotted_key(self):  # type: () -> Key
++        """
++        Parses a dotted key.
++        """
++        keys = []
++        while True:
++            # Parse a single key part
++            if self._current in "\"'":
++                key_part = self._parse_quoted_key()
++            else:
++                key_part = self._parse_bare_key()
++            
++            keys.append(key_part)
++            
++            # Check if there's another part
++            if self._current == ".":
++                self.inc()  # Skip the dot
++                # Skip whitespace
++                while self._current.is_spaces() and self.inc():
++                    pass
++            else:
++                break
++        
++        # For dotted keys, we return the full key string as the key
++        # and store the individual parts in a special attribute
++        full_key = ".".join([k.key for k in keys])
++        result = Key(full_key, sep="")
++        result._dotted_parts = keys
++        return result
++
+     def _parse_quoted_key(self):  # type: () -> Key
+         """
+         Parses a key enclosed in either single or double quotes.

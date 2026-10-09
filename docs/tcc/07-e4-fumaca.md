@@ -76,3 +76,14 @@ Mesma `tomlkit-0004`, dois braços, `OPENROUTER_PROVIDER=Google`, `RUN_MAX_TURNS
 2. **Provedor (decisão 11).** O Google atendeu 162/162 chamadas com prompts de até 74 mil tokens e latência compatível (434 s de parede em 82 chamadas); o DeepInfra falhou em cadeia duas vezes em dez dias. Recomendação: **pinar o Google** para a coleta inteira, registrar no manifesto, declarar a quantização como não informada pelo endpoint e manter DeepInfra (fp4) como reserva só para o caso de o Google sair do ar, com a leva marcada. Preço por 1 M tokens: Google 0,22 (prompt) e 1,80 (saída); DeepInfra 0,30 e 1,00; o custo é dominado pelo prompt.
 3. **Limite da chave.** Subir de US$ 5 para ao menos US$ 25 antes da coleta.
 4. **Ablação do refinador (decisões 7 e 16)** continua pendente e pode rodar na mesma leva.
+
+## 8. Fumaça D (09/10/2026): 120 turnos e 8 M tokens no Google
+
+Decisão do autor de 09/10: a `tomlkit-0004` tem de ser resolvida; os tetos sobem em rodadas até um braço resolver. Rodada com `RUN_MAX_TURNS=120`, `RUN_MAX_TOKENS=8000000`, Google (`dados/fumaca-09-10-d/`). Zero perdas.
+
+| Braço | Parada | Resolvida | Testes ocultos | Regressão (`p2p`) | Turnos | Tokens | US$ | Parede (s) | Maior prompt |
+|---|---|---|---|---|---:|---:|---:|---:|---:|
+| single-agent | `budget: max_turns (120 >= 120)` | não | 5/7 | exit 1 | 120 | 5.994.735 | 1,3732 | 654 | 91.114 |
+| orchestration | `budget: max_turns (120 >= 120)` | não | 5/7 | exit 1 | 120 | 3.255.936 | 0,7799 | 549 | 62.174 |
+
+Os dois chegaram a 5 de 7 (o single-agent saiu de 0/7 com 80 turnos para 5/7 com 120) e os dois deixaram regressão na suíte visível; os dois que faltam são os mesmos da fumaça C. O custo do single-agent dobrou e meio em relação a 80 turnos (US$ 0,53 → 1,37), porque o prompt chega a 91 mil tokens por chamada. Saldo da chave depois desta rodada: US$ 1,23 de 5. **A próxima rodada (160 turnos ou mais) custa mais que o saldo**; fica para depois da recarga, e a decisão 24 (enunciado íntegro ao developer) entra antes dela, porque muda o que o orquestrado recebe e pode mudar o resultado nesta mesma tarefa.

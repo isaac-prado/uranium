@@ -1,0 +1,188 @@
+{
+  "result_schema_version": 2,
+  "harness_version": "1.0.0",
+  "evaluated_at": "2026-10-09T01:49:09+00:00",
+  "run_id": "tomlkit-0004-orchestration-r01-a01",
+  "arm": "orchestration",
+  "task_id": "tomlkit-0004",
+  "faixa": "grande",
+  "repetition": 1,
+  "base_commit": "9cd5414b169812bb04106f4dbb305cdf9ad239a0",
+  "resolved": false,
+  "resolved_blocked_by_cheat": false,
+  "oracle": {
+    "f2p_total": 7,
+    "f2p_passed": 5,
+    "f2p": {
+      "exit_code": 1,
+      "passed": 5,
+      "failed": 2,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.1,
+      "failing_node_ids": [
+        "tests/test_api.py::test_original_string_and_dumped_string_are_equal[0.5.0]",
+        "tests/test_items.py::test_items_can_be_appended_to_and_removed_from_a_table"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "p2p": {
+      "exit_code": 1,
+      "passed": 133,
+      "failed": 32,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.29,
+      "failing_node_ids": [
+        "tests/test_api.py::test_original_string_and_dumped_string_are_equal[0.5.0]",
+        "tests/test_api.py::test_original_string_and_dumped_string_are_equal[example]",
+        "tests/test_api.py::test_original_string_and_dumped_string_are_equal[fruit]",
+        "tests/test_api.py::test_original_string_and_dumped_string_are_equal[hard]",
+        "tests/test_api.py::test_original_string_and_dumped_string_are_equal[pyproject]",
+        "tests/test_api.py::test_original_string_and_dumped_string_are_equal[sections_with_same_start]",
+        "tests/test_api.py::test_parse_can_parse_valid_toml_files[example]",
+        "tests/test_build.py::test_build_example",
+        "tests/test_items.py::test_items_can_be_appended_to_and_removed_from_a_table",
+        "tests/test_toml_document.py::test_document_is_a_dict",
+        "tests/test_toml_file.py::test_toml_file",
+        "tests/test_toml_tests.py::test_valid_decode[arrays]",
+        "tests/test_toml_tests.py::test_valid_decode[comments-at-eof2]",
+        "tests/test_toml_tests.py::test_valid_decode[comments-at-eof]",
+        "tests/test_toml_tests.py::test_valid_decode[comments-everywhere]",
+        "tests/test_toml_tests.py::test_valid_decode[example]",
+        "tests/test_toml_tests.py::test_valid_decode[float-exponent]",
+        "tests/test_toml_tests.py::test_valid_decode[float-underscore]",
+        "tests/test_toml_tests.py::test_valid_decode[float]",
+        "tests/test_toml_tests.py::test_valid_decode[implicit-and-explicit-after]",
+        "tests/test_toml_tests.py::test_valid_decode[implicit-and-explicit-before]",
+        "tests/test_toml_tests.py::test_valid_decode[inline-table]",
+        "tests/test_toml_tests.py::test_valid_decode[integer]",
+        "tests/test_toml_tests.py::test_valid_decode[keys-with-dots]",
+        "tests/test_toml_tests.py::test_valid_decode[multiline-string]",
+        "tests/test_toml_tests.py::test_valid_decode[raw-multiline-string]",
+        "tests/test_toml_tests.py::test_valid_decode[raw-string]",
+        "tests/test_toml_tests.py::test_valid_decode[string-escapes]",
+        "tests/test_toml_tests.py::test_valid_decode[string-nl]",
+        "tests/test_toml_tests.py::test_valid_decode[table-array-many]",
+        "tests/test_toml_tests.py::test_valid_decode[table-array-nest]",
+        "tests/test_toml_tests.py::test_valid_decode[table-array-one]"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "regression": {
+      "exit_code": 1,
+      "passed": 133,
+      "failed": 32,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.29,
+      "failing_node_ids": [
+        "tests/test_api.py::test_original_string_and_dumped_string_are_equal[0.5.0]",
+        "tests/test_api.py::test_original_string_and_dumped_string_are_equal[example]",
+        "tests/test_api.py::test_original_string_and_dumped_string_are_equal[fruit]",
+        "tests/test_api.py::test_original_string_and_dumped_string_are_equal[hard]",
+        "tests/test_api.py::test_original_string_and_dumped_string_are_equal[pyproject]",
+        "tests/test_api.py::test_original_string_and_dumped_string_are_equal[sections_with_same_start]",
+        "tests/test_api.py::test_parse_can_parse_valid_toml_files[example]",
+        "tests/test_build.py::test_build_example",
+        "tests/test_items.py::test_items_can_be_appended_to_and_removed_from_a_table",
+        "tests/test_toml_document.py::test_document_is_a_dict",
+        "tests/test_toml_file.py::test_toml_file",
+        "tests/test_toml_tests.py::test_valid_decode[arrays]",
+        "tests/test_toml_tests.py::test_valid_decode[comments-at-eof2]",
+        "tests/test_toml_tests.py::test_valid_decode[comments-at-eof]",
+        "tests/test_toml_tests.py::test_valid_decode[comments-everywhere]",
+        "tests/test_toml_tests.py::test_valid_decode[example]",
+        "tests/test_toml_tests.py::test_valid_decode[float-exponent]",
+        "tests/test_toml_tests.py::test_valid_decode[float-underscore]",
+        "tests/test_toml_tests.py::test_valid_decode[float]",
+        "tests/test_toml_tests.py::test_valid_decode[implicit-and-explicit-after]",
+        "tests/test_toml_tests.py::test_valid_decode[implicit-and-explicit-before]",
+        "tests/test_toml_tests.py::test_valid_decode[inline-table]",
+        "tests/test_toml_tests.py::test_valid_decode[integer]",
+        "tests/test_toml_tests.py::test_valid_decode[keys-with-dots]",
+        "tests/test_toml_tests.py::test_valid_decode[multiline-string]",
+        "tests/test_toml_tests.py::test_valid_decode[raw-multiline-string]",
+        "tests/test_toml_tests.py::test_valid_decode[raw-string]",
+        "tests/test_toml_tests.py::test_valid_decode[string-escapes]",
+        "tests/test_toml_tests.py::test_valid_decode[string-nl]",
+        "tests/test_toml_tests.py::test_valid_decode[table-array-many]",
+        "tests/test_toml_tests.py::test_valid_decode[table-array-nest]",
+        "tests/test_toml_tests.py::test_valid_decode[table-array-one]"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    }
+  },
+  "cheat": {
+    "clean": false,
+    "critical_count": 1,
+    "warning_count": 1,
+    "signals": [
+      {
+        "rule": "C1",
+        "severity": "critical",
+        "file": "tests/examples/example.toml",
+        "line": null,
+        "detail": "arquivo protegido alterado (padrão 'tests/**')"
+      },
+      {
+        "rule": "C6",
+        "severity": "warning",
+        "file": "tomlkit/container.py",
+        "line": 267,
+        "detail": "exceção silenciada introduzida: except : pass"
+      }
+    ]
+  },
+  "quality": {
+    "mi_before": 22.894,
+    "mi_after": 16.765,
+    "mi_delta": -6.129,
+    "cc_mean_before": 5.851,
+    "cc_mean_after": 6.687,
+    "cc_mean_delta": 0.836,
+    "files_analyzed": 2,
+    "error": null
+  },
+  "cost": {
+    "tokens_prompt": 3215711,
+    "tokens_completion": 40225,
+    "tokens_reasoning": 0,
+    "tokens_total": 3255936,
+    "cost_usd": 0.77986142,
+    "llm_calls": 122,
+    "tool_calls": 119,
+    "wall_seconds": 548.949
+  },
+  "process": {
+    "turns": 120,
+    "test_runs": 2,
+    "tool_denials": 0,
+    "errors": 0,
+    "circuit_breaks": 2,
+    "self_recoveries": 0,
+    "stop_reason": "budget: max_turns (120 >= 120)"
+  },
+  "provenance": {
+    "model": "qwen/qwen3-coder",
+    "provider_requested": "Google",
+    "providers_served": [
+      "Google"
+    ],
+    "llm_seed": 20260821,
+    "topology": "multi_agent_roles"
+  },
+  "diff": {
+    "files_changed": 3,
+    "insertions": 340,
+    "deletions": 92,
+    "changed_files": [
+      "tests/examples/example.toml",
+      "tomlkit/container.py",
+      "tomlkit/parser.py"
+    ]
+  }
+}
