@@ -12,8 +12,6 @@ derruba estes testes — de propósito.
 
 from __future__ import annotations
 
-import json
-
 import pytest
 
 from src.arms.single_agent import SYSTEM_PROMPT as PROMPT_SINGLE
@@ -178,7 +176,7 @@ class TestManifestoRegistraOQueAfetaOOrchestration:
 
     def test_manifest_version_subiu(self, tmp_path):
         """A forma do manifesto mudou (novas chaves): a versão precisa acompanhar."""
-        assert _spec("orchestration", tmp_path).manifest("t")["manifest_version"] == 4
+        assert _spec("orchestration", tmp_path).manifest("t")["manifest_version"] == 5
 
 
 # ------------------------------------------------------------------ runtime
@@ -697,7 +695,7 @@ class TestMensagensDeProtocoloSaoUnicas:
         from src.agents.developer import _build_prompt
         from src.feedback import DIFF_VAZIO
         from src.schemas.test_report import TestReport
-        from src.state import parse_intent, tarefa_bruta
+        from src.state import parse_intent
 
         state = {
             "intent": {"context": "", "goal": "g", "phases": [],
@@ -708,8 +706,7 @@ class TestMensagensDeProtocoloSaoUnicas:
         }
         prompt = _build_prompt(state)
 
-        esperado = (tarefa_bruta("") + "\n\nIntenção estruturada:\n"
-                    + parse_intent(state).model_dump_json(indent=2))
+        esperado = "Tarefa:\n" + parse_intent(state).model_dump_json(indent=2)
         assert prompt == esperado
         assert DIFF_VAZIO not in prompt
         assert "Arquivos já modificados" not in prompt
@@ -743,63 +740,3 @@ class TestMensagensDeProtocoloSaoUnicas:
 
         publicos = {n for n in dir(fb) if not n.startswith("_") and n not in ("annotations", "TestReport")}
         assert publicos == {"DIFF_VAZIO", "suite_falhou", "feedback_de_falha", "revisao_reprovada"}
-
-
-
-# ------------------------------------------- decisão 24: enunciado íntegro
-
-
-class TestDeveloperRecebeOEnunciadoIntegro:
-    """
-    Decisão 24 (09/10/2026): a primeira mensagem do developer começa com a
-    MESMA string que o single-agent recebe como especificação, byte a byte,
-    e a intent do refinador vai depois, como anexo. Antes o developer só
-    via a paráfrase (24% a 68% menor que o enunciado, 07-e4-fumaca.md).
-    """
-
-    ENUNCIADO = "# Bug\n\nAo analisar `a = [{1]` o parser não falha.\n\nSaída esperada: erro."
-
-    def _estado(self):
-        from src.state import intent_bruta
-
-        return {
-            "raw_request": self.ENUNCIADO,
-            "intent": {"context": "ctx reescrito", "goal": "paráfrase do refinador",
-                       "phases": ["f1"], "acceptance_criteria": ["c1"],
-                       "clarifications_needed": [], "is_ready": True},
-            "changed_files": [],
-        }, intent_bruta(self.ENUNCIADO)
-
-    def test_prefixo_identico_ao_do_single_agent(self):
-        from src.agents.developer import _build_prompt
-        from src.arms.single_agent import _spec
-
-        estado, bruta = self._estado()
-        do_single = _spec({"intent": bruta})
-        do_developer = _build_prompt(estado)
-
-        assert do_developer.startswith(do_single)
-        # íntegro, não resumido: o enunciado está no `goal` da intent bruta
-        bloco = do_developer[len("Tarefa:\n"):].split("\n\nIntenção estruturada:\n")[0]
-        assert json.loads(bloco)["goal"] == self.ENUNCIADO
-
-    def test_a_intent_do_refinador_vem_como_anexo(self):
-        from src.agents.developer import _build_prompt
-
-        estado, _ = self._estado()
-        prompt = _build_prompt(estado)
-        assert "\n\nIntenção estruturada:\n" in prompt
-        assert "paráfrase do refinador" in prompt.split("Intenção estruturada:")[1]
-
-    def test_runner_e_developer_usam_a_mesma_intent_bruta(self, tmp_path):
-        """O estado inicial do runner e o prefixo do developer saem de `intent_bruta`."""
-        from src.state import intent_bruta, tarefa_bruta
-
-        assert tarefa_bruta("x").startswith("Tarefa:\n")
-        assert intent_bruta("x")["goal"] == "x" and intent_bruta("x")["is_ready"] is True
-
-    def test_developer_input_vai_ao_manifesto_so_do_orchestration(self, tmp_path):
-        from src.agents.developer import DEVELOPER_INPUT
-
-        assert _spec("orchestration", tmp_path).manifest("t")["orchestration_policy"]["developer_input"] == DEVELOPER_INPUT
-        assert _spec("single-agent", tmp_path).manifest("t")["orchestration_policy"] is None
