@@ -51,6 +51,14 @@ MAX_SEMANTIC_REJECTIONS = int(os.getenv("MAX_SEMANTIC_REJECTIONS", "2"))
 # encerrou) e o diff atual do workspace, montados pela orquestração sem
 # chamada extra ao modelo. "none": o comportamento de 19/09, conversa
 # reconstruída do zero a cada ciclo (fumaças A a F rodaram assim).
+# Teto de turnos por ciclo do developer do orchestration (decisão 25 do
+# autor, 09/10/2026). Ao atingi-lo, o developer é devolvido ao validador,
+# que roda a suíte e a revisão e lhe devolve o veredito junto com a memória
+# de trabalho; o run segue até o orçamento total. 0 desliga (fumaças A a G:
+# o developer só voltava ao validador quando ele mesmo decidia encerrar).
+DEVELOPER_CYCLE_MAX_TURNS = int(os.getenv("DEVELOPER_CYCLE_MAX_TURNS", "40"))
+if DEVELOPER_CYCLE_MAX_TURNS < 0:
+    raise ValueError("DEVELOPER_CYCLE_MAX_TURNS não pode ser negativo (0 desliga)")
 DEVELOPER_MEMORY_MODES = ("ledger", "none")
 DEVELOPER_MEMORY = os.getenv("DEVELOPER_MEMORY", "ledger").strip().lower()
 if DEVELOPER_MEMORY not in DEVELOPER_MEMORY_MODES:

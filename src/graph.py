@@ -30,7 +30,9 @@ def route_after_validator(state: WorkflowState) -> str:
     O orçamento é o que encerra o ciclo, como no driver do single-agent:
     suíte vermelha ou diff vazio voltam ao developer até ele acabar. O único
     teto próprio é o da revisão semântica, que não tem equivalente no outro
-    braço (`MAX_SEMANTIC_REJECTIONS`).
+    braço (`MAX_SEMANTIC_REJECTIONS`). Um `stop_reason` iniciado em `cycle:`
+    (teto de turnos por ciclo, decisão 25) não é orçamento: volta ao
+    developer como qualquer outra rodada não válida.
     """
     if state.get("stop_reason", "").startswith("budget"):
         return "test_generator"

@@ -332,6 +332,74 @@ class TestDeveloperMemoriaDeTrabalho:
         assert any(e["event_type"] == "memory" for e in read_events(tel.path))
 
 
+@mirror_available
+class TestDeveloperTetoPorCiclo:
+    """
+    Decisão 25 (09/10/2026): a orquestração decide quando checar. Ao bater o
+    teto do ciclo o developer volta ao validador; não é corte de orçamento.
+    """
+
+    def _nunca_para(self):
+        return FakeToolCallingLLM([
+            ai(tool_calls=[{"name": "list_files", "args": {"path": "tomlkit"}}]),
+        ])
+
+    def test_volta_ao_validador_no_teto_do_ciclo(self, ambiente, monkeypatch):
+        from src import config
+
+        monkeypatch.setattr(config, "DEVELOPER_CYCLE_MAX_TURNS", 2)
+        _, tel, montar = ambiente
+        llm = self._nunca_para()
+        montar(llm, budget=RunBudget(max_tokens=10**9, max_wall_seconds=600, max_turns=50))
+
+        out = developer(_estado(developer_memory=[]))
+
+        assert out["stop_reason"] == "cycle: max_turns_per_cycle (2 >= 2)"
+        assert llm.n_invocacoes == 2
+        assert out["turn_count"] == 2
+        assert out["developer_memory"][0]["parada"].startswith("cycle:")
+        assert "circuit_break" not in {e["event_type"] for e in read_events(tel.path)}
+
+    def test_zero_desliga_o_teto(self, ambiente, monkeypatch):
+        from src import config
+
+        monkeypatch.setattr(config, "DEVELOPER_CYCLE_MAX_TURNS", 0)
+        _, _, montar = ambiente
+        llm = self._nunca_para()
+        montar(llm, budget=RunBudget(max_tokens=10**9, max_wall_seconds=600, max_turns=5))
+
+        out = developer(_estado(developer_memory=[]))
+
+        assert out["stop_reason"].startswith("budget: max_turns")
+        assert llm.n_invocacoes == 5
+
+    def test_orcamento_total_prevalece_sobre_o_ciclo(self, ambiente, monkeypatch):
+        from src import config
+
+        monkeypatch.setattr(config, "DEVELOPER_CYCLE_MAX_TURNS", 40)
+        _, _, montar = ambiente
+        llm = self._nunca_para()
+        montar(llm, budget=RunBudget(max_tokens=10**9, max_wall_seconds=600, max_turns=3))
+
+        out = developer(_estado(developer_memory=[]))
+
+        assert out["stop_reason"].startswith("budget: max_turns")
+
+    def test_segundo_ciclo_continua_a_contagem_de_turnos_do_run(self, ambiente, monkeypatch):
+        from src import config
+
+        monkeypatch.setattr(config, "DEVELOPER_CYCLE_MAX_TURNS", 2)
+        _, _, montar = ambiente
+        ctx = montar(self._nunca_para(),
+                     budget=RunBudget(max_tokens=10**9, max_wall_seconds=600, max_turns=50))
+        out1 = developer(_estado(developer_memory=[]))
+        out2 = developer(_estado(developer_memory=out1["developer_memory"]))
+
+        assert ctx.budget.turn == 4
+        assert out2["turn_count"] == 4
+        assert [c["turnos"] for c in out2["developer_memory"]] == [2, 2]
+
+
 class TestDeveloperOrcamento:
     def test_para_ao_estourar_turnos(self, ambiente):
         _, _, montar = ambiente
@@ -466,6 +534,29 @@ class TestValidatorExecuta:
         assert out["is_valid"] is False  # rebaixado pelo revisor
         assert out["semantic_rejections"] == 1
 
+    def test_reprovacao_no_ponto_de_checagem_nao_conta_para_o_teto(self, ambiente, monkeypatch):
+        """Decisão 25: o teto de reprovações é do laço 'terminei / não terminou'."""
+        from src.schemas.validation_result import ValidationResult
+
+        monkeypatch.setenv("SEMANTIC_REVIEW", "true")
+        ws, _, montar = ambiente
+        montar(FakeToolCallingLLM([ai(content="x")]))
+        _mudanca_benigna(ws)
+        monkeypatch.setattr(
+            "src.structured_llm.invoke_structured_raw",
+            lambda *a, **k: (ValidationResult(is_valid=False, issues=["falta"]), None),
+        )
+
+        no_checkpoint = validator(_estado(
+            stop_reason="cycle: max_turns_per_cycle (40 >= 40)", semantic_rejections=0,
+        ))
+        assert no_checkpoint["is_valid"] is False
+        assert no_checkpoint["semantic_rejections"] == 0
+        assert no_checkpoint["validation_result"]["issues"] == ["falta"]
+
+        submetido = validator(_estado(stop_reason="concluiu", semantic_rejections=0))
+        assert submetido["semantic_rejections"] == 1
+
     def test_falha_de_conformidade_nao_reprova_codigo_verde(self, ambiente, monkeypatch):
         monkeypatch.setenv("SEMANTIC_REVIEW", "true")
         ws, tel, montar = ambiente
@@ -556,6 +647,13 @@ class TestRoteamento:
             {"is_valid": False, "semantic_rejections": 5, "validation_result": None}
         ) == "developer"
 
+    def test_teto_do_ciclo_nao_e_orcamento_e_volta_ao_developer(self):
+        """Decisão 25: `cycle:` é ponto de checagem; o run segue."""
+        assert route_after_validator(
+            {"is_valid": False, "stop_reason": "cycle: max_turns_per_cycle (40 >= 40)",
+             "validation_result": None, "semantic_rejections": 0}
+        ) == "developer"
+
     def test_estouro_de_orcamento_encerra_antes_de_tudo(self):
         """Sem esta guarda, um agente que nunca fica verde cicla queimando tokens."""
         assert route_after_validator(
@@ -631,6 +729,70 @@ class TestGrafoPontaAPonta:
         memorias = [e for e in eventos if e["event_type"] == "memory"]
         assert len(memorias) == 1 and memorias[0]["payload"]["ciclo"] == 1
         assert final["developer_memory"][0]["arquivos_escritos"] == [SOURCE_FILE]
+
+    def test_ciclos_com_memoria_ate_resolver(self, ambiente, monkeypatch):
+        """
+        Decisões 8 e 25 juntas: o teto do ciclo devolve o developer ao
+        validador antes de ele ter mudado algo; ele volta com a memória e o
+        aviso de diff vazio, aplica a correção no segundo ciclo e o run fecha.
+        """
+        from src import config
+        from src.arms.runner import final_stop_reason
+        from src.feedback import DIFF_VAZIO
+
+        monkeypatch.setenv("SEMANTIC_REVIEW", "false")
+        monkeypatch.setattr(config, "DEVELOPER_MEMORY", "ledger")
+        monkeypatch.setattr(config, "DEVELOPER_CYCLE_MAX_TURNS", 1)
+        ws, tel, montar = ambiente
+
+        llm = FakeToolCallingLLM([
+            # ciclo 1 (1 turno): só explora — corte pelo teto do ciclo
+            ai(tool_calls=[{"name": "search_code",
+                            "args": {"pattern": "def _parse_array", "path": "tomlkit"}}]),
+            # ciclo 2: corrige e para
+            ai(tool_calls=[{"name": "write_file",
+                            "args": {"path": SOURCE_FILE, "content": _fonte_corrigida()}}]),
+            ai(content="Elemento malformado agora levanta erro."),
+        ])
+        montar(llm, budget=RunBudget(max_tokens=10**9, max_wall_seconds=600, max_turns=20))
+
+        from src.schemas.intent import StructuredIntent
+        from src.schemas.test_plan import TestPlan
+
+        def _estruturado(schema, mensagens, **kwargs):
+            if schema is StructuredIntent:
+                return StructuredIntent.model_validate(INTENT), None
+            if schema is TestPlan:
+                return TestPlan(summary="plano", unit_tests=[], integration_tests=[]), None
+            raise AssertionError(f"schema inesperado: {schema}")
+
+        monkeypatch.setattr("src.structured_llm.invoke_structured_raw", _estruturado)
+
+        from src.graph import build_graph
+
+        final = build_graph().invoke(_estado(
+            raw_request="Levantar erro em elemento malformado de array.",
+            iteration_count=0, validation_iteration_count=0, clarification_responses=[],
+            semantic_rejections=0, turn_count=0, developer_memory=[],
+        ))
+
+        assert final["is_valid"] is True
+        # os dois ciclos fecharam pelo teto; o run fechou porque o validador aprovou
+        assert [c["parada"][:6] for c in final["developer_memory"]] == ["cycle:", "cycle:"]
+        assert llm.n_invocacoes == 2
+        assert final["validation_iteration_count"] == 2
+        assert final_stop_reason(final) == "concluiu"
+
+        # a segunda entrada do developer recebeu a memória e o aviso de diff vazio
+        segundo_prompt = llm.chamadas[1][1].content
+        assert "Memória de trabalho" in segundo_prompt
+        assert "Ciclo 1: 1 turnos, encerrado por: cycle:" in segundo_prompt
+        assert DIFF_VAZIO in segundo_prompt
+        assert segundo_prompt.index("Memória de trabalho") < segundo_prompt.index(DIFF_VAZIO)
+
+        eventos = read_events(tel.path)
+        assert sum(1 for e in eventos if e["event_type"] == "memory") == 2
+        assert sum(1 for e in eventos if e["event_type"] == "test_run") == 2
 
     def test_eventos_do_grafo_validam_contra_o_schema(self, ambiente, monkeypatch):
         import json

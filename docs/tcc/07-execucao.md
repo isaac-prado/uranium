@@ -206,3 +206,17 @@ Relatório em [07-e4-fumaca.md](07-e4-fumaca.md): 4 células (`tomlkit-0002` gra
 **Teste que prova.** `tests/test_nodes.py::TestDeveloperMemoriaDeTrabalho` (primeiro ciclo sem memória; registro determinístico e evento `memory`; segundo ciclo recebe memória e diff; memória antes do feedback; `none` reproduz 19/09), `::TestValidatorExecuta::test_veredito_do_revisor_vai_a_telemetria`, `::TestGrafoPontaAPonta` (eventos `intent` e `memory` no run inteiro), `tests/test_arm_parity.py::test_mudar_developer_memory_muda_o_manifesto`, `::test_manifest_version_subiu` (6), `::test_memoria_de_trabalho_so_tem_moldura`, canário de `src/feedback.py` atualizado; `tests/test_intent_refiner.py` ajustado ao evento novo. Suíte: 600 passando.
 
 **Impacto em docs.** Decisão 8 em [09-decisoes-do-autor.md](09-decisoes-do-autor.md) (decidida, com as opções e as palavras do autor); `CLAUDE.md` (invariante de F3 substituído pela memória de trabalho); [00-guia-etapas.md](00-guia-etapas.md) (nota de revisão). Para o texto: Método › Tratamentos descreve a memória como parte do tratamento orquestrado e deixa de citar a "limpeza e reinjeção de contexto" como traço do protótipo; Ameaças à validade registra que a política foi definida depois de fumaças de calibração e antes da coleta, e que as fumaças A a F rodaram com `developer_memory = none`.
+
+
+---
+
+## Teto de turnos por ciclo do developer (09/10/2026, decisão 25)
+
+**Por quê.** Na fumaça G ([07-e4-fumaca.md](07-e4-fumaca.md) seção 12) o developer gastou os 120 turnos num só ciclo; a memória de trabalho (decisão 8) nunca entrou no prompt e o veredito do revisor, correto, chegou com o orçamento esgotado.
+
+**Diff resumido.** `src/config.py`: `DEVELOPER_CYCLE_MAX_TURNS` (40; 0 desliga). `src/agents/developer.py`: ao bater o teto do ciclo, sai com `stop_reason = "cycle: max_turns_per_cycle (n >= teto)"`, sem `circuit_break`; a contagem de turnos do run continua no `BudgetTracker`. `src/agents/validator.py`: a reprovação semântica só incrementa `semantic_rejections` quando o developer submeteu por decisão própria (`stop_reason` não começa em `cycle:`). `src/graph.py`: documentação da rota (`cycle:` volta ao developer como qualquer rodada não válida). `src/arms/runner.py`: `final_stop_reason` (um `cycle:` final vira `concluiu`), chave `orchestration_policy.developer_cycle_max_turns`, `MANIFEST_VERSION = 7`. `.env.example` e `.env`: `DEVELOPER_CYCLE_MAX_TURNS=40`.
+
+**Teste que prova.** `tests/test_nodes.py::TestDeveloperTetoPorCiclo` (volta no teto sem circuit break; 0 desliga; orçamento total prevalece; contagem do run continua), `::TestValidatorExecuta::test_reprovacao_no_ponto_de_checagem_nao_conta_para_o_teto`, `::TestRoteamento::test_teto_do_ciclo_nao_e_orcamento_e_volta_ao_developer`, `::TestGrafoPontaAPonta::test_ciclos_com_memoria_ate_resolver` (dois ciclos, memória e aviso de diff vazio no segundo prompt, run fecha pela validação), `tests/test_arm_parity.py::test_mudar_developer_cycle_max_turns_muda_o_manifesto`, `::test_stop_reason_final_nunca_e_cycle`, `::test_manifest_version_subiu` (7). Suíte: 609 passando.
+
+**Impacto em docs.** Decisão 25 em [09-decisoes-do-autor.md](09-decisoes-do-autor.md); `CLAUDE.md`. Para o texto: Método › Tratamentos (o orquestrado passa pelo validador a cada 40 turnos; o single-agent passa pela suíte sempre que para de agir); Ameaças à validade (parâmetro definido depois das fumaças A a G e antes da coleta).
+

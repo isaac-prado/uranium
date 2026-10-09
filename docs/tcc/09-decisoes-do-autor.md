@@ -108,6 +108,18 @@ Fontes: [04-cronograma.md](04-cronograma.md), [07-execucao.md](07-execucao.md), 
 
 ---
 
+### Decisão 25. Teto de turnos por ciclo do developer (`DEVELOPER_CYCLE_MAX_TURNS`)
+
+**Situação (09/10/2026, depois da fumaça G).** Com a memória de trabalho ligada (decisão 8 revista), o developer gastou os 120 turnos num único ciclo e foi cortado antes de submeter: a memória só age a partir do segundo ciclo, e o segundo ciclo só existia se o developer decidisse encerrar antes do corte. O revisor semântico, quando rodou, apontou corretamente os dois critérios que faltavam (eram dois dos testes ocultos), mas com o orçamento já esgotado ([07-e4-fumaca.md](07-e4-fumaca.md) seção 12). O autor: "o orchestration teve o corte em 120 e não conseguiu produzir nada? Ainda precisamos de uma forma para resolução."
+
+**Mecanismo.** `DEVELOPER_CYCLE_MAX_TURNS` (padrão 40; 0 desliga). Ao atingi-lo, o developer volta ao validador com `stop_reason = cycle: ...`, que não é orçamento: o validador roda a suíte e a revisão, e o developer reentra com a memória de trabalho e o veredito, até o orçamento total (`RUN_MAX_TURNS`) ou até o validador aprovar. A reprovação semântica num ponto de checagem **não conta** para `MAX_SEMANTIC_REJECTIONS`, que fica reservado ao laço "developer diz que terminou, revisor discorda". No `result.json`, um run que termina depois de um ponto de checagem registra `concluiu`, o mesmo nome que o orquestrado já usava (`src/arms/runner.py::final_stop_reason`). Manifesto v7, chave `orchestration_policy.developer_cycle_max_turns`.
+
+**Por que é topologia e não vantagem indevida.** É a orquestração decidindo quando checar, que é o papel dela; o single-agent tem o equivalente no driver determinístico, que roda a suíte sempre que o agente para de agir. O prompt de sistema, as ferramentas, os limites compartilhados e o critério de parada ("suíte verde ou orçamento") continuam iguais. O que muda é só com que frequência o braço orquestrado passa pelo validador.
+
+**Impacto.** Mais chamadas de validação por run (uma suíte e uma revisão a cada 40 turnos, custo da revisão em torno de US$ 0,001). Com 120 turnos, até 3 ciclos. Definido depois de fumaças de calibração e antes da coleta; as fumaças A a G rodaram com o equivalente a 0.
+
+**Decisão (09/10/2026):** implementado com 40 para a fumaça H na `tomlkit-0004` (120 turnos, DeepInfra BYOK). O valor congela junto com os tetos (decisão 12) depois da fumaça. Teste: `tests/test_nodes.py::TestDeveloperTetoPorCiclo`, `::TestGrafoPontaAPonta::test_ciclos_com_memoria_ate_resolver`, `::TestValidatorExecuta::test_reprovacao_no_ponto_de_checagem_nao_conta_para_o_teto`, `tests/test_arm_parity.py::test_mudar_developer_cycle_max_turns_muda_o_manifesto`, `::test_stop_reason_final_nunca_e_cycle`.
+
 ## Bloco 2 — Tratamentos: o desenho do braço `orchestration`
 
 As decisões 4 a 6 **já foram tomadas pelo autor em 28/09/2026** (commits `f4c01a9`, `c2046fd`, `7068a55` na `develop`) e integradas à branch de trabalho em 08/10/2026 ([07-execucao.md](07-execucao.md), seção "Reconciliação"). Aparecem aqui para confirmação e para o texto.
@@ -351,6 +363,7 @@ Hoje conta como "sem corte" pela definição literal, e o JSON reporta `sem_stop
 | 12 | fumaça autorizada com os tetos atuais; regra 2× o máximo observado a confirmar | 08/10/2026 | 09, Decisão 12; dados/fumaca-08-10 |
 | 12 (rev. 2) | 160 turnos piorou (0/7 nos dois); recomendação de congelar 120/8 M/1.800 s pendente do autor | 09/10/2026 | 09, Decisão 12; 07-e4-fumaca seção 11; dados/fumaca-09-10-f |
 | 8 (fumaça) | memória ligada, 120 turnos: 0/7 nos dois, developer não ciclou; proposta de teto por ciclo pendente | 09/10/2026 | 07-e4-fumaca seção 12; dados/fumaca-09-10-g |
+| 25 | teto de turnos por ciclo do developer = 40 (fumaça H); reprovação em checagem não conta para o teto semântico; manifesto v7 | 09/10/2026 | 09, Decisão 25; src/agents/developer.py; src/agents/validator.py |
 | 13 | | | |
 | 14 | | | |
 | 15 | | | |

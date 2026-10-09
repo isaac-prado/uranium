@@ -48,7 +48,10 @@ from src.workspace import Workspace, WorkspaceSpec
 # 09/10/2026): `orchestration_policy.developer_memory` e
 # `developer_memory_diff_max_chars`. As fumaças A a F (v3/v5) rodaram com o
 # equivalente a `developer_memory = "none"`.
-MANIFEST_VERSION = 6
+# 7 = teto de turnos por ciclo do developer (decisão 25, 09/10/2026):
+# `orchestration_policy.developer_cycle_max_turns`. A fumaça G (v6) rodou
+# com o equivalente a 0 (desligado).
+MANIFEST_VERSION = 7
 
 # Chaves do manifesto que PODEM diferir entre os braços. Qualquer outra
 # divergência é violação do desenho experimental. Note que `repetition` NÃO
@@ -133,6 +136,11 @@ def _orchestration_policy() -> dict[str, Any]:
         # diff atual; "none" é a reconstrução do zero de 19/09.
         "developer_memory": config.DEVELOPER_MEMORY,
         "developer_memory_diff_max_chars": MEMORIA_DIFF_MAX_CHARS,
+        # Teto de turnos por ciclo do developer (decisão 25, 09/10/2026): ao
+        # atingi-lo ele volta ao validador e recebe veredito e memória; 0
+        # desliga. A reprovação semântica num ponto de checagem não conta
+        # para `max_semantic_rejections`.
+        "developer_cycle_max_turns": config.DEVELOPER_CYCLE_MAX_TURNS,
     }
 
 
@@ -156,6 +164,21 @@ def stop_reason_for(exc: BaseException) -> str:
     # `ProviderError` só embrulha; o que interessa é o que o provedor disse.
     # Sem isso, 429 e chave revogada saíam iguais no orchestration.
     return f"{prefixo}: {type(root_provider_error(exc)).__name__}"
+
+
+def final_stop_reason(final: dict[str, Any]) -> str:
+    """
+    `stop_reason` do run a partir do estado final do grafo.
+
+    Um `cycle:` (teto de turnos por ciclo do developer, decisão 25) nunca
+    é motivo de fim de run: o run só termina depois dele porque o validador
+    aprovou ou porque o teto de reprovações fechou, e nos dois casos o nome
+    é o mesmo que o orchestration já usava para o fim por decisão própria.
+    """
+    motivo = final.get("stop_reason") or ""
+    if motivo.startswith("cycle:"):
+        return "concluiu"
+    return motivo or ("tests_pass" if final.get("is_valid") else "concluiu")
 
 
 def seed_for_repetition(base_seed: int, repetition: int) -> int:
@@ -333,9 +356,7 @@ def run_arm(spec: RunSpec, *, llm_factory: Any = None) -> dict[str, Any]:
         final = grafo.invoke(
             estado_inicial, {"recursion_limit": _recursion_limit(spec.budget.max_turns)}
         )
-        stop_reason = final.get("stop_reason") or (
-            "tests_pass" if final.get("is_valid") else "concluiu"
-        )
+        stop_reason = final_stop_reason(final)
     except BaseException as exc:
         # BaseException, não Exception: o Ctrl+C também passa pelo `finally` e
         # grava resumo. Com o "error" inicial, o run interrompido virava

@@ -176,7 +176,30 @@ class TestManifestoRegistraOQueAfetaOOrchestration:
 
     def test_manifest_version_subiu(self, tmp_path):
         """A forma do manifesto mudou (novas chaves): a versão precisa acompanhar."""
-        assert _spec("orchestration", tmp_path).manifest("t")["manifest_version"] == 6
+        assert _spec("orchestration", tmp_path).manifest("t")["manifest_version"] == 7
+
+    def test_mudar_developer_cycle_max_turns_muda_o_manifesto(self, tmp_path, monkeypatch):
+        """Decisão 25 (09/10/2026): o teto por ciclo é política do braço."""
+        from src import config
+
+        base = _spec("orchestration", tmp_path).manifest("t")["orchestration_policy"]
+        assert base["developer_cycle_max_turns"] == config.DEVELOPER_CYCLE_MAX_TURNS
+        monkeypatch.setattr(config, "DEVELOPER_CYCLE_MAX_TURNS", base["developer_cycle_max_turns"] + 1)
+
+        depois = _spec("orchestration", tmp_path).manifest("t")["orchestration_policy"]
+        assert depois != base
+
+    def test_stop_reason_final_nunca_e_cycle(self):
+        """`cycle:` é ponto de checagem; o run só acaba depois por validação ou teto."""
+        from src.arms.runner import final_stop_reason
+
+        assert final_stop_reason({"stop_reason": "cycle: max_turns_per_cycle (40 >= 40)",
+                                  "is_valid": True}) == "concluiu"
+        assert final_stop_reason({"stop_reason": "budget: max_turns (120 >= 120)"}) == \
+            "budget: max_turns (120 >= 120)"
+        assert final_stop_reason({"stop_reason": "concluiu", "is_valid": True}) == "concluiu"
+        assert final_stop_reason({"is_valid": True}) == "tests_pass"
+        assert final_stop_reason({}) == "concluiu"
 
     def test_mudar_developer_memory_muda_o_manifesto(self, tmp_path, monkeypatch):
         """Decisão 8 revista (09/10/2026): a memória de trabalho é política do braço."""

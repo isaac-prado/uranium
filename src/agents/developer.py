@@ -200,6 +200,15 @@ def developer(state: WorkflowState) -> dict[str, Any]:
                 stop_reason = f"budget: {motivo}"
                 break
 
+            # Ponto de checagem da orquestração (decisão 25, 09/10/2026): ao
+            # bater o teto do ciclo o developer volta ao validador, que roda
+            # a suíte e a revisão e devolve o veredito com a memória. Não é
+            # corte de orçamento: o run continua se ainda houver orçamento.
+            teto_ciclo = config.DEVELOPER_CYCLE_MAX_TURNS
+            if teto_ciclo and turnos_no_ciclo >= teto_ciclo:
+                stop_reason = f"cycle: max_turns_per_cycle ({turnos_no_ciclo} >= {teto_ciclo})"
+                break
+
             turno = ctx.budget.next_turn()
             ctx.telemetry.set_turn(turno)
             turnos_no_ciclo += 1

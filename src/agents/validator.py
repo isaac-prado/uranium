@@ -76,6 +76,12 @@ def validator(state: WorkflowState) -> dict[str, Any]:
     # O LLM só rebaixa. Nunca promove.
     is_valid = report.green and houve_mudanca and (semantic is None or semantic.is_valid)
 
+    # O teto de reprovações vale para o laço "developer diz que terminou,
+    # revisor discorda". Quando o developer chegou aqui pelo teto do ciclo
+    # (decisão 25), a reprovação é feedback do ponto de checagem, não uma
+    # submissão recusada, e não conta.
+    submeteu = not str(state.get("stop_reason") or "").startswith("cycle:")
+
     return {
         "test_report": report.model_dump(),
         "is_valid": is_valid,
@@ -84,7 +90,10 @@ def validator(state: WorkflowState) -> dict[str, Any]:
         # Conta só a reprovação do revisor sobre código verde e alterado, que é
         # o único motivo de volta com teto (ver `route_after_validator`).
         "semantic_rejections": state.get("semantic_rejections", 0)
-        + int(report.green and houve_mudanca and semantic is not None and not semantic.is_valid),
+        + int(
+            submeteu
+            and report.green and houve_mudanca and semantic is not None and not semantic.is_valid
+        ),
     }
 
 
