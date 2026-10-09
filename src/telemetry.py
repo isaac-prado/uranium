@@ -278,6 +278,11 @@ class TelemetryWriter:
             "generation_id": m.generation_id,
             "finish_reason": m.finish_reason,
             "tool_calls_requested": [c.get("name") for c in tool_calls],
+            # chave própria do provedor (BYOK) e decomposição do custo:
+            # `cost_usd` do evento é o total (OpenRouter + provedor quando BYOK)
+            "is_byok": m.is_byok,
+            "cost_openrouter_usd": m.cost_openrouter_usd,
+            "cost_upstream_usd": m.cost_upstream_usd,
         }
         if prompt is not None:
             payload["prompt_bytes"] = prompt_composition(prompt)

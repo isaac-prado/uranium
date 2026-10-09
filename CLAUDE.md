@@ -40,6 +40,7 @@ A faixa é gravada no `task.json`, atravessa até o `result.json` e é eixo da a
 ## Regras de trabalho
 
 - Nada de execução paga (chave `OPENROUTER_API_KEY`) sem os portões offline de `docs/tcc/04-cronograma.md` verdes e sem o autor pedir.
+- A coleta roda com chave própria do provedor registrada no OpenRouter (BYOK, decisão 11 final de 09/10/2026), fallback para o pool compartilhado desligado. `cost_usd` de cada chamada é o total pago (taxa do OpenRouter + `upstream_inference_cost` quando `is_byok`); `result.json` traz `byok_calls`, que na coleta tem de ser igual a `llm_calls`.
 - Nenhum número em documento sem o arquivo de origem ao lado. Não inventar.
 - Agentes não escrevem testes na suíte dos repositórios-semente; a área de testes é protegida.
 - Rodar a suíte com `.venv/bin/python -m pytest -q` (ou `uv run pytest`). Ela deve ficar verde antes de qualquer commit.

@@ -289,3 +289,41 @@ class TestResilienciaAoProvedor:
 
         monkeypatch.setenv("LLM_MAX_RETRIES", "9")
         assert load_llm_config(model="a/b", provider="P").max_retries == 9
+
+
+
+class TestCustoComChavePropria:
+    """
+    Com chave própria do provedor (BYOK), o OpenRouter devolve `cost: 0` e o
+    custo real vem em `cost_details.upstream_inference_cost`. Sem BYOK,
+    `cost` é o preço inteiro e o upstream não pode ser somado de novo.
+    """
+
+    def _msg(self, usage):
+        resposta = {**RESPOSTA_OPENROUTER, "usage": {**RESPOSTA_OPENROUTER["usage"], **usage}}
+        return mensagem_como_em_producao(resposta)
+
+    def test_byok_soma_taxa_do_openrouter_e_custo_do_provedor(self, monkeypatch):
+        monkeypatch.setenv("OPENROUTER_API_KEY", "sk-teste")
+        m = extract_call_metrics(self._msg({
+            "cost": 0.0, "is_byok": True,
+            "cost_details": {"upstream_inference_cost": 6.2e-06},
+        }))
+        assert m.is_byok is True
+        assert m.cost_openrouter_usd == 0.0
+        assert m.cost_upstream_usd == 6.2e-06
+        assert m.cost_usd == 6.2e-06
+
+    def test_sem_byok_nao_conta_o_upstream_duas_vezes(self, monkeypatch):
+        monkeypatch.setenv("OPENROUTER_API_KEY", "sk-teste")
+        m = extract_call_metrics(self._msg({
+            "cost": 0.000123, "is_byok": False,
+            "cost_details": {"upstream_inference_cost": 0.000123},
+        }))
+        assert m.is_byok is False
+        assert m.cost_usd == 0.000123
+
+    def test_resposta_sem_o_campo_deixa_is_byok_indefinido(self, monkeypatch):
+        monkeypatch.setenv("OPENROUTER_API_KEY", "sk-teste")
+        m = extract_call_metrics(mensagem_como_em_producao(RESPOSTA_OPENROUTER))
+        assert m.is_byok is None and m.cost_usd == 0.000123

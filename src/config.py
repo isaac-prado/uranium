@@ -331,7 +331,20 @@ class LLMCallMetrics:
     tokens_completion: int = 0
     tokens_reasoning: int = 0
     tokens_total: int = 0
+    # Custo TOTAL pago pela chamada, em dólares: o que o OpenRouter cobra
+    # (`usage.cost`) mais, quando a chamada saiu pela chave própria do
+    # provedor (BYOK), o que o provedor cobrou
+    # (`usage.cost_details.upstream_inference_cost`). Sem BYOK, `usage.cost`
+    # já é o preço inteiro e o upstream é só informativo — somar os dois
+    # contaria duas vezes. Confirmado em 09/10/2026 numa chamada pinada no
+    # DeepInfra com chave própria: `cost: 0, is_byok: true,
+    # upstream_inference_cost: 6.2e-06` (docs/tcc/09-decisoes-do-autor.md,
+    # decisão 11).
     cost_usd: float = 0.0
+    cost_openrouter_usd: float = 0.0
+    cost_upstream_usd: float = 0.0
+    # None quando a resposta não diz; True quando saiu pela chave própria.
+    is_byok: bool | None = None
     finish_reason: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
@@ -348,6 +361,10 @@ def extract_call_metrics(message: Any) -> LLMCallMetrics:
     meta: dict[str, Any] = getattr(message, "response_metadata", None) or {}
     usage: dict[str, Any] = meta.get("token_usage") or {}
     completion_details = usage.get("completion_tokens_details") or {}
+    cost_details = usage.get("cost_details") or {}
+    is_byok = usage.get("is_byok")
+    cost_openrouter = float(usage.get("cost") or 0.0)
+    cost_upstream = float(cost_details.get("upstream_inference_cost") or 0.0)
 
     return LLMCallMetrics(
         model=meta.get("model_name"),
@@ -357,6 +374,9 @@ def extract_call_metrics(message: Any) -> LLMCallMetrics:
         tokens_completion=int(usage.get("completion_tokens") or 0),
         tokens_reasoning=int(completion_details.get("reasoning_tokens") or 0),
         tokens_total=int(usage.get("total_tokens") or 0),
-        cost_usd=float(usage.get("cost") or 0.0),
+        cost_usd=cost_openrouter + (cost_upstream if is_byok else 0.0),
+        cost_openrouter_usd=cost_openrouter,
+        cost_upstream_usd=cost_upstream,
+        is_byok=bool(is_byok) if is_byok is not None else None,
         finish_reason=meta.get("finish_reason"),
     )

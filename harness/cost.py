@@ -33,6 +33,13 @@ def aggregate_cost(events: list[dict[str, Any]]) -> dict[str, Any]:
         "tokens_total": sum(e.get("tokens_total", 0) for e in events),
         "cost_usd": round(sum(float(e.get("cost_usd", 0.0)) for e in events), 8),
         "llm_calls": sum(1 for e in events if e.get("event_type") == "llm_call"),
+        # chamadas servidas pela chave própria do provedor (BYOK): na coleta
+        # tem de ser igual a `llm_calls`, senão o run passou pelo pool
+        # compartilhado do OpenRouter (docs/tcc/07-e4-fumaca.md, seção 9)
+        "byok_calls": sum(
+            1 for e in events
+            if e.get("event_type") == "llm_call" and (e.get("payload") or {}).get("is_byok")
+        ),
         "tool_calls": sum(1 for e in events if e.get("event_type") == "tool_call"),
         "wall_seconds": round(
             max((e.get("elapsed_ms", 0) for e in events), default=0) / 1000, 3

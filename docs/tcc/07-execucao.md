@@ -177,3 +177,14 @@ A mineração ampliada de 08/10 (`mined-v3/`) esgotou o pré-filtro de média e 
 Relatório em [07-e4-fumaca.md](07-e4-fumaca.md): 4 células (`tomlkit-0002` grande e `tomlkit-0001` pequena × 2 braços), todas resolvidas, 0 perdidas, US$ 0,155; a grande foi cortada em `max_turns` nos dois braços com a correção no lugar. Instrumentação íntegra (duas análises concordam, contabilidade de contexto 0,0%). Fumaça B (DeepInfra, tomlkit-0004): perdida por 429 em cadeia; Novita saiu do modelo; Google e Alibaba aptos. Fumaça C (Google, 80 turnos, 4 M): zero perdas, tomlkit-0004 não resolvida por nenhum braço, cortada por turnos nos dois. Proposta: 80 turnos, 4 M tokens, 1.800 s, provedor Google. G6 verde (13 tarefas validadas, [10-tarefas.md](10-tarefas.md)); G4 e provedor aguardam o autor (seção 7 do relatório).
 
 **Reversão (09/10/2026, à noite).** A checagem paga não mostrou melhora (0/7 contra 5/7, [07-e4-fumaca.md](07-e4-fumaca.md) seção 10) e o autor decidiu reverter: "faz mais sentido para o protótipo em si". `git revert` do commit `1ad6a07`, mantendo a correção de `tests/test_harness.py::TestFaixa`; `MANIFEST_VERSION` 5 para nenhum manifesto novo se confundir com os da checagem (v4). O developer recebe só a intent; a invariante foi reescrita no `CLAUDE.md`.
+
+
+---
+
+## Custo com chave própria do provedor (09/10/2026)
+
+**Diff resumido.** `src/config.py: extract_call_metrics` lê `usage.is_byok` e `usage.cost_details.upstream_inference_cost`; `cost_usd` passa a ser o total pago (taxa do OpenRouter + custo do provedor quando BYOK; sem BYOK, só `usage.cost`, para não contar duas vezes). `LLMCallMetrics` ganha `cost_openrouter_usd`, `cost_upstream_usd` e `is_byok`. `src/telemetry.py` grava os três no `payload` do `llm_call` (esquema de evento inalterado). `harness/cost.py: aggregate_cost` acrescenta `byok_calls` ao `cost` do `result.json`; na coleta tem de ser igual a `llm_calls`.
+
+**Teste que prova.** `tests/test_config.py::TestCustoComChavePropria` (BYOK soma os dois; sem BYOK não soma o upstream; resposta sem o campo deixa `is_byok` indefinido). Suíte: 592 passando.
+
+**Impacto em docs.** Decisão 11 final em [09-decisoes-do-autor.md](09-decisoes-do-autor.md); `CLAUDE.md` (regra de custo e BYOK). Sem isso, a métrica de custo em dólares da coleta sairia zero.
