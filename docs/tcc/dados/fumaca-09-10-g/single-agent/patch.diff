@@ -1,0 +1,126 @@
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..e4e4881 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -401,12 +401,120 @@ class Parser:
+         """
+         Parses a Key at the current position;
+         WS before the key must be exhausted first at the callsite.
++        Handles both regular keys and dotted keys.
+         """
+-        if self._current in "\"'":
++        # Check if this might be the start of a dotted key by looking ahead
++        if self._is_potential_dotted_key_start():
++            # print("DEBUG: Parsing dotted key, current =", repr(self._current))
++            result = self._parse_dotted_key_first_part()
++            # print("DEBUG: Parsed dotted key first part:", result)
++            return result
++        elif self._current in "\"'":
+             return self._parse_quoted_key()
+         else:
+             return self._parse_bare_key()
+ 
++    def _is_potential_dotted_key_start(self):
++        """Check if we're at the start of what could be a dotted key."""
++        if self.end():
++            return False
++            
++        # Save current state
++        saved_idx = self._idx
++        
++        # Look ahead to see if we have a pattern like key.key
++        found_dot = False
++        pos = self._idx
++        
++        # Continue while we have valid key characters or dots
++        while pos < len(self._src):
++            char = self._src[pos]
++            toml_char = TOMLChar(char)
++            
++            if char == ".":
++                found_dot = True
++                pos += 1
++                # After a dot, we expect another key part
++                if pos >= len(self._src):
++                    break
++                next_char = self._src[pos]
++                if next_char not in "\"'" and not TOMLChar(next_char).is_bare_key_char():
++                    # Next character is not a valid key start
++                    break
++            elif char in "\"'":
++                # Skip quoted string
++                quote_char = char
++                pos += 1
++                while pos < len(self._src) and self._src[pos] != quote_char:
++                    pos += 1
++                if pos < len(self._src):
++                    pos += 1  # Skip closing quote
++                else:
++                    # Unclosed quote
++                    break
++            elif toml_char.is_bare_key_char():
++                pos += 1
++            elif char in " \t=":
++                # This is where the key ends normally
++                break
++            else:
++                # Hit something that's not part of a key
++                break
++                
++        return found_dot
++
++    def _parse_dotted_key_first_part(self):
++        """
++        Parse a dotted key and return just the first part.
++        The full dotted key handling is done at the document level.
++        """
++        # Parse just the first part of the dotted key
++        first_part = ""
++        start_pos = self._idx
++        
++        if self._current in "\"'":
++            # Quoted first part
++            quote_style = self._current
++            self.inc()
++            while not self.end() and self._current != quote_style:
++                first_part += self._current
++                self.inc()
++            self.inc()  # Skip closing quote
++            key_type = KeyType.Literal if quote_style == "'" else KeyType.Basic
++            key = Key(first_part, key_type, "")
++        else:
++            # Bare first part
++            while not self.end() and self._current.is_bare_key_char():
++                first_part += self._current
++                self.inc()
++            key = Key(first_part, sep="")
++            
++        # Skip the rest of the dotted key to get to the '='
++        # We need to advance past the dot and subsequent key parts
++        while not self.end() and self._current not in "=":
++            if self._current == ".":
++                # Skip the dot and the next key part
++                self.inc()
++                # Skip the next key part (could be quoted or bare)
++                if not self.end() and self._current in "\"'":
++                    quote_char = self._current
++                    self.inc()
++                    while not self.end() and self._current != quote_char:
++                        self.inc()
++                    if not self.end():
++                        self.inc()  # Skip closing quote
++                else:
++                    # Skip bare key part
++                    while not self.end() and self._current.is_bare_key_char():
++                        self.inc()
++            elif self._current.is_spaces():
++                self.inc()
++            else:
++                # Some other character, stop here
++                break
++                
++        return key
++
+     def _parse_quoted_key(self):  # type: () -> Key
+         """
+         Parses a key enclosed in either single or double quotes.

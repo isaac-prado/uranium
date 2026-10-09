@@ -1,0 +1,176 @@
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index 777d96a..0431011 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -13,6 +13,7 @@ from .items import AoT
+ from .items import Comment
+ from .items import Item
+ from .items import Key
++from .items import KeyType
+ from .items import Null
+ from .items import Table
+ from .items import Trivia
+@@ -52,6 +53,50 @@ class Container(dict):
+ 
+         return d
+ 
++    def __setitem__(self, key, value):
++        # Handle dotted keys by creating nested structure
++        if isinstance(key, str) and "." in key:
++            from .items import Table, Container as ItemsContainer, Trivia
++            key_parts = key.split(".")
++            root_key = key_parts[0]
++            
++            # Get or create root table
++            if root_key not in self:
++                table = Table(
++                    ItemsContainer(),
++                    Trivia(indent="", comment_ws="", comment="", trail="\n"),
++                    is_aot_element=False,
++                    is_super_table=True,
++                    name=root_key
++                )
++                super(Container, self).__setitem__(root_key, table)
++                # Also add to body and map
++                key_obj = Key(root_key)
++                self._map[key_obj] = len(self._body)
++                self._body.append((key_obj, table))
++            else:
++                table = self._body[self._map[Key(root_key)]][1]
++            
++            # Navigate/create nested structure
++            current = table.value
++            for part in key_parts[1:-1]:
++                if part not in current:
++                    new_table = Table(
++                        ItemsContainer(),
++                        Trivia(indent="", comment_ws="", comment="", trail="\n"),
++                        is_aot_element=False,
++                        is_super_table=True,
++                        name=part
++                    )
++                    current[part] = new_table
++                current = current[part].value
++            
++            # Set final value
++            final_key = key_parts[-1]
++            current[final_key] = value
++        else:
++            super(Container, self).__setitem__(key, value)
++
+     def add(
+         self, key, item=None
+     ):  # type: (Union[Key, Item, str], Optional[Item]) -> Item
+@@ -77,6 +122,99 @@ class Container(dict):
+         if not isinstance(item, Item):
+             item = _item(item)
+ 
++        # Handle dotted keys by creating nested structure
++        from .items import Table as TableClass, Trivia, KeyType, Key as KeyClass
++        from .toml_char import TOMLChar
++        # Only apply to unquoted keys (bare keys) that contain dots
++        # Debug print
++        # print(f"Key: {key}, key.t: {key.t if key else 'None'}, KeyType.Bare: {KeyType.Bare}")
++        if (key is not None and "." in key.key and key.t == KeyType.Bare 
++            and not isinstance(item, (Table, AoT))):
++            ContainerClass = type(self)  # Use the same container class
++            
++            # Split dotted key manually (copy of _split_table_name logic)
++            key_parts = []
++            in_name = False
++            current = ""
++            t = KeyType.Bare
++            for c in key.key:
++                c = TOMLChar(c)
++
++                if c == ".":
++                    if in_name:
++                        current += c
++                        continue
++
++                    if not current:
++                        # Handle error - empty key part
++                        break
++
++                    key_parts.append(KeyClass(current, t=t, sep=""))
++                    current = ""
++                    t = KeyType.Bare
++                    continue
++                elif c in {"'", '"'}:
++                    if in_name:
++                        if t == KeyType.Literal and c == '"':
++                            current += c
++                            continue
++
++                        if c != t.value:
++                            # Handle error - mismatched quotes
++                            break
++
++                        in_name = False
++                    else:
++                        in_name = True
++                        t = KeyType.Literal if c == "'" else KeyType.Basic
++
++                    continue
++                elif in_name or c.is_bare_key_char():
++                    current += c
++                else:
++                    # Handle error - invalid character
++                    break
++
++            if current:
++                key_parts.append(KeyClass(current, t=t, sep=""))
++
++            if len(key_parts) > 1:
++                # Create/get root table
++                root_key = key_parts[0]
++                
++                if root_key not in self:
++                    table = TableClass(
++                        ContainerClass(),
++                        Trivia(indent="", comment_ws="", comment="", trail="\n"),
++                        is_aot_element=False,
++                        is_super_table=True,
++                        name=root_key.key
++                    )
++                    super(Container, self).__setitem__(root_key.key, table)
++                    self._map[root_key] = len(self._body)
++                    self._body.append((root_key, table))
++                else:
++                    table = self._body[self._map[root_key]][1]
++                
++                # Navigate/create nested structure
++                current = table.value
++                for part in key_parts[1:-1]:
++                    if part not in current:
++                        new_table = TableClass(
++                            ContainerClass(),
++                            Trivia(indent="", comment_ws="", comment="", trail="\n"),
++                            is_aot_element=False,
++                            is_super_table=True,
++                            name=part.key
++                        )
++                        current[part] = new_table
++                    current = current[part].value
++                
++                # Set final value in nested structure
++                final_key = key_parts[-1]
++                current[final_key] = item
++                return item
++
+         if isinstance(item, (AoT, Table)) and item.name is None:
+             item.name = key.key
+ 
+diff --git a/tomlkit/toml_char.py b/tomlkit/toml_char.py
+index 8d8d660..fd2c802 100644
+--- a/tomlkit/toml_char.py
++++ b/tomlkit/toml_char.py
+@@ -14,7 +14,7 @@ class TOMLChar(unicode):
+         """
+         Whether the character is a valid bare key name or not.
+         """
+-        return self in string.ascii_letters + string.digits + "-" + "_"
++        return self in string.ascii_letters + string.digits + "-" + "_" + "."
+ 
+     def is_kv_sep(self):  # type: () -> bool
+         """

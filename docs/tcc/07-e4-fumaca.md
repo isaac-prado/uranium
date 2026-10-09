@@ -152,3 +152,34 @@ Quadro das quatro rodadas na `tomlkit-0004`, mesma semente (seções 6, 8 e esta
 - (c) Rodar uma fumaça em outra grande (`tomlkit-0002` ou `0003`, 120 turnos, dois braços, ~US$ 2) antes de congelar, para saber se 120 resolve alguma grande ou se a faixa inteira fica em "não resolveu". Não muda o teto; muda a interpretação.
 
 Recomendação: **(a)**, com (c) opcional se o autor quiser a interpretação antes da coleta. Não congelar em 160: custa mais e rendeu menos.
+
+## 12. Fumaça G (09/10/2026): memória de trabalho ligada, 120 turnos, DeepInfra com chave própria (`dados/fumaca-09-10-g/`)
+
+Primeira rodada com a decisão 8 revista (manifesto v6, `orchestration_policy.developer_memory = ledger`) e com os eventos `intent`, `validation` e `memory` na telemetria. Mesmos tetos da fumaça D (120 turnos, 8 M tokens, 1.800 s), mesma semente, DeepInfra BYOK, `--retry-delay 300 --max-attempts 5`. Zero perdas; 179 chamadas, todas `is_byok: true`.
+
+| Braço | Parada | Resolvida | Testes ocultos | Regressão visível | Turnos | Tokens | US$ | Parede (s) | Arquivos no patch | Linhas |
+|---|---|---|---|---|---:|---:|---:|---:|---:|---:|
+| single-agent | `tests_pass` (parou sozinho) | não | 0/7 | nenhuma (158 ok; as 7 falhas são os ocultos) | 57 | 1.645.914 | 0,2030 | 205 | 1 | 126 |
+| orchestration | `budget: max_turns (120 >= 120)` | não | 0/7 | nenhuma (158 ok) | 120 | 4.588.245 | 0,5013 | 402 | 2 | 176 |
+
+O que a telemetria nova mostra (`dados/fumaca-09-10-g/orchestration/events.jsonl`):
+
+- **A intent** do refinador tem 8 critérios e cobre os 7 itens do enunciado, inclusive as partes entre aspas e a quebra de linha do cabeçalho.
+- **O developer gastou os 120 turnos num único ciclo** (33 `run_python`, 6 suítes rodadas, 4 arquivos escritos) e foi cortado antes de submeter. A memória de trabalho não chegou a ser usada: só existe memória a partir do segundo ciclo, e não houve segundo ciclo. Na fumaça D o mesmo braço submeteu no turno 49; na F, no 146. O ponto de submissão é do modelo, não da orquestração.
+- **O revisor semântico reprovou com motivo registrado**, e o motivo é correto: suíte visível verde (163/0), mas faltam "conversão para JSON preserva estrutura aninhada" e "quebra de linha em cabeçalhos de tabela", que são exatamente dois dos testes ocultos. Pela primeira vez dá para ver que a revisão acerta o que falta; o que ela não pode fazer é devolver isso ao developer quando o orçamento já acabou.
+- **O single-agent parou sozinho no turno 57** com a suíte visível verde e 0/7 nos ocultos: o critério de parada "suíte verde e houve mudança" é satisfeito por uma implementação parcial, porque a suíte visível não cobre a funcionalidade nova. É o mesmo limite estrutural de toda tarefa grande: o que discrimina é oculto.
+
+Quadro das cinco rodadas na `tomlkit-0004`, mesma semente:
+
+| Rodada | Turnos | Provedor | Memória | single-agent | orchestration | US$ (SA / OR) |
+|---|---|---|---|---|---|---|
+| C | 80 | Google | none | 0/7 | 5/7 | 0,53 / 0,86 |
+| D | 120 | Google | none | 5/7 | 5/7 | 1,37 / 0,78 |
+| F | 160 | DeepInfra BYOK | none | 0/7 | 0/7 | 0,83 / 0,88 |
+| G | 120 | DeepInfra BYOK | ledger | 0/7 (parou no 57) | 0/7 (1 ciclo) | 0,20 / 0,50 |
+
+**Leitura.** (1) A variação entre rodadas com a mesma semente é enorme (0/7 a 5/7 nos dois braços), e o provedor mudou entre D e F: nenhuma fumaça com n = 1 por célula decide nada sobre a tarefa, só sobre o mecanismo. (2) A memória de trabalho só age quando há mais de um ciclo, e o orquestrado só cicla quando o developer submete antes do corte; em duas das três rodadas a 120 ou mais turnos ele não submeteu. (3) O revisor semântico está correto nos motivos, mas chega tarde. Gasto acumulado no DeepInfra: US$ 2,38 de 25 (painel do DeepInfra mais `cost_usd` desta rodada).
+
+**Caminhos.** (a) **Teto de turnos por ciclo do developer** (`DEVELOPER_CYCLE_MAX_TURNS`, por exemplo 40, em `orchestration_policy`): o developer é devolvido ao validador a cada 40 turnos, recebe o veredito e a memória, e segue dentro do orçamento total de 120. É a orquestração decidindo quando checar, que é o que a decisão 8 revista pede; o single-agent já tem o equivalente no driver, que roda a suíte sempre que o agente para de agir. Verificar com uma fumaça só do braço orquestrado (~US$ 0,5) que o mecanismo engata (mais de um ciclo, memória no prompt, veredito devolvido), não que resolve 7/7. (b) Congelar 120/8 M/1.800 s agora e coletar, aceitando que a `tomlkit-0004` pode ficar no chão nos dois braços. (c) Não há terceira grande disponível para troca: as três do `mined-v4` já estão nas tarefas.
+
+Recomendação: (a), depois (b). Não repetir fumaças na mesma tarefa à procura de 7/7: com esta variância, isso é escolher o resultado.
