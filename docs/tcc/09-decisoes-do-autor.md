@@ -118,7 +118,7 @@ Fontes: [04-cronograma.md](04-cronograma.md), [07-execucao.md](07-execucao.md), 
 
 **Impacto.** Mais chamadas de validação por run (uma suíte e uma revisão a cada 40 turnos, custo da revisão em torno de US$ 0,001). Com 120 turnos, até 3 ciclos. Definido depois de fumaças de calibração e antes da coleta; as fumaças A a G rodaram com o equivalente a 0.
 
-**Decisão (09/10/2026):** implementado com 40 para a fumaça H na `tomlkit-0004` (120 turnos, DeepInfra BYOK). O valor congela junto com os tetos (decisão 12) depois da fumaça. Teste: `tests/test_nodes.py::TestDeveloperTetoPorCiclo`, `::TestGrafoPontaAPonta::test_ciclos_com_memoria_ate_resolver`, `::TestValidatorExecuta::test_reprovacao_no_ponto_de_checagem_nao_conta_para_o_teto`, `tests/test_arm_parity.py::test_mudar_developer_cycle_max_turns_muda_o_manifesto`, `::test_stop_reason_final_nunca_e_cycle`.
+**Fumaça H ([07-e4-fumaca.md](07-e4-fumaca.md) seção 13):** quatro ciclos (40/40/32/8), memória e veredito no prompt; o developer desfez a implementação para voltar ao verde depois de dois pontos de checagem vermelhos, e o revisor reprovou com motivo exato. 0/7, US$ 0,23, prompt máximo 25 k contra 71 k sem ciclos. **Decisão (09/10/2026):** implementado com 40 para a fumaça H na `tomlkit-0004` (120 turnos, DeepInfra BYOK). O valor congela junto com os tetos (decisão 12) depois da fumaça. Teste: `tests/test_nodes.py::TestDeveloperTetoPorCiclo`, `::TestGrafoPontaAPonta::test_ciclos_com_memoria_ate_resolver`, `::TestValidatorExecuta::test_reprovacao_no_ponto_de_checagem_nao_conta_para_o_teto`, `tests/test_arm_parity.py::test_mudar_developer_cycle_max_turns_muda_o_manifesto`, `::test_stop_reason_final_nunca_e_cycle`.
 
 ## Bloco 2 — Tratamentos: o desenho do braço `orchestration`
 
@@ -364,6 +364,7 @@ Hoje conta como "sem corte" pela definição literal, e o JSON reporta `sem_stop
 | 12 (rev. 2) | 160 turnos piorou (0/7 nos dois); recomendação de congelar 120/8 M/1.800 s pendente do autor | 09/10/2026 | 09, Decisão 12; 07-e4-fumaca seção 11; dados/fumaca-09-10-f |
 | 8 (fumaça) | memória ligada, 120 turnos: 0/7 nos dois, developer não ciclou; proposta de teto por ciclo pendente | 09/10/2026 | 07-e4-fumaca seção 12; dados/fumaca-09-10-g |
 | 25 | teto de turnos por ciclo do developer = 40 (fumaça H); reprovação em checagem não conta para o teto semântico; manifesto v7 | 09/10/2026 | 09, Decisão 25; src/agents/developer.py; src/agents/validator.py |
+| 12 (proposta) | congelar 120 turnos / 8 M / 3.600 s / ciclo 40 / memória ledger; tomlkit-0004 pode ficar sem resolução; aguarda o autor | 09/10/2026 | 07-e4-fumaca seção 13; dados/fumaca-09-10-h |
 | 13 | | | |
 | 14 | | | |
 | 15 | | | |

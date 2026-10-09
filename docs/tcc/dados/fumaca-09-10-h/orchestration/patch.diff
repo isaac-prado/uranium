@@ -1,0 +1,38 @@
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index 777d96a..9deb0a4 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -77,6 +77,11 @@ class Container(dict):
+         if not isinstance(item, Item):
+             item = _item(item)
+ 
++        # Handle dotted keys according to TOML 0.5.0 spec
++        # For key-value pairs, dotted keys should NOT create nested structures automatically
++        # They are just regular keys that happen to contain dots
++        pass
++
+         if isinstance(item, (AoT, Table)) and item.name is None:
+             item.name = key.key
+ 
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..7338899 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -407,6 +407,8 @@ class Parser:
+         else:
+             return self._parse_bare_key()
+ 
++
++
+     def _parse_quoted_key(self):  # type: () -> Key
+         """
+         Parses a key enclosed in either single or double quotes.
+@@ -444,6 +446,8 @@ class Parser:
+ 
+         return Key(key, sep="")
+ 
++
++
+     def _parse_value(self):  # type: () -> Item
+         """
+         Attempts to parse a value at the current position.

@@ -1,0 +1,121 @@
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index 777d96a..42addf4 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -11,6 +11,7 @@ from .exceptions import KeyAlreadyPresent
+ from .exceptions import NonExistentKey
+ from .items import AoT
+ from .items import Comment
++from .items import DottedKey
+ from .items import Item
+ from .items import Key
+ from .items import Null
+@@ -117,7 +118,41 @@ class Container(dict):
+                 raise KeyAlreadyPresent(key)
+ 
+         if key is not None:
+-            super(Container, self).__setitem__(key.key, item.value)
++            # Handle dotted keys by creating nested structure
++            if isinstance(key, DottedKey) or (isinstance(key, Key) and "." in key.key and not isinstance(key, DottedKey)):
++                # This is a dotted key that needs special handling
++                parts = key.key.split(".")
++                current_container = self
++                
++                # Navigate/create intermediate tables
++                for i, part in enumerate(parts[:-1]):
++                    if part not in current_container:
++                        from .api import table
++                        # Create intermediate table
++                        new_table = table()
++                        new_table.name = part
++                        current_container.append(part, new_table)
++                        current_container = new_table
++                    else:
++                        existing = current_container[part]
++                        if hasattr(existing, '__getitem__'):
++                            current_container = existing
++                        else:
++                            # Convert scalar to table if needed (this is complex)
++                            from .api import table
++                            new_table = table()
++                            new_table.name = part
++                            current_container.append(part, new_table)
++                            current_container = new_table
++                
++                # Set the final value
++                final_part = parts[-1]
++                if hasattr(current_container, '__setitem__'):
++                    current_container[final_part] = item.value
++                else:
++                    super(Container, self).__setitem__(key.key, item.value)
++            else:
++                super(Container, self).__setitem__(key.key, item.value)
+ 
+         self._map[key] = len(self._body)
+ 
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index c88637a..ac35f08 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -104,6 +104,15 @@ class Key:
+         return "<Key {}>".format(self.as_string())
+ 
+ 
++class DottedKey(Key):
++    """
++    A dotted key value.
++    """
++    
++    def __init__(self, k, sep=None):  # type: (str, str) -> None
++        super(DottedKey, self).__init__(k, sep=sep)
++
++
+ class Item(object):
+     """
+     An item within a TOML document.
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..f68aaa8 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -362,8 +362,39 @@ class Parser:
+ 
+         indent = self.extract()
+ 
+-        # Key
+-        key = self._parse_key()
++        # Key - check for dotted key pattern by looking ahead
++        saved_idx = self._save_idx()
++        
++        # Parse what would be the first key part
++        first_key = self._parse_key()
++        
++        # If we see a dot after the key, this might be a dotted key
++        if self._current == ".":
++            # This looks like a dotted key, let's parse the full dotted key
++            self._restore_idx(*saved_idx)
++            self.mark()
++            
++            # Parse the full dotted key
++            parts = []
++            while True:
++                # Parse a key part
++                part_key = self._parse_key()
++                parts.append(part_key.key)
++                
++                # If we see a dot, continue to next part
++                if self._current == ".":
++                    self.inc()  # consume the dot
++                else:
++                    break
++            
++            # Combine all parts into one dotted key
++            dotted_key_str = ".".join(parts)
++            from .items import DottedKey
++            key = DottedKey(dotted_key_str, sep="")
++        else:
++            # Not a dotted key, use the first key we parsed
++            key = first_key
++
+         if not key.key.strip():
+             raise self.parse_error(EmptyKeyError)
+ 

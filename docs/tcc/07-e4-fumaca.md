@@ -183,3 +183,34 @@ Quadro das cinco rodadas na `tomlkit-0004`, mesma semente:
 **Caminhos.** (a) **Teto de turnos por ciclo do developer** (`DEVELOPER_CYCLE_MAX_TURNS`, por exemplo 40, em `orchestration_policy`): o developer é devolvido ao validador a cada 40 turnos, recebe o veredito e a memória, e segue dentro do orçamento total de 120. É a orquestração decidindo quando checar, que é o que a decisão 8 revista pede; o single-agent já tem o equivalente no driver, que roda a suíte sempre que o agente para de agir. Verificar com uma fumaça só do braço orquestrado (~US$ 0,5) que o mecanismo engata (mais de um ciclo, memória no prompt, veredito devolvido), não que resolve 7/7. (b) Congelar 120/8 M/1.800 s agora e coletar, aceitando que a `tomlkit-0004` pode ficar no chão nos dois braços. (c) Não há terceira grande disponível para troca: as três do `mined-v4` já estão nas tarefas.
 
 Recomendação: (a), depois (b). Não repetir fumaças na mesma tarefa à procura de 7/7: com esta variância, isso é escolher o resultado.
+
+## 13. Fumaça H (09/10/2026): memória e teto por ciclo ligados, 120 turnos, DeepInfra com chave própria (`dados/fumaca-09-10-h/`)
+
+Decisões 8 (revista) e 25 juntas: manifesto v7, `developer_memory = ledger`, `developer_cycle_max_turns = 40`. Mesmos tetos da fumaça D (120 turnos, 8 M tokens, 1.800 s), mesma semente, DeepInfra BYOK. Zero perdas; 202 chamadas, todas `is_byok: true`. Correção à seção 11: o arquivo `tests/examples/0.5.0.toml` existe no commit-base; o patch de teste o **modifica** (acrescenta as chaves pontilhadas), e é essa versão que os sete ocultos leem.
+
+| Braço | Parada | Resolvida | Testes ocultos | Regressão visível | Turnos | Tokens | US$ | Parede (s) | Maior prompt | Arquivos no patch | Linhas |
+|---|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|
+| single-agent | `budget: max_wall_seconds (1823s >= 1800s)` | não | **3/7** | 2 (`test_valid_decode[keys-with-dots]`, `[key-special-chars]`) | 79 | 1.662.766 | 0,4382 | 1.823 | — | 3 | 121 |
+| orchestration | `budget: max_turns (120 >= 120)` | não | 0/7 | nenhuma | 120 | 1.456.141 | 0,2308 | 955 | 25.076 | 2 | 38 |
+
+**O mecanismo engatou** (`dados/fumaca-09-10-h/orchestration/events.jsonl`): quatro ciclos do developer (40, 40, 32 e 8 turnos), quatro passagens pelo validador, memória de trabalho e veredito no prompt das reentradas, 15 `replace_in_file` bem-sucedidos ao longo do run. Os pontos de checagem viram: ciclo 1 suíte vermelha (162/1, `keys-with-dots`), ciclo 2 vermelha (161/2), ciclo 3 verde (163/0) com o developer encerrando por decisão própria ("Tudo certo! Nosso parser agora trata chaves pontilhadas"), e o revisor reprovou com motivo exato: o patch tinha virado um comentário, um `pass` e linhas em branco. Ciclo 4 teve 8 turnos e acabou no orçamento.
+
+**O que isso mostra.** A suíte visível já contém um teste correto de chave pontilhada (`tests/test_toml_tests.py::test_valid_decode[keys-with-dots]`, do toml-test), que passa no commit-base e quebra quando a implementação é parcial (chave plana em vez de tabela aninhada). Diante de "a suíte falhou" em dois pontos de checagem, o developer **desfez a implementação para voltar ao verde** e declarou concluído; o revisor pegou, mas restavam 8 turnos. Não é falha da orquestração: é o modelo preferindo o verde ao recurso. O single-agent, no mesmo dilema, manteve a implementação parcial (3/7 ocultos) com duas regressões visíveis.
+
+**Efeito dos ciclos no custo.** Com contexto zerado a cada 40 turnos e a memória no lugar, o maior prompt caiu de 71.266 tokens (fumaça G) para 25.076, e o run inteiro de 4,59 M tokens e US$ 0,50 para 1,46 M e US$ 0,23, com os mesmos 120 turnos. É a troca que a métrica 2 mede: contexto curto e barato contra contexto longo e caro.
+
+**Corte por parede no single-agent, artefato do provedor.** Latência mediana por chamada no DeepInfra: 2,1 s na fumaça G e 18,0 s nesta (máx. 96 s), com prompts do mesmo tamanho. O run foi cortado em 1.823 s no turno 79, não por esgotar turnos. O teto de parede é rede de segurança, como o de tokens (`src/budget.py`), e não pode ser o que censura um run por o provedor estar lento. **Proposta: `RUN_MAX_WALL_SECONDS=3600`** (2× o máximo observado em oito runs a 120 turnos ou mais, 1.823 s).
+
+Quadro das seis rodadas na `tomlkit-0004`, mesma semente:
+
+| Rodada | Turnos | Provedor | Memória / ciclo | single-agent | orchestration | US$ (SA / OR) |
+|---|---|---|---|---|---|---|
+| C | 80 | Google | none / — | 0/7 | 5/7 | 0,53 / 0,86 |
+| D | 120 | Google | none / — | 5/7 | 5/7 | 1,37 / 0,78 |
+| F | 160 | DeepInfra BYOK | none / — | 0/7 | 0/7 | 0,83 / 0,88 |
+| G | 120 | DeepInfra BYOK | ledger / — | 0/7 (parou no 57) | 0/7 (1 ciclo) | 0,20 / 0,50 |
+| H | 120 | DeepInfra BYOK | ledger / 40 | 3/7 (parede, 79 turnos) | 0/7 (4 ciclos) | 0,44 / 0,23 |
+
+Gasto acumulado no DeepInfra: US$ 3,05 de 25.
+
+**Proposta de congelamento (decisão 12, G4).** Nenhuma rodada resolveu a `tomlkit-0004` em braço nenhum; a `tomlkit-0002` foi resolvida pelos dois braços na fumaça A; a `0003` nunca rodou. Os mecanismos do orquestrado estão no lugar e verificados. Congelar: `RUN_MAX_TURNS=120`, `RUN_MAX_TOKENS=8000000`, `RUN_MAX_WALL_SECONDS=3600`, `DEVELOPER_MEMORY=ledger`, `DEVELOPER_CYCLE_MAX_TURNS=40`, `MAX_SEMANTIC_REJECTIONS=2`, `test_timeout_s=120`; declarar que a `tomlkit-0004` pode ficar sem resolução nos dois braços e que isso é resultado, não artefato de teto (nenhum corte por tokens em oito runs; o único corte por parede foi por latência do provedor e o teto sobe). Não repetir fumaças nesta tarefa.
