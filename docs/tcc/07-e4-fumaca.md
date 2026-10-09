@@ -93,3 +93,30 @@ Os dois chegaram a 5 de 7 (o single-agent saiu de 0/7 com 80 turnos para 5/7 com
 Primeira tentativa da checagem (só o braço orquestrado, `tomlkit-0004`, 120 turnos, Google, manifesto v4 com `developer_input = enunciado+intent`): **perdida no turno 18** por `429 — qwen/qwen3-coder is temporarily rate-limited upstream`, com `provider_name: Google`, `limit_source: upstream_provider_shared_pool` (`runs/fumaca-09-10-e/orchestration-attempt01-perdido`, US$ 0,04). É a mesma mensagem que o DeepInfra devolveu em 28/09 e 08/10. **O gargalo não é o provedor: é o pool compartilhado do OpenRouter para este modelo**, que limita todos os usuários sem chave própria, em qualquer provedor. O próprio erro aponta a saída ("add your own key to accumulate your rate limits"): registrar uma chave do provedor (Google Vertex ou DeepInfra) nas integrações do OpenRouter (BYOK). O pino continua o mesmo, o manifesto registra `is_byok`, e o run sai do pool compartilhado. Sem isso, a coleta de 78 execuções vai acumular perdas e reexecuções a cada pico de uso do pool, e 120 turnos com prompts de 60 a 90 mil tokens são exatamente o perfil que o pool corta.
 
 Recomendação para a coleta: **BYOK no provedor pinado** (decisão 11 ganha esse requisito), mais `--retry-delay 300` e `--max-attempts 5` em `run_collection.py`, porque a espera de 60 a 120 s não cobre a janela de rate limit observada.
+
+## 10. Resultado da checagem da decisão 24 (09/10/2026, `dados/fumaca-09-10-e/`)
+
+Segunda tentativa concluída sem perda (a primeira caiu no 429 da seção 9). Só o braço orquestrado, `tomlkit-0004`, 120 turnos, 8 M tokens, Google, semente da repetição 1, manifesto v4 (`developer_input = enunciado+intent`). Comparação com a mesma célula da fumaça D (developer recebendo só a intent):
+
+| | Fumaça D (só intent) | Checagem (enunciado + intent) |
+|---|---:|---:|
+| 1ª mensagem ao developer | 2.439 B | 9.199 B |
+| Testes ocultos | **5/7** | **0/7** |
+| Regressão (`p2p`) | exit 1 | exit 1 |
+| Turnos | 120 (corte) | 120 (corte) |
+| Tokens | 3.255.936 | 3.782.589 |
+| US$ | 0,78 | 0,87 |
+| Parede | 549 s | 384 s |
+| `read_file` no prompt | 1,46 M tokens (45%) | 1,55 M (41%) |
+| chamadas de `run_tests` | 5 | **0** |
+| `read_file` / `replace_in_file` | 35 / 18 | 56 / 25 |
+
+**Não melhorou nesta execução; piorou.** Com o enunciado íntegro o developer leu mais arquivos, nunca rodou a suíte e não deixou nenhum teste oculto verde. A previsão do E1 (menos leitura sem a compressão do enunciado) não se confirmou aqui: a leitura subiu 6%. É **n = 1**, numa tarefa que nenhum braço resolve em 120 turnos e com um modelo que, mesmo com semente fixa, diverge assim que a entrada muda; a diferença entre 5/7 e 0/7 cabe na variabilidade entre repetições que o desenho assume (3 repetições por célula). Mas é a única evidência disponível, e ela não sustenta a condição do autor ("desde que melhore").
+
+**O que fica para o autor decidir (decisão 24, revisão):**
+
+- (a) **Manter** o enunciado íntegro + anexo, pelo argumento de desenho (os dois braços recebem a mesma especificação; o D3 deixa de ser confundidor de informação; a ablação futura mede o valor do anexo) e tratar a checagem como inconclusiva por n = 1. A coleta inteira roda assim, e as fumaças A, C e D (só intent) deixam de ser comparáveis a ela.
+- (b) **Reverter** para o developer recebendo só a intent, como no TFG original e nas fumaças A, C e D, declarando o D3 como confundidor na seção de ameaças à validade, e deixar a ablação do refinador medir o efeito. A reversão é um commit (`git revert 1ad6a07`), com manifesto v5 para marcar.
+- (c) Manter e **gastar uma repetição a mais** na mesma célula antes de decidir (US$ 0,9), o que exige recarga: saldo da chave, US$ 0,44.
+
+Não há mais crédito para execuções pagas nesta chave hoje.

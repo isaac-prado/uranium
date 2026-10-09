@@ -1,0 +1,27 @@
+{
+  "run_id": "tomlkit-0004-orchestration-r01-dec24",
+  "arm": "orchestration",
+  "task_id": "tomlkit-0004",
+  "repetition": 1,
+  "attempt": 1,
+  "llm_seed": 20260821,
+  "topology": "multi_agent_roles",
+  "stop_reason": "infra_error: RateLimitError",
+  "lost": true,
+  "is_valid": false,
+  "changed_files": [],
+  "diff_stat": {},
+  "turns": 0,
+  "totals": {
+    "tokens_prompt": 157049,
+    "tokens_completion": 2279,
+    "tokens_reasoning": 0,
+    "tokens_total": 159328,
+    "cost_usd": 0.03865298,
+    "llm_calls": 19,
+    "tool_calls": 18,
+    "test_runs": 0,
+    "errors": 2
+  },
+  "out_dir": "runs/fumaca-09-10-e/orchestration"
+}
