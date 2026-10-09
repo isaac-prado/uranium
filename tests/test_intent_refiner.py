@@ -55,7 +55,10 @@ def test_no_aparece_na_telemetria(ctx_minimo, sample_intent):
 
     intent_refiner(_estado(raw_request="Criar CRUD"))
 
-    tipos = [e["event_type"] for e in read_events(ctx.telemetry.path)]
-    assert tipos == ["node_enter", "node_exit"]
+    eventos = read_events(ctx.telemetry.path)
+    tipos = [e["event_type"] for e in eventos]
+    # o evento `intent` (09/10/2026) grava o que o developer vai receber
+    assert tipos == ["node_enter", "intent", "node_exit"]
+    assert eventos[1]["payload"]["goal"] == "Implementar CRUD de Cliente."
     papeis = {e["agent_role"] for e in read_events(ctx.telemetry.path)}
     assert papeis == {"intent_refiner"}

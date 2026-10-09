@@ -53,6 +53,9 @@ def intent_refiner(state: WorkflowState) -> dict[str, object]:
                 ("user", _build_user_prompt(state)),
             ],
         )
+        # A intent é tudo que o developer recebe da tarefa (CLAUDE.md); fica
+        # registrada para a análise e para a ablação do refinador.
+        ctx.telemetry.emit_intent(result)
 
     iteration_count = state.get("iteration_count", 0)
     if state.get("clarification_responses"):

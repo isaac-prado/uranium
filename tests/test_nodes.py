@@ -213,6 +213,125 @@ class TestDeveloperRecebeARevisao:
 
 
 @mirror_available
+@mirror_available
+class TestDeveloperMemoriaDeTrabalho:
+    """
+    Decisão 8 do autor, revista em 09/10/2026: o developer volta ao nó com o
+    registro do que fez nos ciclos anteriores e o diff atual, em vez de
+    recomeçar sem memória (fumaça D: reprovado com a suíte verde, voltou sem
+    saber o que tinha feito e quebrou 29 testes).
+    """
+
+    def _ciclo_que_edita(self):
+        return FakeToolCallingLLM([
+            ai(tool_calls=[{"name": "read_file", "args": {"path": SOURCE_FILE}}]),
+            ai(tool_calls=[{"name": "search_code",
+                            "args": {"pattern": "def _parse_array", "path": "tomlkit"}}]),
+            ai(tool_calls=[{"name": "write_file",
+                            "args": {"path": SOURCE_FILE, "content": _fonte_corrigida()}}]),
+            ai(tool_calls=[{"name": "run_python", "args": {"code": "print(1)"}}]),
+            ai(tool_calls=[{"name": "run_tests", "args": {"node_ids": ["tests/test_api.py"]}}]),
+            ai(content="Troquei o descarte silencioso por erro."),
+        ])
+
+    def test_primeiro_ciclo_nao_tem_memoria(self, ambiente):
+        """Sem ciclo anterior o prompt é o de antes: só a tarefa."""
+        from src.agents.developer import _build_prompt
+        from src.state import parse_intent
+
+        prompt = _build_prompt(_estado(developer_memory=[]), diff="")
+        assert prompt == "Tarefa:\n" + parse_intent(_estado()).model_dump_json(indent=2)
+
+    def test_o_ciclo_vira_registro_deterministico(self, ambiente):
+        _, tel, montar = ambiente
+        montar(self._ciclo_que_edita())
+
+        out = developer(_estado(developer_memory=[]))
+
+        assert len(out["developer_memory"]) == 1
+        registro = out["developer_memory"][0]
+        assert registro["ciclo"] == 1
+        assert registro["turnos"] == 6
+        assert registro["parada"] == "concluiu"
+        assert registro["arquivos_lidos"] == [SOURCE_FILE]
+        assert registro["buscas"] == ["def _parse_array"]
+        assert registro["arquivos_escritos"] == [SOURCE_FILE]
+        assert registro["execucoes_python"] == 1
+        assert registro["suites"] == [{"alvos": "tests/test_api.py",
+                                       "resultado": registro["suites"][0]["resultado"]}]
+        assert "passed" in registro["suites"][0]["resultado"]
+        assert "descarte silencioso" in registro["nota"]
+
+        # e fica na telemetria, para a análise por ciclo
+        memorias = [e for e in read_events(tel.path) if e["event_type"] == "memory"]
+        assert len(memorias) == 1
+        assert memorias[0]["payload"]["arquivos_escritos"] == [SOURCE_FILE]
+        assert memorias[0]["agent_role"] == "developer"
+
+    def test_segundo_ciclo_recebe_memoria_e_diff(self, ambiente, monkeypatch):
+        from src import config
+        from src.feedback import memoria_de_trabalho
+
+        monkeypatch.setattr(config, "DEVELOPER_MEMORY", "ledger")
+        ws, _, montar = ambiente
+        primeiro = montar(self._ciclo_que_edita())
+        out1 = developer(_estado(developer_memory=[]))
+
+        segundo = FakeToolCallingLLM([ai(content="nada mais a fazer")])
+        RunContext.release("nodes-test")
+        montar(segundo)
+        out2 = developer(_estado(
+            developer_memory=out1["developer_memory"],
+            changed_files=out1["changed_files"],
+        ))
+
+        humano = segundo.chamadas[0][1].content
+        assert humano.startswith("Tarefa:\n")
+        esperado = memoria_de_trabalho(out1["developer_memory"], ws.diff())
+        assert esperado in humano
+        assert "Ciclo 1: 6 turnos, encerrado por: concluiu" in humano
+        assert f"Arquivos escritos: {SOURCE_FILE}" in humano
+        assert "Diff atual do workspace" in humano
+        assert "+++ b/" + SOURCE_FILE in humano
+        # o registro acumula
+        assert [c["ciclo"] for c in out2["developer_memory"]] == [1, 2]
+        assert out2["developer_memory"][1]["turnos"] == 1
+        del primeiro
+
+    def test_memoria_vem_antes_do_feedback(self, ambiente, monkeypatch):
+        """Mesma ordem do single-agent: histórico primeiro, mensagem do driver depois."""
+        from src import config
+        from src.agents.developer import _build_prompt
+        from src.feedback import DIFF_VAZIO
+        from src.schemas.test_report import TestReport
+
+        monkeypatch.setattr(config, "DEVELOPER_MEMORY", "ledger")
+        prompt = _build_prompt(_estado(
+            developer_memory=[{"ciclo": 1, "turnos": 2, "parada": "concluiu"}],
+            test_report=TestReport(exit_code=0, passed=10).model_dump(),
+            changed_files=[],
+        ), diff="")
+        assert prompt.index("Memória de trabalho") < prompt.index(DIFF_VAZIO)
+
+    def test_politica_none_mantem_a_reconstrucao_de_19_09(self, ambiente, monkeypatch):
+        from src import config
+        from src.agents.developer import _build_prompt
+
+        monkeypatch.setattr(config, "DEVELOPER_MEMORY", "none")
+        prompt = _build_prompt(_estado(
+            developer_memory=[{"ciclo": 1, "turnos": 2, "parada": "concluiu"}],
+        ), diff="diff --git a/x b/x")
+        assert "Memória de trabalho" not in prompt
+        assert "diff --git" not in prompt
+
+        # o registro continua sendo gravado, para a telemetria contar por ciclo
+        _, tel, montar = ambiente
+        montar(FakeToolCallingLLM([ai(content="nada")]))
+        out = developer(_estado(developer_memory=[]))
+        assert out["developer_memory"][0]["turnos"] == 1
+        assert any(e["event_type"] == "memory" for e in read_events(tel.path))
+
+
 class TestDeveloperOrcamento:
     def test_para_ao_estourar_turnos(self, ambiente):
         _, _, montar = ambiente
@@ -365,6 +484,31 @@ class TestValidatorExecuta:
         assert out["is_valid"] is True
         assert "error" in [e["event_type"] for e in read_events(tel.path)]
 
+    def test_veredito_do_revisor_vai_a_telemetria(self, ambiente, monkeypatch):
+        """09/10/2026: na fumaça D o revisor reprovou um patch verde e nada dizia por quê."""
+        from src.schemas.validation_result import ValidationResult
+
+        monkeypatch.setenv("SEMANTIC_REVIEW", "true")
+        ws, tel, montar = ambiente
+        _mudanca_benigna(ws)
+        ctx = montar(FakeToolCallingLLM([ai(content="x")]))
+        monkeypatch.setattr(
+            ctx, "invoke_structured",
+            lambda schema, msgs, **kw: ValidationResult(
+                is_valid=False, issues=["não resolve"], missing_criteria=["critério 1"],
+            ),
+        )
+
+        out = validator(_estado())
+
+        assert out["is_valid"] is False
+        vereditos = [e for e in read_events(tel.path) if e["event_type"] == "validation"]
+        assert len(vereditos) == 1
+        assert vereditos[0]["payload"]["is_valid"] is False
+        assert vereditos[0]["payload"]["issues"] == ["não resolve"]
+        assert vereditos[0]["payload"]["missing_criteria"] == ["critério 1"]
+        assert vereditos[0]["agent_role"] == "validator"
+
     def test_execucao_vira_evento_de_telemetria(self, ambiente, monkeypatch):
         monkeypatch.setenv("SEMANTIC_REVIEW", "false")
         _, tel, montar = ambiente
@@ -479,6 +623,14 @@ class TestGrafoPontaAPonta:
         assert [e["event_type"] for e in eventos][-1] == "run_end"
         assert any(e["event_type"] == "test_run" for e in eventos)
         assert ctx.telemetry.totals.llm_calls >= 3
+
+        # a intent entregue ao developer e a memória de cada ciclo ficam gravadas
+        intents = [e for e in eventos if e["event_type"] == "intent"]
+        assert len(intents) == 1 and intents[0]["payload"]["goal"] == INTENT["goal"]
+        assert intents[0]["agent_role"] == "intent_refiner"
+        memorias = [e for e in eventos if e["event_type"] == "memory"]
+        assert len(memorias) == 1 and memorias[0]["payload"]["ciclo"] == 1
+        assert final["developer_memory"][0]["arquivos_escritos"] == [SOURCE_FILE]
 
     def test_eventos_do_grafo_validam_contra_o_schema(self, ambiente, monkeypatch):
         import json

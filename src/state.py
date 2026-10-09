@@ -42,6 +42,9 @@ class WorkflowState(TypedDict, total=False):
     changed_files: list[str]
     diff_stat: dict[str, int]
     dev_summary: str
+    # Memória de trabalho do developer: um registro por ciclo encerrado,
+    # montado pelo próprio nó a partir do que ele fez (decisão 8, 09/10/2026).
+    developer_memory: list[dict[str, Any]]
 
     # Validator — corretude vem de execução real
     test_report: TestReportState

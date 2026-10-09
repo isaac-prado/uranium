@@ -58,6 +58,9 @@ def validator(state: WorkflowState) -> dict[str, Any]:
                         ("user", _build_review_prompt(state, ctx)),
                     ],
                 )
+                # O veredito vai à telemetria: na fumaça D de 09/10 o revisor
+                # reprovou um patch com a suíte verde e nada registrava o motivo.
+                ctx.telemetry.emit_validation(semantic)
             except StructuredOutputError as exc:
                 # Falha de conformidade não pode reprovar código que passa nos
                 # testes; fica registrada e o veredito segue pela execução.

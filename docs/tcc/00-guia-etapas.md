@@ -27,6 +27,8 @@ O estudo compara duas formas de usar um modelo de linguagem para corrigir bugs: 
 
 **O que declara em vez de corrigir.** F3: o braço orquestrado reconstrói o contexto do desenvolvedor a cada ciclo; o agente único guarda o histórico inteiro. Isso é a estratégia de limpeza e reinjeção de contexto que a literatura do paradigma ES 3.0 apresenta como vantagem, portanto é parte da variável independente. O estudo mede seu custo em tokens.
 
+**Revisão de 09/10/2026 (decisão 8).** Depois das fumaças D e F ([07-e4-fumaca.md](07-e4-fumaca.md)), o autor decidiu que o developer não pode perder o que fez entre os ciclos: ele passa a receber uma memória de trabalho curada pela orquestração (registro determinístico do ciclo e diff atual), não a transcrição acumulada. O inventário já classificava F3 como "não consequência necessária da topologia". Registro em [07-execucao.md](07-execucao.md), "Memória de trabalho do developer".
+
 **O que registra.** O manifesto do run passa a conter tudo que muda o comportamento do braço orquestrado (tetos de esclarecimento e de correção, gate semântico, método e retentativas da saída estruturada) e os limites das ferramentas comuns. Sem isso, duas coletas com configurações diferentes produziam manifestos idênticos (F9, F11).
 
 **Portão.** Um teste de paridade que falha se qualquer constante que deve ser igual divergir.

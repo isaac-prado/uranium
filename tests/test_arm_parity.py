@@ -176,7 +176,23 @@ class TestManifestoRegistraOQueAfetaOOrchestration:
 
     def test_manifest_version_subiu(self, tmp_path):
         """A forma do manifesto mudou (novas chaves): a versão precisa acompanhar."""
-        assert _spec("orchestration", tmp_path).manifest("t")["manifest_version"] == 5
+        assert _spec("orchestration", tmp_path).manifest("t")["manifest_version"] == 6
+
+    def test_mudar_developer_memory_muda_o_manifesto(self, tmp_path, monkeypatch):
+        """Decisão 8 revista (09/10/2026): a memória de trabalho é política do braço."""
+        from src import config
+        from src.feedback import MEMORIA_DIFF_MAX_CHARS
+
+        base = _spec("orchestration", tmp_path).manifest("t")["orchestration_policy"]
+        assert base["developer_memory"] == config.DEVELOPER_MEMORY
+        assert base["developer_memory_diff_max_chars"] == MEMORIA_DIFF_MAX_CHARS
+
+        outro = "none" if base["developer_memory"] == "ledger" else "ledger"
+        monkeypatch.setattr(config, "DEVELOPER_MEMORY", outro)
+
+        depois = _spec("orchestration", tmp_path).manifest("t")["orchestration_policy"]
+        assert depois != base
+        assert depois["developer_memory"] == outro
 
 
 # ------------------------------------------------------------------ runtime
@@ -738,5 +754,23 @@ class TestMensagensDeProtocoloSaoUnicas:
         """
         import src.feedback as fb
 
-        publicos = {n for n in dir(fb) if not n.startswith("_") and n not in ("annotations", "TestReport")}
-        assert publicos == {"DIFF_VAZIO", "suite_falhou", "feedback_de_falha", "revisao_reprovada"}
+        publicos = {
+            n for n in dir(fb)
+            if not n.startswith("_") and n not in ("annotations", "Any", "TestReport", "truncate")
+        }
+        assert publicos == {
+            "DIFF_VAZIO", "suite_falhou", "feedback_de_falha", "revisao_reprovada",
+            "MEMORIA_DIFF_MAX_CHARS", "memoria_de_trabalho",
+        }
+
+    def test_memoria_de_trabalho_so_tem_moldura(self):
+        """
+        Decisão 8 revista (09/10/2026): a memória leva o que o developer fez e
+        o diff dele; o harness escreve só os títulos. Nenhum diagnóstico,
+        apontamento de arquivo ou sugestão pode nascer aqui.
+        """
+        from src.feedback import memoria_de_trabalho
+
+        texto = memoria_de_trabalho([{"ciclo": 1, "turnos": 0, "parada": "concluiu"}], "")
+        for palavra in ("parser", ".py", "função", "provavelmente", "sugir", "corrija", "tente"):
+            assert palavra not in texto.lower()

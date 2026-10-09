@@ -43,6 +43,12 @@ EVENT_TYPES = frozenset({
     "test_run",
     "error",
     "circuit_break",
+    # Artefatos dos papéis do orchestration, para a análise e a ablação
+    # (09/10/2026): sem eles a telemetria não dizia por que o revisor
+    # reprovou um patch verde nem o que o refinador entregou ao developer.
+    "intent",
+    "validation",
+    "memory",
 })
 
 
@@ -344,6 +350,18 @@ class TelemetryWriter:
 
     def emit_circuit_break(self, reason: str, **fields: Any) -> dict[str, Any]:
         return self.emit("circuit_break", payload={"reason": reason}, **fields)
+
+    def emit_intent(self, intent: Any, **fields: Any) -> dict[str, Any]:
+        """Registra a intent estruturada que o refinador entregou ao developer."""
+        return self.emit("intent", payload=intent.model_dump(), **fields)
+
+    def emit_validation(self, result: Any, **fields: Any) -> dict[str, Any]:
+        """Registra o veredito do revisor semântico (só roda com a suíte verde)."""
+        return self.emit("validation", payload=result.model_dump(), **fields)
+
+    def emit_memory(self, entry: dict[str, Any], **fields: Any) -> dict[str, Any]:
+        """Registra o ciclo que entra na memória de trabalho do developer."""
+        return self.emit("memory", payload=dict(entry), **fields)
 
     # ------------------------------------------------------------ ciclo de vida
 

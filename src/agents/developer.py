@@ -12,9 +12,21 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
+from langchain_core.messages import (
+    AIMessage,
+    BaseMessage,
+    HumanMessage,
+    SystemMessage,
+    ToolMessage,
+)
 
-from src.feedback import DIFF_VAZIO, feedback_de_falha, revisao_reprovada
+from src import config
+from src.feedback import (
+    DIFF_VAZIO,
+    feedback_de_falha,
+    memoria_de_trabalho,
+    revisao_reprovada,
+)
 from src.prompts import AGENT_SYSTEM_PROMPT
 from src.runtime import RunContext
 from src.state import WorkflowState, parse_intent, parse_test_report, parse_validation
@@ -45,13 +57,38 @@ def _revisao_reprovada(state: WorkflowState) -> str | None:
     )
 
 
-def _build_prompt(state: WorkflowState) -> str:
-    """Monta a instrução do turno, com o feedback de execução se houver."""
+def _memoria(state: WorkflowState, diff: str) -> str | None:
+    """
+    Memória de trabalho dos ciclos anteriores, quando a política a liga.
+
+    Lida como atributo do módulo (`config.DEVELOPER_MEMORY`), o mesmo acesso
+    que o manifesto usa (src/arms/runner.py), para que o run registre o
+    valor que o nó de fato aplicou. No primeiro ciclo não há memória e o
+    prompt é idêntico ao de antes da decisão 8 revista (09/10/2026).
+    """
+    if config.DEVELOPER_MEMORY != "ledger":
+        return None
+    ciclos = state.get("developer_memory") or []
+    if not ciclos:
+        return None
+    return memoria_de_trabalho(ciclos, diff)
+
+
+def _build_prompt(state: WorkflowState, diff: str = "") -> str:
+    """
+    Monta a instrução do turno: tarefa, memória de trabalho (se houver ciclo
+    anterior) e o feedback de execução, nessa ordem — a mesma do single-agent,
+    em que o histórico vem antes da mensagem mais recente do driver.
+    """
     intent = parse_intent(state)
     partes = [
         "Tarefa:",
         intent.model_dump_json(indent=2),
     ]
+
+    memoria = _memoria(state, diff)
+    if memoria:
+        partes += ["", memoria]
 
     report = parse_test_report(state)
     alterados = state.get("changed_files") or []
@@ -80,15 +117,77 @@ def _build_prompt(state: WorkflowState) -> str:
     return "\n".join(partes)
 
 
+def _registro_do_ciclo(
+    mensagens: list[BaseMessage], *, ciclo: int, turnos: int, parada: str, nota: str
+) -> dict[str, Any]:
+    """
+    Registro determinístico do que o developer fez neste ciclo, a partir da
+    própria conversa: nomes das ferramentas e seus argumentos-chave, e a
+    primeira linha do resultado de cada `run_tests`. Nenhum conteúdo de
+    arquivo, nenhuma interpretação do harness.
+    """
+    respostas: dict[str, str] = {}
+    for msg in mensagens:
+        if isinstance(msg, ToolMessage):
+            respostas[str(msg.tool_call_id)] = str(msg.content)
+
+    lidos: list[str] = []
+    buscas: list[str] = []
+    escritos: list[str] = []
+    execucoes_python = 0
+    suites: list[dict[str, str]] = []
+
+    def _unico(lista: list[str], item: str) -> None:
+        if item and item not in lista:
+            lista.append(item)
+
+    for msg in mensagens:
+        if not isinstance(msg, AIMessage):
+            continue
+        for chamada in msg.tool_calls or []:
+            nome = chamada.get("name")
+            args = chamada.get("args") or {}
+            if nome == "read_file":
+                _unico(lidos, str(args.get("path", "")))
+            elif nome == "search_code":
+                _unico(buscas, str(args.get("pattern", "")))
+            elif nome in ("write_file", "replace_in_file"):
+                _unico(escritos, str(args.get("path", "")))
+            elif nome == "run_python":
+                execucoes_python += 1
+            elif nome == "run_tests":
+                alvos = args.get("node_ids") or []
+                saida = respostas.get(str(chamada.get("id")), "")
+                suites.append({
+                    "alvos": ", ".join(str(a) for a in alvos) if alvos else "suíte inteira",
+                    "resultado": saida.splitlines()[0] if saida else "",
+                })
+
+    return {
+        "ciclo": ciclo,
+        "turnos": turnos,
+        "parada": parada,
+        "arquivos_lidos": lidos,
+        "buscas": buscas,
+        "arquivos_escritos": escritos,
+        "execucoes_python": execucoes_python,
+        "suites": suites,
+        "nota": nota,
+    }
+
+
 def developer(state: WorkflowState) -> dict[str, Any]:
     """Roda o loop de tool calling até resolver, parar de agir ou estourar orçamento."""
     ctx = RunContext.from_state(state)
     llm = ctx.bound_llm()
+    ws = ctx.workspace
 
+    memoria_anterior = list(state.get("developer_memory") or [])
     mensagens: list[BaseMessage] = [
         SystemMessage(content=SYSTEM_PROMPT),
-        HumanMessage(content=_build_prompt(state)),
+        HumanMessage(content=_build_prompt(state, diff=ws.diff())),
     ]
+    turnos_no_ciclo = 0
 
     turno = state.get("turn_count", 0)
     stop_reason = "concluiu"
@@ -103,6 +202,7 @@ def developer(state: WorkflowState) -> dict[str, Any]:
 
             turno = ctx.budget.next_turn()
             ctx.telemetry.set_turn(turno)
+            turnos_no_ciclo += 1
 
             inicio = time.perf_counter()
             ai = llm.invoke(mensagens)
@@ -116,11 +216,23 @@ def developer(state: WorkflowState) -> dict[str, Any]:
 
             mensagens.extend(ctx.executar_tool_calls(ai))
 
-    ws = ctx.workspace
+        # O registro do ciclo é montado e gravado sempre, em qualquer
+        # política: a telemetria conta o que o developer fez por ciclo mesmo
+        # quando a memória não volta ao prompt (`DEVELOPER_MEMORY=none`).
+        registro = _registro_do_ciclo(
+            mensagens,
+            ciclo=len(memoria_anterior) + 1,
+            turnos=turnos_no_ciclo,
+            parada=stop_reason,
+            nota=resumo,
+        )
+        ctx.telemetry.emit_memory(registro)
+
     return {
         "changed_files": ws.changed_files(),
         "diff_stat": ws.diffstat(),
         "dev_summary": resumo,
+        "developer_memory": memoria_anterior + [registro],
         "turn_count": turno,
         "stop_reason": stop_reason,
     }

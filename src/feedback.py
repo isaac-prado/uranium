@@ -16,7 +16,16 @@ Nada aqui pode apontar arquivo, função ou forma de resolver.
 
 from __future__ import annotations
 
+from typing import Any
+
 from src.schemas.test_report import TestReport
+from src.tools.base import truncate
+
+# Teto do diff que entra na memória de trabalho do developer. É o mesmo
+# teto com que o revisor semântico vê o diff (src/agents/validator.py):
+# os dois papéis olham o mesmo artefato pelo mesmo recorte. Vai ao
+# manifesto em `orchestration_policy.developer_memory_diff_max_chars`.
+MEMORIA_DIFF_MAX_CHARS = 20_000
 
 # A suíte visível já está verde no commit-base — o teste que discrimina é
 # oculto. Sem este aviso, "não fazer nada" satisfaz o critério de parada e o
@@ -66,4 +75,57 @@ def revisao_reprovada(
     ):
         if itens:
             partes += ["", f"{titulo}:", *(f"- {item}" for item in itens)]
+    return "\n".join(partes)
+
+
+def memoria_de_trabalho(ciclos: list[dict[str, Any]], diff: str) -> str:
+    """
+    Memória de trabalho do developer do orchestration, entregue a cada
+    reentrada no nó (decisão 8 do autor, revista em 09/10/2026).
+
+    Até 09/10 o developer voltava ao nó sem memória nenhuma: a conversa era
+    reconstruída do zero a cada ciclo de validação, e ele não sabia que foi
+    ele quem editou os arquivos que encontrava no disco. Na fumaça D ele
+    submeteu com a suíte verde, foi reprovado pelo revisor, voltou sem saber
+    o que tinha feito e quebrou 29 testes refazendo.
+
+    O conteúdo é o registro determinístico do que o próprio developer fez
+    em cada ciclo (o que leu, buscou, escreveu e executou, e a nota com que
+    encerrou) mais o diff atual do workspace, isto é, o que ele mesmo já
+    mudou. Nada é escrito pelo harness além dos títulos: nenhum diagnóstico,
+    nenhuma sugestão, nenhum apontamento de arquivo ou solução. Só o braço
+    orchestration reentra no developer, então só ele recebe esta mensagem;
+    o single-agent carrega a conversa inteira e não precisa dela.
+    """
+    partes = ["Memória de trabalho (ciclos anteriores deste run):"]
+    for ciclo in ciclos:
+        partes += [
+            "",
+            f"Ciclo {ciclo.get('ciclo')}: {ciclo.get('turnos', 0)} turnos, "
+            f"encerrado por: {ciclo.get('parada', '')}",
+        ]
+        for titulo, chave in (
+            ("Arquivos lidos", "arquivos_lidos"),
+            ("Buscas", "buscas"),
+            ("Arquivos escritos", "arquivos_escritos"),
+        ):
+            itens = ciclo.get(chave) or []
+            if itens:
+                partes.append(f"- {titulo}: {', '.join(itens)}")
+        partes.append(f"- Execuções de run_python: {ciclo.get('execucoes_python', 0)}")
+        suites = ciclo.get("suites") or []
+        if suites:
+            partes.append(f"- Suítes executadas: {len(suites)}")
+            for suite in suites:
+                partes.append(f"  - {suite.get('alvos', '')}: {suite.get('resultado', '')}")
+        else:
+            partes.append("- Suítes executadas: 0")
+        nota = (ciclo.get("nota") or "").strip()
+        if nota:
+            partes.append(f"- Nota ao encerrar: {nota}")
+    partes += [
+        "",
+        "Diff atual do workspace (o que você já mudou):",
+        truncate(diff, MEMORIA_DIFF_MAX_CHARS) if diff else "(nenhuma alteração)",
+    ]
     return "\n".join(partes)

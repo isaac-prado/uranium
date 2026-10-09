@@ -154,9 +154,11 @@ As decisões 4 a 6 **já foram tomadas pelo autor em 28/09/2026** (commits `f4c0
 
 **Tomada em 19/09 (E2).** Declarada como parte da variável independente, com a referência a Rangel (2025) ([07-execucao.md](07-execucao.md), "Declaração da política de contexto"). O custo em tokens dessa estratégia é o que a métrica 2 mede. Não se iguala ao histórico persistente do single-agent.
 
-**Onde entra.** Método › Tratamentos; Discussão (custo da reinjeção de contexto).
+**Reaberta em 09/10/2026.** O que a reconstrução perdia: a conversa do developer (o que leu, tentou e concluiu), não o que os outros papéis lhe passam (intent, relatório da suíte, veredito), que vai pelo estado. Na fumaça D ([07-e4-fumaca.md](07-e4-fumaca.md) seção 8 e `dados/fumaca-09-10-d/`), o developer submeteu com a suíte visível verde (163/0) no turno 49, foi reprovado pelo revisor semântico, voltou sem memória e quebrou 29 testes refazendo. Na F, 146 turnos sem submeter. O inventário ([01-inventario.md](01-inventario.md), F3) já classificava a reconstrução como "não consequência necessária da topologia".
 
-**Decisão (confirmar):** ______ (data: ______)
+**Opções apresentadas.** (a) histórico persistente do developer dentro do run; (b) manter o reset e reinjetar só a nota final (`dev_summary`); (c) manter e declarar. Dentro de (a): transcrição completa (igual ao single-agent), registro determinístico curado pela orquestração, ou registro mais síntese escrita pelo modelo (prompt novo, uma chamada a mais por ciclo).
+
+**Decisão (09/10/2026):** (a), na forma de **memória de trabalho com registro determinístico**. Palavras do autor: "Com certeza a A. [...] o developer tem que ter tudo nas mãos. Não um acúmulo de contexto [...] quero que a ORQUESTRAÇÃO seja feita de forma inteligente"; entre as três formas, escolheu o registro determinístico. A cada reentrada o developer recebe, depois da intent e antes do feedback, o registro dos ciclos anteriores (arquivos lidos, buscas, arquivos escritos, execuções de `run_python`, suítes com resultado, nota final) e o diff atual do workspace, truncado em 20.000 caracteres, o mesmo recorte do revisor. Nenhuma chamada extra, nenhum texto do harness além dos títulos (`src/feedback.py::memoria_de_trabalho`). Política `DEVELOPER_MEMORY=ledger` no manifesto (`orchestration_policy.developer_memory`, manifesto v6); `none` reproduz o comportamento de 19/09 e identifica as fumaças A a F. A memória vale só dentro do run; nada atravessa tarefas ou repetições. O texto deixa de atribuir ao protótipo a "limpeza e reinjeção de contexto" de Rangel (2025) como traço de desenho; o custo da memória continua medido pela métrica 2. Registro em [07-execucao.md](07-execucao.md), "Memória de trabalho do developer". Pendente: fumaça de leitura na `tomlkit-0004` com os tetos da fumaça D antes de congelar a decisão 12.
 
 ### Decisão 9. `test_generator` e `clarification`: nós sem efeito sobre o desfecho (D1, D2)
 
@@ -339,7 +341,7 @@ Hoje conta como "sem corte" pela definição literal, e o JSON reporta `sem_stop
 | 5 | | | |
 | 6 | | | |
 | 7 | | | |
-| 8 | | | |
+| 8 | memória de trabalho do developer entre ciclos (registro determinístico + diff), `DEVELOPER_MEMORY=ledger`, manifesto v6 | 09/10/2026 | 09, Decisão 8; 07-execucao; src/feedback.py; src/agents/developer.py |
 | 9 | | | |
 | 10 | | | |
 | 11 | DeepInfra (apto 5/5); Novita reprovou por timeout; timeout 90 s | 08/10/2026 | 09, Decisão 11; dados/validacao-08-10/fitness_test.txt; manifesto da fumaça |

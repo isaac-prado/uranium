@@ -24,6 +24,7 @@ from src.agents.validator import semantic_review_enabled
 from src.arms.driver import DriverPolicy
 from src.budget import RunBudget
 from src.config import LLMConfig, is_provider_error, load_llm_config, root_provider_error
+from src.feedback import MEMORIA_DIFF_MAX_CHARS
 from src.runtime import MAX_TOOL_CALLS_POR_TURNO, RunContext
 from src.seeds import get_seed_repo
 from src.structured_llm import get_output_method
@@ -43,7 +44,11 @@ from src.workspace import Workspace, WorkspaceSpec
 # v4 existiu só na checagem paga de 09/10 (`orchestration_policy.developer_input`)
 # e nenhum run dela entra na coleta. O número sobe para que nenhum manifesto
 # posterior se confunda com um da checagem.
-MANIFEST_VERSION = 5
+# 6 = memória de trabalho do developer entre ciclos (decisão 8 revista em
+# 09/10/2026): `orchestration_policy.developer_memory` e
+# `developer_memory_diff_max_chars`. As fumaças A a F (v3/v5) rodaram com o
+# equivalente a `developer_memory = "none"`.
+MANIFEST_VERSION = 6
 
 # Chaves do manifesto que PODEM diferir entre os braços. Qualquer outra
 # divergência é violação do desenho experimental. Note que `repetition` NÃO
@@ -123,6 +128,11 @@ def _orchestration_policy() -> dict[str, Any]:
         "semantic_review": semantic_review_enabled(),
         "structured_output_method": get_output_method(),
         "structured_output_retries": structured_output_retries(),
+        # Memória de trabalho do developer entre ciclos (decisão 8 revista em
+        # 09/10/2026): "ledger" entrega o registro dos ciclos anteriores e o
+        # diff atual; "none" é a reconstrução do zero de 19/09.
+        "developer_memory": config.DEVELOPER_MEMORY,
+        "developer_memory_diff_max_chars": MEMORIA_DIFF_MAX_CHARS,
     }
 
 
@@ -306,7 +316,7 @@ def run_arm(spec: RunSpec, *, llm_factory: Any = None) -> dict[str, Any]:
             "acceptance_criteria": [], "clarifications_needed": [], "is_ready": True,
         },
         "iteration_count": 0, "validation_iteration_count": 0, "semantic_rejections": 0,
-        "clarification_responses": [], "turn_count": 0,
+        "clarification_responses": [], "turn_count": 0, "developer_memory": [],
     }
 
     telemetry.run_start(

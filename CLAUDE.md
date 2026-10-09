@@ -9,7 +9,7 @@ Fonte de verdade sobre o desenho: `docs/tcc/00-guia-etapas.md`, `docs/tcc/01-inv
 - Detector de trapaça (`harness/cheat.py`), oráculo (`harness/oracle.py`), guarda de caminho (`src/seeds.py` `DEFAULT_PROTECTED_GLOBS` e `src/workspace.py`), pino de provedor (`src/config.py`: `provider_routing`, `_validate`, `OpenRouterChat`).
 - Prompts (`src/prompts.py`). Os dois braços usam o mesmo prompt de sistema e o mesmo conjunto de ferramentas na mesma ordem.
 - Mensagens de protocolo ao agente vivem só em `src/feedback.py`. Nenhum braço pode ter texto próprio de feedback; `tests/test_arm_parity.py` falha se houver.
-- A reconstrução do contexto do developer a cada ciclo (`src/agents/developer.py`) é parte da variável independente (folga F3, declarada em `docs/tcc/07-execucao.md`). Não igualar ao histórico persistente do single-agent.
+- O developer do orquestrado volta ao nó com a **memória de trabalho** (decisão 8 revista em 09/10/2026): registro determinístico dos ciclos anteriores (arquivos lidos, buscas, escritas, suítes, nota final) e o diff atual, montados por `src/feedback.py::memoria_de_trabalho` sem chamada extra ao modelo. Política `DEVELOPER_MEMORY` (`ledger` na coleta; `none` reproduz a reconstrução do zero de 19/09, folga F3), registrada em `orchestration_policy.developer_memory`. Não passar a transcrição inteira (seria o histórico do single-agent) nem acrescentar síntese do harness. A memória vale só dentro do run: nada atravessa tarefas ou repetições.
 - O developer do orquestrado recebe só a intent do `intent_refiner`, nunca o enunciado cru (decisão 24 revertida em 09/10/2026: é o protótipo do TFG; o confundidor D3 é declarado e medido pela ablação). Não anexar o enunciado.
 
 ## Paridade e manifesto

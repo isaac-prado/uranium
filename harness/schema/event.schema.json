@@ -74,7 +74,10 @@
         "tool_call",
         "test_run",
         "error",
-        "circuit_break"
+        "circuit_break",
+        "intent",
+        "validation",
+        "memory"
       ]
     },
     "node": {

@@ -44,6 +44,19 @@ MAX_CLARIFICATION_ITERATIONS = int(os.getenv("MAX_CLARIFICATION_ITERATIONS", "3"
 # single-agent faz. Um teto ali daria a um braço menos chances de corrigir que
 # ao outro, e a diferença não viria da topologia.
 MAX_SEMANTIC_REJECTIONS = int(os.getenv("MAX_SEMANTIC_REJECTIONS", "2"))
+# Memória de trabalho do developer do orchestration entre os ciclos de
+# validação (decisão 8 do autor, revista em 09/10/2026). "ledger": a cada
+# reentrada no nó o developer recebe o registro determinístico dos ciclos
+# anteriores (o que leu, buscou, escreveu e executou, a nota com que
+# encerrou) e o diff atual do workspace, montados pela orquestração sem
+# chamada extra ao modelo. "none": o comportamento de 19/09, conversa
+# reconstruída do zero a cada ciclo (fumaças A a F rodaram assim).
+DEVELOPER_MEMORY_MODES = ("ledger", "none")
+DEVELOPER_MEMORY = os.getenv("DEVELOPER_MEMORY", "ledger").strip().lower()
+if DEVELOPER_MEMORY not in DEVELOPER_MEMORY_MODES:
+    raise ValueError(
+        f"DEVELOPER_MEMORY={DEVELOPER_MEMORY!r} inválido; use um de {DEVELOPER_MEMORY_MODES}"
+    )
 
 
 class ConfigError(RuntimeError):

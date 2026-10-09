@@ -62,7 +62,7 @@ As duas falhas são `tests/test_seed_repos.py::TestSuiteVerdeNoPontoDePartida::t
 
 Essa diferença é a estratégia de limpeza e reinjeção de contexto que Rangel (2025) apresenta, no CodeAir, como vantagem do paradigma ES 3.0 sobre um agente único que arrasta o histórico inteiro: **Rangel, G. A. (2025). CodeAir: A multi-agent orchestration framework for AI-assisted software development. *SSRN Electronic Journal*.** (referência extraída de `docs/tcc/fontes/TFG_ISAAC_DO_PRADO_ALMEIDA.pdf`, seção de referências, via `pdftotext`).
 
-Por isso ela é tratada como parte da variável independente (a topologia), não como defeito a equalizar — ao contrário de F1, F2 e F8, que eram descuido de implementação e não tinham nenhuma justificativa de desenho. O preço dessa reconstrução por ciclo é justamente o que a métrica 2 do estudo (custo computacional, `cost.tokens_total`/`cost.cost_usd`/`cost.llm_calls`, [docs/tcc/03-metricas.md:17](../03-metricas.md#L17)) precisa capturar: reconstruir o contexto do zero a cada ciclo de validação custa tokens que o `single-agent`, ao só acrescentar à conversa existente, não paga da mesma forma — e é exatamente essa troca (contexto limpo vs. contexto caro) que o estudo mede, não uma assimetria a remover.
+**Revista em 09/10/2026 (decisão 8): ver "Memória de trabalho do developer" abaixo; o que segue é o registro de 19/09.** Por isso ela é tratada como parte da variável independente (a topologia), não como defeito a equalizar — ao contrário de F1, F2 e F8, que eram descuido de implementação e não tinham nenhuma justificativa de desenho. O preço dessa reconstrução por ciclo é justamente o que a métrica 2 do estudo (custo computacional, `cost.tokens_total`/`cost.cost_usd`/`cost.llm_calls`, [docs/tcc/03-metricas.md:17](../03-metricas.md#L17)) precisa capturar: reconstruir o contexto do zero a cada ciclo de validação custa tokens que o `single-agent`, ao só acrescentar à conversa existente, não paga da mesma forma — e é exatamente essa troca (contexto limpo vs. contexto caro) que o estudo mede, não uma assimetria a remover.
 
 
 ## Índice dos demais itens (19/09/2026)
@@ -188,3 +188,21 @@ Relatório em [07-e4-fumaca.md](07-e4-fumaca.md): 4 células (`tomlkit-0002` gra
 **Teste que prova.** `tests/test_config.py::TestCustoComChavePropria` (BYOK soma os dois; sem BYOK não soma o upstream; resposta sem o campo deixa `is_byok` indefinido). Suíte: 592 passando.
 
 **Impacto em docs.** Decisão 11 final em [09-decisoes-do-autor.md](09-decisoes-do-autor.md); `CLAUDE.md` (regra de custo e BYOK). Sem isso, a métrica de custo em dólares da coleta sairia zero.
+
+
+---
+
+## Memória de trabalho do developer (09/10/2026, decisão 8 revista)
+
+**Por quê.** A reconstrução do contexto a cada ciclo (F3) fazia o developer do orquestrado voltar ao nó sem saber o que tinha feito: na fumaça D ele submeteu com a suíte verde, foi reprovado pelo revisor semântico, voltou sem memória e quebrou 29 testes ([07-e4-fumaca.md](07-e4-fumaca.md) seções 8 e 11, `dados/fumaca-09-10-d/` e `-f/`). O autor decidiu que o developer "tem que ter tudo nas mãos", sem acúmulo de transcrição: a orquestração cura o que volta.
+
+**Diff resumido.**
+- `src/feedback.py`: `memoria_de_trabalho(ciclos, diff)` e `MEMORIA_DIFF_MAX_CHARS = 20_000` (mesmo recorte do revisor). Só títulos são do harness; o conteúdo é o registro do próprio developer e o diff dele.
+- `src/agents/developer.py`: `_registro_do_ciclo` monta, da própria conversa do ciclo, o registro determinístico (arquivos lidos, buscas, arquivos escritos, execuções de `run_python`, suítes com a primeira linha do resultado, turnos, motivo de parada, nota final). O prompt de reentrada é `Tarefa` → memória → feedback (ordem do single-agent: histórico antes da mensagem do driver). No primeiro ciclo o prompt é idêntico ao anterior. O registro é gravado sempre (evento `memory`), mesmo com a política desligada.
+- `src/config.py`: `DEVELOPER_MEMORY` (`ledger` | `none`, validado no import); `src/state.py`: `developer_memory`; `src/arms/runner.py`: `orchestration_policy.developer_memory` e `developer_memory_diff_max_chars`, estado inicial com `developer_memory: []`, `MANIFEST_VERSION = 6`.
+- Telemetria (`src/telemetry.py`, `harness/schema/event.schema.json`): eventos `intent` (o que o refinador entregou), `validation` (veredito do revisor, com `issues` e `missing_criteria`) e `memory`. Até aqui a telemetria não dizia por que o revisor reprovou um patch verde.
+- `.env.example` e `.env`: `DEVELOPER_MEMORY=ledger`.
+
+**Teste que prova.** `tests/test_nodes.py::TestDeveloperMemoriaDeTrabalho` (primeiro ciclo sem memória; registro determinístico e evento `memory`; segundo ciclo recebe memória e diff; memória antes do feedback; `none` reproduz 19/09), `::TestValidatorExecuta::test_veredito_do_revisor_vai_a_telemetria`, `::TestGrafoPontaAPonta` (eventos `intent` e `memory` no run inteiro), `tests/test_arm_parity.py::test_mudar_developer_memory_muda_o_manifesto`, `::test_manifest_version_subiu` (6), `::test_memoria_de_trabalho_so_tem_moldura`, canário de `src/feedback.py` atualizado; `tests/test_intent_refiner.py` ajustado ao evento novo. Suíte: 600 passando.
+
+**Impacto em docs.** Decisão 8 em [09-decisoes-do-autor.md](09-decisoes-do-autor.md) (decidida, com as opções e as palavras do autor); `CLAUDE.md` (invariante de F3 substituído pela memória de trabalho); [00-guia-etapas.md](00-guia-etapas.md) (nota de revisão). Para o texto: Método › Tratamentos descreve a memória como parte do tratamento orquestrado e deixa de citar a "limpeza e reinjeção de contexto" como traço do protótipo; Ameaças à validade registra que a política foi definida depois de fumaças de calibração e antes da coleta, e que as fumaças A a F rodaram com `developer_memory = none`.
