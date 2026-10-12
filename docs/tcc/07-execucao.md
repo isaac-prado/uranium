@@ -220,3 +220,14 @@ Relatório em [07-e4-fumaca.md](07-e4-fumaca.md): 4 células (`tomlkit-0002` gra
 
 **Impacto em docs.** Decisão 25 em [09-decisoes-do-autor.md](09-decisoes-do-autor.md); `CLAUDE.md`. Para o texto: Método › Tratamentos (o orquestrado passa pelo validador a cada 40 turnos; o single-agent passa pela suíte sempre que para de agir); Ameaças à validade (parâmetro definido depois das fumaças A a G e antes da coleta).
 
+
+---
+
+## G4 — Tetos congelados (12/10/2026, decisão 12)
+
+**Diff resumido.** `src/budget.py` (padrões 8.000.000 tokens, 3.600 s, 120 turnos, com a justificativa no comentário), `.env.example` e `.env` (mesmos valores), `CLAUDE.md` (seção "Tetos do run" passa de "NÃO CONGELADOS" aos valores e à data). Os parâmetros do orquestrado já estavam gravados (`DEVELOPER_MEMORY=ledger`, `DEVELOPER_CYCLE_MAX_TURNS=40`, `MAX_SEMANTIC_REJECTIONS=2`).
+
+**Teste que prova.** `tests/test_telemetry.py` (`RunBudget.from_env` lê o ambiente; manifesto serializável) e `tests/test_arm_parity.py::test_orcamento_identico` (mesmo orçamento nos dois braços). A suíte inteira continua verde. Os números vêm de [07-e4-fumaca.md](07-e4-fumaca.md), seções 6 a 13, e de `dados/fumaca-*`.
+
+**Impacto em docs.** Decisão 12 final em [09-decisoes-do-autor.md](09-decisoes-do-autor.md). Para o texto: Método › Procedimento (tetos, regra de calibração e as oito fumaças que a sustentam); Ameaças à validade (a tarefa grande `tomlkit-0004` não foi resolvida em nenhuma fumaça por nenhum braço; o teto de parede foi subido depois de um corte por latência do provedor, antes da coleta).
+

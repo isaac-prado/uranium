@@ -26,16 +26,22 @@ class RunBudget:
     censura a medição de custo antes de os turnos acabarem.
     """
 
-    max_tokens: int = 1_200_000
-    max_wall_seconds: int = 1800
-    max_turns: int = 40
+    # Tetos congelados em 12/10/2026 (decisão 12, G4), calibrados nas fumaças
+    # A a H da tarefa grande tomlkit-0004 (docs/tcc/07-e4-fumaca.md): nenhum
+    # corte por tokens em oito runs a 120 turnos ou mais (máx. 8,1 M em 160
+    # turnos); o único corte por parede foi latência do provedor (1.823 s em
+    # 79 turnos), por isso a parede é 2× o máximo observado. Não mudam até o
+    # fim da coleta.
+    max_tokens: int = 8_000_000
+    max_wall_seconds: int = 3600
+    max_turns: int = 120
 
     @classmethod
     def from_env(cls, **overrides: Any) -> "RunBudget":
         base = cls(
-            max_tokens=int(os.getenv("RUN_MAX_TOKENS", "1200000")),
-            max_wall_seconds=int(os.getenv("RUN_MAX_WALL_SECONDS", "1800")),
-            max_turns=int(os.getenv("RUN_MAX_TURNS", "40")),
+            max_tokens=int(os.getenv("RUN_MAX_TOKENS", "8000000")),
+            max_wall_seconds=int(os.getenv("RUN_MAX_WALL_SECONDS", "3600")),
+            max_turns=int(os.getenv("RUN_MAX_TURNS", "120")),
         )
         return cls(**{**asdict(base), **overrides})
 

@@ -34,9 +34,9 @@ Função pura `calcular_faixa` em `scripts/mine_tasks.py`, sobre o patch de refe
 
 A faixa é gravada no `task.json`, atravessa até o `result.json` e é eixo da análise. Toda tarefa, em qualquer faixa, só entra se for verificada por execução (suíte verde no commit-base, teste oculto vermelho na base e verde com a referência) e passar nos quatro portões de `scripts/validate_task.py` com duas soluções de referência. Mudar uma faixa depois da coleta começar invalida a estratificação.
 
-## Tetos do run
+## Tetos do run (congelados em 12/10/2026, decisão 12 de `docs/tcc/09-decisoes-do-autor.md`)
 
-**NÃO CONGELADOS.** Os valores atuais em `src/budget.py` e `.env.example` (`RUN_MAX_TOKENS=1200000`, `RUN_MAX_WALL_SECONDS=1800`, `RUN_MAX_TURNS=40`) são os do piloto. A etapa E4 do `docs/tcc/tasks/EXIGENCIAS.md` exige calibrá-los com teste de fumaça pago numa tarefa da faixa grande antes de congelar. Quando o autor congelar, os valores finais e a data entram aqui e não mudam até o fim da coleta.
+`RUN_MAX_TURNS=120`, `RUN_MAX_TOKENS=8000000`, `RUN_MAX_WALL_SECONDS=3600`, `test_timeout_s=120`; no orquestrado, `DEVELOPER_MEMORY=ledger`, `DEVELOPER_CYCLE_MAX_TURNS=40`, `MAX_SEMANTIC_REJECTIONS=2`. Padrões em `src/budget.py` e `.env.example`; calibrados nas fumaças A a H da `tomlkit-0004` (`docs/tcc/07-e4-fumaca.md`, seção 13). Turnos são o orçamento; tokens e parede são rede de segurança (nenhum corte por tokens em oito runs a 120 turnos ou mais; o único corte por parede foi latência do provedor). Não mudam até o fim da coleta; mudar qualquer um invalida a comparação com os runs já coletados.
 
 ## Regras de trabalho
 
