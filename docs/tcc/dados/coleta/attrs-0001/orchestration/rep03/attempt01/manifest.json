@@ -1,0 +1,53 @@
+{
+  "manifest_version": 7,
+  "run_id": "attrs-0001-orchestration-r03-a01",
+  "arm": "orchestration",
+  "topology": "multi_agent_roles",
+  "task_id": "attrs-0001",
+  "repetition": 3,
+  "attempt": 1,
+  "seed_repo_id": "attrs",
+  "base_commit": "9cf2ed5a6b1c6977a7f545f84d87b3dd63befe0a",
+  "started_at": "2026-10-13T15:55:00+00:00",
+  "llm": {
+    "model": "qwen/qwen3-coder",
+    "provider": "DeepInfra",
+    "temperature": 0.0,
+    "seed": 20260823,
+    "max_tokens": 8192,
+    "timeout_s": 90,
+    "max_retries": 6,
+    "allow_fallbacks": false,
+    "require_parameters": true,
+    "data_collection": "deny"
+  },
+  "budget": {
+    "max_tokens": 8000000,
+    "max_wall_seconds": 3600,
+    "max_turns": 120
+  },
+  "driver_policy": null,
+  "orchestration_policy": {
+    "max_semantic_rejections": 2,
+    "max_clarification_iterations": 3,
+    "semantic_review": true,
+    "structured_output_method": "function_calling",
+    "structured_output_retries": 2,
+    "developer_memory": "ledger",
+    "developer_memory_diff_max_chars": 20000,
+    "developer_cycle_max_turns": 40
+  },
+  "shared_limits": {
+    "max_tool_calls_por_turno": 8,
+    "default_snippet_timeout_s": 60,
+    "max_read_chars": 20000,
+    "max_read_lines": 400,
+    "max_search_results": 50,
+    "max_tool_output_chars": 8000,
+    "list_files_max_results": 200,
+    "recursion_limit": 480
+  },
+  "test_timeout_s": 120,
+  "python": "3.12.14",
+  "platform": "Linux-6.18.54.1-microsoft-standard-WSL2-x86_64-with-glibc2.43"
+}

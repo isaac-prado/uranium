@@ -1,0 +1,57 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index d709fb9..aa76118 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -2542,6 +2542,41 @@ class Table(Queryable):
+         """
+         if not self.exists():
+             raise ValueError("Cannot transform a table that doesn't exist yet")
++        
++        # Check for destructive foreign keys when in a transaction
++        pragma_foreign_keys_was_on = bool(
++            self.db.execute("PRAGMA foreign_keys").fetchone()[0]
++        )
++        already_in_transaction = self.db.conn.in_transaction
++        
++        if pragma_foreign_keys_was_on and already_in_transaction:
++            # Check if any tables reference this table with destructive actions
++            destructive_references = []
++            for table_name in self.db.table_names():
++                table = self.db[table_name]
++                for fk in table.foreign_keys:
++                    # Check if this foreign key references the table being transformed
++                    if fk.other_table == self.name:
++                        # Check if the ON DELETE action is destructive
++                        on_delete_action = (fk.on_delete or "").upper()
++                        if on_delete_action in ("CASCADE", "SET NULL", "SET DEFAULT"):
++                            destructive_references.append((table_name, on_delete_action, fk.columns))
++            
++            if destructive_references:
++                # Build error message with details
++                ref_details = []
++                for table_name, action, columns in destructive_references:
++                    if len(columns) == 1:
++                        ref_details.append(f"{table_name} ({action})")
++                    else:
++                        ref_details.append(f"{table_name} ({action} on {', '.join(columns)})")
++                
++                refs_str = ", ".join(ref_details)
++                raise TransactionError(
++                    f"Cannot transform table '{self.name}' with destructive foreign key references "
++                    f"while a transaction is active: {refs_str}"
++                )
++        
+         sqls = self.transform_sql(
+             types=types,
+             rename=rename,
+@@ -2556,10 +2591,6 @@ class Table(Queryable):
+             keep_table=keep_table,
+             strict=strict,
+         )
+-        pragma_foreign_keys_was_on = bool(
+-            self.db.execute("PRAGMA foreign_keys").fetchone()[0]
+-        )
+-        already_in_transaction = self.db.conn.in_transaction
+         should_disable_foreign_keys = (
+             pragma_foreign_keys_was_on and not already_in_transaction
+         )

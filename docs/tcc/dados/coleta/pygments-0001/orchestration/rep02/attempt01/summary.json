@@ -1,0 +1,33 @@
+{
+  "run_id": "pygments-0001-orchestration-r02-a01",
+  "arm": "orchestration",
+  "task_id": "pygments-0001",
+  "repetition": 2,
+  "attempt": 1,
+  "llm_seed": 20260822,
+  "topology": "multi_agent_roles",
+  "stop_reason": "budget: max_turns (120 >= 120)",
+  "lost": false,
+  "is_valid": false,
+  "changed_files": [
+    "pygments/lexers/go.py"
+  ],
+  "diff_stat": {
+    "files_changed": 1,
+    "insertions": 23,
+    "deletions": 15
+  },
+  "turns": 120,
+  "totals": {
+    "tokens_prompt": 1361251,
+    "tokens_completion": 26405,
+    "tokens_reasoning": 0,
+    "tokens_total": 1387656,
+    "cost_usd": 0.2140155,
+    "llm_calls": 121,
+    "tool_calls": 89,
+    "test_runs": 33,
+    "errors": 0
+  },
+  "out_dir": "runs/coleta/pygments-0001/orchestration/rep02/attempt01"
+}

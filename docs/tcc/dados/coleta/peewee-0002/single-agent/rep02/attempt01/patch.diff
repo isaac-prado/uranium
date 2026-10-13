@@ -1,0 +1,179 @@
+diff --git a/peewee.py b/peewee.py
+index 6a666d5b..1f66eb68 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -2057,9 +2057,13 @@ class OnConflict(Node):
+         self._conflict_constraint = conflict_constraint
+ 
+     def get_conflict_statement(self, ctx, query):
++        if ctx.state is None or not hasattr(ctx.state, 'conflict_statement') or ctx.state.conflict_statement is None:
++            raise InterfaceError('Cannot generate INSERT ... ON CONFLICT clause without a database being specified.')
+         return ctx.state.conflict_statement(self, query)
+ 
+     def get_conflict_update(self, ctx, query):
++        if ctx.state is None or not hasattr(ctx.state, 'conflict_update') or ctx.state.conflict_update is None:
++            raise InterfaceError('Cannot generate INSERT ... ON CONFLICT clause without a database being specified.')
+         return ctx.state.conflict_update(self, query)
+ 
+     @Node.copy
+@@ -2652,6 +2656,15 @@ class Select(SelectBase):
+ 
+     @Node.copy
+     def window(self, *windows):
++        # Check for duplicate window aliases
++        aliases = set()
++        for win in windows:
++            alias = getattr(win, '_alias', None)
++            if alias is None:
++                alias = 'w'  # default alias used by Window
++            if alias in aliases:
++                raise ValueError('Window with alias "%s" already exists.' % alias)
++            aliases.add(alias)
+         self._windows = windows if windows else None
+ 
+     @Node.copy
+@@ -3017,6 +3030,9 @@ class Insert(_WriteQuery):
+         with ctx.scope_values():
+             stmt = None
+             if self._on_conflict is not None:
++                # Check if we have a database associated with the query
++                if ctx.state is None:
++                    raise InterfaceError('Cannot generate INSERT ... ON CONFLICT clause without a database being specified.')
+                 stmt = self._on_conflict.get_conflict_statement(ctx, self)
+ 
+             (ctx
+@@ -3782,9 +3798,16 @@ class Database(_callable_context_manager):
+         if self.is_closed():
+             self.connect()
+         ctx = self.atomic()
+-        self._state.ctx.append(ctx)
+-        ctx.__enter__()
+-        return self
++        # Check if entering the context will fail before adding to stack
++        try:
++            ctx.__enter__()
++        except:
++            # If it fails, don't add to context stack
++            raise
++        else:
++            # Only add to stack if __enter__ succeeded
++            self._state.ctx.append(ctx)
++            return self
+ 
+     def __exit__(self, exc_type, exc_val, exc_tb):
+         ctx = self._state.ctx.pop()
+@@ -4037,10 +4060,14 @@ class Database(_callable_context_manager):
+             self.cursor().execute('BEGIN')
+ 
+     def rollback(self):
++        if self.is_closed():
++            raise InterfaceError('Error, database connection not opened.')
+         with __exception_wrapper__:
+             self.cursor().execute('ROLLBACK')
+ 
+     def commit(self):
++        if self.is_closed():
++            raise InterfaceError('Error, database connection not opened.')
+         with __exception_wrapper__:
+             self.cursor().execute('COMMIT')
+ 
+@@ -4382,10 +4409,14 @@ class SqliteDatabase(Database):
+         self.execute_sql(statement)
+ 
+     def commit(self):
++        if self.is_closed():
++            raise InterfaceError('Error, database connection not opened.')
+         with __exception_wrapper__:
+             return self.execute_sql('COMMIT')
+ 
+     def rollback(self):
++        if self.is_closed():
++            raise InterfaceError('Error, database connection not opened.')
+         with __exception_wrapper__:
+             return self.execute_sql('ROLLBACK')
+ 
+diff --git a/playhouse/apsw_ext.py b/playhouse/apsw_ext.py
+index b6c45d4a..ffdc1230 100644
+--- a/playhouse/apsw_ext.py
++++ b/playhouse/apsw_ext.py
+@@ -101,6 +101,8 @@ class APSWDatabase(SqliteDatabase):
+         self.cursor().execute('begin %s;' % lock_type)
+ 
+     def commit(self):
++        if self.is_closed():
++            raise InterfaceError('Error, database connection not opened.')
+         with __exception_wrapper__:
+             curs = self.cursor()
+             if curs.connection.getautocommit():
+@@ -109,6 +111,8 @@ class APSWDatabase(SqliteDatabase):
+         return True
+ 
+     def rollback(self):
++        if self.is_closed():
++            raise InterfaceError('Error, database connection not opened.')
+         with __exception_wrapper__:
+             curs = self.cursor()
+             if curs.connection.getautocommit():
+diff --git a/playhouse/cysqlite_ext.py b/playhouse/cysqlite_ext.py
+index c36b2425..453e0921 100644
+--- a/playhouse/cysqlite_ext.py
++++ b/playhouse/cysqlite_ext.py
+@@ -226,10 +226,14 @@ class CySqliteDatabase(SqliteDatabase):
+             self.connection().begin(lock_type)
+ 
+     def commit(self):
++        if self.is_closed():
++            raise InterfaceError('Error, database connection not opened.')
+         with __exception_wrapper__:
+             self.connection().commit()
+ 
+     def rollback(self):
++        if self.is_closed():
++            raise InterfaceError('Error, database connection not opened.')
+         with __exception_wrapper__:
+             self.connection().rollback()
+ 
+diff --git a/playhouse/migrate.py b/playhouse/migrate.py
+index ace5375a..0f24b03f 100644
+--- a/playhouse/migrate.py
++++ b/playhouse/migrate.py
+@@ -174,8 +174,8 @@ def operation(fn):
+ def make_index_name(table_name, columns):
+     index_name = '_'.join((table_name,) + tuple(columns))
+     if len(index_name) > 64:
+-        index_hash = hashlib.md5(index_name.encode('utf-8')).hexdigest()
+-        index_name = '%s_%s' % (index_name[:51], index_hash[:12])
++        name_hash = hashlib.md5(index_name.encode('utf-8')).hexdigest()
++        index_name = '%s_%s' % (index_name[:(64 - 8)], name_hash[:7])
+     return index_name
+ 
+ 
+diff --git a/playhouse/reflection.py b/playhouse/reflection.py
+index d2192fbb..a990dd8f 100644
+--- a/playhouse/reflection.py
++++ b/playhouse/reflection.py
+@@ -184,6 +184,12 @@ class Metadata(object):
+     # e.g. VARCHAR(255), NUMERIC(1, 2)
+     re_type_params = re.compile(r'^\s*[\w ]+\(\s*(\d+)\s*(?:,\s*(\d+))?\s*\)')
+ 
++    def __init__(self, database):
++        self.database = database
++        self.requires_extension = False
++        # Create instance-specific copy of column_map to avoid sharing between instances
++        self.column_map = dict(self.__class__.column_map)
++
+     def __init__(self, database):
+         self.database = database
+         self.requires_extension = False
+@@ -471,6 +477,11 @@ class SqliteMetadata(Metadata):
+         'varchar': CharField,
+     }
+ 
++    def __init__(self, database):
++        super(SqliteMetadata, self).__init__(database)
++        # Create instance-specific copy of column_map to avoid sharing between instances
++        self.column_map = dict(self.__class__.column_map)
++
+     begin = r'(?:["\[\(]+)?'
+     end = r'(?:["\]\)]+)?'
+     re_foreign_key = (

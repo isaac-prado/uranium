@@ -1,0 +1,160 @@
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 4a24fc0..5e92bf9 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -633,6 +633,11 @@ class Integer(Item, _CustomInt):
+     def __hash__(self) -> int:
+         return hash(self.unwrap())
+ 
++    def __getattribute__(self, name):
++        if name == "__getitem__":
++            raise AttributeError("__getitem__")
++        return super().__getattribute__(name)
++
+     @property
+     def discriminant(self) -> int:
+         return 2
+@@ -652,6 +657,15 @@ class Integer(Item, _CustomInt):
+ 
+         return Integer(result, self._trivia, raw)
+ 
++    def __getitem__(self, key):
++        raise TypeError(f"{type(self).__name__} does not support item access")
++        
++    def __delitem__(self, key):
++        raise TypeError(f"{type(self).__name__} does not support item deletion")
++        
++    def __setitem__(self, key, value):
++        raise TypeError(f"{type(self).__name__} does not support item assignment")
++
+     def _getstate(self, protocol: int = 3) -> tuple[int, Trivia, str]:
+         return int(self), self._trivia, self._raw
+ 
+@@ -856,6 +870,11 @@ class Float(Item, _CustomFloat):
+     def __hash__(self) -> int:
+         return hash(self.unwrap())
+ 
++    def __getattribute__(self, name):
++        if name == "__getitem__":
++            raise AttributeError("__getitem__")
++        return super().__getattribute__(name)
++
+     @property
+     def discriminant(self) -> int:
+         return 3
+@@ -876,6 +895,15 @@ class Float(Item, _CustomFloat):
+ 
+         return Float(result, self._trivia, raw)
+ 
++    def __getitem__(self, key):
++        raise TypeError(f"{type(self).__name__} does not support item access")
++        
++    def __delitem__(self, key):
++        raise TypeError(f"{type(self).__name__} does not support item deletion")
++        
++    def __setitem__(self, key, value):
++        raise TypeError(f"{type(self).__name__} does not support item assignment")
++
+     def _getstate(self, protocol: int = 3) -> tuple[float, Trivia, str]:
+         return float(self), self._trivia, self._raw
+ 
+@@ -999,6 +1027,11 @@ class Bool(Item):
+     def unwrap(self) -> bool:
+         return bool(self)
+ 
++    def __getattribute__(self, name):
++        if name == "__getitem__":
++            raise AttributeError("__getitem__")
++        return super().__getattribute__(name)
++
+     @property
+     def discriminant(self) -> int:
+         return 4
+@@ -1011,6 +1044,15 @@ class Bool(Item):
+     def as_string(self) -> str:
+         return str(self._value).lower()
+ 
++    def __getitem__(self, key):
++        raise TypeError(f"{type(self).__name__} does not support item access")
++        
++    def __delitem__(self, key):
++        raise TypeError(f"{type(self).__name__} does not support item deletion")
++        
++    def __setitem__(self, key, value):
++        raise TypeError(f"{type(self).__name__} does not support item assignment")
++
+     def _getstate(self, protocol: int = 3) -> tuple[bool, Trivia]:
+         return self._value, self._trivia
+ 
+@@ -1096,6 +1138,11 @@ class DateTime(Item, datetime):
+         ) = self._getstate()
+         return datetime(year, month, day, hour, minute, second, microsecond, tzinfo)
+ 
++    def __getattribute__(self, name):
++        if name == "__getitem__":
++            raise AttributeError("__getitem__")
++        return super().__getattribute__(name)
++
+     @property
+     def discriminant(self) -> int:
+         return 5
+@@ -1107,6 +1154,15 @@ class DateTime(Item, datetime):
+     def as_string(self) -> str:
+         return self._raw
+ 
++    def __getitem__(self, key):
++        raise TypeError(f"{type(self).__name__} does not support item access")
++        
++    def __delitem__(self, key):
++        raise TypeError(f"{type(self).__name__} does not support item deletion")
++        
++    def __setitem__(self, key, value):
++        raise TypeError(f"{type(self).__name__} does not support item assignment")
++
+     def __add__(self, other: timedelta) -> DateTime:
+         if PY38:
+             result = datetime(
+@@ -1223,6 +1279,11 @@ class Date(Item, date):
+         (year, month, day, _, _) = self._getstate()
+         return date(year, month, day)
+ 
++    def __getattribute__(self, name):
++        if name == "__getitem__":
++            raise AttributeError("__getitem__")
++        return super().__getattribute__(name)
++
+     @property
+     def discriminant(self) -> int:
+         return 6
+@@ -1234,6 +1295,15 @@ class Date(Item, date):
+     def as_string(self) -> str:
+         return self._raw
+ 
++    def __getitem__(self, key):
++        raise TypeError(f"{type(self).__name__} does not support item access")
++        
++    def __delitem__(self, key):
++        raise TypeError(f"{type(self).__name__} does not support item deletion")
++        
++    def __setitem__(self, key, value):
++        raise TypeError(f"{type(self).__name__} does not support item assignment")
++
+     def __add__(self, other: timedelta) -> Date:
+         if PY38:
+             result = date(self.year, self.month, self.day).__add__(other)
+@@ -1306,6 +1376,15 @@ class Time(Item, time):
+         (hour, minute, second, microsecond, tzinfo, _, _) = self._getstate()
+         return time(hour, minute, second, microsecond, tzinfo)
+ 
++    def __getitem__(self, key):
++        raise TypeError(f"{type(self).__name__} does not support item access")
++        
++    def __delitem__(self, key):
++        raise TypeError(f"{type(self).__name__} does not support item deletion")
++        
++    def __setitem__(self, key, value):
++        raise TypeError(f"{type(self).__name__} does not support item assignment")
++
+     @property
+     def discriminant(self) -> int:
+         return 7

@@ -1,0 +1,18 @@
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index b952b36..569f5cd 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -670,7 +670,12 @@ class Parser:
+                     prev_value = True
+                     continue
+                 except UnexpectedCharError:
+-                    pass
++                    # Only skip if we're at the closing bracket to avoid eager exception
++                    # computation. Otherwise, re-raise to properly handle invalid elements.
++                    if self._current == "]":
++                        pass
++                    else:
++                        raise
+ 
+             # consume comma
+             if prev_value and self._current == ",":

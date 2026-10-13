@@ -1,0 +1,49 @@
+{
+  "manifest_version": 7,
+  "run_id": "sqlite-utils-0003-single-agent-r01-a01",
+  "arm": "single-agent",
+  "topology": "single_agent",
+  "task_id": "sqlite-utils-0003",
+  "repetition": 1,
+  "attempt": 1,
+  "seed_repo_id": "sqlite-utils",
+  "base_commit": "a00ed60efc3a242de38f666bc4ce1e431f86dcea",
+  "started_at": "2026-10-13T02:50:38+00:00",
+  "llm": {
+    "model": "qwen/qwen3-coder",
+    "provider": "DeepInfra",
+    "temperature": 0.0,
+    "seed": 20260821,
+    "max_tokens": 8192,
+    "timeout_s": 90,
+    "max_retries": 6,
+    "allow_fallbacks": false,
+    "require_parameters": true,
+    "data_collection": "deny"
+  },
+  "budget": {
+    "max_tokens": 8000000,
+    "max_wall_seconds": 3600,
+    "max_turns": 120
+  },
+  "driver_policy": {
+    "entrega_spec_uma_vez": true,
+    "aceita_todo_patch": true,
+    "sumariza_falhas": false,
+    "roda_suite_sem_tool_call": true
+  },
+  "orchestration_policy": null,
+  "shared_limits": {
+    "max_tool_calls_por_turno": 8,
+    "default_snippet_timeout_s": 60,
+    "max_read_chars": 20000,
+    "max_read_lines": 400,
+    "max_search_results": 50,
+    "max_tool_output_chars": 8000,
+    "list_files_max_results": 200,
+    "recursion_limit": 480
+  },
+  "test_timeout_s": 120,
+  "python": "3.12.14",
+  "platform": "Linux-6.18.40.1-microsoft-standard-WSL2-x86_64-with-glibc2.43"
+}

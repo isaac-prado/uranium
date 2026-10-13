@@ -1,0 +1,42 @@
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index b952b36..e4074a0 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -635,7 +635,7 @@ class Parser:
+         self.inc(exception=UnexpectedEofError)
+ 
+         elems: list[Item] = []
+-        prev_value = None
++        prev_value = False
+         while True:
+             # consume whitespace
+             mark = self._idx
+@@ -666,11 +666,17 @@ class Parser:
+             # source. On a large file with many arrays this is a big, pure waste.
+             if not prev_value and self._current != "]":
+                 try:
+-                    elems.append(self._parse_value())
++                    value = self._parse_value()
++                    elems.append(value)
+                     prev_value = True
+                     continue
+                 except UnexpectedCharError:
+-                    pass
++                    # If we failed to parse a value, this is a critical error.
++                    # We don't allow any malformed elements in an array.
++                    raise self.parse_error(UnexpectedCharError, self._current)
++                except UnexpectedEofError:
++                    # An EOF while trying to parse a value is also a critical error.
++                    raise
+ 
+             # consume comma
+             if prev_value and self._current == ",":
+@@ -689,6 +695,8 @@ class Parser:
+                 self.inc()
+                 break
+ 
++            # If we reach here, we have an unexpected character that is not
++            # part of a valid element, whitespace, comment, or delimiter.
+             raise self.parse_error(UnexpectedCharError, self._current)
+ 
+         try:

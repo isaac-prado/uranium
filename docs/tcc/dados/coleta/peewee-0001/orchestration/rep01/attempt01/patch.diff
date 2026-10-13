@@ -1,0 +1,80 @@
+diff --git a/peewee.py b/peewee.py
+index 13d2c8e9..f4e7424d 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -3727,6 +3727,25 @@ class ConnectionContext(_callable_context_manager):
+         return type(self)(self.db)
+ 
+ 
++class QueryEvent(object):
++    """
++    Represents information about a SQL query execution.
++    
++    Attributes:
++        sql (str): The SQL statement that was executed
++        params (tuple/list/dict): Parameters passed to the query
++        duration (float): Time taken to execute the query in seconds
++        exception (Exception): Any exception raised during execution, or None
++    """
++    __slots__ = ('sql', 'params', 'duration', 'exception')
++
++    def __init__(self, sql, params, duration, exception):
++        self.sql = sql
++        self.params = params
++        self.duration = duration
++        self.exception = exception
++
++
+ class Database(_callable_context_manager):
+     context_class = Context
+     field_types = {}
+@@ -3761,6 +3780,9 @@ class Database(_callable_context_manager):
+         if operations:
+             self._operations.update(operations)
+ 
++        # Initialize query hooks - each database instance gets its own list
++        self.query_hooks = []
++
+         self.autoconnect = autoconnect
+         self.thread_safe = thread_safe
+         if thread_safe:
+@@ -3892,11 +3914,36 @@ class Database(_callable_context_manager):
+ 
+     def execute_sql(self, sql, params=None):
+         self._log_query(sql, params)
+-        with __exception_wrapper__:
+-            cursor = self.cursor()
+-            cursor.execute(sql, params or ())
++        
++        start_time = time.time()
++        exception = None
++        
++        try:
++            with __exception_wrapper__:
++                cursor = self.cursor()
++                cursor.execute(sql, params or ())
++        except Exception as exc:
++            exception = exc
++            raise
++        finally:
++            duration = time.time() - start_time
++            self._call_query_hooks(sql, params, duration, exception)
++            
+         return cursor
+ 
++    def _call_query_hooks(self, sql, params, duration, exception):
++        """Call all registered query hooks with query execution information."""
++        if not self.query_hooks:
++            return
++            
++        event = QueryEvent(sql, params, duration, exception)
++        for hook in self.query_hooks:
++            try:
++                hook(event)
++            except Exception:
++                # If a hook raises an exception, log it but continue with other hooks
++                logger.exception("Query hook raised an exception")
++
+     def execute(self, query, **context_options):
+         ctx = self.get_sql_context(**context_options)
+         sql, params = ctx.sql(query).query()

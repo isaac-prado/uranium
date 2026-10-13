@@ -1,0 +1,120 @@
+{
+  "result_schema_version": 2,
+  "harness_version": "1.0.0",
+  "evaluated_at": "2026-10-13T17:57:37+00:00",
+  "run_id": "sqlite-utils-0002-single-agent-r03-a01",
+  "arm": "single-agent",
+  "task_id": "sqlite-utils-0002",
+  "faixa": "pequena",
+  "repetition": 3,
+  "base_commit": "75ba58846206b2c1beb39836134e763bf34177aa",
+  "resolved": false,
+  "resolved_blocked_by_cheat": false,
+  "oracle": {
+    "f2p_total": 11,
+    "f2p_passed": 9,
+    "f2p": {
+      "exit_code": 1,
+      "passed": 9,
+      "failed": 2,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.15,
+      "failing_node_ids": [
+        "tests/test_transform.py::test_transform_sql_table_with_primary_key[False-params4-expected_sql4]",
+        "tests/test_transform.py::test_transform_sql_table_with_primary_key[True-params4-expected_sql4]"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "p2p": {
+      "exit_code": 1,
+      "passed": 1482,
+      "failed": 6,
+      "errors": 0,
+      "skipped": 16,
+      "duration_s": 5.53,
+      "failing_node_ids": [
+        "tests/test_transform.py::test_transform_sql_table_with_no_primary_key[False-params2-expected_sql2]",
+        "tests/test_transform.py::test_transform_sql_table_with_no_primary_key[True-params2-expected_sql2]",
+        "tests/test_transform.py::test_transform_sql_table_with_primary_key[False-params2-expected_sql2]",
+        "tests/test_transform.py::test_transform_sql_table_with_primary_key[False-params4-expected_sql4]",
+        "tests/test_transform.py::test_transform_sql_table_with_primary_key[True-params2-expected_sql2]",
+        "tests/test_transform.py::test_transform_sql_table_with_primary_key[True-params4-expected_sql4]"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "regression": {
+      "exit_code": 1,
+      "passed": 1482,
+      "failed": 6,
+      "errors": 0,
+      "skipped": 16,
+      "duration_s": 5.52,
+      "failing_node_ids": [
+        "tests/test_transform.py::test_transform_sql_table_with_no_primary_key[False-params2-expected_sql2]",
+        "tests/test_transform.py::test_transform_sql_table_with_no_primary_key[True-params2-expected_sql2]",
+        "tests/test_transform.py::test_transform_sql_table_with_primary_key[False-params2-expected_sql2]",
+        "tests/test_transform.py::test_transform_sql_table_with_primary_key[False-params4-expected_sql4]",
+        "tests/test_transform.py::test_transform_sql_table_with_primary_key[True-params2-expected_sql2]",
+        "tests/test_transform.py::test_transform_sql_table_with_primary_key[True-params4-expected_sql4]"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    }
+  },
+  "cheat": {
+    "clean": true,
+    "critical_count": 0,
+    "warning_count": 0,
+    "signals": []
+  },
+  "quality": {
+    "mi_before": 0.0,
+    "mi_after": 0.0,
+    "mi_delta": 0.0,
+    "cc_mean_before": 7.23,
+    "cc_mean_after": 7.273,
+    "cc_mean_delta": 0.043,
+    "files_analyzed": 1,
+    "error": null
+  },
+  "cost": {
+    "tokens_prompt": 7987910,
+    "tokens_completion": 16204,
+    "tokens_reasoning": 0,
+    "tokens_total": 8004114,
+    "cost_usd": 1.145249,
+    "llm_calls": 104,
+    "byok_calls": 104,
+    "tool_calls": 34,
+    "wall_seconds": 1230.099
+  },
+  "process": {
+    "turns": 104,
+    "test_runs": 70,
+    "tool_denials": 1,
+    "errors": 0,
+    "circuit_breaks": 1,
+    "self_recoveries": 0,
+    "stop_reason": "budget: max_tokens (8004114 >= 8000000)"
+  },
+  "provenance": {
+    "model": "qwen/qwen3-coder",
+    "provider_requested": "DeepInfra",
+    "providers_served": [
+      "DeepInfra"
+    ],
+    "llm_seed": 20260823,
+    "topology": "single_agent"
+  },
+  "diff": {
+    "files_changed": 1,
+    "insertions": 35,
+    "deletions": 3,
+    "changed_files": [
+      "sqlite_utils/db.py"
+    ]
+  }
+}

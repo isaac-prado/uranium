@@ -1,0 +1,118 @@
+{
+  "result_schema_version": 2,
+  "harness_version": "1.0.0",
+  "evaluated_at": "2026-10-13T02:28:23+00:00",
+  "run_id": "sqlite-utils-0001-single-agent-r01-a01",
+  "arm": "single-agent",
+  "task_id": "sqlite-utils-0001",
+  "faixa": "pequena",
+  "repetition": 1,
+  "base_commit": "d71420065903ff54247b5062b8c6af6165b7e638",
+  "resolved": false,
+  "resolved_blocked_by_cheat": false,
+  "oracle": {
+    "f2p_total": 5,
+    "f2p_passed": 1,
+    "f2p": {
+      "exit_code": 1,
+      "passed": 1,
+      "failed": 4,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.14,
+      "failing_node_ids": [
+        "tests/test_transform.py::test_transform_in_transaction_refuses_destructive_on_delete[CASCADE]",
+        "tests/test_transform.py::test_transform_in_transaction_refuses_destructive_on_delete[SET DEFAULT]",
+        "tests/test_transform.py::test_transform_in_transaction_refuses_destructive_on_delete[SET NULL]",
+        "tests/test_transform.py::test_transform_in_transaction_refuses_destructive_on_delete[cascade]"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "p2p": {
+      "exit_code": 1,
+      "passed": 1368,
+      "failed": 4,
+      "errors": 0,
+      "skipped": 16,
+      "duration_s": 5.44,
+      "failing_node_ids": [
+        "tests/test_transform.py::test_transform_in_transaction_refuses_destructive_on_delete[CASCADE]",
+        "tests/test_transform.py::test_transform_in_transaction_refuses_destructive_on_delete[SET DEFAULT]",
+        "tests/test_transform.py::test_transform_in_transaction_refuses_destructive_on_delete[SET NULL]",
+        "tests/test_transform.py::test_transform_in_transaction_refuses_destructive_on_delete[cascade]"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "regression": {
+      "exit_code": 1,
+      "passed": 1368,
+      "failed": 4,
+      "errors": 0,
+      "skipped": 16,
+      "duration_s": 5.37,
+      "failing_node_ids": [
+        "tests/test_transform.py::test_transform_in_transaction_refuses_destructive_on_delete[CASCADE]",
+        "tests/test_transform.py::test_transform_in_transaction_refuses_destructive_on_delete[SET DEFAULT]",
+        "tests/test_transform.py::test_transform_in_transaction_refuses_destructive_on_delete[SET NULL]",
+        "tests/test_transform.py::test_transform_in_transaction_refuses_destructive_on_delete[cascade]"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    }
+  },
+  "cheat": {
+    "clean": true,
+    "critical_count": 0,
+    "warning_count": 0,
+    "signals": []
+  },
+  "quality": {
+    "mi_before": 0.0,
+    "mi_after": 0.0,
+    "mi_delta": 0.0,
+    "cc_mean_before": 6.716,
+    "cc_mean_after": 6.781,
+    "cc_mean_delta": 0.065,
+    "files_analyzed": 1,
+    "error": null
+  },
+  "cost": {
+    "tokens_prompt": 235487,
+    "tokens_completion": 6007,
+    "tokens_reasoning": 0,
+    "tokens_total": 241494,
+    "cost_usd": 0.0311267,
+    "llm_calls": 28,
+    "byok_calls": 28,
+    "tool_calls": 27,
+    "wall_seconds": 114.205
+  },
+  "process": {
+    "turns": 28,
+    "test_runs": 1,
+    "tool_denials": 0,
+    "errors": 0,
+    "circuit_breaks": 0,
+    "self_recoveries": 0,
+    "stop_reason": "tests_pass"
+  },
+  "provenance": {
+    "model": "qwen/qwen3-coder",
+    "provider_requested": "DeepInfra",
+    "providers_served": [
+      "DeepInfra"
+    ],
+    "llm_seed": 20260821,
+    "topology": "single_agent"
+  },
+  "diff": {
+    "files_changed": 1,
+    "insertions": 35,
+    "deletions": 4,
+    "changed_files": [
+      "sqlite_utils/db.py"
+    ]
+  }
+}

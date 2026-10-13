@@ -1,0 +1,83 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 48987a6..56ade67 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -3096,18 +3096,69 @@ class Table(Queryable):
+         # Copy across data, respecting any renamed columns
+         new_cols = []
+         old_cols = []
++        select_cols = []
++        
++        # Helper function to check if a type is numeric
++        def is_numeric_type(type_):
++            mapped_type = COLUMN_TYPE_MAPPING.get(type_)
++            return mapped_type in ("INTEGER", "REAL")
++        
++        # Check if we need special handling for empty string conversion
++        needs_special_handling = False
+         for from_, to_ in copy_from_to.items():
+-            old_cols.append(from_)
+-            new_cols.append(to_)
+-        # Ensure rowid is copied too
+-        if "rowid" not in new_cols:
+-            new_cols.insert(0, "rowid")
+-            old_cols.insert(0, "rowid")
+-        copy_sql = "INSERT INTO {} ({new_cols})\n   SELECT {old_cols} FROM {};".format(
++            original_type = self.columns_dict.get(from_)
++            new_type = types.get(from_) or original_type
++            
++            # If original column was TEXT and is being converted to numeric type,
++            # we need special handling
++            if (original_type is str and 
++                new_type is not None and 
++                is_numeric_type(new_type) and
++                from_ != "rowid"):  # Don't apply to rowid
++                needs_special_handling = True
++                break
++        
++        if needs_special_handling:
++            # Build the column lists and select expressions with special handling
++            for from_, to_ in copy_from_to.items():
++                new_cols.append(to_)
++                
++                # Check if this column is being converted from TEXT to a numeric type
++                original_type = self.columns_dict.get(from_)
++                new_type = types.get(from_) or original_type
++                
++                # If original column was TEXT and is being converted to numeric type,
++                # wrap it with NULLIF(column, '') to convert empty strings to NULL
++                if (original_type is str and 
++                    new_type is not None and 
++                    is_numeric_type(new_type) and
++                    from_ != "rowid"):  # Don't apply to rowid
++                    select_cols.append(f"NULLIF({quote_identifier(from_)}, '') AS {quote_identifier(to_)}")
++                elif from_ != to_:  # Column is being renamed
++                    select_cols.append(f"{quote_identifier(from_)} AS {quote_identifier(to_)}")
++                else:
++                    select_cols.append(quote_identifier(from_))
++                    
++            # Ensure rowid is copied too
++            if "rowid" not in new_cols:
++                new_cols.insert(0, "rowid")
++                select_cols.insert(0, "rowid")
++        else:
++            # Use the original behavior for backward compatibility
++            for from_, to_ in copy_from_to.items():
++                old_cols.append(from_)
++                new_cols.append(to_)
++            # Ensure rowid is copied too
++            if "rowid" not in new_cols:
++                new_cols.insert(0, "rowid")
++                old_cols.insert(0, "rowid")
++            select_cols = [quote_identifier(col) for col in old_cols]
++            
++        copy_sql = "INSERT INTO {} ({})\n   SELECT {} FROM {};".format(
+             quote_identifier(new_table_name),
++            ", ".join(quote_identifier(col) for col in new_cols),
++            ", ".join(select_cols),
+             quote_identifier(self.name),
+-            old_cols=", ".join(quote_identifier(col) for col in old_cols),
+-            new_cols=", ".join(quote_identifier(col) for col in new_cols),
+         )
+         sqls.append(copy_sql)
+         # Capture indexes before the old table is changed. Simple indexes that

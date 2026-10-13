@@ -1,0 +1,33 @@
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index b952b36..bd8c30b 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -658,19 +658,20 @@ class Parser:
+                 continue
+ 
+             # consume value
+-            # Skip the value attempt when sitting on the closing bracket: a
+-            # value-less position followed by "]" (an empty or trailing-comma
+-            # array) would otherwise call _parse_value() only for it to raise
+-            # UnexpectedCharError immediately -- and building that discarded
+-            # exception eagerly computes a line/column, which scans the whole
+-            # source. On a large file with many arrays this is a big, pure waste.
++            # Previously this code would ignore all UnexpectedCharError and EmptyKeyError
++            # to avoid performance issues, but this caused malformed array elements to be
++            # silently discarded. Now we only ignore these errors in specific cases where
++            # we know they are spurious (like when we're at the end of an array).
+             if not prev_value and self._current != "]":
+                 try:
+                     elems.append(self._parse_value())
+                     prev_value = True
+                     continue
+-                except UnexpectedCharError:
+-                    pass
++                except (UnexpectedCharError, EmptyKeyError) as e:
++                    # Re-raise the error to avoid silently discarding malformed elements
++                    # The optimization for avoiding errors at array end is no longer needed
++                    # since we now properly distinguish between valid and invalid cases
++                    raise
+ 
+             # consume comma
+             if prev_value and self._current == ",":

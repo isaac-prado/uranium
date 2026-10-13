@@ -1,0 +1,20 @@
+tarefas   13  ×  2 braços  ×  3 repetição(ões)  =  78 células
+estado    18 concluídas, 60 pendentes  →  runs/coleta
+modelo    qwen/qwen3-coder via DeepInfra
+orçamento {'max_tokens': 8000000, 'max_wall_seconds': 3600, 'max_turns': 120}
+workers   1   tentativas por célula 5
+
+  done    attrs-0001           single-agent   rep01  resolveu      tests_pass
+  done    attrs-0001           orchestration  rep01  resolveu      concluiu
+  done    peewee-0001          single-agent   rep01  resolveu      tests_pass
+  done    peewee-0001          orchestration  rep01  não resolveu  concluiu
+  done    peewee-0002          single-agent   rep01  resolveu      tests_pass
+  done    peewee-0002          orchestration  rep01  não resolveu  budget: max_turns (120 >= 120)
+  done    peewee-0003          single-agent   rep01  resolveu      tests_pass
+  done    peewee-0003          orchestration  rep01  resolveu      concluiu
+  done    pygments-0001        single-agent   rep01  resolveu      budget: max_tokens (8111726 >= 8000000)
+  done    pygments-0001        orchestration  rep01  não resolveu  concluiu
+  done    sqlite-utils-0001    single-agent   rep01  não resolveu  tests_pass
+  done    sqlite-utils-0001    orchestration  rep01  não resolveu  concluiu
+  done    sqlite-utils-0002    single-agent   rep01  resolveu      budget: max_tokens (8156392 >= 8000000)
+  done    sqlite-utils-0002    orchestration  rep01  resolveu      budget: max_turns (120 >= 120)

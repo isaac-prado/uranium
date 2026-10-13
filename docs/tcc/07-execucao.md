@@ -244,3 +244,14 @@ Relatório em [07-e4-fumaca.md](07-e4-fumaca.md): 4 células (`tomlkit-0002` gra
 
 **Comparação do código gerado (a produzir ao fim da etapa).** Por célula e repetição: `patch.diff`, ocultos passados por teste (`oracle.f2p.failing_node_ids`), regressão visível, `quality` (MI e CC do código alterado), custo e turnos, e no orquestrado os eventos `validation` e `memory`. Relatório a escrever em `docs/tcc/11-coleta-grandes.md` com os dados versionados em `docs/tcc/dados/coleta/`.
 
+
+---
+
+## Coleta definitiva — etapa 2 e fechamento (12 e 13/10/2026)
+
+**Execução.** Etapa 2 (`scripts/run_collection.py --repetitions 3 --out runs/coleta --workers 1 --retry-delay 300 --max-attempts 5`, todas as tarefas; as 18 células da etapa 1 já estavam concluídas e foram puladas) iniciada em 12/10 às 22:19. **A máquina reiniciou em 12/10 às 23:53** (`uptime -s`), matando o processo durante `sqlite-utils-0003/single-agent/rep01/attempt01` (146 eventos, US$ 0,08, sem `summary.json`). Retomada em 13/10 às 08:17 com o mesmo comando: pela regra única de `harness/attempts.py`, tentativa sem resumo é perdida, e a célula rodou como `attempt02` com a mesma semente (decisão 14 aplicada; `lost_attempts = 1`). Fechamento em 13/10 à tarde: 78 de 78 células, 0 perdidas (`dados/coleta/collection.json`).
+
+**Resultados.** [12-coleta-resultados.md](12-coleta-resultados.md). Análises salvas em `dados/coleta/analise-sete-metricas.{md,json}`, `analise-operacional.md`, `contabilidade-contexto.{md,json}`.
+
+**Impacto em docs.** Resultados (as sete métricas), Discussão (revisor sem execução; custo do histórico persistente; faixa média), Ameaças à validade (interrupção por reinício, tratada pela regra de perda).
+

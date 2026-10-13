@@ -1,0 +1,76 @@
+diff --git a/peewee.py b/peewee.py
+index 13d2c8e9..61c7be40 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -3727,6 +3727,15 @@ class ConnectionContext(_callable_context_manager):
+         return type(self)(self.db)
+ 
+ 
++class QueryEvent(object):
++    """Representa um evento de execução de query SQL."""
++    def __init__(self, sql, params, duration=None, exception=None):
++        self.sql = sql
++        self.params = params
++        self.duration = duration
++        self.exception = exception
++
++
+ class Database(_callable_context_manager):
+     context_class = Context
+     field_types = {}
+@@ -3770,6 +3779,9 @@ class Database(_callable_context_manager):
+             self._state = _ConnectionState()
+             self._lock = _NoopLock()
+ 
++        # Inicializar query_hooks como uma lista vazia
++        self.query_hooks = []
++
+         if autorollback:
+             __deprecated__('Peewee no longer uses the "autorollback" option, '
+                            'as we always run in autocommit-mode now. This '
+@@ -3892,9 +3904,42 @@ class Database(_callable_context_manager):
+ 
+     def execute_sql(self, sql, params=None):
+         self._log_query(sql, params)
+-        with __exception_wrapper__:
+-            cursor = self.cursor()
+-            cursor.execute(sql, params or ())
++        
++        # Notificar ganchos antes da execução
++        start_time = time.time()
++        event = None
++        exception_occurred = None
++        
++        try:
++            with __exception_wrapper__:
++                cursor = self.cursor()
++                cursor.execute(sql, params or ())
++                
++                # Calcular duração
++                duration = time.time() - start_time
++                
++                # Criar evento de sucesso
++                event = QueryEvent(sql, params, duration, None)
++        except Exception as exc:
++            # Calcular duração mesmo em caso de erro
++            duration = time.time() - start_time
++            
++            # Criar evento de erro
++            event = QueryEvent(sql, params, duration, exc)
++            exception_occurred = exc
++            # Re-levantar a exceção após notificar os ganchos
++            raise
++        finally:
++            # Notificar todos os ganchos registrados
++            if event and self.query_hooks:
++                for hook in self.query_hooks:
++                    try:
++                        hook(event)
++                    except Exception:
++                        # Se um hook levantar exceção, propagamos para o chamador
++                        if exception_occurred is None:
++                            raise
++        
+         return cursor
+ 
+     def execute(self, query, **context_options):

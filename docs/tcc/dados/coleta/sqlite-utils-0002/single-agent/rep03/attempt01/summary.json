@@ -1,0 +1,33 @@
+{
+  "run_id": "sqlite-utils-0002-single-agent-r03-a01",
+  "arm": "single-agent",
+  "task_id": "sqlite-utils-0002",
+  "repetition": 3,
+  "attempt": 1,
+  "llm_seed": 20260823,
+  "topology": "single_agent",
+  "stop_reason": "budget: max_tokens (8004114 >= 8000000)",
+  "lost": false,
+  "is_valid": false,
+  "changed_files": [
+    "sqlite_utils/db.py"
+  ],
+  "diff_stat": {
+    "files_changed": 1,
+    "insertions": 35,
+    "deletions": 3
+  },
+  "turns": 104,
+  "totals": {
+    "tokens_prompt": 7987910,
+    "tokens_completion": 16204,
+    "tokens_reasoning": 0,
+    "tokens_total": 8004114,
+    "cost_usd": 1.145249,
+    "llm_calls": 104,
+    "tool_calls": 34,
+    "test_runs": 70,
+    "errors": 0
+  },
+  "out_dir": "runs/coleta/sqlite-utils-0002/single-agent/rep03/attempt01"
+}

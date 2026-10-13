@@ -1,0 +1,149 @@
+{
+  "result_schema_version": 2,
+  "harness_version": "1.0.0",
+  "evaluated_at": "2026-10-13T01:52:03+00:00",
+  "run_id": "peewee-0002-orchestration-r01-a01",
+  "arm": "orchestration",
+  "task_id": "peewee-0002",
+  "faixa": "media",
+  "repetition": 1,
+  "base_commit": "fc1811ecc1c55be8b1c4fd116c5d05c4ff7cf794",
+  "resolved": false,
+  "resolved_blocked_by_cheat": false,
+  "oracle": {
+    "f2p_total": 6,
+    "f2p_passed": 2,
+    "f2p": {
+      "exit_code": 1,
+      "passed": 2,
+      "failed": 4,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.79,
+      "failing_node_ids": [
+        "tests/migrations.py::TestSchemaMigration::test_make_index_name_long",
+        "tests/sql.py::TestWindowFunctions::test_duplicate_window_alias_error",
+        "tests/transactions.py::TestTransaction::test_commit_rollback_closed",
+        "tests/transactions.py::TestTransaction::test_mixing_manual_db_context"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "p2p": {
+      "exit_code": 1,
+      "passed": 1386,
+      "failed": 18,
+      "errors": 0,
+      "skipped": 144,
+      "duration_s": 7.53,
+      "failing_node_ids": [
+        "tests/migrations.py::TestSchemaMigration::test_make_index_name_long",
+        "tests/sql.py::TestInsertQuery::test_replace_sqlite",
+        "tests/sql.py::TestOnConflictMySQL::test_ignore",
+        "tests/sql.py::TestOnConflictMySQL::test_replace_mysql",
+        "tests/sql.py::TestOnConflictMySQL::test_update",
+        "tests/sql.py::TestOnConflictMySQL::test_update_use_value_mariadb",
+        "tests/sql.py::TestOnConflictMySQL::test_where_not_supported",
+        "tests/sql.py::TestOnConflictPostgresql::test_conflict_resolution_required",
+        "tests/sql.py::TestOnConflictPostgresql::test_conflict_target_partial_index",
+        "tests/sql.py::TestOnConflictPostgresql::test_conflict_target_required",
+        "tests/sql.py::TestOnConflictPostgresql::test_ignore",
+        "tests/sql.py::TestOnConflictPostgresql::test_update",
+        "tests/sql.py::TestOnConflictSqlite::test_ignore",
+        "tests/sql.py::TestOnConflictSqlite::test_replace_sqlite",
+        "tests/sql.py::TestOnConflictSqlite::test_update_not_supported",
+        "tests/sql.py::TestWindowFunctions::test_duplicate_window_alias_error",
+        "tests/transactions.py::TestTransaction::test_commit_rollback_closed",
+        "tests/transactions.py::TestTransaction::test_mixing_manual_db_context"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "regression": {
+      "exit_code": 1,
+      "passed": 1386,
+      "failed": 18,
+      "errors": 0,
+      "skipped": 144,
+      "duration_s": 7.51,
+      "failing_node_ids": [
+        "tests/migrations.py::TestSchemaMigration::test_make_index_name_long",
+        "tests/sql.py::TestInsertQuery::test_replace_sqlite",
+        "tests/sql.py::TestOnConflictMySQL::test_ignore",
+        "tests/sql.py::TestOnConflictMySQL::test_replace_mysql",
+        "tests/sql.py::TestOnConflictMySQL::test_update",
+        "tests/sql.py::TestOnConflictMySQL::test_update_use_value_mariadb",
+        "tests/sql.py::TestOnConflictMySQL::test_where_not_supported",
+        "tests/sql.py::TestOnConflictPostgresql::test_conflict_resolution_required",
+        "tests/sql.py::TestOnConflictPostgresql::test_conflict_target_partial_index",
+        "tests/sql.py::TestOnConflictPostgresql::test_conflict_target_required",
+        "tests/sql.py::TestOnConflictPostgresql::test_ignore",
+        "tests/sql.py::TestOnConflictPostgresql::test_update",
+        "tests/sql.py::TestOnConflictSqlite::test_ignore",
+        "tests/sql.py::TestOnConflictSqlite::test_replace_sqlite",
+        "tests/sql.py::TestOnConflictSqlite::test_update_not_supported",
+        "tests/sql.py::TestWindowFunctions::test_duplicate_window_alias_error",
+        "tests/transactions.py::TestTransaction::test_commit_rollback_closed",
+        "tests/transactions.py::TestTransaction::test_mixing_manual_db_context"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    }
+  },
+  "cheat": {
+    "clean": true,
+    "critical_count": 0,
+    "warning_count": 0,
+    "signals": []
+  },
+  "quality": {
+    "mi_before": 6.419,
+    "mi_after": 6.455,
+    "mi_delta": 0.036,
+    "cc_mean_before": 3.152,
+    "cc_mean_after": 3.162,
+    "cc_mean_delta": 0.01,
+    "files_analyzed": 3,
+    "error": null
+  },
+  "cost": {
+    "tokens_prompt": 1125460,
+    "tokens_completion": 18444,
+    "tokens_reasoning": 0,
+    "tokens_total": 1143904,
+    "cost_usd": 0.1394228,
+    "llm_calls": 123,
+    "byok_calls": 123,
+    "tool_calls": 119,
+    "wall_seconds": 597.074
+  },
+  "process": {
+    "turns": 120,
+    "test_runs": 4,
+    "tool_denials": 0,
+    "errors": 0,
+    "circuit_breaks": 2,
+    "self_recoveries": 1,
+    "stop_reason": "budget: max_turns (120 >= 120)"
+  },
+  "provenance": {
+    "model": "qwen/qwen3-coder",
+    "provider_requested": "DeepInfra",
+    "providers_served": [
+      "DeepInfra"
+    ],
+    "llm_seed": 20260821,
+    "topology": "multi_agent_roles"
+  },
+  "diff": {
+    "files_changed": 3,
+    "insertions": 65,
+    "deletions": 9,
+    "changed_files": [
+      "peewee.py",
+      "peewee_test.db-shm",
+      "playhouse/migrate.py",
+      "playhouse/reflection.py"
+    ]
+  }
+}

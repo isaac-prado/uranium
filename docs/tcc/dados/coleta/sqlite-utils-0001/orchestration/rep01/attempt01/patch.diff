@@ -1,0 +1,48 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index d709fb9..557e150 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -2542,6 +2542,43 @@ class Table(Queryable):
+         """
+         if not self.exists():
+             raise ValueError("Cannot transform a table that doesn't exist yet")
++        # Check for destructive foreign keys if in a transaction
++        if self.db.conn.in_transaction:
++            destructive_actions = ("CASCADE", "SET NULL", "SET DEFAULT")
++            referencing_tables_with_actions = []
++            # Check direct foreign keys of this table (self-referencing)
++            for fk in self.foreign_keys:
++                if fk.on_delete in destructive_actions and fk.other_table == self.name:
++                    referencing_tables_with_actions.append((self.name, fk.on_delete))
++            # Check tables that reference this table with destructive actions
++            query = """
++                SELECT 
++                    m.tbl_name AS referencing_table,
++                    fk.on_delete
++                FROM 
++                    sqlite_master AS m
++                JOIN 
++                    pragma_foreign_key_list(m.tbl_name) AS fk
++                ON 
++                    fk."table" = ?
++                WHERE 
++                    m.type = 'table'
++            """
++            cursor = self.db.execute(query, (self.name,))
++            for referencing_table, on_delete in cursor.fetchall():
++                if on_delete in destructive_actions:
++                    referencing_tables_with_actions.append((referencing_table, on_delete))
++            
++            if referencing_tables_with_actions:
++                table_list_str = ", ".join(
++                    [f"'{table}' (ON DELETE {action})" for table, action in referencing_tables_with_actions]
++                )
++                raise TransactionError(
++                    f"Cannot perform schema transformation on table '{self.name}' while a transaction is open, "
++                    f"because it is referenced by tables with destructive ON DELETE clauses: {table_list_str}. "
++                    f"This is to prevent silent data loss due to SQLite's limitation where PRAGMA foreign_keys has no effect during transactions."
++                )
++
+         sqls = self.transform_sql(
+             types=types,
+             rename=rename,

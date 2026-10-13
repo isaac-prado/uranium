@@ -1,0 +1,58 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 48987a6..921afd5 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -3096,6 +3096,8 @@ class Table(Queryable):
+         # Copy across data, respecting any renamed columns
+         new_cols = []
+         old_cols = []
++        # Get current column types to identify TEXT columns being converted to numeric types
++        current_column_types = self.columns_dict
+         for from_, to_ in copy_from_to.items():
+             old_cols.append(from_)
+             new_cols.append(to_)
+@@ -3103,11 +3105,41 @@ class Table(Queryable):
+         if "rowid" not in new_cols:
+             new_cols.insert(0, "rowid")
+             old_cols.insert(0, "rowid")
+-        copy_sql = "INSERT INTO {} ({new_cols})\n   SELECT {old_cols} FROM {};".format(
++        
++        # Build select expressions with NULLIF for TEXT to numeric conversions
++        select_expressions = []
++        for i, from_col in enumerate(old_cols):
++            to_col = new_cols[i]
++            # Check if this is a column being converted from TEXT to numeric type
++            if (from_col in current_column_types and 
++                from_col in types and 
++                current_column_types[from_col] == str):
++                # Get the target type
++                target_type = types[from_col]
++                # Check if target type is numeric
++                target_type_str = COLUMN_TYPE_MAPPING.get(target_type, "").upper()
++                if target_type_str in ("INTEGER", "REAL", "FLOAT"):
++                    # Apply NULLIF to convert empty strings to NULL
++                    if from_col == to_col:
++                        select_expressions.append(f"NULLIF({quote_identifier(from_col)}, '')")
++                    else:
++                        select_expressions.append(f"NULLIF({quote_identifier(from_col)}, '') AS {quote_identifier(to_col)}")
++                else:
++                    if from_col == to_col:
++                        select_expressions.append(quote_identifier(from_col))
++                    else:
++                        select_expressions.append(f"{quote_identifier(from_col)} AS {quote_identifier(to_col)}")
++            else:
++                if from_col == to_col:
++                    select_expressions.append(quote_identifier(from_col))
++                else:
++                    select_expressions.append(f"{quote_identifier(from_col)} AS {quote_identifier(to_col)}")
++        
++        copy_sql = "INSERT INTO {} ({})\n   SELECT {} FROM {};".format(
+             quote_identifier(new_table_name),
++            ", ".join(quote_identifier(col) for col in new_cols),
++            ", ".join(select_expressions),
+             quote_identifier(self.name),
+-            old_cols=", ".join(quote_identifier(col) for col in old_cols),
+-            new_cols=", ".join(quote_identifier(col) for col in new_cols),
+         )
+         sqls.append(copy_sql)
+         # Capture indexes before the old table is changed. Simple indexes that

@@ -1,0 +1,31 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index d709fb9..8030d9b 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -2542,6 +2542,26 @@ class Table(Queryable):
+         """
+         if not self.exists():
+             raise ValueError("Cannot transform a table that doesn't exist yet")
++        
++        # Check for destructive foreign key actions within transactions
++        if self.db.conn.in_transaction:
++            # Get all foreign keys that reference this table
++            referencing_fks = []
++            for table_name in self.db.table_names():
++                table = self.db[table_name]
++                for fk in table.foreign_keys:
++                    if fk.other_table == self.name and fk.on_delete in ("CASCADE", "SET NULL", "SET DEFAULT"):
++                        referencing_fks.append((table_name, fk.on_delete))
++            
++            if referencing_fks:
++                # Format error message with table names and actions
++                fk_details = ", ".join(f"{table_name} (ON DELETE {action.upper()})" for table_name, action in referencing_fks)
++                raise TransactionError(
++                    f"Cannot perform schema transformation on table '{self.name}' within a transaction "
++                    f"because it is referenced by foreign keys with destructive actions: {fk_details}. "
++                    "These operations would cause irreversible data loss when PRAGMA foreign_keys is disabled. "
++                    "Execute this operation outside of a transaction or remove the foreign key constraints first."
++                )
+         sqls = self.transform_sql(
+             types=types,
+             rename=rename,

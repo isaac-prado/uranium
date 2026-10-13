@@ -1,0 +1,106 @@
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 4a24fc0..ca040be 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -655,6 +655,16 @@ class Integer(Item, _CustomInt):
+     def _getstate(self, protocol: int = 3) -> tuple[int, Trivia, str]:
+         return int(self), self._trivia, self._raw
+ 
++    # Override these methods to prevent scalar values from being treated as sequences
++    def __getitem__(self, key):
++        raise AttributeError(f"type object '{type(self).__name__}' has no attribute '__getitem__'")
++    
++    def __setitem__(self, key, value):
++        raise AttributeError(f"type object '{type(self).__name__}' has no attribute '__setitem__'")
++    
++    def __delitem__(self, key):
++        raise AttributeError(f"type object '{type(self).__name__}' has no attribute '__delitem__'")
++
+     # int methods — explicit typed wrappers
+     def __abs__(self) -> Integer:
+         return self._new(int.__abs__(self))
+@@ -879,6 +889,16 @@ class Float(Item, _CustomFloat):
+     def _getstate(self, protocol: int = 3) -> tuple[float, Trivia, str]:
+         return float(self), self._trivia, self._raw
+ 
++    # Override these methods to prevent scalar values from being treated as sequences
++    def __getitem__(self, key):
++        raise AttributeError(f"type object '{type(self).__name__}' has no attribute '__getitem__'")
++    
++    def __setitem__(self, key, value):
++        raise AttributeError(f"type object '{type(self).__name__}' has no attribute '__setitem__'")
++    
++    def __delitem__(self, key):
++        raise AttributeError(f"type object '{type(self).__name__}' has no attribute '__delitem__'")
++
+     # float methods — explicit typed wrappers
+     def __abs__(self) -> Float:
+         return self._new(float.__abs__(self))
+@@ -1019,6 +1039,16 @@ class Bool(Item):
+ 
+     __nonzero__ = __bool__
+ 
++    # Override these methods to prevent scalar values from being treated as sequences
++    def __getitem__(self, key):
++        raise AttributeError(f"type object '{type(self).__name__}' has no attribute '__getitem__'")
++    
++    def __setitem__(self, key, value):
++        raise AttributeError(f"type object '{type(self).__name__}' has no attribute '__setitem__'")
++    
++    def __delitem__(self, key):
++        raise AttributeError(f"type object '{type(self).__name__}' has no attribute '__delitem__'")
++
+     def __eq__(self, other: object) -> bool:
+         if not isinstance(other, bool):
+             return NotImplemented
+@@ -1191,6 +1221,16 @@ class DateTime(Item, datetime):
+             self._raw,
+         )
+ 
++    # Override these methods to prevent scalar values from being treated as sequences
++    def __getitem__(self, key):
++        raise AttributeError(f"type object '{type(self).__name__}' has no attribute '__getitem__'")
++    
++    def __setitem__(self, key, value):
++        raise AttributeError(f"type object '{type(self).__name__}' has no attribute '__setitem__'")
++    
++    def __delitem__(self, key):
++        raise AttributeError(f"type object '{type(self).__name__}' has no attribute '__delitem__'")
++
+ 
+ class Date(Item, date):
+     """
+@@ -1270,6 +1310,16 @@ class Date(Item, date):
+     def _getstate(self, protocol: int = 3) -> tuple[int, int, int, Trivia, str]:
+         return (self.year, self.month, self.day, self._trivia, self._raw)
+ 
++    # Override these methods to prevent scalar values from being treated as sequences
++    def __getitem__(self, key):
++        raise AttributeError(f"type object '{type(self).__name__}' has no attribute '__getitem__'")
++    
++    def __setitem__(self, key, value):
++        raise AttributeError(f"type object '{type(self).__name__}' has no attribute '__setitem__'")
++    
++    def __delitem__(self, key):
++        raise AttributeError(f"type object '{type(self).__name__}' has no attribute '__delitem__'")
++
+ 
+ class Time(Item, time):
+     """
+@@ -1346,6 +1396,16 @@ class Time(Item, time):
+             self._raw,
+         )
+ 
++    # Override these methods to prevent scalar values from being treated as sequences
++    def __getitem__(self, key):
++        raise AttributeError(f"type object '{type(self).__name__}' has no attribute '__getitem__'")
++    
++    def __setitem__(self, key, value):
++        raise AttributeError(f"type object '{type(self).__name__}' has no attribute '__setitem__'")
++    
++    def __delitem__(self, key):
++        raise AttributeError(f"type object '{type(self).__name__}' has no attribute '__delitem__'")
++
+ 
+ class _ArrayItemGroup:
+     __slots__ = ("comma", "comment", "indent", "value")

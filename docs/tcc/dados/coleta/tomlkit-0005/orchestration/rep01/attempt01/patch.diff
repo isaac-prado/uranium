@@ -1,0 +1,21 @@
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 4a24fc0..f23ff0a 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -540,8 +540,14 @@ class Item:
+     def __reduce_ex__(self, protocol: int) -> tuple[type, tuple[object, ...]]:  # type: ignore[override]
+         return self.__class__, self._getstate(protocol)
+ 
+-    def __getitem__(self, key: Key | str | int) -> Any:
+-        raise TypeError(f"{type(self).__name__} does not support item access")
++    # Método __getitem__ removido completamente para evitar que PySequence_Check
++    # identifique incorretamente os tipos escalares como sequências.
++    # A presença deste método, mesmo que levante exceção, faz com que
++    # PySequence_Check retorne 1, o que causa problemas com bibliotecas
++    # como torch e numpy.
++    #
++    # def __getitem__(self, key: Key | str | int) -> Any:
++    #     raise TypeError(f"{type(self).__name__} does not support item access")
+ 
+     def __setitem__(self, key: Key | str | int, value: Any) -> None:
+         raise TypeError(f"{type(self).__name__} does not support item assignment")

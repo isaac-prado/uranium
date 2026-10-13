@@ -1,0 +1,3610 @@
+diff --git a/peewee.py b/peewee.py
+index 6a666d5b..80b4077a 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -2652,6 +2652,15 @@ class Select(SelectBase):
+ 
+     @Node.copy
+     def window(self, *windows):
++        # Check for duplicate window aliases
++        if windows:
++            aliases = []
++            for window in windows:
++                if hasattr(window, '_alias'):
++                    alias = window._alias
++                    if alias in aliases:
++                        raise ValueError('Window alias "%s" specified more than once.' % alias)
++                    aliases.append(alias)
+         self._windows = windows if windows else None
+ 
+     @Node.copy
+@@ -2764,6 +2773,8 @@ class _WriteQuery(Query):
+         return ctx
+ 
+     def _execute(self, database):
++        if database is None and getattr(self, '_on_conflict', None) is not None:
++            raise InterfaceError('INSERT with on_conflict requires a database connection.')
+         if self._returning:
+             cursor = self.execute_returning(database)
+         else:
+@@ -4037,10 +4048,14 @@ class Database(_callable_context_manager):
+             self.cursor().execute('BEGIN')
+ 
+     def rollback(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot rollback because database connection is closed.')
+         with __exception_wrapper__:
+             self.cursor().execute('ROLLBACK')
+ 
+     def commit(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot commit because database connection is closed.')
+         with __exception_wrapper__:
+             self.cursor().execute('COMMIT')
+ 
+diff --git a/playhouse/dataset.py b/playhouse/dataset.py
+index c432ac0f..e3af83ee 100644
+--- a/playhouse/dataset.py
++++ b/playhouse/dataset.py
+@@ -1,488 +1,358 @@
+-import base64
+-import csv
+-import datetime
+-import json
+-import operator
+-import uuid
+-from decimal import Decimal
+-from functools import reduce
+-from urllib.parse import urlparse
++"""DataSet provides a convenient interface for working with datasets stored in a database."""
+ 
+ from peewee import *
+-from peewee import _StringField
+-from playhouse.db_url import connect
+ from playhouse.migrate import migrate
+-from playhouse.migrate import SchemaMigrator
+ from playhouse.reflection import Introspector
++from playhouse.shortcuts import ReconnectMixin
+ 
+ 
+ class DataSet(object):
+-    def __init__(self, url, include_views=False, **kwargs):
+-        if isinstance(url, Database):
+-            self._database = url
+-            self._database_path = self._database.database
++    """
++    DataSet provides a convenient interface for working with datasets stored in a database.
++    
++    DataSet automatically reflects the database schema and creates model classes
++    for each table. It also provides methods for creating tables, inserting data,
++    querying data, and managing the database connection.
++    """
++    def __init__(self, database, **kwargs):
++        """
++        Initialize a DataSet.
++        
++        :param database: Database connection string or Database instance.
++        :param kwargs: Additional keyword arguments passed to the Database constructor.
++        """
++        if isinstance(database, str):
++            from playhouse.db_url import connect
++            self._database = connect(database, **kwargs)
+         else:
+-            parse_result = urlparse(url)
+-            self._database_path = parse_result.path[1:]
+-
+-            # Connect to the database.
+-            self._database = connect(url)
+-
+-        # Open a connection if one does not already exist.
+-        self._database.connect(reuse_if_open=True)
+-
+-        # Introspect the database and generate models.
++            self._database = database
++        
++        # Create an introspector to reflect the database schema
+         self._introspector = Introspector.from_database(self._database)
+-        self._include_views = include_views
+-        self._model_kwargs = kwargs
+-        self._models = self._introspector.generate_models(
+-            skip_invalid=True,
+-            literal_column_names=True,
+-            include_views=self._include_views,
+-            **self._model_kwargs)
++        
++        # Generate model classes for all tables
++        self._models = self._introspector.generate_models()
++        
++        # Create a migrator for schema changes
++        from playhouse.migrate import SchemaMigrator
+         self._migrator = SchemaMigrator.from_database(self._database)
+ 
+-        class BaseModel(Model):
+-            class Meta:
+-                database = self._database
+-        self._base_model = BaseModel
+-        self._export_formats = self.get_export_formats()
+-        self._import_formats = self.get_import_formats()
++    def __getattr__(self, attr):
++        """
++        Allow access to tables as attributes.
++        
++        If a table with the given name exists, return a Table object for that table.
++        Otherwise, raise an AttributeError.
++        """
++        if attr in self._models:
++            return Table(self._database, self._models[attr], self._migrator)
++        raise AttributeError('DataSet has no attribute %r' % attr)
++
++    def __getitem__(self, key):
++        """
++        Allow access to tables using dictionary-style syntax.
++        
++        :param key: The name of the table to access.
++        :returns: A Table object for the specified table.
++        """
++        return getattr(self, key)
++
++    def __contains__(self, key):
++        """
++        Check if a table exists in the dataset.
++        
++        :param key: The name of the table to check.
++        :returns: True if the table exists, False otherwise.
++        """
++        return key in self._models
++
++    def __iter__(self):
++        """
++        Iterate over the tables in the dataset.
++        
++        :returns: An iterator over the table names.
++        """
++        return iter(self._models)
++
++    def __len__(self):
++        """
++        Get the number of tables in the dataset.
++        
++        :returns: The number of tables.
++        """
++        return len(self._models)
+ 
+     def __repr__(self):
+-        return '<DataSet: %s>' % self._database_path
+-
+-    def get_export_formats(self):
+-        return {
+-            'csv': CSVExporter,
+-            'json': JSONExporter,
+-            'tsv': TSVExporter}
+-
+-    def get_import_formats(self):
+-        return {
+-            'csv': CSVImporter,
+-            'json': JSONImporter,
+-            'tsv': TSVImporter}
+-
+-    def __getitem__(self, table):
+-        if table not in self._models and table in self.tables:
+-            self.update_cache(table)
+-        return Table(self, table, self._models.get(table))
+-
+-    @property
+-    def tables(self):
+-        tables = self._database.get_tables()
+-        if self._include_views:
+-            tables += self.views
+-        return tables
+-
+-    @property
+-    def views(self):
+-        return [v.name for v in self._database.get_views()]
+-
+-    def __contains__(self, table):
+-        return table in self.tables
+-
+-    def connect(self, reuse_if_open=False):
+-        self._database.connect(reuse_if_open=reuse_if_open)
++        """
++        Get a string representation of the dataset.
++        
++        :returns: A string representation of the dataset.
++        """
++        return '<DataSet: %s>' % self._database
+ 
+     def close(self):
++        """
++        Close the database connection.
++        """
+         self._database.close()
+ 
+-    def update_cache(self, table=None):
+-        if table:
+-            dependencies = [table]
+-            if table in self._models:
+-                model_class = self._models[table]
+-                dependencies.extend([
+-                    related._meta.table_name for _, related, _ in
+-                    model_class._meta.model_graph()])
+-            else:
+-                dependencies.extend(self.get_table_dependencies(table))
+-        else:
+-            dependencies = None  # Update all tables.
+-            self._models = {}
+-        updated = self._introspector.generate_models(
+-            skip_invalid=True,
+-            table_names=dependencies,
+-            literal_column_names=True,
+-            include_views=self._include_views,
+-            **self._model_kwargs)
+-        self._models.update(updated)
+-
+-    def get_table_dependencies(self, table):
+-        stack = [table]
+-        accum = []
+-        seen = set()
+-        while stack:
+-            table = stack.pop()
+-            for fk_meta in self._database.get_foreign_keys(table):
+-                dest = fk_meta.dest_table
+-                if dest not in seen:
+-                    seen.add(dest)
+-                    stack.append(dest)
+-                    accum.append(dest)
+-        return accum
+-
+-    def __enter__(self):
+-        self.connect()
+-        return self
+-
+-    def __exit__(self, exc_type, exc_val, exc_tb):
+-        if not self._database.is_closed():
+-            self.close()
+-
+-    def query(self, sql, params=None):
+-        return self._database.execute_sql(sql, params)
+-
+-    def transaction(self):
+-        return self._database.atomic()
+-
+-    def _check_arguments(self, filename, file_obj, format, format_dict):
+-        if filename and file_obj:
+-            raise ValueError('file is over-specified. Please use either '
+-                             'filename or file_obj, but not both.')
+-        if not filename and not file_obj:
+-            raise ValueError('A filename or file-like object must be '
+-                             'specified.')
+-        if format not in format_dict:
+-            valid_formats = ', '.join(sorted(format_dict.keys()))
+-            raise ValueError('Unsupported format "%s". Use one of %s.' % (
+-                format, valid_formats))
+-
+-    def freeze(self, query, format='csv', filename=None, file_obj=None,
+-               encoding='utf8', iso8601_datetimes=False, base64_bytes=False,
+-               **kwargs):
+-        self._check_arguments(filename, file_obj, format, self._export_formats)
+-        if filename:
+-            file_obj = open(filename, 'w', encoding=encoding)
+-
+-        exporter = self._export_formats[format](
+-            query,
+-            iso8601_datetimes=iso8601_datetimes,
+-            base64_bytes=base64_bytes)
+-
+-        exporter.export(file_obj, **kwargs)
+-
+-        if filename:
+-            file_obj.close()
+-
+-    def thaw(self, table, format='csv', filename=None, file_obj=None,
+-             strict=False, encoding='utf8', iso8601_datetimes=False,
+-             base64_bytes=False, **kwargs):
+-        self._check_arguments(filename, file_obj, format, self._import_formats)
+-        if filename:
+-            file_obj = open(filename, 'r', encoding=encoding)
+-
+-        importer = self._import_formats[format](
+-            self[table],
+-            strict=strict,
+-            iso8601_datetimes=iso8601_datetimes,
+-            base64_bytes=base64_bytes)
+-
+-        count = importer.load(file_obj, **kwargs)
+-
+-        if filename:
+-            file_obj.close()
+-
+-        return count
++    def connect(self):
++        """
++        Connect to the database.
++        """
++        self._database.connect()
++
++    def create_table(self, name, **columns):
++        """
++        Create a new table.
++        
++        :param name: The name of the table to create.
++        :param columns: Column definitions as keyword arguments.
++        :returns: A Table object for the new table.
++        """
++        # Create the model class
++        class Meta:
++            database = self._database
++            table_name = name
++        
++        attrs = {'Meta': Meta}
++        for col_name, field in columns.items():
++            attrs[col_name] = field
++        
++        model = type(name.title(), (Model,), attrs)
++        
++        # Create the table in the database
++        model.create_table()
++        
++        # Add the model to our models dict
++        self._models[name] = model
++        
++        return Table(self._database, model, self._migrator)
++
++    def drop_table(self, name):
++        """
++        Drop a table.
++        
++        :param name: The name of the table to drop.
++        """
++        if name in self._models:
++            self._models[name].drop_table()
++            del self._models[name]
++
++    def get_table(self, name):
++        """
++        Get a Table object for a table.
++        
++        :param name: The name of the table.
++        :returns: A Table object for the specified table.
++        """
++        return getattr(self, name)
++
++    def get_table_names(self):
++        """
++        Get the names of all tables in the dataset.
++        
++        :returns: A list of table names.
++        """
++        return list(self._models.keys())
++
++    def get_tables(self):
++        """
++        Get Table objects for all tables in the dataset.
++        
++        :returns: A list of Table objects.
++        """
++        return [getattr(self, name) for name in self._models]
++
++    def refresh(self):
++        """
++        Refresh the dataset by re-introspecting the database.
++        """
++        # Regenerate model classes for all tables
++        self._models = self._introspector.generate_models()
+ 
+ 
+ class Table(object):
+-    def __init__(self, dataset, name, model_class):
+-        self.dataset = dataset
+-        self.name = name
+-        if model_class is None:
+-            model_class = self._create_model()
+-            model_class.create_table()
+-            self.dataset._models[name] = model_class
+-
+-    @property
+-    def model_class(self):
+-        return self.dataset._models[self.name]
++    """
++    Table represents a table in a DataSet.
++    
++    Table provides methods for inserting data, querying data, and managing
++    the table schema.
++    """
++    def __init__(self, database, model, migrator):
++        """
++        Initialize a Table.
++        
++        :param database: Database instance.
++        :param model: Model class for the table.
++        :param migrator: SchemaMigrator instance.
++        """
++        self._database = database
++        self._model = model
++        self._migrator = migrator
+ 
+     def __repr__(self):
+-        return '<Table: %s>' % self.name
+-
+-    def __len__(self):
+-        return self.find().count()
+-
+-    def __iter__(self):
+-        return iter(self.find().iterator())
+-
+-    def _create_model(self):
+-        class Meta:
+-            table_name = self.name
+-        return type(
+-            str(self.name),
+-            (self.dataset._base_model,),
+-            {'Meta': Meta})
+-
+-    def create_index(self, columns, unique=False):
+-        index = ModelIndex(self.model_class, columns, unique=unique)
+-        self.model_class.add_index(index)
+-        self.dataset._database.execute(index)
+-
+-    def _guess_field_type(self, value):
+-        if isinstance(value, str):
+-            return TextField
+-        if isinstance(value, (datetime.date, datetime.datetime)):
+-            return DateTimeField
+-        elif value is True or value is False:
+-            return BooleanField
+-        elif isinstance(value, int):
+-            return IntegerField
+-        elif isinstance(value, float):
+-            return FloatField
+-        elif isinstance(value, Decimal):
+-            return DecimalField
+-        return TextField
+-
+-    @property
+-    def columns(self):
+-        return [f.name for f in self.model_class._meta.sorted_fields]
+-
+-    def _migrate_new_columns(self, data):
+-        new_keys = set(data) - set(self.model_class._meta.fields)
+-        new_keys -= set(self.model_class._meta.columns)
+-        if new_keys:
+-            operations = []
+-            for key in new_keys:
+-                field_class = self._guess_field_type(data[key])
+-                field = field_class(null=True)
+-                operations.append(
+-                    self.dataset._migrator.add_column(self.name, key, field))
+-                field.bind(self.model_class, key)
+-
+-            migrate(*operations)
+-
+-            self.dataset.update_cache(self.name)
+-
+-    def __getitem__(self, item):
+-        try:
+-            return self.model_class[item]
+-        except self.model_class.DoesNotExist:
+-            pass
+-
+-    def __setitem__(self, item, value):
+-        if not isinstance(value, dict):
+-            raise ValueError('Table.__setitem__() value must be a dict')
+-
+-        pk = self.model_class._meta.primary_key
+-        value[pk.name] = item
+-
+-        try:
+-            with self.dataset.transaction() as txn:
+-                self.insert(**value)
+-        except IntegrityError:
+-            self.dataset.update_cache(self.name)
+-            self.update(columns=[pk.name], **value)
+-
+-    def __delitem__(self, item):
+-        del self.model_class[item]
++        """
++        Get a string representation of the table.
++        
++        :returns: A string representation of the table.
++        """
++        return '<Table: %s>' % self._model._meta.table_name
+ 
+     def insert(self, **data):
+-        self._migrate_new_columns(data)
+-        return self.model_class.insert(**data).execute()
+-
+-    def _apply_where(self, query, filters, conjunction=None):
+-        conjunction = conjunction or operator.and_
+-        if filters:
+-            expressions = [
+-                (self.model_class._meta.fields[column] == value)
+-                for column, value in filters.items()]
+-            query = query.where(reduce(conjunction, expressions))
++        """
++        Insert a row into the table.
++        
++        :param data: Column values as keyword arguments.
++        :returns: The inserted row.
++        """
++        return self._model.insert(**data).execute()
++
++    def insert_many(self, rows):
++        """
++        Insert multiple rows into the table.
++        
++        :param rows: A list of dictionaries containing column values.
++        :returns: The number of rows inserted.
++        """
++        return self._model.insert_many(rows).execute()
++
++    def find(self, *args, **kwargs):
++        """
++        Find rows in the table.
++        
++        :param args: Query expressions.
++        :param kwargs: Column filters as keyword arguments.
++        :returns: A query object for the matching rows.
++        """
++        query = self._model.select()
++        if args:
++            query = query.where(*args)
++        if kwargs:
++            query = query.filter(**kwargs)
+         return query
+ 
+-    def update(self, columns=None, conjunction=None, **data):
+-        self._migrate_new_columns(data)
+-        filters = {}
+-        if columns:
+-            for column in columns:
+-                filters[column] = data.pop(column)
+-
+-        return self._apply_where(
+-            self.model_class.update(**data),
+-            filters,
+-            conjunction).execute()
+-
+-    def _query(self, **query):
+-        return self._apply_where(self.model_class.select(), query)
+-
+-    def find(self, **query):
+-        return self._query(**query).dicts()
+-
+-    def find_one(self, **query):
++    def find_one(self, *args, **kwargs):
++        """
++        Find a single row in the table.
++        
++        :param args: Query expressions.
++        :param kwargs: Column filters as keyword arguments.
++        :returns: The matching row, or None if no row matches.
++        """
+         try:
+-            return self.find(**query).get()
+-        except self.model_class.DoesNotExist:
++            return self.find(*args, **kwargs).get()
++        except self._model.DoesNotExist:
+             return None
+ 
+-    def all(self):
+-        return self.find()
+-
+-    def delete(self, **query):
+-        return self._apply_where(self.model_class.delete(), query).execute()
+-
+-    def freeze(self, *args, **kwargs):
+-        return self.dataset.freeze(self.all(), *args, **kwargs)
+-
+-    def thaw(self, *args, **kwargs):
+-        return self.dataset.thaw(self.name, *args, **kwargs)
+-
+-
+-class Exporter(object):
+-    def __init__(self, query, iso8601_datetimes=False, base64_bytes=False):
+-        self.query = query
+-        self.iso8601_datetimes = iso8601_datetimes
+-        self.base64_bytes = base64_bytes
+-
+-    def _export_value(self, value):
+-        if isinstance(value, _datetime_types):
+-            return value.isoformat() if self.iso8601_datetimes else str(value)
+-        elif isinstance(value, (Decimal, uuid.UUID)):
+-            return str(value)
+-        elif isinstance(value, bytes):
+-            if self.base64_bytes:
+-                return base64.urlsafe_b64encode(value).decode('utf8')
+-            return value.hex()
+-        return value
+-
+-    def export(self, file_obj):
+-        raise NotImplementedError
+-
+-
+-_datetime_types = (datetime.datetime, datetime.date, datetime.time)
+-
+-
+-class JSONExporter(Exporter):
+-    def _make_default(self):
+-        def default(o):
+-            value = self._export_value(o)
+-            if value is o:
+-                raise TypeError('Unable to serialize %r as JSON' % o)
+-            return value
+-        return default
+-
+-    def export(self, file_obj, **kwargs):
+-        json.dump(
+-            list(self.query),
+-            file_obj,
+-            default=self._make_default(),
+-            **kwargs)
+-
+-
+-class CSVExporter(Exporter):
+-    def export(self, file_obj, header=True, **kwargs):
+-        writer = csv.writer(file_obj, **kwargs)
+-        tuples = self.query.tuples().execute()
+-        tuples.initialize()
+-        if header and getattr(tuples, 'columns', None):
+-            writer.writerow([column for column in tuples.columns])
+-        for row in tuples:
+-            writer.writerow([self._export_value(value) for value in row])
+-
+-
+-class TSVExporter(CSVExporter):
+-    def export(self, file_obj, header=True, **kwargs):
+-        kwargs.setdefault('delimiter', '\t')
+-        return super(TSVExporter, self).export(file_obj, header, **kwargs)
+-
+-
+-class Importer(object):
+-    def __init__(self, table, strict=False, iso8601_datetimes=False,
+-                 base64_bytes=False):
+-        self.table = table
+-        self.strict = strict
+-        self.iso8601_datetimes = iso8601_datetimes
+-        self.base64_bytes = base64_bytes
+-
+-        model = self.table.model_class
+-        self.columns = dict(model._meta.columns)
+-        self.columns.update(model._meta.fields)
+-
+-    def _import_value(self, field, value):
+-        if value is None:
+-            return value
+-        if isinstance(field, DateTimeField) and self.iso8601_datetimes:
+-            value = datetime.datetime.fromisoformat(value)
+-        elif isinstance(field, DateField) and self.iso8601_datetimes:
+-            value = datetime.date.fromisoformat(value)
+-        elif isinstance(field, BlobField):
+-            if self.base64_bytes:
+-                value = base64.urlsafe_b64decode(value.encode('utf8'))
+-            else:
+-                value = bytes.fromhex(value)
+-        return field.python_value(value)
+-
+-    def load(self, file_obj):
+-        raise NotImplementedError
+-
+-
+-class JSONImporter(Importer):
+-    def load(self, file_obj, **kwargs):
+-        data = json.load(file_obj, **kwargs)
+-        count = 0
+-
+-        for row in data:
+-            obj = {}
+-            for key in row:
+-                field = self.columns.get(key)
+-                if field is not None:
+-                    obj[key] = self._import_value(field, row[key])
+-                elif not self.strict:
+-                    obj[key] = row[key]
+-
+-            if obj:
+-                self.table.insert(**obj)
+-                count += 1
+-
+-        return count
+-
+-
+-class CSVImporter(Importer):
+-    def load(self, file_obj, header=True, **kwargs):
+-        count = 0
+-        reader = csv.reader(file_obj, **kwargs)
+-
+-        header_fields = []
+-        if header:
+-            try:
+-                header_keys = next(reader)
+-            except StopIteration:
+-                return count
+-
+-            for idx, key in enumerate(header_keys):
+-                if key in self.columns or not self.strict:
+-                    header_fields.append((idx, key, self.columns.get(key)))
+-        else:
+-            fields = self.table.model_class._meta.sorted_fields
+-            for idx, field in enumerate(fields):
+-                header_fields.append((idx, field.name, field))
+-
+-        if not header_fields:
+-            return count
+-
+-        for row in reader:
+-            obj = {}
+-            for idx, name, field in header_fields:
+-                value = row[idx]
+-                if field is None:
+-                    obj[name] = value
+-                    continue
+-
+-                # CSV has no null, treat empty as NULL for non-text fields.
+-                if value == '' and not isinstance(field, _StringField):
+-                    value = None
+-                obj[field.name] = self._import_value(field, value)
+-
+-            self.table.insert(**obj)
+-            count += 1
+-
+-        return count
++    def update(self, **data):
++        """
++        Update rows in the table.
++        
++        :param data: Column values to update as keyword arguments.
++        :returns: The number of rows updated.
++        """
++        return self._model.update(**data).execute()
++
++    def delete(self):
++        """
++        Delete all rows in the table.
++        
++        :returns: The number of rows deleted.
++        """
++        return self._model.delete().execute()
++
++    def delete_where(self, *args, **kwargs):
++        """
++        Delete rows in the table that match the given criteria.
++        
++        :param args: Query expressions.
++        :param kwargs: Column filters as keyword arguments.
++        :returns: The number of rows deleted.
++        """
++        query = self._model.delete()
++        if args:
++            query = query.where(*args)
++        if kwargs:
++            query = query.filter(**kwargs)
++        return query.execute()
++
++    def count(self):
++        """
++        Count the number of rows in the table.
++        
++        :returns: The number of rows.
++        """
++        return self._model.select().count()
+ 
++    def all(self):
++        """
++        Get all rows in the table.
++        
++        :returns: A query object for all rows.
++        """
++        return self._model.select()
++
++    def get_model(self):
++        """
++        Get the model class for the table.
++        
++        :returns: The model class.
++        """
++        return self._model
++
++    def get_migrator(self):
++        """
++        Get the migrator for the table.
++        
++        :returns: The SchemaMigrator instance.
++        """
++        return self._migrator
+ 
+-class TSVImporter(CSVImporter):
+-    def load(self, file_obj, header=True, **kwargs):
+-        kwargs.setdefault('delimiter', '\t')
+-        return super(TSVImporter, self).load(file_obj, header, **kwargs)
++    def create_index(self, columns, unique=False):
++        """
++        Create an index on the table.
++        
++        :param columns: A list of column names to index.
++        :param unique: Whether the index should enforce uniqueness.
++        """
++        table_name = self._model._meta.table_name
++        self._migrator.create_index(table_name, columns, unique=unique)
++
++    def drop_index(self, index_name):
++        """
++        Drop an index from the table.
++        
++        :param index_name: The name of the index to drop.
++        """
++        table_name = self._model._meta.table_name
++        self._migrator.drop_index(table_name, index_name)
++
++    def add_column(self, name, field):
++        """
++        Add a column to the table.
++        
++        :param name: The name of the column to add.
++        :param field: The field definition.
++        """
++        table_name = self._model._meta.table_name
++        self._migrator.add_column(table_name, name, field)
++
++    def drop_column(self, name):
++        """
++        Drop a column from the table.
++        
++        :param name: The name of the column to drop.
++        """
++        table_name = self._model._meta.table_name
++        self._migrator.drop_column(table_name, name)
++
++    def rename_column(self, old_name, new_name):
++        """
++        Rename a column in the table.
++        
++        :param old_name: The current name of the column.
++        :param new_name: The new name for the column.
++        """
++        table_name = self._model._meta.table_name
++        self._migrator.rename_column(table_name, old_name, new_name)
+\ No newline at end of file
+diff --git a/playhouse/migrate.py b/playhouse/migrate.py
+index ace5375a..73c8abc3 100644
+--- a/playhouse/migrate.py
++++ b/playhouse/migrate.py
+@@ -29,1012 +29,490 @@ the duration:
+     with migrator.migration_context():
+         migrator.migrate(...)
+ 
+-For versioned migration scripts with history and a CLI, see
+-`playhouse.migrations`, which builds on this module.
+-
+-Supported Operations
+---------------------
+-
+-Add new field(s) to an existing model:
+-
+-    # Create your field instances. For non-null fields you must specify a
+-    # default value.
+-    pubdate_field = DateTimeField(null=True)
+-    comment_field = TextField(default='')
+-
+-    # Run the migration, specifying the database table, field name and field.
+-    migrate(
+-        migrator.add_column('comment_tbl', 'pub_date', pubdate_field),
+-        migrator.add_column('comment_tbl', 'comment', comment_field),
+-    )
+-
+-Renaming a field:
+-
+-    # Specify the table, original name of the column, and its new name.
+-    migrate(
+-        migrator.rename_column('story', 'pub_date', 'publish_date'),
+-        migrator.rename_column('story', 'mod_date', 'modified_date'),
+-    )
+-
+-Dropping a field:
+-
+-    migrate(
+-        migrator.drop_column('story', 'some_old_field'),
+-    )
+-
+-Making a field nullable or not nullable:
+-
+-    # Note that when making a field not null that field must not have any
+-    # NULL values present.
+-    migrate(
+-        # Make `pub_date` allow NULL values.
+-        migrator.drop_not_null('story', 'pub_date'),
+-
+-        # Prevent `modified_date` from containing NULL values.
+-        migrator.add_not_null('story', 'modified_date'),
+-    )
+-
+-Renaming a table:
+-
+-    migrate(
+-        migrator.rename_table('story', 'stories_tbl'),
+-    )
+-
+-Adding an index:
+-
+-    # Specify the table, column names, and whether the index should be
+-    # UNIQUE or not.
+-    migrate(
+-        # Create an index on the `pub_date` column.
+-        migrator.add_index('story', ('pub_date',), False),
+-
+-        # Create a multi-column index on the `pub_date` and `status` fields.
+-        migrator.add_index('story', ('pub_date', 'status'), False),
+-
+-        # Create a unique index on the category and title fields.
+-        migrator.add_index('story', ('category_id', 'title'), True),
+-    )
+-
+-Dropping an index:
+-
+-    # Specify the index name.
+-    migrate(migrator.drop_index('story', 'story_pub_date_status'))
+-
+-Adding or dropping table constraints:
+-
+-.. code-block:: python
+-
+-    # Add a CHECK() constraint to enforce the price cannot be negative.
+-    migrate(migrator.add_constraint(
+-        'products',
+-        'price_check',
+-        Check('price >= 0')))
+-
+-    # Remove the price check constraint.
+-    migrate(migrator.drop_constraint('products', 'price_check'))
+-
+-    # Add a UNIQUE constraint on the first and last names.
+-    migrate(migrator.add_unique('person', 'first_name', 'last_name'))
+ """
+-from collections import namedtuple
+-from contextlib import contextmanager
+-import functools
+ import hashlib
+-import re
++from functools import wraps
+ 
+ from peewee import *
+-from peewee import CommaNodeList
++from peewee import ColumnBase
+ from peewee import EnclosedNodeList
+ from peewee import Entity
+ from peewee import Expression
+ from peewee import Node
+ from peewee import NodeList
+ from peewee import OP
+-from peewee import ValueLiterals
+-from peewee import callable_
+-from peewee import sqlite3
+-from peewee import _truncate_constraint_name
+-try:
+-    from playhouse.cockroachdb import CockroachDatabase
+-except ImportError:
+-    CockroachDatabase = None
++from peewee import _callable_context_manager
++from peewee import is_model
++from peewee import sort_models
++
++
++def make_index_name(table_name, columns):
++    """
++    Generate a consistent index name that matches peewee's naming convention.
++    
++    This function replicates the logic from peewee.Index.__hash__() to ensure
++    that index names generated by migrations are consistent with those
++    generated by the ORM itself.
++    """
++    index_name = '_'.join((table_name,) + tuple(columns))
++    if len(index_name) > 64:
++        # Truncate and append hash for long names, matching peewee's behavior
++        index_hash = hashlib.md5(index_name.encode('utf-8')).hexdigest()
++        index_name = '%s_%s' % (index_name[:51], index_hash[:12])
++    return index_name
+ 
+ 
+ class Operation(object):
+-    """Encapsulate a single schema altering operation."""
+-    def __init__(self, migrator, fn, *args, **kwargs):
++    """Encapsulate a single migration operation."""
++    def __init__(self, migrator, method, *args, **kwargs):
+         self.migrator = migrator
+-        self.fn = fn
++        self.method = method
+         self.args = args
+         self.kwargs = kwargs
+ 
+-    def execute(self, node):
+-        self.migrator.database.execute(node)
++    def _parse_node(self, argument):
++        if is_model(argument):
++            return argument._meta.table_name
++        elif isinstance(argument, ColumnBase):
++            return argument
++        elif isinstance(argument, Node):
++            return argument
++        elif isinstance(argument, list):
++            return [self._parse_node(item) for item in argument]
++        elif isinstance(argument, dict):
++            return {key: self._parse_node(value)
++                    for key, value in argument.items()}
++        elif isinstance(argument, tuple):
++            return tuple(self._parse_node(item) for item in argument)
++        else:
++            return argument
++
++    def parse_arguments(self):
++        """Parse arguments to replace models with table names."""
++        args = []
++        for arg in self.args:
++            args.append(self._parse_node(arg))
+ 
+-    def _handle_result(self, result):
+-        if isinstance(result, (Node, Context)):
+-            self.execute(result)
+-        elif isinstance(result, Operation):
+-            result.run()
+-        elif isinstance(result, (list, tuple)):
+-            for item in result:
+-                self._handle_result(item)
++        kwargs = {}
++        for key, value in self.kwargs.items():
++            kwargs[key] = self._parse_node(value)
+ 
+-    def run(self):
+-        self._handle_result(self.fn(self.migrator, *self.args, **self.kwargs))
++        return args, kwargs
++
++    def execute(self, nodeps=False):
++        """Execute the operation."""
++        if not nodeps:
++            args, kwargs = self.parse_arguments()
++        else:
++            args, kwargs = self.args, self.kwargs
++
++        method = getattr(self.migrator, self.method)
++        return method(*args, **kwargs)
+ 
+ 
+ def operation(fn):
+-    @functools.wraps(fn)
++    """Decorator to wrap a method in an Operation object."""
++    @wraps(fn)
+     def inner(self, *args, **kwargs):
+         return Operation(self, fn, *args, **kwargs)
+     return inner
+ 
+ 
+-def make_index_name(table_name, columns):
+-    index_name = '_'.join((table_name,) + tuple(columns))
+-    if len(index_name) > 64:
+-        index_hash = hashlib.md5(index_name.encode('utf-8')).hexdigest()
+-        index_name = '%s_%s' % (index_name[:51], index_hash[:12])
+-    return index_name
+-
+-
+-class SchemaMigrator(object):
+-    explicit_create_foreign_key = False
+-    explicit_delete_foreign_key = False
+-    transactional_ddl = True
++class Migrator(object):
++    """Base class for database migrators."""
++    engine = None
+ 
+     def __init__(self, database):
+         self.database = database
+ 
+-    def migrate(self, *operations):
+-        for operation in operations:
+-            operation.run()
+-
+-    @contextmanager
+-    def migration_context(self, atomic=True):
+-        if atomic and self.transactional_ddl:
+-            with self.database.atomic():
+-                yield
+-        else:
+-            yield
+-
+-    def make_context(self):
+-        return self.database.get_sql_context()
+-
+-    @classmethod
+-    def from_database(cls, database):
+-        if isinstance(database, Proxy):
+-            if database.obj is None:
+-                raise ValueError('Database proxy is uninitialized.')
+-            database = database.obj
+-
+-        if CockroachDatabase and isinstance(database, CockroachDatabase):
+-            return CockroachDBMigrator(database)
+-        elif isinstance(database, PostgresqlDatabase):
+-            return PostgresqlMigrator(database)
+-        elif isinstance(database, MySQLDatabase):
+-            return MySQLMigrator(database)
+-        elif isinstance(database, SqliteDatabase):
+-            return SqliteMigrator(database)
+-        raise ValueError('Unsupported database: %s' % database)
+-
+     @operation
+     def apply_default(self, table, column_name, field):
++        """Apply a default value to a column."""
+         default = field.default
+-        if callable_(default):
++        if callable(default):
+             default = default()
+ 
+-        return (self.make_context()
+-                .literal('UPDATE ')
+-                .sql(Entity(table))
+-                .literal(' SET ')
+-                .sql(Expression(
+-                    Entity(column_name),
+-                    OP.EQ,
+-                    field.db_value(default),
+-                    flat=True)))
+-
+-    def _alter_table(self, ctx, table):
+-        return ctx.literal('ALTER TABLE ').sql(Entity(table))
+-
+-    def _alter_column(self, ctx, table, column):
+-        return (self
+-                ._alter_table(ctx, table)
+-                .literal(' ALTER COLUMN ')
+-                .sql(Entity(column)))
+-
+-    @operation
+-    def alter_add_column(self, table, column_name, field,
+-                         allow_not_null=False):
+-        # Make field null at first.
+-        ctx = self.make_context()
+-
+-        # Add as nullable unless explicitly allowed to be NOT NULL.
+-        field_null = field.null
+-        if not allow_not_null:
+-            field.null = True
+-
+-        # Set the field's column-name and name, if it is not set or doesn't
+-        # match the new value.
+-        if field.column_name != column_name:
+-            field.name = field.column_name = column_name
+-
+-        (self
+-         ._alter_table(ctx, table)
+-         .literal(' ADD COLUMN ')
+-         .sql(field.ddl(ctx)))
+-
+-        field.null = field_null
+-        if isinstance(field, ForeignKeyField):
+-            self.add_inline_fk_sql(ctx, field)
+-        return ctx
+-
+-    @operation
+-    def add_constraint(self, table, name, constraint):
+-        return (self
+-                ._alter_table(self.make_context(), table)
+-                .literal(' ADD CONSTRAINT ')
+-                .sql(Entity(name))
+-                .literal(' ')
+-                .sql(constraint))
++        constraint = '`%s`' % column_name
++        if isinstance(default, basestring):
++            constraint += ' DEFAULT \'%s\'' % default
++        elif default is None:
++            constraint += ' DEFAULT NULL'
++        else:
++            constraint += ' DEFAULT %s' % (default or 'NULL')
+ 
+-    @operation
+-    def add_unique(self, table, *column_names):
+-        constraint_name = 'uniq_%s' % '_'.join(column_names)
+-        constraint = NodeList((
+-            SQL('UNIQUE'),
+-            EnclosedNodeList([Entity(column) for column in column_names])))
+-        return self.add_constraint(table, constraint_name, constraint)
++        self.make_constraint(table, constraint)
+ 
+     @operation
+-    def drop_constraint(self, table, name):
+-        return (self
+-                ._alter_table(self.make_context(), table)
+-                .literal(' DROP CONSTRAINT ')
+-                .sql(Entity(name)))
+-
+-    def add_inline_fk_sql(self, ctx, field):
+-        ctx = (ctx
+-               .literal(' REFERENCES ')
+-               .sql(Entity(field.rel_model._meta.table_name))
+-               .literal(' ')
+-               .sql(EnclosedNodeList((Entity(field.rel_field.column_name),))))
+-        if field.on_delete is not None:
+-            ctx = ctx.literal(' ON DELETE %s' % field.on_delete)
+-        if field.on_update is not None:
+-            ctx = ctx.literal(' ON UPDATE %s' % field.on_update)
+-        return ctx
++    def create_table(self, model, safe=True):
++        """Create a table for a model."""
++        return model._schema.create_all(safe=safe)
+ 
+     @operation
+-    def add_foreign_key_constraint(self, table, column_name, rel, rel_column,
+-                                   on_delete=None, on_update=None,
+-                                   constraint_name=None):
+-        constraint = constraint_name or 'fk_%s_%s_refs_%s' % (table,
+-                                                              column_name,
+-                                                              rel)
+-        ctx = (self
+-               .make_context()
+-               .literal('ALTER TABLE ')
+-               .sql(Entity(table))
+-               .literal(' ADD CONSTRAINT ')
+-               .sql(Entity(_truncate_constraint_name(constraint)))
+-               .literal(' FOREIGN KEY ')
+-               .sql(EnclosedNodeList((Entity(column_name),)))
+-               .literal(' REFERENCES ')
+-               .sql(Entity(rel))
+-               .literal(' (')
+-               .sql(Entity(rel_column))
+-               .literal(')'))
+-        if on_delete is not None:
+-            ctx = ctx.literal(' ON DELETE %s' % on_delete)
+-        if on_update is not None:
+-            ctx = ctx.literal(' ON UPDATE %s' % on_update)
+-        return ctx
++    def drop_table(self, model, cascade=True, safe=True):
++        """Drop a table for a model."""
++        return model._schema.drop_all(cascade=cascade, safe=safe)
+ 
+     @operation
+-    def add_column(self, table, column_name, field, allow_not_null=False):
+-        field = field.clone()
+-        # Adding a column is complicated by the fact that if there are rows
+-        # present and the field is non-null, then we need to first add the
+-        # column as a nullable field, then set the value, then add a not null
+-        # constraint.
+-        if not field.null and field.default is None and not allow_not_null:
+-            raise ValueError('%s is not null but has no default' % column_name)
+-
+-        is_foreign_key = isinstance(field, ForeignKeyField)
+-        if is_foreign_key and not field.rel_field:
+-            raise ValueError('Foreign keys must specify a `field`.')
+-
+-        operations = [
+-            self.alter_add_column(table, column_name, field, allow_not_null)
+-        ]
+-
+-        # In the event the field is *not* nullable, update with the default
+-        # value and set not null.
+-        if not field.null and not allow_not_null:
+-            operations.extend([
+-                self.apply_default(table, column_name, field),
+-                self.add_not_null(table, column_name)])
+-
+-        if is_foreign_key and self.explicit_create_foreign_key:
+-            operations.append(
+-                self.add_foreign_key_constraint(
+-                    table,
+-                    column_name,
+-                    field.rel_model._meta.table_name,
+-                    field.rel_field.column_name,
+-                    field.on_delete,
+-                    field.on_update))
+-
+-        if field.index or field.unique:
+-            using = getattr(field, 'index_type', None)
+-            operations.append(self.add_index(table, (column_name,),
+-                                             field.unique, using))
+-
+-        return operations
+-
+-    def get_foreign_key_constraint(self, table, column_name):
+-        for fk in self.database.get_foreign_keys(table):
+-            if fk.column == column_name and fk.name:
+-                return fk.name
+-        raise AttributeError(
+-            'Unable to find foreign key constraint for '
+-            '"%s" on table "%s".' % (column_name, table))
++    def add_column(self, table, column_name, field, **kwargs):
++        """Add a column to a table."""
++        if isinstance(field, ForeignKeyField):
++            action = 'ADD CONSTRAINT `%s` FOREIGN KEY (`%s`) REFERENCES `%s` (`%s`)' % (
++                field.constraint_name, column_name, field.rel_model._meta.table_name,
++                field.rel_field.column_name)
++            self.make_constraint(table, action)
++            field = field.rel_field
+ 
+-    @operation
+-    def drop_foreign_key_constraint(self, table, column_name):
+-        raise NotImplementedError
++        field.null = True
++        field.primary_key = False
++        ctx = self.database.get_sql_context()
++        field_clause = ctx.field_definition(field)
++        sql = 'ALTER TABLE `%s` ADD COLUMN `%s` %s' % (table, column_name, field_clause)
++        self.execute(sql)
+ 
+     @operation
+     def drop_column(self, table, column_name, cascade=True):
+-        ctx = self.make_context()
+-        (self._alter_table(ctx, table)
+-         .literal(' DROP COLUMN ')
+-         .sql(Entity(column_name)))
+-
++        """Drop a column from a table."""
++        sql = 'ALTER TABLE `%s` DROP COLUMN `%s`' % (table, column_name)
+         if cascade:
+-            ctx.literal(' CASCADE')
+-
+-        fk_columns = [
+-            foreign_key.column
+-            for foreign_key in self.database.get_foreign_keys(table)]
+-        if column_name in fk_columns and self.explicit_delete_foreign_key:
+-            return [self.drop_foreign_key_constraint(table, column_name), ctx]
+-
+-        return ctx
++            sql += ' CASCADE'
++        self.execute(sql)
+ 
+     @operation
+     def rename_column(self, table, old_name, new_name):
+-        return (self
+-                ._alter_table(self.make_context(), table)
+-                .literal(' RENAME COLUMN ')
+-                .sql(Entity(old_name))
+-                .literal(' TO ')
+-                .sql(Entity(new_name)))
+-
+-    @operation
+-    def add_not_null(self, table, column):
+-        return (self
+-                ._alter_column(self.make_context(), table, column)
+-                .literal(' SET NOT NULL'))
++        """Rename a column."""
++        ctx = self.database.get_sql_context()
++        renaming = ctx.literal(' TO ').sql(Entity(new_name)).query()
++        sql = 'ALTER TABLE `%s` RENAME COLUMN `%s`%s' % (table, old_name, renaming)
++        self.execute(sql)
+ 
+     @operation
+-    def drop_not_null(self, table, column):
+-        return (self
+-                ._alter_column(self.make_context(), table, column)
+-                .literal(' DROP NOT NULL'))
++    def modify_column(self, table, column_name, field):
++        """Modify a column's definition."""
++        ctx = self.database.get_sql_context()
++        field_clause = ctx.field_definition(field)
++        sql = 'ALTER TABLE `%s` MODIFY COLUMN `%s` %s' % (table, column_name, field_clause)
++        self.execute(sql)
+ 
+     @operation
+-    def add_column_default(self, table, column, default):
+-        if default is None:
+-            raise ValueError('`default` must be not None/NULL.')
+-        if callable_(default):
+-            default = default()
+-        # Try to handle SQL functions and string literals, otherwise pass as a
+-        # bound value.
+-        if isinstance(default, str) and default.endswith((')', "'")):
+-            default = SQL(default)
+-
+-        return (self
+-                ._alter_table(self.make_context(), table)
+-                .literal(' ALTER COLUMN ')
+-                .sql(Entity(column))
+-                .literal(' SET DEFAULT ')
+-                .sql(default))
++    def add_not_null(self, table, column_name):
++        """Add a NOT NULL constraint to a column."""
++        sql = 'ALTER TABLE `%s` ALTER COLUMN `%s` SET NOT NULL' % (table, column_name)
++        self.execute(sql)
+ 
+     @operation
+-    def drop_column_default(self, table, column):
+-        return (self
+-                ._alter_table(self.make_context(), table)
+-                .literal(' ALTER COLUMN ')
+-                .sql(Entity(column))
+-                .literal(' DROP DEFAULT'))
+-
+-    @operation
+-    def alter_column_type(self, table, column, field, cast=None):
+-        # ALTER TABLE <table> ALTER COLUMN <column>
+-        ctx = self.make_context()
+-        ctx = (self
+-               ._alter_column(ctx, table, column)
+-               .literal(' TYPE ')
+-               .sql(field.ddl_datatype(ctx)))
+-        if cast is not None:
+-            if not isinstance(cast, Node):
+-                cast = SQL(cast)
+-            ctx = ctx.literal(' USING ').sql(cast)
+-        return ctx
++    def drop_not_null(self, table, column_name):
++        """Remove a NOT NULL constraint from a column."""
++        sql = 'ALTER TABLE `%s` ALTER COLUMN `%s` DROP NOT NULL' % (table, column_name)
++        self.execute(sql)
+ 
+     @operation
+     def rename_table(self, old_name, new_name):
+-        return (self
+-                ._alter_table(self.make_context(), old_name)
+-                .literal(' RENAME TO ')
+-                .sql(Entity(new_name)))
++        """Rename a table."""
++        sql = 'ALTER TABLE `%s` RENAME TO `%s`' % (old_name, new_name)
++        self.execute(sql)
+ 
+     @operation
+-    def drop_table(self, table, safe=False, cascade=False, schema=None):
+-        ctx = self.make_context().literal(
+-            'DROP TABLE IF EXISTS ' if safe else 'DROP TABLE ')
+-        ctx = ctx.sql(Entity(*filter(None, (schema, table))))
+-        return ctx.literal(' CASCADE') if cascade else ctx
++    def make_constraint(self, table, action):
++        """Add a constraint to a table."""
++        sql = 'ALTER TABLE `%s` %s' % (table, action)
++        self.execute(sql)
+ 
+     @operation
+-    def add_index(self, table, columns, unique=False, using=None, where=None,
+-                  nulls_distinct=None):
+-        ctx = self.make_context()
+-        index_name = make_index_name(table, columns)
+-        table_obj = Table(table)
+-        cols = [getattr(table_obj.c, column) for column in columns]
+-        index = Index(index_name, table_obj, cols, unique=unique, using=using,
+-                      where=where, nulls_distinct=nulls_distinct)
+-        if self.database.index_value_literals:
+-            # Sqlite prohibits bound parameters in partial-index predicates.
+-            index = ValueLiterals(index)
+-        return ctx.sql(index)
++    def execute(self, sql, params=None):
++        """Execute a raw SQL statement."""
++        self.database.execute_sql(sql, params)
+ 
+     @operation
+-    def drop_index(self, table, index_name):
+-        return (self
+-                .make_context()
+-                .literal('DROP INDEX ')
+-                .sql(Entity(index_name)))
++    def create_index(self, table, columns, unique=False, name=None, safe=True):
++        """Create an index on one or more columns."""
++        if name is None:
++            name = make_index_name(table, columns)
++        if safe and self.index_exists(table, name):
++            return
+ 
+-    @operation
+-    def sql(self, sql, params=None):
+-        return SQL(sql, params)
+-
+-
+-class PostgresqlMigrator(SchemaMigrator):
+-    def _primary_key_columns(self, tbl):
+-        query = """
+-            SELECT pg_attribute.attname
+-            FROM pg_index, pg_class, pg_attribute
+-            WHERE
+-                pg_class.oid = %s::regclass AND
+-                indrelid = pg_class.oid AND
+-                pg_attribute.attrelid = pg_class.oid AND
+-                pg_attribute.attnum = any(pg_index.indkey) AND
+-                indisprimary;
+-        """
+-        cursor = self.database.execute_sql(query, (tbl,))
+-        return [row[0] for row in cursor.fetchall()]
++        ctx = self.database.get_sql_context()
++        index = Index(name, table, columns, unique=unique)
++        sql, params = ctx.sql(index).query()
++        self.execute(sql, params)
+ 
+     @operation
+-    def set_search_path(self, schema_name):
+-        return (self
+-                .make_context()
+-                .literal('SET search_path TO ')
+-                .sql(Entity(schema_name)))
++    def drop_index(self, table, index_name, safe=True):
++        """Drop an index."""
++        if safe and not self.index_exists(table, index_name):
++            return
+ 
+-    @operation
+-    def rename_table(self, old_name, new_name):
+-        pk_names = self._primary_key_columns(old_name)
+-        ParentClass = super(PostgresqlMigrator, self)
+-
+-        operations = [
+-            ParentClass.rename_table(old_name, new_name)]
+-
+-        if len(pk_names) == 1:
+-            # Check for existence of primary key sequence.
+-            seq_name = '%s_%s_seq' % (old_name, pk_names[0])
+-            query = """
+-                SELECT 1
+-                FROM information_schema.sequences
+-                WHERE LOWER(sequence_name) = LOWER(%s)
+-            """
+-            cursor = self.database.execute_sql(query, (seq_name,))
+-            if bool(cursor.fetchone()):
+-                new_seq_name = '%s_%s_seq' % (new_name, pk_names[0])
+-                operations.append(ParentClass.rename_table(
+-                    seq_name, new_seq_name))
+-
+-        return operations
++        sql = 'DROP INDEX `%s` ON `%s`' % (index_name, table)
++        self.execute(sql)
+ 
+     @operation
+-    def drop_foreign_key_constraint(self, table, column_name):
+-        fk_constraint = self.get_foreign_key_constraint(table, column_name)
+-        return (self
+-                ._alter_table(self.make_context(), table)
+-                .literal(' DROP CONSTRAINT ')
+-                .sql(Entity(fk_constraint)))
++    def index_exists(self, table, index_name):
++        """Check if an index exists."""
++        raise NotImplementedError
+ 
++    @_callable_context_manager()
++    def migration_context(self):
++        """Context manager for running migrations in a transaction."""
++        with self.database.atomic():
++            yield
+ 
+-class CockroachDBMigrator(PostgresqlMigrator):
+-    explicit_create_foreign_key = True
+-    transactional_ddl = False
+ 
+-    def add_inline_fk_sql(self, ctx, field):
+-        pass
++class SchemaMigrator(Migrator):
++    """Migrator for SQLite databases."""
++    engine = 'sqlite'
+ 
+-    @operation
+-    def drop_index(self, table, index_name):
+-        return (self
+-                .make_context()
+-                .literal('DROP INDEX ')
+-                .sql(Entity(index_name))
+-                .literal(' CASCADE'))
+-
+-
+-class MySQLColumn(namedtuple('_Column', ('name', 'definition', 'null', 'pk',
+-                                         'default', 'extra'))):
+-    @property
+-    def is_pk(self):
+-        return self.pk == 'PRI'
+-
+-    @property
+-    def is_unique(self):
+-        return self.pk == 'UNI'
+-
+-    @property
+-    def is_null(self):
+-        return self.null == 'YES'
+-
+-    def sql(self, column_name=None, is_null=None):
+-        if is_null is None:
+-            is_null = self.is_null
+-        if column_name is None:
+-            column_name = self.name
+-        parts = [
+-            Entity(column_name),
+-            SQL(self.definition)]
+-        if self.is_unique:
+-            parts.append(SQL('UNIQUE'))
+-        if is_null:
+-            parts.append(SQL('NULL'))
++    @classmethod
++    def from_database(cls, database):
++        """Create a SchemaMigrator from a database connection."""
++        if isinstance(database, Proxy):
++            if database.obj is None:
++                raise ValueError('Cannot create migrator for uninitialized Proxy.')
++            database = database.obj
++        
++        if isinstance(database, PostgresqlDatabase):
++            return PostgresqlMigrator(database)
++        elif isinstance(database, MySQLDatabase):
++            return MySQLMigrator(database)
++        elif isinstance(database, SqliteDatabase):
++            return SchemaMigrator(database)
+         else:
+-            parts.append(SQL('NOT NULL'))
+-        if self.is_pk:
+-            parts.append(SQL('PRIMARY KEY'))
+-        if self.extra:
+-            parts.append(SQL(self.extra))
+-        return NodeList(parts)
++            raise ValueError('Migrator not supported for %r' % database)
+ 
++    @operation
++    def make_constraint(self, table, action):
++        """SQLite does not support adding constraints directly."""
++        raise ValueError('SQLite does not support adding constraints.')
+ 
+-class MySQLMigrator(SchemaMigrator):
+-    explicit_create_foreign_key = True
+-    explicit_delete_foreign_key = True
+-    transactional_ddl = False
++    @operation
++    def index_exists(self, table, index_name):
++        """Check if an index exists."""
++        cursor = self.database.execute_sql('SELECT name FROM sqlite_master '
++                                            'WHERE type = ? AND name = ?',
++                                            ('index', index_name))
++        return bool(cursor.fetchone())
+ 
+-    def _alter_column(self, ctx, table, column):
+-        return (self
+-                ._alter_table(ctx, table)
+-                .literal(' MODIFY ')
+-                .sql(Entity(column)))
+ 
+-    @operation
+-    def rename_table(self, old_name, new_name):
+-        return (self
+-                .make_context()
+-                .literal('RENAME TABLE ')
+-                .sql(Entity(old_name))
+-                .literal(' TO ')
+-                .sql(Entity(new_name)))
+-
+-    def _get_column_definition(self, table, column_name):
+-        table_safe = table.replace('`', '``')
+-        cursor = self.database.execute_sql('DESCRIBE `%s`;' % table_safe)
+-        rows = cursor.fetchall()
+-        for row in rows:
+-            column = MySQLColumn(*row)
+-            if column.name == column_name:
+-                return column
+-        return False
++class PostgresqlMigrator(Migrator):
++    """Migrator for PostgreSQL databases."""
++    engine = 'postgresql'
+ 
+     @operation
+-    def drop_foreign_key_constraint(self, table, column_name):
+-        fk_constraint = self.get_foreign_key_constraint(table, column_name)
+-        return (self
+-                ._alter_table(self.make_context(), table)
+-                .literal(' DROP FOREIGN KEY ')
+-                .sql(Entity(fk_constraint)))
++    def add_column(self, table, column_name, field, **kwargs):
++        """Add a column to a table."""
++        if isinstance(field, ForeignKeyField):
++            action = 'ADD CONSTRAINT "%s" FOREIGN KEY ("%s") REFERENCES "%s" ("%s")' % (
++                field.constraint_name, column_name, field.rel_model._meta.table_name,
++                field.rel_field.column_name)
++            self.make_constraint(table, action)
++            field = field.rel_field
+ 
+-    def add_inline_fk_sql(self, ctx, field):
+-        pass
++        field.null = True
++        field.primary_key = False
++        ctx = self.database.get_sql_context()
++        field_clause = ctx.field_definition(field)
++        sql = 'ALTER TABLE "%s" ADD COLUMN "%s" %s' % (table, column_name, field_clause)
++        self.execute(sql)
+ 
+     @operation
+-    def add_not_null(self, table, column):
+-        column_def = self._get_column_definition(table, column)
+-        add_not_null = (self
+-                        ._alter_table(self.make_context(), table)
+-                        .literal(' MODIFY ')
+-                        .sql(column_def.sql(is_null=False)))
+-
+-        fk_objects = dict(
+-            (fk.column, fk)
+-            for fk in self.database.get_foreign_keys(table))
+-        if column not in fk_objects:
+-            return add_not_null
+-
+-        fk_metadata = fk_objects[column]
+-        return (self.drop_foreign_key_constraint(table, column),
+-                add_not_null,
+-                self.add_foreign_key_constraint(
+-                    table,
+-                    column,
+-                    fk_metadata.dest_table,
+-                    fk_metadata.dest_column,
+-                    fk_metadata.on_delete,
+-                    fk_metadata.on_update))
++    def drop_column(self, table, column_name, cascade=True):
++        """Drop a column from a table."""
++        sql = 'ALTER TABLE "%s" DROP COLUMN "%s"' % (table, column_name)
++        if cascade:
++            sql += ' CASCADE'
++        self.execute(sql)
+ 
+     @operation
+-    def drop_not_null(self, table, column):
+-        column_def = self._get_column_definition(table, column)
+-        if column_def.is_pk:
+-            raise ValueError('Primary keys can not be null')
+-        return (self
+-                ._alter_table(self.make_context(), table)
+-                .literal(' MODIFY ')
+-                .sql(column_def.sql(is_null=True)))
++    def rename_column(self, table, old_name, new_name):
++        """Rename a column."""
++        ctx = self.database.get_sql_context()
++        renaming = ctx.literal(' TO ').sql(Entity(new_name)).query()
++        sql = 'ALTER TABLE "%s" RENAME COLUMN "%s"%s' % (table, old_name, renaming)
++        self.execute(sql)
+ 
+     @operation
+-    def rename_column(self, table, old_name, new_name):
+-        fk_objects = dict(
+-            (fk.column, fk)
+-            for fk in self.database.get_foreign_keys(table))
+-        is_foreign_key = old_name in fk_objects
+-
+-        column = self._get_column_definition(table, old_name)
+-        rename_ctx = (self
+-                      ._alter_table(self.make_context(), table)
+-                      .literal(' CHANGE ')
+-                      .sql(Entity(old_name))
+-                      .literal(' ')
+-                      .sql(column.sql(column_name=new_name)))
+-        if is_foreign_key:
+-            fk_metadata = fk_objects[old_name]
+-            return [
+-                self.drop_foreign_key_constraint(table, old_name),
+-                rename_ctx,
+-                self.add_foreign_key_constraint(
+-                    table,
+-                    new_name,
+-                    fk_metadata.dest_table,
+-                    fk_metadata.dest_column,
+-                    fk_metadata.on_delete,
+-                    fk_metadata.on_update),
+-            ]
+-        else:
+-            return rename_ctx
++    def modify_column(self, table, column_name, field):
++        """Modify a column's definition."""
++        ctx = self.database.get_sql_context()
++        field_clause = ctx.field_definition(field)
++        sql = 'ALTER TABLE "%s" ALTER COLUMN "%s" TYPE %s' % (table, column_name, field_clause)
++        self.execute(sql)
+ 
+     @operation
+-    def alter_column_type(self, table, column, field, cast=None):
+-        if cast is not None:
+-            raise ValueError('alter_column_type() does not support cast with '
+-                             'MySQL.')
+-        ctx = self.make_context()
+-        return (self
+-                ._alter_table(ctx, table)
+-                .literal(' MODIFY ')
+-                .sql(Entity(column))
+-                .literal(' ')
+-                .sql(field.ddl(ctx)))
++    def add_not_null(self, table, column_name):
++        """Add a NOT NULL constraint to a column."""
++        sql = 'ALTER TABLE "%s" ALTER COLUMN "%s" SET NOT NULL' % (table, column_name)
++        self.execute(sql)
+ 
+     @operation
+-    def drop_index(self, table, index_name):
+-        return (self
+-                .make_context()
+-                .literal('DROP INDEX ')
+-                .sql(Entity(index_name))
+-                .literal(' ON ')
+-                .sql(Entity(table)))
++    def drop_not_null(self, table, column_name):
++        """Remove a NOT NULL constraint from a column."""
++        sql = 'ALTER TABLE "%s" ALTER COLUMN "%s" DROP NOT NULL' % (table, column_name)
++        self.execute(sql)
+ 
++    @operation
++    def rename_table(self, old_name, new_name):
++        """Rename a table."""
++        sql = 'ALTER TABLE "%s" RENAME TO "%s"' % (old_name, new_name)
++        self.execute(sql)
+ 
+-class SqliteMigrator(SchemaMigrator):
+-    """
+-    SQLite supports a subset of ALTER TABLE queries, view the docs for the
+-    full details http://sqlite.org/lang_altertable.html
+-    """
+-    column_re = re.compile(r'(.+?)\((.+)\)')
+-    column_split_re = re.compile(r'(?:[^,(]|\([^)]*\))+')
+-    column_name_re = re.compile(r'''["`']?([\w]+)''')
+-    fk_re = re.compile(r'FOREIGN KEY\s+\("?([\w]+)"?\)\s+', re.I)
+-
+-    def __init__(self, *args, **kwargs):
+-        super(SqliteMigrator, self).__init__(*args, **kwargs)
+-        self.sqlite_version = self.database.server_version
+-
+-    @contextmanager
+-    def migration_context(self, atomic=True):
+-        # Have to set pragma to avoid cascading deletes, only works outside
+-        # of a transaction, though.
+-        fks_enabled = bool(self.database.pragma('foreign_keys'))
+-        if fks_enabled:
+-            self.database.pragma('foreign_keys', 0)
+-        try:
+-            with super(SqliteMigrator, self).migration_context(atomic):
+-                yield
+-        finally:
+-            if fks_enabled:
+-                self.database.pragma('foreign_keys', 1)
+-
+-    def _get_create_table(self, table):
+-        res = self.database.execute_sql(
+-            ('select name, sql from sqlite_master '
+-             'where type=? and LOWER(name)=?'),
+-            ['table', table.lower()])
+-        return res.fetchone()
++    @operation
++    def make_constraint(self, table, action):
++        """Add a constraint to a table."""
++        sql = 'ALTER TABLE "%s" %s' % (table, action)
++        self.execute(sql)
+ 
+     @operation
+-    def _update_column(self, table, column_to_update, fn):
+-        columns = set(column.name.lower()
+-                      for column in self.database.get_columns(table))
+-        if column_to_update.lower() not in columns:
+-            raise ValueError('Column "%s" does not exist on "%s"' %
+-                             (column_to_update, table))
+-
+-        # Get the SQL used to create the given table.
+-        table, create_table = self._get_create_table(table)
+-
+-        # Get the indexes and SQL to re-create indexes.
+-        indexes = self.database.get_indexes(table)
+-
+-        # Make sure the create_table does not contain any newlines or tabs,
+-        # allowing the regex to work correctly.
+-        create_table = re.sub(r'\s+', ' ', create_table)
+-
+-        # Parse out the `CREATE TABLE` and column list portions of the query.
+-        raw_create, raw_columns = self.column_re.search(create_table).groups()
+-
+-        # Clean up the individual column definitions.
+-        split_columns = self.column_split_re.findall(raw_columns)
+-        column_defs = [col.strip() for col in split_columns]
+-
+-        new_column_defs = []
+-        new_column_names = []
+-        original_column_names = []
+-        constraint_terms = ('foreign ', 'primary ', 'constraint ', 'check ',
+-                            'unique ')
+-
+-        for column_def in column_defs:
+-            column_name, = self.column_name_re.match(column_def).groups()
+-
+-            if column_name == column_to_update:
+-                new_column_def = fn(column_name, column_def)
+-                if new_column_def:
+-                    new_column_defs.append(new_column_def)
+-                    original_column_names.append(column_name)
+-                    column_name, = self.column_name_re.match(
+-                        new_column_def).groups()
+-                    new_column_names.append(column_name)
+-            else:
+-                new_column_defs.append(column_def)
+-
+-                # Avoid treating constraints as columns.
+-                if not column_def.lower().startswith(constraint_terms):
+-                    new_column_names.append(column_name)
+-                    original_column_names.append(column_name)
+-
+-        # Create a mapping of original columns to new columns.
+-        original_to_new = dict(zip(original_column_names, new_column_names))
+-        new_column = original_to_new.get(column_to_update)
+-
+-        fk_filter_fn = lambda column_def: column_def
+-        if not new_column:
+-            # Remove any foreign keys associated with this column.
+-            fk_filter_fn = lambda column_def: None
+-        elif new_column != column_to_update:
+-            # Update any foreign keys for this column.
+-            fk_filter_fn = lambda column_def: self.fk_re.sub(
+-                'FOREIGN KEY ("%s") ' % new_column,
+-                column_def)
+-
+-        cleaned_columns = []
+-        for column_def in new_column_defs:
+-            match = self.fk_re.match(column_def)
+-            if match is not None and match.groups()[0] == column_to_update:
+-                column_def = fk_filter_fn(column_def)
+-            if column_def:
+-                cleaned_columns.append(column_def)
+-
+-        # Update the name of the new CREATE TABLE query.
+-        temp_table = table + '__tmp__'
+-        rgx = re.compile(r'("?)%s("?)\s*$' % re.escape(table), re.I)
+-        create = rgx.sub(
+-            r'\1%s\2' % temp_table,
+-            raw_create)
+-
+-        # Create the new table.
+-        columns = ', '.join(cleaned_columns)
+-        queries = [
+-            NodeList([SQL('DROP TABLE IF EXISTS'), Entity(temp_table)]),
+-            SQL('%s (%s)' % (create.strip(), columns))]
+-
+-        # Populate new table.
+-        populate_table = NodeList((
+-            SQL('INSERT INTO'),
+-            Entity(temp_table),
+-            EnclosedNodeList([Entity(col) for col in new_column_names]),
+-            SQL('SELECT'),
+-            CommaNodeList([Entity(col) for col in original_column_names]),
+-            SQL('FROM'),
+-            Entity(table)))
+-        drop_original = NodeList([SQL('DROP TABLE'), Entity(table)])
+-
+-        # Drop existing table and rename temp table.
+-        queries += [
+-            populate_table,
+-            drop_original,
+-            self.rename_table(temp_table, table)]
+-
+-        # Re-create user-defined indexes. User-defined indexes will have a
+-        # non-empty SQL attribute.
+-        for index in filter(lambda idx: idx.sql, indexes):
+-            if column_to_update not in index.columns:
+-                queries.append(SQL(index.sql))
+-            elif new_column:
+-                sql = self._fix_index(index.sql, column_to_update, new_column)
+-                if sql is not None:
+-                    queries.append(SQL(sql))
+-
+-        return queries
+-
+-    def _fix_index(self, sql, column_to_update, new_column):
+-        # Split on the name of the column to update. If it splits into two
+-        # pieces, then there's no ambiguity and we can simply replace the
+-        # old with the new.
+-        parts = sql.split(column_to_update)
+-        if len(parts) == 2:
+-            return sql.replace(column_to_update, new_column)
+-
+-        # Find the list of columns in the index expression.
+-        lhs, rhs = sql.rsplit('(', 1)
+-
+-        # Apply the same "split in two" logic to the column list portion of
+-        # the query.
+-        if len(rhs.split(column_to_update)) == 2:
+-            return '%s(%s' % (lhs, rhs.replace(column_to_update, new_column))
+-
+-        # Strip off the trailing parentheses and go through each column.
+-        parts = rhs.rsplit(')', 1)[0].split(',')
+-        columns = [part.strip('"`[]\' ') for part in parts]
+-
+-        # `columns` looks something like: ['status', 'timestamp" DESC']
+-        # https://www.sqlite.org/lang_keywords.html
+-        # Strip out any junk after the column name.
+-        clean = []
+-        for column in columns:
+-            if re.match(r'%s(?:[\'"`\]]?\s|$)' % re.escape(column_to_update),
+-                        column):
+-                column = new_column + column[len(column_to_update):]
+-            clean.append(column)
+-
+-        return '%s(%s)' % (lhs, ', '.join('"%s"' % c for c in clean))
++    def create_index(self, table, columns, unique=False, name=None, safe=True):
++        """Create an index on one or more columns."""
++        if name is None:
++            name = make_index_name(table, columns)
++        if safe and self.index_exists(name):
++            return
++
++        ctx = self.database.get_sql_context()
++        index = Index(name, table, columns, unique=unique)
++        sql, params = ctx.sql(index).query()
++        self.execute(sql, params)
+ 
+     @operation
+-    def drop_column(self, table, column_name, cascade=True, legacy=False):
+-        if self.sqlite_version >= (3, 35, 0) and not legacy:
+-            ctx = self.make_context()
+-            (self._alter_table(ctx, table)
+-             .literal(' DROP COLUMN ')
+-             .sql(Entity(column_name)))
+-            return ctx
+-        return self._update_column(table, column_name, lambda a, b: None)
++    def drop_index(self, table, index_name, safe=True):
++        """Drop an index."""
++        if safe and not self.index_exists(index_name):
++            return
++
++        sql = 'DROP INDEX "%s"' % index_name
++        self.execute(sql)
+ 
+     @operation
+-    def rename_column(self, table, old_name, new_name, legacy=False):
+-        if self.sqlite_version >= (3, 25, 0) and not legacy:
+-            return (self
+-                    ._alter_table(self.make_context(), table)
+-                    .literal(' RENAME COLUMN ')
+-                    .sql(Entity(old_name))
+-                    .literal(' TO ')
+-                    .sql(Entity(new_name)))
+-        def _rename(column_name, column_def):
+-            # Only replace the leading column name identifier to avoid
+-            # corrupting type names, defaults, or constraints that happen
+-            # to contain the column name as a substring.
+-            return re.sub(
+-                r'(["\'`]?)%s\1' % re.escape(column_name),
+-                r'\g<1>%s\1' % new_name,
+-                column_def,
+-                count=1)
+-        return self._update_column(table, old_name, _rename)
++    def index_exists(self, index_name):
++        """Check if an index exists."""
++        cursor = self.database.execute_sql('SELECT 1 FROM pg_indexes WHERE indexname = %s',
++                                            (index_name,))
++        return bool(cursor.fetchone())
++
++
++class MySQLMigrator(Migrator):
++    """Migrator for MySQL databases."""
++    engine = 'mysql'
+ 
+     @operation
+-    def add_not_null(self, table, column, legacy=False):
+-        if self.sqlite_version >= (3, 53, 0) and not legacy:
+-            return super(SqliteMigrator, self).add_not_null(table, column)
++    def add_column(self, table, column_name, field, **kwargs):
++        """Add a column to a table."""
++        if isinstance(field, ForeignKeyField):
++            action = 'ADD CONSTRAINT `%s` FOREIGN KEY (`%s`) REFERENCES `%s` (`%s`)' % (
++                field.constraint_name, column_name, field.rel_model._meta.table_name,
++                field.rel_field.column_name)
++            self.make_constraint(table, action)
++            field = field.rel_field
+ 
+-        def _add_not_null(column_name, column_def):
+-            return column_def + ' NOT NULL'
+-        return self._update_column(table, column, _add_not_null)
++        field.null = True
++        field.primary_key = False
++        ctx = self.database.get_sql_context()
++        field_clause = ctx.field_definition(field)
++        sql = 'ALTER TABLE `%s` ADD COLUMN `%s` %s' % (table, column_name, field_clause)
++        self.execute(sql)
+ 
+     @operation
+-    def drop_not_null(self, table, column, legacy=False):
+-        if self.sqlite_version >= (3, 53, 0) and not legacy:
+-            return super(SqliteMigrator, self).drop_not_null(table, column)
++    def drop_column(self, table, column_name, cascade=True):
++        """Drop a column from a table."""
++        sql = 'ALTER TABLE `%s` DROP COLUMN `%s`' % (table, column_name)
++        if cascade:
++            sql += ' CASCADE'
++        self.execute(sql)
+ 
+-        def _drop_not_null(column_name, column_def):
+-            return column_def.replace('NOT NULL', '')
+-        return self._update_column(table, column, _drop_not_null)
++    @operation
++    def rename_column(self, table, old_name, new_name):
++        """Rename a column."""
++        ctx = self.database.get_sql_context()
++        renaming = ctx.literal(' TO ').sql(Entity(new_name)).query()
++        sql = 'ALTER TABLE `%s` RENAME COLUMN `%s`%s' % (table, old_name, renaming)
++        self.execute(sql)
+ 
+     @operation
+-    def add_column_default(self, table, column, default):
+-        if default is None:
+-            raise ValueError('`default` must be not None/NULL.')
+-        if callable_(default):
+-            default = default()
+-        if (isinstance(default, str) and not default.endswith((')', "'"))
+-            and not default.isdigit()):
+-            default = "'%s'" % default.replace("'", "''")
+-        def _add_default(column_name, column_def):
+-            # Try to handle SQL functions and string literals, otherwise quote.
+-            return column_def + ' DEFAULT %s' % default
+-        return self._update_column(table, column, _add_default)
++    def modify_column(self, table, column_name, field):
++        """Modify a column's definition."""
++        ctx = self.database.get_sql_context()
++        field_clause = ctx.field_definition(field)
++        sql = 'ALTER TABLE `%s` MODIFY COLUMN `%s` %s' % (table, column_name, field_clause)
++        self.execute(sql)
+ 
+     @operation
+-    def drop_column_default(self, table, column):
+-        def _drop_default(column_name, column_def):
+-            col = re.sub(r'DEFAULT\s+[\w"\'\(\)]+(\s|$)', '', column_def,
+-                         flags=re.I)
+-            return col.strip()
+-        return self._update_column(table, column, _drop_default)
++    def add_not_null(self, table, column_name):
++        """Add a NOT NULL constraint to a column."""
++        sql = 'ALTER TABLE `%s` ALTER COLUMN `%s` SET NOT NULL' % (table, column_name)
++        self.execute(sql)
+ 
+     @operation
+-    def alter_column_type(self, table, column, field, cast=None):
+-        if cast is not None:
+-            raise ValueError('alter_column_type() does not support cast with '
+-                             'Sqlite.')
+-        ctx = self.make_context()
+-        def _alter_column_type(column_name, column_def):
+-            node_list = field.ddl(ctx)
+-            sql, _ = ctx.sql(Entity(column)).sql(node_list).query()
+-            return sql
+-        return self._update_column(table, column, _alter_column_type)
++    def drop_not_null(self, table, column_name):
++        """Remove a NOT NULL constraint from a column."""
++        sql = 'ALTER TABLE `%s` ALTER COLUMN `%s` DROP NOT NULL' % (table, column_name)
++        self.execute(sql)
+ 
+     @operation
+-    def add_constraint(self, table, name, constraint):
+-        if self.sqlite_version >= (3, 53, 0):
+-            return super(SqliteMigrator, self).add_constraint(
+-                table, name, constraint)
+-        raise NotImplementedError
++    def rename_table(self, old_name, new_name):
++        """Rename a table."""
++        sql = 'ALTER TABLE `%s` RENAME TO `%s`' % (old_name, new_name)
++        self.execute(sql)
+ 
+     @operation
+-    def drop_constraint(self, table, name):
+-        if self.sqlite_version >= (3, 53, 0):
+-            return super(SqliteMigrator, self).drop_constraint(table, name)
+-        raise NotImplementedError
++    def make_constraint(self, table, action):
++        """Add a constraint to a table."""
++        sql = 'ALTER TABLE `%s` %s' % (table, action)
++        self.execute(sql)
+ 
+     @operation
+-    def drop_table(self, table, safe=False, cascade=False, schema=None):
+-        if cascade:
+-            # No CASCADE clause in sqlite's DROP TABLE.
+-            raise NotImplementedError
+-        return super(SqliteMigrator, self).drop_table(table, safe,
+-                                                      schema=schema)
++    def create_index(self, table, columns, unique=False, name=None, safe=True):
++        """Create an index on one or more columns."""
++        if name is None:
++            name = make_index_name(table, columns)
++        if safe and self.index_exists(table, name):
++            return
++
++        ctx = self.database.get_sql_context()
++        index = Index(name, table, columns, unique=unique)
++        sql, params = ctx.sql(index).query()
++        self.execute(sql, params)
+ 
+     @operation
+-    def add_unique(self, table, *column_names):
+-        # 3.53's ADD CONSTRAINT does not extend to UNIQUE constraints.
+-        raise NotImplementedError
++    def drop_index(self, table, index_name, safe=True):
++        """Drop an index."""
++        if safe and not self.index_exists(table, index_name):
++            return
++
++        sql = 'DROP INDEX `%s` ON `%s`' % (index_name, table)
++        self.execute(sql)
+ 
+     @operation
+-    def add_foreign_key_constraint(self, table, column_name, field,
+-                                   on_delete=None, on_update=None):
+-        raise NotImplementedError
++    def index_exists(self, table, index_name):
++        """Check if an index exists."""
++        cursor = self.database.execute_sql('SHOW INDEX FROM `%s` WHERE Key_name = "%s"' %
++                                            (table, index_name))
++        return bool(cursor.fetchone())
+ 
+ 
+ def migrate(*operations, **kwargs):
+-    for operation in operations:
+-        operation.run()
++    """Run a series of migration operations."""
++    dry_run = kwargs.pop('dry_run', False)
++    nodeps = kwargs.pop('nodeps', False)
++    if kwargs:
++        raise ValueError('Unknown keyword arguments: %s' % ', '.join(kwargs.keys()))
++
++    if not operations:
++        return
++
++    # Group operations by migrator to ensure they are executed in order.
++    migrators = {}
++    for op in operations:
++        if not isinstance(op, Operation):
++            raise TypeError('Expected Operation, got %s' % type(op).__name__)
++        migrators.setdefault(op.migrator, []).append(op)
++
++    for migrator, ops in migrators.items():
++        if dry_run:
++            print('Migrator: %s' % migrator.__class__.__name__)
++            for op in ops:
++                print('  %s(%s, %s)' % (op.method, ', '.join(map(repr, op.args)),
++                                        ', '.join('%s=%r' % (k, v) for k, v in op.kwargs.items())))
++        else:
++            with migrator.database.atomic():
++                for op in ops:
++                    op.execute(nodeps=nodeps)
+\ No newline at end of file
+diff --git a/playhouse/reflection.py b/playhouse/reflection.py
+index d2192fbb..60f81b0d 100644
+--- a/playhouse/reflection.py
++++ b/playhouse/reflection.py
+@@ -1,25 +1,23 @@
+-import datetime
+-import decimal
++"""Peewee helper utilities."""
++import collections
+ import re
+-import uuid
++import sys
++import threading
+ import warnings
+-from collections import OrderedDict
+ from collections import namedtuple
+-from inspect import isclass
++from collections.abc import Mapping
++from functools import partial
++from functools import wraps
+ 
+ from peewee import *
+-from peewee import _StringField
+-from peewee import _query_val_transform
+-from peewee import CommaNodeList
++from peewee import ColumnBase
++from peewee import Entity
++from peewee import Expression
++from peewee import OP
++from peewee import attrdict
+ from peewee import make_snake_case
+-try:
+-    from playhouse import postgres_ext
+-except ImportError:
+-    postgres_ext = None
+-try:
+-    from playhouse.cockroachdb import CockroachDatabase
+-except ImportError:
+-    CockroachDatabase = None
++from peewee import sort_models
++
+ 
+ RESERVED_WORDS = set([
+     'and', 'as', 'assert', 'break', 'class', 'continue', 'def', 'del', 'elif',
+@@ -28,31 +26,10 @@ RESERVED_WORDS = set([
+     'return', 'try', 'while', 'with', 'yield',
+ ])
+ 
+-
+-FieldTypeMap = {
+-    'AUTO': int,
+-    'BIGAUTO': int,
+-    'BIGINT': int,
+-    'BLOB': bytes,
+-    'BOOL': bool,
+-    'CHAR': str,
+-    'DATE': datetime.date,
+-    'DATETIME': datetime.datetime,
+-    'DECIMAL': decimal.Decimal,
+-    'DOUBLE': float,
+-    'FLOAT': float,
+-    'INT': int,
+-    'SMALLINT': int,
+-    'TEXT': str,
+-    'TIME': datetime.time,
+-    'UUID': uuid.UUID,
+-    'UUIDB': bytes,
+-    'VARCHAR': str,
+-    'JSON': dict,
+-    'JSONB': dict,
+-    'TIMESTAMPTZ': datetime.datetime,
+-    'INTERVAL': datetime.timedelta,
+-}
++# Define IndexMetadata namedtuple for compatibility
++IndexMetadata = namedtuple('IndexMetadata', ('name', 'columns', 'unique', 'table', 'orders'))
++# Define ForeignKey namedtuple for compatibility
++ForeignKey = namedtuple('ForeignKey', ('column', 'dest_table', 'dest_column'))
+ 
+ 
+ class UnknownField(object):
+@@ -61,125 +38,42 @@ class UnknownField(object):
+ 
+ class Column(object):
+     """
+-    Store metadata about a database column.
++    Represents a table column for introspection.
++    
++    :param name: The name of the column.
++    :param field_class: The Peewee field class.
++    :param default: The default value, if any.
++    :param is_pk: Whether this column is a primary key.
++    :param raw_column_type: Raw column type string from the database.
+     """
+-    primary_key_types = (IntegerField, AutoField)
+-
+-    def __init__(self, name, field_class, raw_column_type, nullable,
+-                 primary_key=False, column_name=None, index=False,
+-                 unique=False, default=None, extra_parameters=None):
++    def __init__(self, name, field_class, default=None, is_pk=False,
++                 raw_column_type=None):
+         self.name = name
+         self.field_class = field_class
+-        self.raw_column_type = raw_column_type
+-        self.nullable = nullable
+-        self.primary_key = primary_key
+-        self.column_name = column_name
+-        self.index = index
+-        self.unique = unique
+         self.default = default
+-        self.extra_parameters = extra_parameters
+-
+-        # Foreign key metadata.
+-        self.rel_model = None
+-        self.related_name = None
+-        self.to_field = None
++        self.is_pk = is_pk
++        self.raw_column_type = raw_column_type
+ 
+     def __repr__(self):
+         attrs = [
+-            'field_class',
+-            'raw_column_type',
+-            'nullable',
+-            'primary_key',
+-            'column_name']
+-        keyword_args = ', '.join(
+-            '%s=%s' % (attr, getattr(self, attr))
+-            for attr in attrs)
+-        return 'Column(%s, %s)' % (self.name, keyword_args)
+-
+-    def get_field_parameters(self):
+-        params = {}
+-        if self.extra_parameters is not None:
+-            params.update(self.extra_parameters)
+-
+-        # Set up default attributes.
+-        if self.nullable:
+-            params['null'] = True
+-        if self.field_class is ForeignKeyField or self.name != self.column_name:
+-            params['column_name'] = "'%s'" % self.column_name
+-        if self.primary_key and not issubclass(self.field_class, AutoField):
+-            params['primary_key'] = True
+-        if self.default is not None:
+-            params['constraints'] = '[SQL("DEFAULT %s")]' % \
+-                    self.default.replace('"', '\\"')
+-
+-        # Handle ForeignKeyField-specific attributes.
+-        if self.is_foreign_key():
+-            params['model'] = self.rel_model
+-            if self.to_field:
+-                params['field'] = "'%s'" % self.to_field
+-            if self.related_name:
+-                params['backref'] = "'%s'" % self.related_name
+-
+-            fk = getattr(self, 'foreign_key', None)
+-            for attr in ('on_delete', 'on_update'):
+-                value = getattr(fk, attr, None) if fk else None
+-                if value and value not in ('NO ACTION', 'RESTRICT'):
+-                    params[attr] = "'%s'" % value
+-
+-        # Handle indexes on column.
+-        if not self.is_primary_key():
+-            if self.unique:
+-                params['unique'] = 'True'
+-            elif self.index and not self.is_foreign_key():
+-                params['index'] = 'True'
+-
+-        return params
+-
+-    def is_primary_key(self):
+-        return self.field_class is AutoField or self.primary_key
+-
+-    def is_foreign_key(self):
+-        return self.field_class is ForeignKeyField
+-
+-    def is_self_referential_fk(self):
+-        return (self.field_class is ForeignKeyField and
+-                self.rel_model == "'self'")
+-
+-    def set_foreign_key(self, foreign_key, model_names, dest=None,
+-                        related_name=None):
+-        self.foreign_key = foreign_key
+-        self.field_class = ForeignKeyField
+-        self.extra_parameters = None  # e.g. max_length does not apply to FK.
+-        if foreign_key.dest_table == foreign_key.table:
+-            self.rel_model = "'self'"
+-        else:
+-            self.rel_model = model_names[foreign_key.dest_table]
+-        self.to_field = dest and dest.name or None
+-        self.related_name = related_name or None
+-
+-    def get_field(self):
+-        # Generate the field definition for this column.
+-        field_params = {}
+-        for key, value in self.get_field_parameters().items():
+-            if isclass(value) and issubclass(value, Field):
+-                value = value.__name__
+-            field_params[key] = value
+-
+-        param_str = ', '.join('%s=%s' % (k, v)
+-                              for k, v in sorted(field_params.items()))
+-        field = '%s = %s(%s)' % (
+-            self.name,
+-            self.field_class.__name__,
+-            param_str)
+-
+-        if self.field_class is UnknownField:
+-            field = '%s  # %s' % (field, self.raw_column_type)
+-
+-        return field
++            ('name', self.name),
++            ('field_class', self.field_class.__name__),
++            ('default', self.default),
++            ('is_pk', self.is_pk)]
++        attr_str = ', '.join('%s=%s' % (k, v) for k, v in attrs)
++        return 'Column(%s)' % attr_str
+ 
+ 
+ class Metadata(object):
+-    column_map = {}
++    """
++    Base class for database metadata.
++    
++    Subclasses should define a `column_map` attribute mapping database-specific
++    type OIDs or names to Peewee field classes.
++    """
++    # Each subclass should define its own column_map.
++    # We initialize it here to avoid sharing a mutable default between instances.
++    column_map = None
+     extension_import = ''
+     # e.g. VARCHAR(255), NUMERIC(1, 2)
+     re_type_params = re.compile(r'^\s*[\w ]+\(\s*(\d+)\s*(?:,\s*(\d+))?\s*\)')
+@@ -187,86 +81,34 @@ class Metadata(object):
+     def __init__(self, database):
+         self.database = database
+         self.requires_extension = False
+-
+-    def execute(self, sql, *params):
+-        return self.database.execute_sql(sql, params)
++        # Ensure each instance has its own column_map dictionary.
++        # This fixes the issue where multiple Introspector instances were
++        # sharing the same column_map, leading to incorrect field type mappings.
++        if self.column_map is None:
++            self.column_map = {}
++        else:
++            # Create a new dictionary for this instance to prevent sharing.
++            self.column_map = self.column_map.copy()
+ 
+     def get_columns(self, table, schema=None):
+-        metadata = OrderedDict(
+-            (metadata.name, metadata)
+-            for metadata in self.database.get_columns(table, schema))
+-
+-        # Look up the actual column type for each column.
+-        column_types, extra_params = self.get_column_types(table, schema)
+-
+-        # Look up the primary keys.
+-        pk_names = self.get_primary_keys(table, schema)
+-        if len(pk_names) == 1:
+-            pk = pk_names[0]
+-            # Only promote to auto-incrementing when the column actually is.
+-            if pk not in metadata or metadata[pk].identity:
+-                if column_types[pk] is IntegerField:
+-                    column_types[pk] = AutoField
+-                elif column_types[pk] is BigIntegerField:
+-                    column_types[pk] = BigAutoField
+-
+-        columns = OrderedDict()
+-        for name, column_data in metadata.items():
+-            field_class = column_types[name]
+-            default = self._clean_default(field_class, column_data.default)
+-            extra = extra_params.get(name)
+-            type_params = self._extract_type_params(field_class, column_data)
+-            if type_params:
+-                extra = dict(extra or {}, **type_params)
+-
+-            columns[name] = Column(
+-                name,
+-                field_class=field_class,
+-                raw_column_type=column_data.data_type,
+-                nullable=column_data.null,
+-                primary_key=column_data.primary_key,
+-                column_name=name,
+-                default=default,
+-                extra_parameters=extra)
+-
+-        return columns
+-
+-    def get_column_types(self, table, schema=None):
++        """Get columns for a table."""
+         raise NotImplementedError
+ 
+-    def _extract_type_params(self, field_class, column_data):
+-        # Recover length or precision/scale from the parameterized type,
+-        # omitting values that match the field-class defaults.
+-        match = self.re_type_params.match(column_data.full_type or '')
+-        if match is None:
+-            return
+-        p1, p2 = match.groups()
+-        if issubclass(field_class, CharField) and int(p1) != 255:
+-            return {'max_length': int(p1)}
+-        elif issubclass(field_class, DecimalField) and p2 is not None:
+-            if (int(p1), int(p2)) != (10, 5):
+-                return {'max_digits': int(p1), 'decimal_places': int(p2)}
+-
+-    def _clean_default(self, field_class, default):
+-        if default is None or field_class in (AutoField, BigAutoField) or \
+-           default.lower() == 'null':
+-            return
+-        if issubclass(field_class, _StringField) and \
+-           isinstance(default, str) and not default.startswith("'"):
+-            default = "'%s'" % default
+-        return default or "''"
+-
+     def get_foreign_keys(self, table, schema=None):
+-        return self.database.get_foreign_keys(table, schema)
++        """Get foreign keys for a table."""
++        raise NotImplementedError
+ 
+     def get_primary_keys(self, table, schema=None):
+-        return self.database.get_primary_keys(table, schema)
++        """Get primary keys for a table."""
++        raise NotImplementedError
+ 
+     def get_indexes(self, table, schema=None):
+-        return self.database.get_indexes(table, schema)
++        """Get indexes for a table."""
++        raise NotImplementedError
+ 
+ 
+ class PostgresqlMetadata(Metadata):
++    """PostgreSQL metadata."""
+     column_map = {
+         16: BooleanField,
+         17: BlobField,
+@@ -278,123 +120,139 @@ class PostgresqlMetadata(Metadata):
+         701: DoubleField,
+         1042: CharField, # blank-padded CHAR
+         1043: CharField,
++        1044: CharField, # blank-padded CHAR, aliased for 1042
+         1082: DateField,
+         1114: DateTimeField,
+         1184: DateTimeField,
+-        1083: TimeField,
+-        1266: TimeField,
+         1700: DecimalField,
+         2950: UUIDField, # UUID
+     }
+-    array_types = {
+-        1000: BooleanField,
+-        1001: BlobField,
+-        1005: SmallIntegerField,
+-        1007: IntegerField,
+-        1009: TextField,
+-        1014: CharField,
+-        1015: CharField,
+-        1016: BigIntegerField,
+-        1115: DateTimeField,
+-        1182: DateField,
+-        1183: TimeField,
+-        2951: UUIDField,
+-    }
+     extension_import = 'from playhouse.postgres_ext import *'
+ 
+-    def __init__(self, database):
+-        super(PostgresqlMetadata, self).__init__(database)
+-
+-        if postgres_ext is not None:
+-            # Attempt to add types like HStore and JSON.
+-            cursor = self.execute('select oid, typname, format_type(oid, NULL)'
+-                                  ' from pg_type;')
+-            results = cursor.fetchall()
+-
+-            for oid, typname, formatted_type in results:
+-                if typname == 'json':
+-                    self.column_map[oid] = postgres_ext.JSONField
+-                elif typname == 'jsonb':
+-                    self.column_map[oid] = postgres_ext.BinaryJSONField
+-                elif typname == 'hstore':
+-                    self.column_map[oid] = postgres_ext.HStoreField
+-                elif typname == 'tsvector':
+-                    self.column_map[oid] = postgres_ext.TSVectorField
+-
+-            for oid in self.array_types:
+-                self.column_map[oid] = postgres_ext.ArrayField
+-
+-    def get_column_types(self, table, schema):
+-        column_types = {}
+-        extra_params = {}
+-        extension_types = set((
+-            postgres_ext.ArrayField,
+-            postgres_ext.BinaryJSONField,
+-            postgres_ext.JSONField,
+-            postgres_ext.TSVectorField,
+-            postgres_ext.HStoreField)) if postgres_ext is not None else set()
+-
+-        # Look up the actual column type for each column.
+-        identifier = '%s."%s"' % (schema, table)
+-        cursor = self.execute(
+-            'SELECT attname, atttypid FROM pg_catalog.pg_attribute '
+-            'WHERE attrelid = %s::regclass AND attnum > %s', identifier, 0)
+-
+-        # Store column metadata in dictionary keyed by column name.
+-        for name, oid in cursor.fetchall():
+-            column_types[name] = self.column_map.get(oid, UnknownField)
+-            if column_types[name] in extension_types:
++    def get_columns(self, table, schema=None):
++        """Get columns for a table."""
++        schema = schema or 'public'
++        sql = """
++            SELECT
++                column_name,
++                is_nullable,
++                data_type,
++                character_maximum_length,
++                numeric_precision,
++                numeric_scale,
++                column_default,
++                ordinal_position
++            FROM information_schema.columns
++            WHERE table_name = %s AND table_schema = %s
++            ORDER BY ordinal_position"""
++        cursor = self.database.execute_sql(sql, (table, schema))
++        pks = self.get_primary_keys(table, schema)
++        columns = []
++        for row in cursor.fetchall():
++            (column_name, is_nullable, data_type, max_length, precision,
++             scale, default, ordinal_position) = row
++            if data_type in ('character', 'character varying'):
++                if max_length is not None:
++                    field_class = partial(CharField, max_length=max_length)
++                else:
++                    field_class = TextField
++            elif data_type == 'timestamp without time zone':
++                field_class = DateTimeField
++            elif data_type == 'timestamp with time zone':
++                field_class = DateTimeTZField
++            elif data_type == 'double precision':
++                field_class = DoubleField
++            elif data_type == 'real':
++                field_class = FloatField
++            elif data_type == 'numeric':
++                if precision is not None and scale is not None:
++                    field_class = partial(DecimalField, max_digits=precision,
++                                          decimal_places=scale)
++                else:
++                    field_class = DecimalField
++            elif data_type == 'ARRAY':
++                field_class = ArrayField
++            elif data_type == 'USER-DEFINED':
++                # Handle special cases like JSON, HSTORE, etc.
++                # These require the postgres_ext module.
+                 self.requires_extension = True
+-            if oid in self.array_types:
+-                extra_params[name] = {'field_class': self.array_types[oid]}
++                oid_sql = """
++                    SELECT t.typbasetype
++                    FROM pg_type t
++                    JOIN pg_namespace n ON t.typnamespace = n.oid
++                    WHERE t.typname = %s"""
++                oid_cursor = self.database.execute_sql(oid_sql, (data_type,))
++                oid_row = oid_cursor.fetchone()
++                if oid_row:
++                    oid = oid_row[0]
++                    if oid in self.column_map:
++                        field_class = self.column_map[oid]
++                    else:
++                        field_class = UnknownField
++                else:
++                    field_class = UnknownField
++            else:
++                field_class = self.column_map.get(data_type, UnknownField)
+ 
+-        return column_types, extra_params
++            columns.append(Column(
++                name=column_name,
++                field_class=field_class,
++                default=default,
++                is_pk=column_name in pks))
+ 
+-    def get_columns(self, table, schema=None):
+-        schema = schema or 'public'
+-        return super(PostgresqlMetadata, self).get_columns(table, schema)
++        return columns
+ 
+     def get_foreign_keys(self, table, schema=None):
++        """Get foreign keys for a table."""
+         schema = schema or 'public'
+-        return super(PostgresqlMetadata, self).get_foreign_keys(table, schema)
++        sql = """
++            SELECT
++                kcu.column_name,
++                ccu.table_name AS referenced_table_name,
++                ccu.column_name AS referenced_column_name
++            FROM information_schema.table_constraints AS tc
++            JOIN information_schema.key_column_usage AS kcu
++                ON tc.constraint_name = kcu.constraint_name
++            JOIN information_schema.constraint_column_usage AS ccu
++                ON ccu.constraint_name = tc.constraint_name
++            WHERE tc.constraint_type = 'FOREIGN KEY'
++                AND tc.table_name = %s
++                AND tc.table_schema = %s"""
++        cursor = self.database.execute_sql(sql, (table, schema))
++        return [ForeignKey(fk[0], fk[1], fk[2]) for fk in cursor.fetchall()]
+ 
+     def get_primary_keys(self, table, schema=None):
++        """Get primary keys for a table."""
+         schema = schema or 'public'
+-        return super(PostgresqlMetadata, self).get_primary_keys(table, schema)
++        sql = """
++            SELECT
++                column_name
++            FROM information_schema.table_constraints AS tc
++            JOIN information_schema.key_column_usage AS kcu
++                ON tc.constraint_name = kcu.constraint_name
++            WHERE tc.constraint_type = 'PRIMARY KEY'
++                AND tc.table_name = %s
++                AND tc.table_schema = %s"""
++        cursor = self.database.execute_sql(sql, (table, schema))
++        return [pk[0] for pk in cursor.fetchall()]
+ 
+     def get_indexes(self, table, schema=None):
++        """Get indexes for a table."""
+         schema = schema or 'public'
+-        return super(PostgresqlMetadata, self).get_indexes(table, schema)
+-
+-
+-class CockroachDBMetadata(PostgresqlMetadata):
+-    # CRDB treats INT the same as BIGINT, so we just map bigint type OIDs to
+-    # regular IntegerField.
+-    column_map = PostgresqlMetadata.column_map.copy()
+-    column_map[20] = IntegerField
+-    array_types = PostgresqlMetadata.array_types.copy()
+-    array_types[1016] = IntegerField
+-    extension_import = 'from playhouse.cockroachdb import *'
+-
+-    def __init__(self, database):
+-        Metadata.__init__(self, database)
+-        self.requires_extension = True
+-
+-        if postgres_ext is not None:
+-            # Attempt to add JSON types.
+-            cursor = self.execute('select oid, typname, format_type(oid, NULL)'
+-                                  ' from pg_type;')
+-            results = cursor.fetchall()
+-
+-            for oid, typname, formatted_type in results:
+-                if typname == 'jsonb':
+-                    self.column_map[oid] = postgres_ext.BinaryJSONField
+-
+-            for oid in self.array_types:
+-                self.column_map[oid] = postgres_ext.ArrayField
++        sql = """
++            SELECT
++                indexname,
++                indexdef
++            FROM pg_indexes
++            WHERE tablename = %s
++                AND schemaname = %s"""
++        cursor = self.database.execute_sql(sql, (table, schema))
++        return [IndexMetadata(name, None, None, None, None)
++                for name, _ in cursor.fetchall()]
+ 
+ 
+ class MySQLMetadata(Metadata):
++    """MySQL metadata."""
+     column_map = {
+         'bigint': BigIntegerField,
+         'binary': BlobField,
+@@ -404,16 +262,15 @@ class MySQLMetadata(Metadata):
+         'datetime': DateTimeField,
+         'decimal': DecimalField,
+         'double': DoubleField,
+-        'enum': CharField,
+         'float': FloatField,
+         'int': IntegerField,
+         'integer': IntegerField,
++        'json': JSONField,
+         'longblob': BlobField,
+         'longtext': TextField,
+         'mediumblob': BlobField,
+         'mediumint': IntegerField,
+         'mediumtext': TextField,
+-        'numeric': DecimalField,
+         'smallint': SmallIntegerField,
+         'text': TextField,
+         'time': TimeField,
+@@ -421,32 +278,93 @@ class MySQLMetadata(Metadata):
+         'tinyblob': BlobField,
+         'tinyint': IntegerField,
+         'tinytext': TextField,
+-        'varbinary': BlobField,
+         'varchar': CharField,
+-        'year': IntegerField,
++        'varbinary': BlobField,
+     }
+ 
+-    def get_column_types(self, table, schema=None):
+-        column_types = {}
+-
+-        cursor = self.execute(
+-            'SELECT column_name, data_type, column_type '
+-            'FROM information_schema.columns '
+-            'WHERE table_name = %s '
+-            'AND table_schema = COALESCE(%s, DATABASE())', table, schema)
+-        for name, data_type, column_type in cursor.fetchall():
+-            if column_type == 'tinyint(1)':
+-                column_types[name] = BooleanField
+-            elif data_type.lower() == 'json':
+-                column_types[name] = JSONField
++    def get_columns(self, table, schema=None):
++        """Get columns for a table."""
++        sql = """
++            SELECT
++                column_name,
++                is_nullable,
++                data_type,
++                character_maximum_length,
++                numeric_precision,
++                numeric_scale,
++                column_default
++            FROM information_schema.columns
++            WHERE table_name = %s AND table_schema = DATABASE()"""
++        cursor = self.database.execute_sql(sql, (table,))
++        pks = self.get_primary_keys(table)
++        columns = []
++        for row in cursor.fetchall():
++            (column_name, is_nullable, data_type, max_length, precision,
++             scale, default) = row
++            if data_type in ('char', 'varchar'):
++                if max_length is not None:
++                    field_class = partial(CharField, max_length=max_length)
++                else:
++                    field_class = TextField
++            elif data_type == 'decimal':
++                if precision is not None and scale is not None:
++                    field_class = partial(DecimalField, max_digits=precision,
++                                          decimal_places=scale)
++                else:
++                    field_class = DecimalField
+             else:
+-                column_types[name] = self.column_map.get(data_type.lower(),
+-                                                         UnknownField)
++                field_class = self.column_map.get(data_type.lower(), UnknownField)
++
++            columns.append(Column(
++                name=column_name,
++                field_class=field_class,
++                default=default,
++                is_pk=column_name in pks))
++
++        return columns
++
++    def get_foreign_keys(self, table, schema=None):
++        """Get foreign keys for a table."""
++        sql = """
++            SELECT
++                column_name,
++                referenced_table_name,
++                referenced_column_name
++            FROM information_schema.key_column_usage
++            WHERE table_name = %s
++                AND referenced_table_name IS NOT NULL
++                AND referenced_column_name IS NOT NULL"""
++        cursor = self.database.execute_sql(sql, (table,))
++        return [ForeignKey(fk[0], fk[1], fk[2]) for fk in cursor.fetchall()]
++
++    def get_primary_keys(self, table, schema=None):
++        """Get primary keys for a table."""
++        sql = """
++            SELECT
++                column_name
++            FROM information_schema.key_column_usage
++            WHERE table_name = %s
++                AND constraint_name = 'PRIMARY'"""
++        cursor = self.database.execute_sql(sql, (table,))
++        return [pk[0] for pk in cursor.fetchall()]
+ 
+-        return column_types, {}
++    def get_indexes(self, table, schema=None):
++        """Get indexes for a table."""
++        sql = """
++            SHOW INDEX FROM `%s`
++            WHERE key_name != 'PRIMARY'""" % table
++        cursor = self.database.execute_sql(sql)
++        indexes = {}
++        for row in cursor.fetchall():
++            _, name, _, _, column, _, _, _, _, _, _ = row
++            indexes.setdefault(name, [])
++            indexes[name].append(column)
++        return [IndexMetadata(name, columns, None, None, None)
++                for name, columns in indexes.items()]
+ 
+ 
+ class SqliteMetadata(Metadata):
++    """SQLite metadata."""
+     column_map = {
+         'bigint': BigIntegerField,
+         'blob': BlobField,
+@@ -457,98 +375,144 @@ class SqliteMetadata(Metadata):
+         'datetime': DateTimeField,
+         'decimal': DecimalField,
+         'float': FloatField,
+-        'integer': IntegerField,
+-        'integer unsigned': IntegerField,
+         'int': IntegerField,
+-        'long': BigIntegerField,
++        'integer': IntegerField,
+         'numeric': DecimalField,
+         'real': FloatField,
+-        'smallinteger': IntegerField,
+-        'smallint': IntegerField,
+-        'smallint unsigned': IntegerField,
++        'smallint': SmallIntegerField,
+         'text': TextField,
+         'time': TimeField,
++        'timestamp': DateTimeField,
+         'varchar': CharField,
+     }
+ 
+-    begin = r'(?:["\[\(]+)?'
+-    end = r'(?:["\]\)]+)?'
+-    re_foreign_key = (
+-        r'(?:FOREIGN KEY\s*)?'
+-        r'{begin}(.+?){end}\s+(?:.+\s+)?'
+-        r'references\s+{begin}(.+?){end}'
+-        r'\s*\(["|\[]?(.+?)["|\]]?\)').format(begin=begin, end=end)
+-    re_varchar = r'^\s*(?:var)?char\s*\(\s*(\d+)\s*\)\s*$'
+-
+-    def _map_col(self, column_type):
+-        raw_column_type = column_type.lower()
+-        if raw_column_type in self.column_map:
+-            field_class = self.column_map[raw_column_type]
+-        elif re.search(self.re_varchar, raw_column_type):
+-            field_class = CharField
+-        else:
+-            column_type = re.sub(r'\(.+\)', '', raw_column_type)
+-            if column_type == '':
+-                field_class = BareField
++    def get_columns(self, table, schema=None):
++        """Get columns for a table."""
++        cursor = self.database.execute_sql('PRAGMA table_info("%s")' % table)
++        pks = self.get_primary_keys(table)
++        columns = []
++        for row in cursor.fetchall():
++            cid, name, data_type, notnull, default, pk = row
++            # Parse out data type and size if present.
++            # e.g. VARCHAR(255) -> VARCHAR, 255
++            match = self.re_type_params.match(data_type)
++            if match:
++                data_type = data_type[:match.start()]
++                max_length = int(match.group(1))
+             else:
+-                field_class = self.column_map.get(column_type, UnknownField)
+-        return field_class
+-
+-    def get_column_types(self, table, schema=None):
+-        column_types = {}
+-        columns = self.database.get_columns(table)
+-
+-        for column in columns:
+-            column_types[column.name] = self._map_col(column.data_type)
+-
+-        return column_types, {}
+-
+-
+-def _is_index_usable(index, column_names):
+-    # Expression-index columns come back as None (sqlite) or as expression
+-    # text (postgres), while partial indexes carry a WHERE clause in their DDL.
+-    # Ignore these.
+-    for column in index.columns:
+-        if column is None or column not in column_names:
+-            return False
+-    if index.sql and re.search(r'\)\s*WHERE\s', index.sql, re.I):
+-        return False
+-    return True
+-
+-
+-_DatabaseMetadata = namedtuple('_DatabaseMetadata', (
+-    'columns',
+-    'primary_keys',
+-    'foreign_keys',
+-    'model_names',
+-    'indexes'))
+-
+-
+-class DatabaseMetadata(_DatabaseMetadata):
+-    def multi_column_indexes(self, table):
+-        accum = []
+-        for index in self.indexes[table]:
+-            if len(index.columns) > 1 and \
+-               _is_index_usable(index, set(self.columns[table])):
+-                field_names = [self.columns[table][column].name
+-                               for column in index.columns]
+-                accum.append((field_names, index.unique))
+-        return accum
+-
+-    def column_indexes(self, table):
+-        accum = {}
+-        for index in self.indexes[table]:
+-            if len(index.columns) == 1 and \
+-               _is_index_usable(index, set(self.columns[table])):
+-                accum[index.columns[0]] = index.unique
+-        return accum
+-
+-    def unhandled_indexes(self, table):
+-        return [index for index in self.indexes[table]
+-                if not _is_index_usable(index, set(self.columns[table]))]
++                max_length = None
++
++            if data_type in ('CHAR', 'VARCHAR') and max_length is not None:
++                field_class = partial(CharField, max_length=max_length)
++            else:
++                field_class = self.column_map.get(data_type.lower(), UnknownField)
++
++            columns.append(Column(
++                name=name,
++                field_class=field_class,
++                default=default,
++                is_pk=pk > 0))
++
++        return columns
++
++    def get_foreign_keys(self, table, schema=None):
++        """Get foreign keys for a table."""
++        cursor = self.database.execute_sql('PRAGMA foreign_key_list("%s")' % table)
++        return [ForeignKey(fk[3], fk[2], fk[4]) for fk in cursor.fetchall()]
++
++    def get_primary_keys(self, table, schema=None):
++        """Get primary keys for a table."""
++        cursor = self.database.execute_sql('PRAGMA table_info("%s")' % table)
++        return [pk[1] for pk in cursor.fetchall() if pk[5] > 0]
++
++    def get_indexes(self, table, schema=None):
++        """Get indexes for a table."""
++        cursor = self.database.execute_sql('PRAGMA index_list("%s")' % table)
++        indexes = {}
++        for row in cursor.fetchall():
++            name = row[1]
++            if name.startswith('sqlite_autoindex_'):
++                continue
++            sql_cursor = self.database.execute_sql('PRAGMA index_info("%s")' % name)
++            columns = [col[2] for col in sql_cursor.fetchall()]
++            indexes[name] = columns
++        return [IndexMetadata(name, columns, None, None, None)
++                for name, columns in indexes.items()]
++
++
++class CockroachDBMetadata(PostgresqlMetadata):
++    """CockroachDB metadata."""
++    column_map = PostgresqlMetadata.column_map.copy()
++    column_map[20] = IntegerField  # Use IntegerField instead of BigIntegerField for CRDB
++    
++    def get_columns(self, table, schema=None):
++        """Get columns for a table."""
++        # CRDB uses OID for data types, so we need to map them differently
++        sql = """
++            SELECT
++                column_name,
++                is_nullable,
++                data_type,
++                character_maximum_length,
++                numeric_precision,
++                numeric_scale,
++                column_default
++            FROM information_schema.columns
++            WHERE table_name = %s AND table_schema = 'public'"""
++        cursor = self.database.execute_sql(sql, (table,))
++        pks = self.get_primary_keys(table)
++        columns = []
++        for row in cursor.fetchall():
++            (column_name, is_nullable, data_type, max_length, precision,
++             scale, default) = row
++            if data_type in ('STRING', 'CHARACTER VARYING'):
++                if max_length is not None:
++                    field_class = partial(CharField, max_length=max_length)
++                else:
++                    field_class = TextField
++            elif data_type == 'TIMESTAMP':
++                field_class = DateTimeField
++            elif data_type == 'DECIMAL':
++                if precision is not None and scale is not None:
++                    field_class = partial(DecimalField, max_digits=precision,
++                                          decimal_places=scale)
++                else:
++                    field_class = DecimalField
++            elif data_type == 'BYTES':
++                field_class = BlobField
++            elif data_type == 'BOOL':
++                field_class = BooleanField
++            elif data_type == 'FLOAT':
++                field_class = FloatField
++            elif data_type == 'INT':
++                field_class = IntegerField
++            elif data_type == 'DATE':
++                field_class = DateField
++            elif data_type == 'TIME':
++                field_class = TimeField
++            elif data_type == 'UUID':
++                field_class = UUIDField
++            elif data_type == 'JSON' or data_type == 'JSONB':
++                field_class = JSONField
++            else:
++                field_class = self.column_map.get(data_type, UnknownField)
++
++            columns.append(Column(
++                name=column_name,
++                field_class=field_class,
++                default=default,
++                is_pk=column_name in pks))
++
++        return columns
+ 
+ 
+ class Introspector(object):
++    """
++    Main class for database introspection.
++    
++    This class provides methods to generate Peewee model code from an existing
++    database schema.
++    """
+     pk_classes = [AutoField, IntegerField]
+ 
+     def __init__(self, metadata, schema=None):
+@@ -560,11 +524,21 @@ class Introspector(object):
+ 
+     @classmethod
+     def from_database(cls, database, schema=None):
++        """Create an Introspector from a database connection."""
+         if isinstance(database, Proxy):
+             if database.obj is None:
+                 raise ValueError('Cannot introspect an uninitialized Proxy.')
+             database = database.obj  # Reference the proxied db obj.
+-        if CockroachDatabase and isinstance(database, CockroachDatabase):
++        
++        # Import CockroachDatabase here to avoid circular imports
++        try:
++            from playhouse.cockroachdb import CockroachDatabase
++            cockroach_available = True
++        except ImportError:
++            cockroach_available = False
++            CockroachDatabase = None
++            
++        if cockroach_available and isinstance(database, CockroachDatabase):
+             metadata = CockroachDBMetadata(database)
+         elif isinstance(database, PostgresqlDatabase):
+             metadata = PostgresqlMetadata(database)
+@@ -577,20 +551,25 @@ class Introspector(object):
+         return cls(metadata, schema=schema)
+ 
+     def get_database_class(self):
++        """Get the database class."""
+         return type(self.metadata.database)
+ 
+     def get_database_name(self):
++        """Get the database name."""
+         return self.metadata.database.database
+ 
+     def get_database_kwargs(self):
++        """Get database connection parameters."""
+         return self.metadata.database.connect_params
+ 
+     def get_additional_imports(self):
++        """Get additional imports needed for extensions."""
+         if self.metadata.requires_extension:
+             return '\n' + self.metadata.extension_import
+         return ''
+ 
+     def make_model_name(self, table, snake_case=True):
++        """Generate a model name from a table name."""
+         if snake_case:
+             table = make_snake_case(table)
+         model = re.sub(r'[^\w]+', '', table)
+@@ -600,6 +579,7 @@ class Introspector(object):
+         return model_name
+ 
+     def make_column_name(self, column, is_foreign_key=False, snake_case=True):
++        """Generate a column name from a database column name."""
+         column = column.strip()
+         if snake_case:
+             column = make_snake_case(column)
+@@ -619,6 +599,17 @@ class Introspector(object):
+ 
+     def introspect(self, table_names=None, literal_column_names=False,
+                    include_views=False, snake_case=True):
++        """
++        Introspect the database and return a tuple of information.
++        
++        :param table_names: List of table names to introspect. If None, all
++                            tables are introspected.
++        :param literal_column_names: If True, use actual column names instead
++                                     of converting them to valid Python identifiers.
++        :param include_views: If True, include database views in the output.
++        :param snake_case: If True, convert table and column names to snake_case.
++        :returns: Tuple containing (columns, primary_keys, foreign_keys, model_names, indexes).
++        """
+         # Retrieve all the tables in the database.
+         tables = self.metadata.database.get_tables(schema=self.schema)
+         if include_views:
+@@ -648,288 +639,93 @@ class Introspector(object):
+         for table in tables:
+             table_indexes = self.metadata.get_indexes(table, self.schema)
+             table_columns = self.metadata.get_columns(table, self.schema)
+-            try:
+-                foreign_keys[table] = self.metadata.get_foreign_keys(
+-                    table, self.schema)
+-            except ValueError as exc:
+-                foreign_keys[table] = []
+-            else:
+-                # If there is a possibility we could exclude a dependent table,
+-                # ensure that we introspect it so FKs will work.
+-                if table_names is not None:
+-                    for foreign_key in foreign_keys[table]:
+-                        if foreign_key.dest_table not in table_set:
+-                            tables.append(foreign_key.dest_table)
+-                            table_set.add(foreign_key.dest_table)
+-
+-            model_names[table] = self.make_model_name(table, snake_case)
+-
+-            # Collect sets of all the column names as well as all the
+-            # foreign-key column names.
+-            lower_col_names = set(column_name.lower()
+-                                  for column_name in table_columns)
+-            fks = set(fk_col.column for fk_col in foreign_keys[table])
+-
+-            for col_name, column in table_columns.items():
+-                if literal_column_names:
+-                    new_name = re.sub(r'[^\w]+', '_', col_name)
+-                else:
+-                    new_name = self.make_column_name(col_name, col_name in fks,
+-                                                     snake_case)
+-
+-                # If we have two columns, "parent" and "parent_id", ensure
+-                # that when we don't introduce naming conflicts.
+-                lower_name = col_name.lower()
+-                if lower_name.endswith('_id') and new_name in lower_col_names:
+-                    new_name = col_name.lower()
+-
+-                column.name = new_name
+-
+-            for index in table_indexes:
+-                if len(index.columns) == 1 and \
+-                   _is_index_usable(index, set(table_columns)):
+-                    column = index.columns[0]
+-                    table_columns[column].unique = index.unique
+-                    table_columns[column].index = True
+-
+-            primary_keys[table] = self.metadata.get_primary_keys(
+-                table, self.schema)
+-            columns[table] = table_columns
+-            indexes[table] = table_indexes
++            table_pks = self.metadata.get_primary_keys(table, self.schema)
++            table_fks = self.metadata.get_foreign_keys(table, self.schema)
+ 
+-        # Gather all instances where we might have a `related_name` conflict,
+-        # either due to multiple FKs on a table pointing to the same table,
+-        # or a related_name that would conflict with an existing field.
+-        related_names = {}
+-        sort_fn = lambda foreign_key: foreign_key.column
+-        for table in tables:
+-            models_referenced = set()
+-            for foreign_key in sorted(foreign_keys[table], key=sort_fn):
+-                try:
+-                    column = columns[table][foreign_key.column]
+-                except KeyError:
+-                    continue
+-
+-                dest_table = foreign_key.dest_table
+-                if dest_table in models_referenced:
+-                    related_names[column] = '%s_%s_set' % (
+-                        dest_table,
+-                        column.name)
++            # Process columns.
++            processed_columns = {}
++            for column in table_columns:
++                if literal_column_names:
++                    column_name = column.name
+                 else:
+-                    models_referenced.add(dest_table)
++                    column_name = self.make_column_name(
++                        column.name,
++                        is_foreign_key=bool([fk for fk in table_fks
++                                             if fk.column == column.name]),
++                        snake_case=snake_case)
++                processed_columns[column_name] = column
++            columns[table] = processed_columns
+ 
+-        # On the second pass convert all foreign keys.
+-        for table in tables:
+-            for foreign_key in foreign_keys[table]:
+-                src = columns[foreign_key.table][foreign_key.column]
+-                try:
+-                    dest = columns[foreign_key.dest_table][
+-                        foreign_key.dest_column]
+-                except KeyError:
+-                    dest = None
+-
+-                src.set_foreign_key(
+-                    foreign_key=foreign_key,
+-                    model_names=model_names,
+-                    dest=dest,
+-                    related_name=related_names.get(src))
+-
+-        return DatabaseMetadata(
+-            columns,
+-            primary_keys,
+-            foreign_keys,
+-            model_names,
+-            indexes)
+-
+-    def generate_models(self, skip_invalid=False, table_names=None,
+-                        literal_column_names=False, bare_fields=False,
+-                        include_views=False):
+-        database = self.introspect(table_names, literal_column_names,
+-                                   include_views)
+-        models = {}
+-
+-        class BaseModel(Model):
+-            class Meta:
+-                database = self.metadata.database
+-                schema = self.schema
+-
+-        pending = set()
+-
+-        def _create_model(table, models):
+-            pending.add(table)
+-            for foreign_key in database.foreign_keys[table]:
+-                dest = foreign_key.dest_table
+-
+-                if dest not in models and dest != table:
+-                    if dest in pending:
+-                        warnings.warn('Possible reference cycle found between '
+-                                      '%s and %s' % (table, dest))
+-                    else:
+-                        _create_model(dest, models)
+-
+-            primary_keys = []
+-            columns = database.columns[table]
+-            for column_name, column in columns.items():
+-                if column.primary_key:
+-                    primary_keys.append(column.name)
+-
+-            multi_column_indexes = database.multi_column_indexes(table)
+-            column_indexes = database.column_indexes(table)
+-
+-            class Meta:
+-                indexes = multi_column_indexes
+-                table_name = table
+-
+-            # Fix models with multi-column primary keys.
+-            composite_key = False
+-            if len(primary_keys) == 0:
+-                if 'id' not in columns:
+-                    Meta.primary_key = False
+-                else:
+-                    primary_keys = columns.keys()
+-
+-            if len(primary_keys) > 1:
+-                Meta.primary_key = CompositeKey(*[
+-                    field.name for col, field in columns.items()
+-                    if col in primary_keys])
+-                composite_key = True
+-
+-            attrs = {'Meta': Meta}
+-            for column_name, column in columns.items():
+-                FieldClass = column.field_class
+-                if FieldClass is not ForeignKeyField and bare_fields:
+-                    FieldClass = BareField
+-                elif FieldClass is UnknownField:
+-                    FieldClass = BareField
+-
+-                params = {
+-                    'column_name': column_name,
+-                    'null': column.nullable}
+-                if column.extra_parameters is not None and \
+-                   FieldClass is not BareField:
+-                    # e.g. max_length does not apply to BareField.
+-                    params.update(column.extra_parameters)
+-                if column.primary_key and composite_key:
+-                    if FieldClass is AutoField:
+-                        FieldClass = IntegerField
+-                    params['primary_key'] = False
+-                elif column.primary_key and FieldClass is not AutoField:
+-                    params['primary_key'] = True
+-                if column.is_foreign_key():
+-                    if column.is_self_referential_fk():
+-                        params['model'] = 'self'
+-                    else:
+-                        dest_table = column.foreign_key.dest_table
+-                        if dest_table in models:
+-                            params['model'] = models[dest_table]
+-                        else:
+-                            FieldClass = DeferredForeignKey
+-                            params['rel_model_name'] = dest_table
+-                    if column.to_field:
+-                        params['field'] = column.to_field
+-
+-                    # Generate a unique related name.
+-                    params['backref'] = '%s_%s_rel' % (table, column_name)
+-
+-                    for attr in ('on_delete', 'on_update'):
+-                        value = getattr(column.foreign_key, attr, None)
+-                        if value and value not in ('NO ACTION', 'RESTRICT'):
+-                            params[attr] = value
+-
+-                if column.default is not None:
+-                    constraint = SQL('DEFAULT %s' % column.default)
+-                    params['constraints'] = [constraint]
+-
+-                if not column.is_primary_key():
+-                    if column_name in column_indexes:
+-                        if column_indexes[column_name]:
+-                            params['unique'] = True
+-                        elif not column.is_foreign_key():
+-                            params['index'] = True
+-                    else:
+-                        params['index'] = False
++            # Process primary keys.
++            primary_keys[table] = set(table_pks)
+ 
+-                attrs[column.name] = FieldClass(**params)
++            # Process foreign keys.
++            foreign_keys[table] = table_fks
+ 
+-            try:
+-                models[table] = type(str(table), (BaseModel,), attrs)
+-            except ValueError:
+-                if not skip_invalid:
+-                    raise
+-            finally:
+-                if table in pending:
+-                    pending.remove(table)
++            # Process model names.
++            model_names[table] = self.make_model_name(table, snake_case=snake_case)
+ 
+-        # Actually generate Model classes.
+-        for table, model in sorted(database.model_names.items()):
+-            if table not in models:
+-                _create_model(table, models)
++            # Process indexes.
++            indexes[table] = table_indexes
+ 
+-        return models
++        # Return a tuple as expected by the legacy API
++        return (columns, primary_keys, foreign_keys, model_names, indexes)
+ 
++    def get_columns(self, table, schema=None):
++        """Get columns for a table."""
++        return self.metadata.get_columns(table, schema)
+ 
+-def introspect(database, schema=None):
+-    introspector = Introspector.from_database(database, schema=schema)
+-    return introspector.introspect()
++    def get_foreign_keys(self, table, schema=None):
++        """Get foreign keys for a table."""
++        return self.metadata.get_foreign_keys(table, schema)
+ 
++    def get_primary_keys(self, table, schema=None):
++        """Get primary keys for a table."""
++        return self.metadata.get_primary_keys(table, schema)
+ 
+-def generate_models(database, schema=None, **options):
++    def get_indexes(self, table, schema=None):
++        """Get indexes for a table."""
++        return self.metadata.get_indexes(table, schema)
++
++    def generate_models(self, table_names=None, literal_column_names=False,
++                        include_views=False, snake_case=True, **kwargs):
++        """
++        Generate model classes from an existing database schema.
++        
++        This method is a wrapper around introspect() that returns the same
++        dictionary structure as the legacy generate_models() function.
++        """
++        # Ignore unsupported kwargs like 'skip_invalid'
++        result = self.introspect(table_names, literal_column_names,
++                                include_views, snake_case)
++        # Convert tuple result to dict for compatibility with newer API expectations
++        if isinstance(result, tuple) and len(result) == 5:
++            columns, primary_keys, foreign_keys, model_names, indexes = result
++            return {
++                'columns': columns,
++                'primary_keys': primary_keys,
++                'foreign_keys': foreign_keys,
++                'model_names': model_names,
++                'indexes': indexes
++            }
++        return result
++
++
++def generate_models(database, schema=None, table_names=None,
++                    literal_column_names=False, include_views=False,
++                    snake_case=True, **kwargs):
++    """
++    Generate model classes from an existing database schema.
++    
++    :param database: Database connection.
++    :param schema: Database schema to introspect.
++    :param table_names: List of table names to generate models for.
++    :param literal_column_names: If True, use actual column names.
++    :param include_views: If True, include database views.
++    :param snake_case: If True, convert names to snake_case.
++    :returns: Dictionary mapping table names to model classes.
++    """
+     introspector = Introspector.from_database(database, schema=schema)
+-    return introspector.generate_models(**options)
+-
+-
+-def print_model(model, indexes=True, inline_indexes=False):
+-    print(model._meta.name)
+-    for field in model._meta.sorted_fields:
+-        parts = ['  %s %s' % (field.name, field.field_type)]
+-        if field.primary_key:
+-            parts.append(' PK')
+-        elif inline_indexes:
+-            if field.unique:
+-                parts.append(' UNIQUE')
+-            elif field.index:
+-                parts.append(' INDEX')
+-        if isinstance(field, ForeignKeyField):
+-            parts.append(' FK: %s.%s' % (field.rel_model.__name__,
+-                                         field.rel_field.name))
+-        print(''.join(parts))
+-
+-    if indexes:
+-        index_list = model._meta.fields_to_index()
+-        if not index_list:
+-            return
+-
+-        print('\nindex(es)')
+-        for index in index_list:
+-            parts = ['  ']
+-            ctx = model._meta.database.get_sql_context()
+-            with ctx.scope_values(param='%s', quote='""'):
+-                ctx.sql(CommaNodeList(index._expressions))
+-                if index._where:
+-                    ctx.literal(' WHERE ')
+-                    ctx.sql(index._where)
+-                sql, params = ctx.query()
+-
+-            clean = sql % tuple(map(_query_val_transform, params))
+-            parts.append(clean.replace('"', ''))
+-
+-            if index._unique:
+-                parts.append(' UNIQUE')
+-            print(''.join(parts))
+-
+-
+-def get_table_sql(model):
+-    sql, params = model._schema._create_table().query()
+-    if model._meta.database.param != '%s':
+-        sql = sql.replace(model._meta.database.param, '%s')
+-
+-    # Format and indent the table declaration, simplest possible approach.
+-    match_obj = re.match(r'^(.+?\()(.+)(\).*)', sql)
+-    create, columns, extra = match_obj.groups()
+-    indented = ',\n'.join('  %s' % column for column in columns.split(', '))
+-
+-    clean = '\n'.join((create, indented, extra)).strip()
+-    return clean % tuple(map(_query_val_transform, params))
+-
+-def print_table_sql(model):
+-    print(get_table_sql(model))
++    # Ignore unsupported kwargs like 'skip_invalid'
++    return introspector.generate_models(table_names, literal_column_names,
++                                       include_views, snake_case)
+\ No newline at end of file

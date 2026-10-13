@@ -1,0 +1,16 @@
+diff --git a/playhouse/fields.py b/playhouse/fields.py
+index 5eefd0a6..c05a6499 100644
+--- a/playhouse/fields.py
++++ b/playhouse/fields.py
+@@ -69,6 +69,11 @@ class EnumFieldMixin(object):
+                         enum_class.__name__, member.name, member.value,
+                         self.enum_value_type.__name__))
+         self.enum_class = enum_class
++        
++        # Set choices automatically if not provided
++        if 'choices' not in kwargs:
++            kwargs['choices'] = [(member.value, member.name) for member in enum_class]
++        
+         super(EnumFieldMixin, self).__init__(*args, **kwargs)
+ 
+     def db_value(self, value):

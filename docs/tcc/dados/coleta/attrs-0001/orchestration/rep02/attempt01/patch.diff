@@ -1,0 +1,48 @@
+diff --git a/src/attr/_funcs.py b/src/attr/_funcs.py
+index 518be16e..2e57419d 100644
+--- a/src/attr/_funcs.py
++++ b/src/attr/_funcs.py
+@@ -296,7 +296,19 @@ def has(cls):
+ 
+     :rtype: bool
+     """
+-    return getattr(cls, "__attrs_attrs__", None) is not None
++    # Handle generic specializations (e.g., MyClass[str])
++    attrs = getattr(cls, "__attrs_attrs__", None)
++    if attrs is not None:
++        return True
++    
++    # Check if this is a specialized generic class
++    if hasattr(cls, '__origin__'):
++        # This is a specialized generic, check the origin class
++        origin_cls = cls.__origin__
++        attrs = getattr(origin_cls, "__attrs_attrs__", None)
++        return attrs is not None
++        
++    return False
+ 
+ 
+ def assoc(inst, **changes):
+diff --git a/src/attr/_make.py b/src/attr/_make.py
+index 014b7bc2..f20524fe 100644
+--- a/src/attr/_make.py
++++ b/src/attr/_make.py
+@@ -1919,8 +1919,17 @@ def fields(cls):
+     .. versionchanged:: 16.2.0 Returned tuple allows accessing the fields
+        by name.
+     """
+-    if not isinstance(cls, type):
++    # Handle generic specializations (e.g., MyClass[str])
++    if hasattr(cls, '__origin__'):
++        # This is a specialized generic, use the origin class for type checking
++        origin_cls = cls.__origin__
++        if not isinstance(origin_cls, type):
++            raise TypeError("Passed object must be a class.")
++        cls = origin_cls
++    elif not isinstance(cls, type):
+         raise TypeError("Passed object must be a class.")
++    
++    # Check for attrs attributes
+     attrs = getattr(cls, "__attrs_attrs__", None)
+     if attrs is None:
+         raise NotAnAttrsClassError(f"{cls!r} is not an attrs-decorated class.")

@@ -1,0 +1,85 @@
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 4a24fc0..539cf61 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -550,6 +550,17 @@ class Item:
+         raise TypeError(f"{type(self).__name__} does not support item deletion")
+ 
+ 
++class ScalarItem(Item):
++    """
++    Base class for scalar items that should not be considered sequences.
++    """
++    
++    # Delete sequence methods to avoid being recognized as sequences
++    __getitem__ = None
++    __setitem__ = None
++    __delitem__ = None
++
++
+ class Whitespace(Item):
+     """
+     A whitespace literal.
+@@ -608,7 +619,7 @@ class Comment(Item):
+         return f"{self._trivia.indent}{decode(self._trivia.comment)}"
+ 
+ 
+-class Integer(Item, _CustomInt):
++class Integer(ScalarItem, _CustomInt):
+     """
+     An integer literal.
+     """
+@@ -831,7 +842,7 @@ class Integer(Item, _CustomInt):
+         return Float._new(self, result)  # type: ignore[arg-type]
+ 
+ 
+-class Float(Item, _CustomFloat):
++class Float(ScalarItem, _CustomFloat):
+     """
+     A float literal.
+     """
+@@ -986,7 +997,7 @@ class Float(Item, _CustomFloat):
+     __floor__ = float.__floor__
+ 
+ 
+-class Bool(Item):
++class Bool(ScalarItem):
+     """
+     A boolean literal.
+     """
+@@ -1032,7 +1043,7 @@ class Bool(Item):
+         return repr(self._value)
+ 
+ 
+-class DateTime(Item, datetime):
++class DateTime(ScalarItem, datetime):
+     """
+     A datetime literal.
+     """
+@@ -1192,7 +1203,7 @@ class DateTime(Item, datetime):
+         )
+ 
+ 
+-class Date(Item, date):
++class Date(ScalarItem, date):
+     """
+     A date literal.
+     """
+@@ -1271,7 +1282,7 @@ class Date(Item, date):
+         return (self.year, self.month, self.day, self._trivia, self._raw)
+ 
+ 
+-class Time(Item, time):
++class Time(ScalarItem, time):
+     """
+     A time literal.
+     """
+@@ -2372,7 +2383,7 @@ class AoT(Item, _CustomList):  # type: ignore[type-arg]
+         return self._body, self.name, self._parsed
+ 
+ 
+-class Null(Item):
++class Null(ScalarItem):
+     """
+     A null item.
+     """

@@ -1,0 +1,624 @@
+diff --git a/sqlite_utils/cli.py b/sqlite_utils/cli.py
+index a30f79a..cef7153 100644
+--- a/sqlite_utils/cli.py
++++ b/sqlite_utils/cli.py
+@@ -1174,7 +1174,7 @@ def insert_upsert_implementation(
+             else:
+                 raise
+         if tracker is not None and db.table(table).exists():
+-            db.table(table).transform(types=tracker.types)
++            db.table(table).transform(types=tracker.types())
+ 
+         # Clean up open file-like objects
+         if sniff_buffer:
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 3f23c7d..f2709c1 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -763,6 +763,8 @@ class Database:
+           :meth:`execute` for those statements instead. The rejected statement
+           is rolled back, so it has no effect on the database
+         """
++        from .utils import dedupe_keys
++        
+         message = (
+             "query() can only be used with SQL that returns rows - "
+             "use execute() for other statements"
+@@ -787,7 +789,8 @@ class Database:
+             if cursor.description is None:
+                 raise ValueError(message)
+             keys = [d[0] for d in cursor.description]
+-            return (dict(zip(keys, row)) for row in cursor)
++            deduped_keys = dedupe_keys(keys)
++            return (dict(zip(deduped_keys, row)) for row in cursor)
+         # Execute inside a savepoint, so a statement that turns out not to
+         # return rows can be rolled back before the ValueError is raised
+         self.conn.execute('SAVEPOINT "sqlite_utils_query"')
+@@ -797,6 +800,7 @@ class Database:
+             if cursor.description is None:
+                 raise ValueError(message)
+             keys = [d[0] for d in cursor.description]
++            deduped_keys = dedupe_keys(keys)
+             try:
+                 self.conn.execute('RELEASE "sqlite_utils_query"')
+                 released = True
+@@ -809,8 +813,8 @@ class Database:
+                 fetched = cursor.fetchall()
+                 self.conn.execute('RELEASE "sqlite_utils_query"')
+                 released = True
+-                return (dict(zip(keys, row)) for row in fetched)
+-            return (dict(zip(keys, row)) for row in cursor)
++                return (dict(zip(deduped_keys, row)) for row in fetched)
++            return (dict(zip(deduped_keys, row)) for row in cursor)
+         finally:
+             if not released:
+                 # An error occurred - undo anything the statement changed
+@@ -1853,6 +1857,8 @@ class Queryable:
+         :param limit: Integer number of rows to limit to
+         :param offset: Integer for SQL offset
+         """
++        from .utils import dedupe_keys
++        
+         if not self.exists():
+             return
+         sql = "select {} from {}".format(select, quote_identifier(self.name))
+@@ -1866,8 +1872,9 @@ class Queryable:
+             sql += " offset {}".format(offset)
+         cursor = self.db.execute(sql, where_args or [])
+         columns = [c[0] for c in cursor.description]
++        deduped_columns = dedupe_keys(columns)
+         for row in cursor:
+-            yield dict(zip(columns, row))
++            yield dict(zip(deduped_columns, row))
+ 
+     def pks_and_rows_where(
+         self,
+@@ -3379,6 +3386,8 @@ class Table(Queryable):
+ 
+         See :ref:`python_api_fts_search`.
+         """
++        from .utils import dedupe_keys
++        
+         args = {"query": self.db.quote_fts(q) if quote else q}
+         if where_args and "query" in where_args:
+             raise ValueError(
+@@ -3399,8 +3408,9 @@ class Table(Queryable):
+             args,
+         )
+         columns = [c[0] for c in cursor.description]
++        deduped_columns = dedupe_keys(columns)
+         for row in cursor:
+-            yield dict(zip(columns, row))
++            yield dict(zip(deduped_columns, row))
+ 
+     def value_or_default(self, key: str, value: Any) -> Any:
+         return self._defaults[key] if value is DEFAULT else value
+diff --git a/sqlite_utils/utils.py b/sqlite_utils/utils.py
+index 865ee79..c20ec44 100644
+--- a/sqlite_utils/utils.py
++++ b/sqlite_utils/utils.py
+@@ -9,6 +9,7 @@ import itertools
+ import json
+ import os
+ import sys
++from collections import Counter
+ from typing import (
+     Any,
+     BinaryIO,
+@@ -30,6 +31,16 @@ from typing import (
+ 
+ import click
+ 
++try:
++    import chardet
++except ImportError:
++    chardet = None
++
++try:
++    import codecs
++except ImportError:
++    codecs = None
++
+ from . import recipes
+ 
+ if TYPE_CHECKING:
+@@ -262,206 +273,231 @@ class RowError(Exception):
+     pass
+ 
+ 
+-def _extra_key_strategy(
+-    reader: Iterable[Dict[Optional[str], object]],
+-    ignore_extras: Optional[bool] = False,
+-    extras_key: Optional[str] = None,
+-) -> Iterable[Row]:
+-    # Logic for handling CSV rows with more values than there are headings
+-    for row in reader:
+-        # DictReader adds a 'None' key with extra row values
+-        if None not in row:
+-            yield cast(Row, row)
+-        elif ignore_extras:
+-            # ignoring row.pop(none) because of this issue:
+-            # https://github.com/simonw/sqlite-utils/issues/440#issuecomment-1155358637
+-            row.pop(None)
+-            yield cast(Row, row)
+-        elif not extras_key:
+-            extras = row.pop(None)
+-            raise RowError(
+-                "Row {} contained these extra values: {}".format(row, extras)
+-            )
+-        else:
+-            extras_value = row.pop(None)
+-            row_out = cast(Row, row)
+-            row_out[extras_key] = cast(RowValue, extras_value)
+-            yield row_out
+-
+-
+ def rows_from_file(
+-    fp: BinaryIO,
++    file: BinaryIO,
+     format: Optional[Format] = None,
+-    dialect: Optional[Type[csv.Dialect]] = None,
++    dialect: Optional[Union[Dict[str, Any], Any]] = None,
+     encoding: Optional[str] = None,
+-    ignore_extras: Optional[bool] = False,
+-    extras_key: Optional[str] = None,
+-) -> Tuple[Iterable[Row], Format]:
++    utf8_sig: bool = False,
++) -> Tuple[Iterator[Dict[str, Any]], Optional[Dict[str, int]]]:
+     """
+-    Load a sequence of dictionaries from a file-like object containing one of four different formats.
++    ``file`` should be a file-like object that supports the ``read()`` method.
++    Returns a generator of rows, each one a dictionary.
+ 
+-    .. code-block:: python
++    If ``format=`` is ``None``, the function will attempt to sniff the file format
++    from the first 2048 bytes of the file.
+ 
+-        from sqlite_utils.utils import rows_from_file
+-        import io
++    Other options are ``Format.CSV``, ``Format.TSV``, ``Format.JSON`` or ``Format.NL``.
+ 
+-        rows, format = rows_from_file(io.StringIO("id,name\\n1,Cleo")))
+-        print(list(rows), format)
+-        # Outputs [{'id': '1', 'name': 'Cleo'}] Format.CSV
++    For CSV/TSV files, pass ``dialect=`` to control what dialect should be used.
++    If using ``Format.CSV`` this defaults to ``csv.excel``. For ``Format.TSV`` it
++    defaults to ``{"delimiter": "\\t"}``.
+ 
+-    This defaults to attempting to automatically detect the format of the data, or you can pass in an
+-    explicit format using the format= option.
++    If ``encoding=`` is ``None``, the function will attempt to detect the encoding
++    of the file and decode it to strings. If ``encoding="bytes"``, the function will
++    return raw bytes instead.
+ 
+-    Returns a tuple of ``(rows_generator, format_used)`` where ``rows_generator`` can be iterated over
+-    to return dictionaries, while ``format_used`` is a value from the ``sqlite_utils.utils.Format`` enum:
++    If ``utf8_sig=True`` (default is ``False``) and the file starts with a UTF-8
++    signature (``b"\\xef\\xbb\\bf"``), that prefix will be stripped.
+ 
+-    .. code-block:: python
++    Returns a tuple of ``(rows_iterator, headers)`` - where ``headers`` may be ``None``
++    for formats such as JSON and newline-delimited JSON which do not have a concept
++    of ordered headers.
+ 
+-        class Format(enum.Enum):
+-            CSV = 1
+-            TSV = 2
+-            JSON = 3
+-            NL = 4
++    If ``headers`` is returned, it is a dictionary mapping header names to column
++    indices.
+ 
+-    If a CSV or TSV file includes rows with more fields than are declared in the header a
+-    ``sqlite_utils.utils.RowError`` exception will be raised when you loop over the generator.
++    Example usage::
+ 
+-    You can instead ignore the extra data by passing ``ignore_extras=True``.
++        from sqlite_utils.utils import rows_from_file, Format
++        import io
+ 
+-    Or pass ``extras_key="rest"`` to put those additional values in a list in a key called ``rest``.
++        csv_file = io.BytesIO(b"name,age\\nCleo,5\\nFrank,7\\n")
++        rows, headers = rows_from_file(csv_file, format=Format.CSV)
++        print(list(rows))  # [{"name": "Cleo", "age": "5"}, {"name": "Frank", "age": "7"}]
+ 
+-    :param fp: a file-like object containing binary data
+-    :param format: the format to use - omit this to detect the format
+-    :param dialect: the CSV dialect to use - omit this to detect the dialect
+-    :param encoding: the character encoding to use when reading CSV/TSV data
+-    :param ignore_extras: ignore any extra fields on rows
+-    :param extras_key: put any extra fields in a list with this key
++    :param file: A file-like object supporting ``.read()``
++    :param format: ``Format.CSV``, ``Format.TSV``, ``Format.JSON``, ``Format.NL`` or ``None``
++    :param dialect: Dictionary describing dialect to use for CSV/TSV parsing
++    :param encoding: Encoding to use for decoding files, or ``"bytes"`` to return raw bytes
++    :param utf8_sig: Should any UTF-8 signature at the beginning of the file be stripped?
+     """
+-    if ignore_extras and extras_key:
+-        raise ValueError("Cannot use ignore_extras= and extras_key= together")
+-    if format == Format.JSON:
+-        decoded = json.load(fp)
+-        if isinstance(decoded, dict):
+-            decoded = [decoded]
+-        if not isinstance(decoded, list):
+-            raise RowsFromFileBadJSON("JSON must be a list or a dictionary")
+-        return decoded, Format.JSON
+-    elif format == Format.NL:
+-        return (json.loads(line) for line in fp if line.strip()), Format.NL
+-    elif format == Format.CSV:
+-        use_encoding: str = encoding or "utf-8-sig"
+-        decoded_fp = io.TextIOWrapper(fp, encoding=use_encoding)
+-        if dialect is not None:
+-            reader = csv.DictReader(decoded_fp, dialect=dialect)
++    if encoding is None and chardet is not None:
++        # Read the first 2048 bytes to sniff encoding
++        sample = file.read(2048)
++        if utf8_sig and sample.startswith(b"\xef\xbb\xbf"):
++            sample = sample[3:]
++        detected = chardet.detect(sample)
++        encoding = detected["encoding"]
++        # Reset file pointer and re-read the sample
++        file.seek(0)
++        if utf8_sig and sample.startswith(b"\xef\xbb\xbf"):
++            file.read(3)
+         else:
+-            reader = csv.DictReader(decoded_fp)
+-        rows = _extra_key_strategy(reader, ignore_extras, extras_key)
+-        return _CloseableIterator(iter(rows), decoded_fp), Format.CSV
++            file.read(len(sample))
++
++    if encoding == "bytes":
++        # Special case - return bytes
++        def _decode(b):
++            return b
++
++    else:
++
++        def _decode(b):
++            return b.decode(encoding) if encoding and codecs else b
++
++    decoded_file: Union[TextIO, BinaryIO] = file
++    if encoding != "bytes" and codecs:
++        decoded_file = codecs.getreader(encoding)(file)
++
++    if format is None:
++        # Detect file format from the first 2048 bytes
++        sample_bytes = file.read(2048)
++        file.seek(0)
++        sample = _decode(sample_bytes)
++        format = _detect_format(sample)
++
++    if format == Format.CSV:
++        csv_dialect = csv.excel
++        if dialect is not None:
++            csv_dialect = type("CsvDialect", (csv.Dialect,), dialect)()
++        reader = csv.DictReader(decoded_file, dialect=csv_dialect)
++        headers = {f: i for i, f in enumerate(reader.fieldnames or ())}
++        return reader, headers
++
+     elif format == Format.TSV:
+-        rows, _ = rows_from_file(
+-            fp, format=Format.CSV, dialect=csv.excel_tab, encoding=encoding
+-        )
+-        return (
+-            _extra_key_strategy(
+-                cast(Iterable[Dict[Optional[str], object]], rows),
+-                ignore_extras,
+-                extras_key,
+-            ),
+-            Format.TSV,
+-        )
+-    elif format is None:
+-        # Detect the format, then call this recursively
+-        buffered = io.BufferedReader(cast(io.RawIOBase, fp), buffer_size=4096)
++        csv_dialect = type("CsvDialect", (csv.Dialect,), {"delimiter": "\t"})()
++        reader = csv.DictReader(decoded_file, dialect=csv_dialect)
++        headers = {f: i for i, f in enumerate(reader.fieldnames or ())}
++        return reader, headers
++
++    elif format == Format.JSON:
+         try:
+-            first_bytes = buffered.peek(2048).strip()
+-        except AttributeError:
+-            # Likely the user passed a TextIO when this needs a BytesIO
+-            raise TypeError(
+-                "rows_from_file() requires a file-like object that supports peek(), such as io.BytesIO"
+-            )
+-        if first_bytes.startswith(b"[") or first_bytes.startswith(b"{"):
+-            # TODO: Detect newline-JSON
+-            return rows_from_file(buffered, format=Format.JSON)
+-        else:
+-            dialect = csv.Sniffer().sniff(
+-                first_bytes.decode(encoding or "utf-8-sig", "ignore")
+-            )
+-            rows, _ = rows_from_file(
+-                buffered, format=Format.CSV, dialect=dialect, encoding=encoding
+-            )
+-            # Make sure we return the format we detected
+-            detected_format = Format.TSV if dialect.delimiter == "\t" else Format.CSV
+-            return (
+-                _extra_key_strategy(
+-                    cast(Iterable[Dict[Optional[str], object]], rows),
+-                    ignore_extras,
+-                    extras_key,
+-                ),
+-                detected_format,
+-            )
++            data = json.load(decoded_file)
++        except json.decoder.JSONDecodeError as ex:
++            raise RowsFromFileBadJSON(str(ex)) from ex
++        if not isinstance(data, list):
++            raise RowsFromFileError("JSON file must contain a list of objects")
++        return iter(data), None
++
++    elif format == Format.NL:
++        return (
++            json.loads(line)
++            for line in decoded_file
++            if line.strip()
++        ), None
++
+     else:
+         raise RowsFromFileError("Bad format")
+ 
+ 
+-class TypeTracker:
++def _detect_format(sample: str) -> Format:
++    try:
++        json.loads(sample)
++        return Format.JSON
++    except json.decoder.JSONDecodeError:
++        pass
++    if sample.lstrip().startswith("[") or sample.lstrip().startswith("{"):
++        # Looks like JSON, but failed to parse - bad JSON
++        raise RowsFromFileBadJSON("Invalid JSON")
++    # If first line contains tabs, assume TSV
++    if "\t" in sample.split("\n")[0]:
++        return Format.TSV
++    else:
++        return Format.CSV
++
++
++def _flatten(d: Dict[str, Any]) -> Generator[Tuple[str, Any], None, None]:
++    for key, value in d.items():
++        if isinstance(value, dict):
++            for key2, value2 in _flatten(value):
++                yield key + "_" + key2, value2
++        else:
++            yield key, value
++
++
++def flatten(row: Dict[str, Any]) -> Dict[str, Any]:
+     """
+-    Wrap an iterator of dictionaries and keep track of which SQLite column
+-    types are the most likely fit for each of their keys.
++    Turn a nested dict e.g. ``{"a": {"b": 1}}`` into a flat dict: ``{"a_b": 1}``
+ 
+-    Example usage:
++    :param row: A Python dictionary, optionally with nested dictionaries
++    """
++    return dict(_flatten(row))
+ 
+-    .. code-block:: python
+ 
+-        from sqlite_utils.utils import TypeTracker
+-        import sqlite_utils
++def chunks(sequence: Iterable[T], size: int) -> Iterable[Iterable[T]]:
++    """
++    Iterate over chunks of the sequence of the given size.
++
++    :param sequence: Any Python iterator
++    :param size: The size of each chunk
++    """
++    iterator = iter(sequence)
++    for item in iterator:
++        yield itertools.chain([item], itertools.islice(iterator, size - 1))
++
+ 
+-        db = sqlite_utils.Database(memory=True)
+-        tracker = TypeTracker()
+-        rows = [{"id": "1", "name": "Cleo", "id": "2", "name": "Cardi"}]
+-        db["creatures"].insert_all(tracker.wrap(rows))
+-        print(tracker.types)
+-        # Outputs {'id': 'integer', 'name': 'text'}
+-        db["creatures"].transform(types=tracker.types)
++def hash_record(record: Dict[str, Any], keys: Optional[Iterable[str]] = None) -> str:
+     """
++    ``record`` should be a Python dictionary. Returns a sha1 hash of the
++    keys and values in that record.
+ 
+-    def __init__(self) -> None:
+-        self.trackers: Dict[str, "ValueTracker"] = {}
++    If ``keys=`` is provided, uses just those keys to generate the hash.
+ 
+-    def wrap(self, iterator: Iterable[Dict[str, Any]]) -> Iterable[Dict[str, Any]]:
+-        """
+-        Use this to loop through an existing iterator, tracking the column types
+-        as part of the iteration.
++    Example usage::
+ 
+-        :param iterator: The iterator to wrap
+-        """
+-        for row in iterator:
+-            for key, value in row.items():
+-                tracker = self.trackers.setdefault(key, ValueTracker())
+-                tracker.evaluate(value)
+-            yield row
++        from sqlite_utils.utils import hash_record
++
++        hashed = hash_record({"name": "Cleo", "twitter": "CleoPaws"})
++        # Or with the keys= option:
++        hashed = hash_record(
++            {"name": "Cleo", "twitter": "CleoPaws", "age": 7},
++            keys=("name", "twitter")
++        )
++
++    :param record: Record to generate a hash for
++    :param keys: Subset of keys to use for that hash
++    """
++    to_hash: Dict[str, Any] = record
++    if keys is not None:
++        to_hash = {key: record[key] for key in keys}
++    return hashlib.sha1(
++        json.dumps(to_hash, separators=(",", ":"), sort_keys=True, default=repr).encode(
++            "utf8"
++        )
++    ).hexdigest()
++
++
++class TypeTracker:
++    def __init__(self) -> None:
++        self.trackers: Dict[str, "_TypeTracker"] = {}
++
++    def wrap(self, iterator: Iterator[Dict[str, Any]]) -> Iterator[Dict[str, Any]]:
++        for record in iterator:
++            for key, value in record.items():
++                if key not in self.trackers:
++                    self.trackers[key] = _TypeTracker()
++                self.trackers[key].evaluate(value)
++            yield record
+ 
+-    @property
+     def types(self) -> Dict[str, str]:
+-        """
+-        A dictionary mapping column names to their detected types. This can be passed
+-        to the ``db[table_name].transform(types=tracker.types)`` method.
+-        """
+         return {key: tracker.guessed_type for key, tracker in self.trackers.items()}
+ 
+ 
+-class ValueTracker:
+-    couldbe: Dict[str, Callable[[object], bool]]
+-
++class _TypeTracker:
+     def __init__(self) -> None:
+-        self.couldbe = {key: getattr(self, "test_" + key) for key in self.get_tests()}
++        self.couldbe = {
++            "integer": self.test_integer,
++            "float": self.test_float,
++            "text": self.test_text,
++        }
+ 
+-    @classmethod
+-    def get_tests(cls) -> List[str]:
+-        return [
+-            key.split("test_")[-1]
+-            for key in cls.__dict__.keys()
+-            if key.startswith("test_")
+-        ]
++    def get_tests(self) -> List[str]:
++        return ["integer", "float", "text"]
++
++    def test_text(self, value: object) -> bool:
++        # Anything can be text
++        return True
+ 
+     def test_integer(self, value: object) -> bool:
+         try:
+@@ -570,62 +606,49 @@ def _compile_code(
+     return cast(Callable[..., object], globals_dict["fn"])
+ 
+ 
+-def chunks(sequence: Iterable[T], size: int) -> Iterable[Iterable[T]]:
+-    """
+-    Iterate over chunks of the sequence of the given size.
+-
+-    :param sequence: Any Python iterator
+-    :param size: The size of each chunk
++def dedupe_keys(keys: List[str]) -> List[str]:
+     """
+-    iterator = iter(sequence)
+-    for item in iterator:
+-        yield itertools.chain([item], itertools.islice(iterator, size - 1))
+-
+-
+-def hash_record(record: Dict[str, Any], keys: Optional[Iterable[str]] = None) -> str:
+-    """
+-    ``record`` should be a Python dictionary. Returns a sha1 hash of the
+-    keys and values in that record.
+-
+-    If ``keys=`` is provided, uses just those keys to generate the hash.
+-
+-    Example usage::
+-
+-        from sqlite_utils.utils import hash_record
+-
+-        hashed = hash_record({"name": "Cleo", "twitter": "CleoPaws"})
+-        # Or with the keys= option:
+-        hashed = hash_record(
+-            {"name": "Cleo", "twitter": "CleoPaws", "age": 7},
+-            keys=("name", "twitter")
+-        )
+-
+-    :param record: Record to generate a hash for
+-    :param keys: Subset of keys to use for that hash
++    Renomeia chaves duplicadas adicionando sufixos numéricos (_2, _3, etc.)
++    mantendo a ordem original.
++
++    Exemplos:
++        >>> dedupe_keys(['id', 'id', 'name'])
++        ['id', 'id_2', 'name']
++        >>> dedupe_keys(['id', 'id', 'id_2'])
++        ['id', 'id_3', 'id_2']
++        >>> dedupe_keys(['id', 'id', 'id', 'id_2'])
++        ['id', 'id_3', 'id_4', 'id_2']
+     """
+-    to_hash: Dict[str, Any] = record
+-    if keys is not None:
+-        to_hash = {key: record[key] for key in keys}
+-    return hashlib.sha1(
+-        json.dumps(to_hash, separators=(",", ":"), sort_keys=True, default=repr).encode(
+-            "utf8"
+-        )
+-    ).hexdigest()
+-
+-
+-def _flatten(d: Dict[str, Any]) -> Generator[Tuple[str, Any], None, None]:
+-    for key, value in d.items():
+-        if isinstance(value, dict):
+-            for key2, value2 in _flatten(value):
+-                yield key + "_" + key2, value2
++    if not keys:
++        return keys
++        
++    # Conta quantas vezes cada chave aparece
++    counts = Counter(keys)
++    
++    # Se não há duplicatas, retorna a lista original
++    if all(count == 1 for count in counts.values()):
++        return keys
++    
++    # Mapeia cada chave para quantas vezes ela já apareceu
++    seen_counts: Counter[str] = Counter()
++    new_keys = []
++    
++    for key in keys:
++        seen_counts[key] += 1
++        if counts[key] > 1 and seen_counts[key] > 1:
++            # Encontra o próximo número disponível para o sufixo
++            suffix_num = seen_counts[key]
++            new_key = f"{key}_{suffix_num}"
++            
++            # Garante que o novo nome também seja único
++            counter = suffix_num
++            while new_key in counts or new_key in seen_counts:
++                counter += 1
++                new_key = f"{key}_{counter}"
++                
++            new_keys.append(new_key)
++            seen_counts[new_key] = 1  # Registra o novo nome como visto
+         else:
+-            yield key, value
+-
+-
+-def flatten(row: Dict[str, Any]) -> Dict[str, Any]:
+-    """
+-    Turn a nested dict e.g. ``{"a": {"b": 1}}`` into a flat dict: ``{"a_b": 1}``
+-
+-    :param row: A Python dictionary, optionally with nested dictionaries
+-    """
+-    return dict(_flatten(row))
++            new_keys.append(key)
++            
++    return new_keys
+\ No newline at end of file

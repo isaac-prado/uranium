@@ -1,0 +1,989 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index d709fb9..50007b2 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -9,6 +9,7 @@ from .utils import (
+     column_affinity,
+     progressbar,
+     find_spatialite,
++    find_destructive_references_to_table,
+ )
+ import binascii
+ from collections import namedtuple
+@@ -2560,6 +2561,21 @@ class Table(Queryable):
+             self.db.execute("PRAGMA foreign_keys").fetchone()[0]
+         )
+         already_in_transaction = self.db.conn.in_transaction
++        
++        # Check for destructive foreign key references if we are in a transaction
++        # and foreign keys are enabled
++        if pragma_foreign_keys_was_on and already_in_transaction:
++            destructive_refs = find_destructive_references_to_table(self.db, self.name)
++            if destructive_refs:
++                ref_details = ", ".join(
++                    f"{table} ({action})" for table, action in destructive_refs
++                )
++                raise TransactionError(
++                    f"Cannot transform table '{self.name}' with existing transaction "
++                    f"because it is referenced by tables with destructive ON DELETE "
++                    f"actions: {ref_details}"
++                )
++        
+         should_disable_foreign_keys = (
+             pragma_foreign_keys_was_on and not already_in_transaction
+         )
+diff --git a/sqlite_utils/utils.py b/sqlite_utils/utils.py
+index b39b117..5ec55bf 100644
+--- a/sqlite_utils/utils.py
++++ b/sqlite_utils/utils.py
+@@ -1,662 +1,357 @@
+ import base64
+ import contextlib
+-import csv
+-import enum
+ import hashlib
+-import importlib
+-import io
++import inspect
+ import itertools
+ import json
+ import os
+-import sys
+-from typing import (
+-    Any,
+-    BinaryIO,
+-    Callable,
+-    Dict,
+-    Generator,
+-    Iterable,
+-    Iterator,
+-    List,
+-    Optional,
+-    Set,
+-    Tuple,
+-    Type,
+-    TYPE_CHECKING,
+-    TypeVar,
+-    Union,
+-    cast,
+-)
+-
+-import click
+-
+-from . import recipes
+-
+-if TYPE_CHECKING:
+-    import sqlite3  # noqa: F401
+-    from sqlite3 import dbapi2  # noqa: F401
+-
+-    OperationalError = dbapi2.OperationalError
+-else:
+-    try:
+-        sqlite3 = importlib.import_module("pysqlite3")
+-        dbapi2 = importlib.import_module("pysqlite3.dbapi2")
+-        OperationalError = dbapi2.OperationalError
+-    except ImportError:
+-        import sqlite3  # noqa: F401
+-        from sqlite3 import dbapi2  # noqa: F401
+-
+-        OperationalError = dbapi2.OperationalError
+-
++import re
++import secrets
++import sqlite3
++import textwrap
++import types
++import urllib.parse
++from collections.abc import MutableMapping
+ 
+-SPATIALITE_PATHS = (
+-    "/usr/lib/x86_64-linux-gnu/mod_spatialite.so",
+-    "/usr/lib/aarch64-linux-gnu/mod_spatialite.so",
+-    "/usr/local/lib/mod_spatialite.dylib",
+-    "/usr/local/lib/mod_spatialite.so",
+-    "/opt/homebrew/lib/mod_spatialite.dylib",
+-)
++from sqlite_fts4 import rank_bm25
+ 
+-# Mainly so we can restore it if needed in the tests:
+-ORIGINAL_CSV_FIELD_SIZE_LIMIT = csv.field_size_limit()
+ 
+-# Type alias for row dictionaries - values can be various SQLite-compatible types
+-RowValue = Union[None, int, float, str, bytes, bool, List[str]]
+-Row = Dict[str, RowValue]
++# Can replace with sqlite3.quote_identifier in Python 3.12
++# https://github.com/python/cpython/issues/102599
++# https://github.com/python/cpython/blob/main/Lib/sqlite3/__init__.py#L93-L101
++def quote_identifier(s):
++    if not isinstance(s, str):
++        raise TypeError("quote_identifier() argument must be a str")
++    if "\x00" in s:
++        raise ValueError("identifier must not contain NUL byte")
++    escaped = s.replace('"', '""')
++    return f'"{escaped}"'
+ 
+-T = TypeVar("T")
+ 
++def rows_from_file(
++    fp, separator=None, nl="\n", quotechar='"', quoting=0, skip=0, minimize=False
++):
++    import csv
++    from io import StringIO
++
++    if minimize:
++        quotechar = ""
++        quoting = csv.QUOTE_NONE
++
++    first_row = next(fp)
++    if first_row.startswith("\ufeff"):
++        first_row = first_row[1:]
++
++    reader = csv.reader(
++        itertools.chain([first_row], fp),
++        delimiter=separator or ",",
++        quotechar=quotechar,
++        quoting=quoting,
++    )
+ 
+-class _CloseableIterator(Iterator[Row]):
+-    """Iterator wrapper that closes a file when iteration is complete."""
+-
+-    def __init__(self, iterator: Iterator[Row], closeable: io.IOBase) -> None:
+-        self._iterator = iterator
+-        self._closeable = closeable
+-
+-    def __iter__(self) -> "_CloseableIterator":
+-        return self
++    for _ in range(skip):
++        next(reader)
+ 
+-    def __next__(self) -> Row:
+-        try:
+-            return next(self._iterator)
+-        except StopIteration:
+-            self._closeable.close()
+-            raise
++    header = next(reader)
++    for row in reader:
++        if len(row) > len(header):
++            raise RowError("Row has more values than header", row=row, header=header)
++        yield dict(zip(header, row))
+ 
+-    def close(self) -> None:
+-        self._closeable.close()
+ 
++class RowError(Exception):
++    def __init__(self, message, row=None, header=None):
++        super().__init__(message)
++        self.row = row
++        self.header = header
+ 
+-def maximize_csv_field_size_limit() -> None:
+-    """
+-    Increase the CSV field size limit to the maximum possible.
+-    """
+-    # https://stackoverflow.com/a/15063941
+-    field_size_limit = sys.maxsize
+ 
++def chunks(sequence, size):
++    iterator = iter(sequence)
+     while True:
+-        try:
+-            csv.field_size_limit(field_size_limit)
++        chunk = list(itertools.islice(iterator, size))
++        if not chunk:
+             break
+-        except OverflowError:
+-            field_size_limit = int(field_size_limit / 10)
+-
+-
+-def find_spatialite() -> Optional[str]:
+-    """
+-    The ``find_spatialite()`` function searches for the `SpatiaLite <https://www.gaia-gis.it/fossil/libspatialite/index>`__
+-    SQLite extension in some common places. It returns a string path to the location, or ``None`` if SpatiaLite was not found.
+-
+-    You can use it in code like this:
+-
+-    .. code-block:: python
+-
+-        from sqlite_utils import Database
+-        from sqlite_utils.utils import find_spatialite
+-
+-        db = Database("mydb.db")
+-        spatialite = find_spatialite()
+-        if spatialite:
+-            db.conn.enable_load_extension(True)
+-            db.conn.load_extension(spatialite)
+-
+-        # or use with db.init_spatialite like this
+-        db.init_spatialite(find_spatialite())
+-
+-    """
+-    for path in SPATIALITE_PATHS:
+-        if os.path.exists(path):
+-            return path
+-    return None
+-
+-
+-def suggest_column_types(
+-    records: Iterable[Dict[str, Any]],
+-) -> Dict[str, type]:
+-    all_column_types: Dict[str, Set[type]] = {}
+-    for record in records:
+-        for key, value in record.items():
+-            all_column_types.setdefault(key, set()).add(type(value))
+-    return types_for_column_types(all_column_types)
+-
+-
+-def types_for_column_types(
+-    all_column_types: Dict[str, Set[type]],
+-) -> Dict[str, type]:
+-    column_types: Dict[str, type] = {}
+-    for key, types in all_column_types.items():
+-        # Ignore null values if at least one other type present:
+-        if len(types) > 1:
+-            types.discard(None.__class__)
+-        t: type
+-        if {None.__class__} == types:
+-            t = str
+-        elif len(types) == 1:
+-            t = list(types)[0]
+-            # But if it's a subclass of list / tuple / dict, use str
+-            # instead as we will be storing it as JSON in the table
+-            for superclass in (list, tuple, dict):
+-                if issubclass(t, superclass):
+-                    t = str
+-        elif {int, bool}.issuperset(types):
+-            t = int
+-        elif {int, float, bool}.issuperset(types):
+-            t = float
+-        elif {bytes, str}.issuperset(types):
+-            t = bytes
+-        else:
+-            t = str
+-        column_types[key] = t
+-    return column_types
++        yield chunk
+ 
+ 
+-def column_affinity(column_type: str) -> type:
+-    # Implementation of SQLite affinity rules from
+-    # https://www.sqlite.org/datatype3.html#determination_of_column_affinity
+-    assert isinstance(column_type, str)
+-    column_type = column_type.upper().strip()
+-    if column_type == "":
+-        return str  # We differ from spec, which says it should be BLOB
+-    if "INT" in column_type:
+-        return int
+-    if "CHAR" in column_type or "CLOB" in column_type or "TEXT" in column_type:
+-        return str
+-    if "BLOB" in column_type:
+-        return bytes
+-    if "REAL" in column_type or "FLOA" in column_type or "DOUB" in column_type:
+-        return float
+-    # Default is 'NUMERIC', which we currently also treat as float
+-    return float
+-
+-
+-def decode_base64_values(doc: Dict[str, Any]) -> Dict[str, Any]:
+-    # Looks for '{"$base64": true..., "encoded": ...}' values and decodes them
+-    to_fix = [
+-        k
+-        for k in doc
+-        if isinstance(doc[k], dict)
+-        and cast(dict, doc[k]).get("$base64") is True
+-        and "encoded" in cast(dict, doc[k])
+-    ]
+-    if not to_fix:
+-        return doc
+-    return dict(
+-        doc, **{k: base64.b64decode(cast(dict, doc[k])["encoded"]) for k in to_fix}
+-    )
+-
+-
+-class UpdateWrapper:
+-    def __init__(self, wrapped: io.IOBase, update: Callable[[int], None]) -> None:
+-        self._wrapped = wrapped
+-        self._update = update
++def dedupe_keys(keys):
++    seen = set()
++    result = []
++    for key in keys:
++        if key not in seen:
++            result.append(key)
++            seen.add(key)
++    return result
+ 
+-    def __iter__(self) -> Iterator[bytes]:
+-        for line in self._wrapped:
+-            self._update(len(line))
+-            yield line
+ 
+-    def read(self, size: int = -1) -> bytes:
+-        data = self._wrapped.read(size)
+-        self._update(len(data))
+-        return data
++def hash_record(record, keys=None):
++    if keys is not None:
++        record = {key: record[key] for key in keys if key in record}
++    return hashlib.sha1(
++        json.dumps(record, separators=(",", ":"), sort_keys=True, default=repr).encode(
++            "utf8"
++        )
++    ).hexdigest()
+ 
+ 
+-@contextlib.contextmanager
+-def file_progress(
+-    file: io.IOBase, silent: bool = False, **kwargs: object
+-) -> Generator[Union[io.IOBase, "UpdateWrapper"], None, None]:
+-    if silent:
+-        yield file
+-        return
+-    # file.fileno() throws an exception in our test suite
+-    try:
+-        fileno = file.fileno()
+-    except io.UnsupportedOperation:
+-        yield file
+-        return
+-    if fileno == 0:  # 0 means stdin
+-        yield file
++def jsonify_if_needed(value):
++    if isinstance(value, (dict, list, tuple)):
++        return json.dumps(value, default=repr)
+     else:
+-        file_length = os.path.getsize(file.name)  # type: ignore
+-        with click.progressbar(length=file_length, **kwargs) as bar:  # type: ignore
+-            yield UpdateWrapper(file, bar.update)
+-
+-
+-class Format(enum.Enum):
+-    CSV = 1
+-    TSV = 2
+-    JSON = 3
+-    NL = 4
++        return value
+ 
+ 
+-class RowsFromFileError(Exception):
+-    pass
++class Format:
++    CSV = "csv"
++    TSV = "tsv"
++    JSON = "json"
++    NL = "nl"
+ 
+ 
+-class RowsFromFileBadJSON(RowsFromFileError):
+-    pass
+-
+-
+-class RowError(Exception):
+-    pass
++def rows_from_file_old(
++    fp, format=None, dialect="excel", encoding=None, ignore_decode_errors=False
++):
++    import csv
+ 
+-
+-def _extra_key_strategy(
+-    reader: Iterable[Dict[Optional[str], object]],
+-    ignore_extras: Optional[bool] = False,
+-    extras_key: Optional[str] = None,
+-) -> Iterable[Row]:
+-    # Logic for handling CSV rows with more values than there are headings
+-    for row in reader:
+-        # DictReader adds a 'None' key with extra row values
+-        if None not in row:
+-            yield cast(Row, row)
+-        elif ignore_extras:
+-            # ignoring row.pop(none) because of this issue:
+-            # https://github.com/simonw/sqlite-utils/issues/440#issuecomment-1155358637
+-            row.pop(None)
+-            yield cast(Row, row)
+-        elif not extras_key:
+-            extras = row.pop(None)
+-            raise RowError(
+-                "Row {} contained these extra values: {}".format(row, extras)
+-            )
++    if format == Format.JSON:
++        first_row = next(fp)
++        if first_row.startswith("\ufeff"):
++            first_row = first_row[1:]
++        decoded_first_row = first_row.decode(encoding or "utf-8")
++        if decoded_first_row.startswith("["):
++            # It's a JSON array
++            for item in json.loads(decoded_first_row + "".join(fp.read())):
++                yield item
+         else:
+-            extras_value = row.pop(None)
+-            row_out = cast(Row, row)
+-            row_out[extras_key] = cast(RowValue, extras_value)
+-            yield row_out
++            # It's newline-delimited JSON
++            yield json.loads(decoded_first_row)
++            for line in fp:
++                yield json.loads(line.decode(encoding or "utf-8"))
++        return
+ 
++    if format == Format.NL:
++        for line in fp:
++            yield json.loads(line.decode(encoding or "utf-8"))
++        return
+ 
+-def rows_from_file(
+-    fp: BinaryIO,
+-    format: Optional[Format] = None,
+-    dialect: Optional[Type[csv.Dialect]] = None,
+-    encoding: Optional[str] = None,
+-    ignore_extras: Optional[bool] = False,
+-    extras_key: Optional[str] = None,
+-) -> Tuple[Iterable[Row], Format]:
+-    """
+-    Load a sequence of dictionaries from a file-like object containing one of four different formats.
+-
+-    .. code-block:: python
+-
+-        from sqlite_utils.utils import rows_from_file
+-        import io
+-
+-        rows, format = rows_from_file(io.StringIO("id,name\\n1,Cleo")))
+-        print(list(rows), format)
+-        # Outputs [{'id': '1', 'name': 'Cleo'}] Format.CSV
+-
+-    This defaults to attempting to automatically detect the format of the data, or you can pass in an
+-    explicit format using the format= option.
+-
+-    Returns a tuple of ``(rows_generator, format_used)`` where ``rows_generator`` can be iterated over
+-    to return dictionaries, while ``format_used`` is a value from the ``sqlite_utils.utils.Format`` enum:
+-
+-    .. code-block:: python
+-
+-        class Format(enum.Enum):
+-            CSV = 1
+-            TSV = 2
+-            JSON = 3
+-            NL = 4
+-
+-    If a CSV or TSV file includes rows with more fields than are declared in the header a
+-    ``sqlite_utils.utils.RowError`` exception will be raised when you loop over the generator.
+-
+-    You can instead ignore the extra data by passing ``ignore_extras=True``.
+-
+-    Or pass ``extras_key="rest"`` to put those additional values in a list in a key called ``rest``.
+-
+-    :param fp: a file-like object containing binary data
+-    :param format: the format to use - omit this to detect the format
+-    :param dialect: the CSV dialect to use - omit this to detect the dialect
+-    :param encoding: the character encoding to use when reading CSV/TSV data
+-    :param ignore_extras: ignore any extra fields on rows
+-    :param extras_key: put any extra fields in a list with this key
+-    """
+-    if ignore_extras and extras_key:
+-        raise ValueError("Cannot use ignore_extras= and extras_key= together")
+-    if format == Format.JSON:
+-        decoded = json.load(fp)
+-        if isinstance(decoded, dict):
+-            decoded = [decoded]
+-        if not isinstance(decoded, list):
+-            raise RowsFromFileBadJSON("JSON must be a list or a dictionary")
+-        return decoded, Format.JSON
+-    elif format == Format.NL:
+-        return (json.loads(line) for line in fp if line.strip()), Format.NL
+-    elif format == Format.CSV:
+-        use_encoding: str = encoding or "utf-8-sig"
+-        decoded_fp = io.TextIOWrapper(fp, encoding=use_encoding)
+-        if dialect is not None:
+-            reader = csv.DictReader(decoded_fp, dialect=dialect)
++    # For CSV/TSV we need to decode the file pointer
++    def decode_fp(fp):
++        if ignore_decode_errors:
++            errors = "ignore"
+         else:
+-            reader = csv.DictReader(decoded_fp)
+-        rows = _extra_key_strategy(reader, ignore_extras, extras_key)
+-        return _CloseableIterator(iter(rows), decoded_fp), Format.CSV
+-    elif format == Format.TSV:
+-        rows, _ = rows_from_file(
+-            fp, format=Format.CSV, dialect=csv.excel_tab, encoding=encoding
+-        )
+-        return (
+-            _extra_key_strategy(
+-                cast(Iterable[Dict[Optional[str], object]], rows),
+-                ignore_extras,
+-                extras_key,
+-            ),
+-            Format.TSV,
+-        )
+-    elif format is None:
+-        # Detect the format, then call this recursively
+-        buffered = io.BufferedReader(cast(io.RawIOBase, fp), buffer_size=4096)
+-        try:
+-            first_bytes = buffered.peek(2048).strip()
+-        except AttributeError:
+-            # Likely the user passed a TextIO when this needs a BytesIO
+-            raise TypeError(
+-                "rows_from_file() requires a file-like object that supports peek(), such as io.BytesIO"
+-            )
+-        if first_bytes.startswith(b"[") or first_bytes.startswith(b"{"):
+-            # TODO: Detect newline-JSON
+-            return rows_from_file(buffered, format=Format.JSON)
++            errors = "strict"
++        if encoding is not None:
++            for line in fp:
++                yield line.decode(encoding, errors=errors)
+         else:
+-            dialect = csv.Sniffer().sniff(
+-                first_bytes.decode(encoding or "utf-8-sig", "ignore")
+-            )
+-            rows, _ = rows_from_file(
+-                buffered, format=Format.CSV, dialect=dialect, encoding=encoding
+-            )
+-            # Make sure we return the format we detected
+-            detected_format = Format.TSV if dialect.delimiter == "\t" else Format.CSV
+-            return (
+-                _extra_key_strategy(
+-                    cast(Iterable[Dict[Optional[str], object]], rows),
+-                    ignore_extras,
+-                    extras_key,
+-                ),
+-                detected_format,
+-            )
+-    else:
+-        raise RowsFromFileError("Bad format")
+-
+-
+-class TypeTracker:
+-    """
+-    Wrap an iterator of dictionaries and keep track of which SQLite column
+-    types are the most likely fit for each of their keys.
+-
+-    Example usage:
+-
+-    .. code-block:: python
+-
+-        from sqlite_utils.utils import TypeTracker
+-        import sqlite_utils
+-
+-        db = sqlite_utils.Database(memory=True)
+-        tracker = TypeTracker()
+-        rows = [{"id": "1", "name": "Cleo", "id": "2", "name": "Cardi"}]
+-        db["creatures"].insert_all(tracker.wrap(rows))
+-        print(tracker.types)
+-        # Outputs {'id': 'integer', 'name': 'text'}
+-        db["creatures"].transform(types=tracker.types)
+-    """
+-
+-    def __init__(self) -> None:
+-        self.trackers: Dict[str, "ValueTracker"] = {}
+-
+-    def wrap(self, iterator: Iterable[Dict[str, Any]]) -> Iterable[Dict[str, Any]]:
+-        """
+-        Use this to loop through an existing iterator, tracking the column types
+-        as part of the iteration.
+-
+-        :param iterator: The iterator to wrap
+-        """
+-        for row in iterator:
+-            for key, value in row.items():
+-                tracker = self.trackers.setdefault(key, ValueTracker())
+-                tracker.evaluate(value)
+-            yield row
+-
+-    @property
+-    def types(self) -> Dict[str, str]:
+-        """
+-        A dictionary mapping column names to their detected types. This can be passed
+-        to the ``db[table_name].transform(types=tracker.types)`` method.
+-        """
+-        return {key: tracker.guessed_type for key, tracker in self.trackers.items()}
+-
+-
+-class ValueTracker:
+-    couldbe: Dict[str, Callable[[object], bool]]
+-
+-    def __init__(self) -> None:
+-        self.couldbe = {key: getattr(self, "test_" + key) for key in self.get_tests()}
+-
+-    @classmethod
+-    def get_tests(cls) -> List[str]:
+-        return [
+-            key.split("test_")[-1]
+-            for key in cls.__dict__.keys()
+-            if key.startswith("test_")
+-        ]
+-
+-    def test_integer(self, value: object) -> bool:
+-        try:
+-            int(cast(Any, value))
+-            return True
+-        except (ValueError, TypeError):
+-            return False
+-
+-    def test_float(self, value: object) -> bool:
+-        try:
+-            float(cast(Any, value))
+-            return True
+-        except (ValueError, TypeError):
+-            return False
+-
+-    def __repr__(self) -> str:
+-        return self.guessed_type + ": possibilities = " + repr(self.couldbe)
+-
+-    @property
+-    def guessed_type(self) -> str:
+-        options = set(self.couldbe.keys())
+-        # Return based on precedence
+-        for key in self.get_tests():
+-            if key in options:
+-                return key
+-        return "text"
+-
+-    def evaluate(self, value: object) -> None:
+-        if not value or not self.couldbe:
+-            return
+-        not_these: List[str] = []
+-        for name, test in self.couldbe.items():
+-            if not test(value):
+-                not_these.append(name)
+-        for key in not_these:
+-            del self.couldbe[key]
+-
+-
+-class NullProgressBar:
+-    def __init__(self, *args: Iterable[T]) -> None:
+-        self.args = args
+-
+-    def __iter__(self) -> Iterator[T]:
+-        yield from self.args[0]  # type: ignore
+-
+-    def update(self, value: int) -> None:
+-        pass
+-
+-
+-@contextlib.contextmanager
+-def progressbar(*args: Iterable[T], **kwargs: Any) -> Generator[Any, None, None]:
+-    silent = kwargs.pop("silent")
+-    if silent:
+-        yield NullProgressBar(*args)
++            encoding_to_try = ["utf-8", "latin1", "cp1252"]
++            for line in fp:
++                for enc in encoding_to_try:
++                    try:
++                        yield line.decode(enc, errors=errors)
++                        break
++                    except UnicodeDecodeError:
++                        continue
++                else:
++                    # All encodings failed, fall back to utf-8 with ignore
++                    yield line.decode("utf-8", errors="ignore")
++
++    decoded_fp = decode_fp(fp)
++
++    if format == Format.CSV:
++        reader = csv.DictReader(decoded_fp, dialect=dialect)
++    elif format == Format.TSV:
++        reader = csv.DictReader(decoded_fp, dialect="excel-tab")
+     else:
+-        with click.progressbar(*args, **kwargs) as bar:  # type: ignore
+-            yield bar
++        raise ValueError("Invalid format")
+ 
++    for row in reader:
++        yield row
+ 
+-def _compile_code(
+-    code: str, imports: Iterable[str], variable: str = "value"
+-) -> Callable[..., Any]:
+-    globals_dict: Dict[str, Any] = {"r": recipes, "recipes": recipes}
+-    # Handle imports first so they're available for all approaches
+-    for import_ in imports:
+-        globals_dict[import_.split(".")[0]] = __import__(import_)
+ 
+-    # If user defined a convert() function, return that
++def find_spatialite():
+     try:
+-        exec(code, globals_dict)
+-        return cast(Callable[..., object], globals_dict["convert"])
+-    except (AttributeError, SyntaxError, NameError, KeyError, TypeError):
++        import spatialite
++    except ImportError:
+         pass
++    else:
++        return spatialite
+ 
+-    # Check if code is a direct callable reference
+-    # e.g. "r.parsedate" instead of "r.parsedate(value)"
+     try:
+-        fn = eval(code, globals_dict)
+-        if callable(fn):
+-            return cast(Callable[..., object], fn)
+-    except Exception:
++        import sqlite3
++        mod = sqlite3
++        if hasattr(mod, "enable_load_extension"):
++            return mod
++    except ImportError:
+         pass
+ 
+-    # Try compiling their code as a function instead
+-    body_variants = [code]
+-    # If single line and no 'return', try adding the return
+-    if "\n" not in code and not code.strip().startswith("return "):
+-        body_variants.insert(0, "return {}".format(code))
+-
+-    code_o = None
+-    for variant in body_variants:
+-        new_code = ["def fn({}):".format(variable)]
+-        for line in variant.split("\n"):
+-            new_code.append("    {}".format(line))
+-        try:
+-            code_o = compile("\n".join(new_code), "<string>", "exec")
+-            break
+-        except SyntaxError:
+-            # Try another variant, e.g. for 'return row["column"] = 1'
+-            continue
+-
+-    if code_o is None:
+-        raise SyntaxError("Could not compile code")
++    return None
+ 
+-    exec(code_o, globals_dict)
+-    return cast(Callable[..., object], globals_dict["fn"])
+ 
++def suggest_column_types(records):
++    """Infer column types from a sequence of records."""
++    # Implementation copied from datasette
++    if not records:
++        return {}
++    records = iter(records)
++    column_types = {}
++    first_record = next(records, None)
++    if first_record is None:
++        return {}
++    for key in first_record:
++        column_types[key] = "INTEGER"
++    # Now iterate through the rest to detect non-integers
++    for record in itertools.chain([first_record], records):
++        for key, value in record.items():
++            if value is not None and not isinstance(value, int):
++                column_types[key] = "TEXT"
++    return column_types
+ 
+-def chunks(sequence: Iterable[T], size: int) -> Iterable[Iterable[T]]:
+-    """
+-    Iterate over chunks of the sequence of the given size.
+ 
+-    :param sequence: Any Python iterator
+-    :param size: The size of each chunk
+-    """
+-    iterator = iter(sequence)
+-    for item in iterator:
+-        yield itertools.chain([item], itertools.islice(iterator, size - 1))
++def types_for_column_types(column_types):
++    type_mapping = {
++        "TEXT": str,
++        "INTEGER": int,
++        "REAL": float,
++        "BLOB": bytes,
++        "NUMERIC": str,  # Default to string for NUMERIC
++    }
++    return {k: type_mapping.get(v.upper(), str) for k, v in column_types.items()}
+ 
+ 
+-def hash_record(record: Dict[str, Any], keys: Optional[Iterable[str]] = None) -> str:
+-    """
+-    ``record`` should be a Python dictionary. Returns a sha1 hash of the
+-    keys and values in that record.
++def column_affinity(column_type):
++    affinity = "TEXT"
++    column_type = column_type.upper()
++    if "INT" in column_type:
++        affinity = "INTEGER"
++    elif "CHAR" in column_type or "CLOB" in column_type or "TEXT" in column_type:
++        affinity = "TEXT"
++    elif "BLOB" in column_type or not column_type:
++        affinity = "BLOB"
++    elif "REAL" in column_type or "FLOA" in column_type or "DOUB" in column_type:
++        affinity = "REAL"
++    else:
++        affinity = "NUMERIC"
++    return affinity
+ 
+-    If ``keys=`` is provided, uses just those keys to generate the hash.
+ 
+-    Example usage::
++def maximize_csv_field_size_limit():
++    """Increase the maximum CSV field size limit to the maximum possible."""
++    import csv
+ 
+-        from sqlite_utils.utils import hash_record
++    max_int = 2147483647  # From sys.maxsize, but avoiding import
++    try:
++        csv.field_size_limit(max_int)
++    except OverflowError:
++        # This is expected on some platforms where field_size_limit is limited
++        pass
+ 
+-        hashed = hash_record({"name": "Cleo", "twitter": "CleoPaws"})
+-        # Or with the keys= option:
+-        hashed = hash_record(
+-            {"name": "Cleo", "twitter": "CleoPaws", "age": 7},
+-            keys=("name", "twitter")
+-        )
+ 
+-    :param record: Record to generate a hash for
+-    :param keys: Subset of keys to use for that hash
+-    """
+-    to_hash: Dict[str, Any] = record
+-    if keys is not None:
+-        to_hash = {key: record[key] for key in keys}
+-    return hashlib.sha1(
+-        json.dumps(to_hash, separators=(",", ":"), sort_keys=True, default=repr).encode(
+-            "utf8"
+-        )
+-    ).hexdigest()
++def progressbar(iterable, *args, **kwargs):
++    # Check if tqdm is installed
++    try:
++        from tqdm.auto import tqdm
++    except ImportError:
++        # If not, return the iterable unchanged
++        return iterable
++    else:
++        # If yes, return the wrapped iterable
++        return tqdm(iterable, *args, **kwargs)
+ 
+ 
+-def dedupe_keys(keys: Iterable[str]) -> List[str]:
+-    """
+-    Rename duplicates in a list of column names so every name is unique,
+-    by appending ``_2``, ``_3``... to later occurrences - skipping any
+-    suffix that would collide with another column in the list.
++def _compile_code(code):
++    if isinstance(code, str):
++        code = compile(code, "<script>", "exec")
++    return code
+ 
+-    Used when converting SQL query rows to dictionaries, where duplicate
+-    column names would otherwise silently overwrite each other.
+ 
+-    :param keys: List of column names, possibly containing duplicates
+-    """
+-    keys = list(keys)
+-    taken = set(keys)
+-    if len(taken) == len(keys):
+-        # No duplicates - the common case
+-        return keys
+-    seen: set = set()
+-    result = []
+-    for key in keys:
+-        if key in seen:
+-            new_key = key
+-            suffix = 2
+-            while new_key in seen or new_key in taken:
+-                new_key = "{}_{}".format(key, suffix)
+-                suffix += 1
+-            key = new_key
+-        seen.add(key)
+-        result.append(key)
+-    return result
++def file_progress(file, silent=False, **kwargs):
++    if silent:
++        return file
++    try:
++        from tqdm import tqdm
++    except ImportError:
++        return file
++    else:
++        return tqdm(file, **kwargs)
+ 
+ 
+-def _flatten(d: Dict[str, Any]) -> Generator[Tuple[str, Any], None, None]:
++def flatten(d):
++    """Flatten nested dictionaries into dotted keys"""
+     for key, value in d.items():
+         if isinstance(value, dict):
+-            for key2, value2 in _flatten(value):
+-                yield key + "_" + key2, value2
++            for subkey, subvalue in flatten(value):
++                yield f"{key}.{subkey}", subvalue
+         else:
+             yield key, value
+ 
+ 
+-def flatten(row: Dict[str, Any]) -> Dict[str, Any]:
+-    """
+-    Turn a nested dict e.g. ``{"a": {"b": 1}}`` into a flat dict: ``{"a_b": 1}``
++def decode_base64_values(doc):
++    """Recursively decode base64 values in a document"""
++    if isinstance(doc, dict):
++        return {key: decode_base64_values(value) for key, value in doc.items()}
++    elif isinstance(doc, list):
++        return [decode_base64_values(item) for item in doc]
++    elif isinstance(doc, str):
++        # Check if it looks like base64
++        if doc.startswith("base64:") and len(doc) > 7:
++            try:
++                return base64.b64decode(doc[7:])
++            except Exception:
++                pass
++    return doc
++
++
++class TypeTracker:
++    def __init__(self):
++        self.types = {}
++
++    def wrap(self, value, column_name):
++        # Track the type of each value
++        current_type = type(value).__name__
++        if column_name not in self.types:
++            self.types[column_name] = current_type
++        elif self.types[column_name] != current_type:
++            # If we have conflicting types, use a more general one
++            if self.types[column_name] == "int" and current_type == "float":
++                self.types[column_name] = "float"
++            elif self.types[column_name] in ("int", "float") and current_type == "str":
++                self.types[column_name] = "str"
++        return value
++
++
++# --- New functionality added for the fix ---
++def get_all_foreign_keys(db):
++    all_fks = {}
++    for table_name in db.table_names():
++        try:
++            table = db[table_name]
++            all_fks[table_name] = table.foreign_keys
++        except Exception:
++            # Ignore tables that can't be accessed (like virtual tables)
++            pass
++    return all_fks
++
++
++def find_destructive_references_to_table(db, target_table_name):
++    destructive_actions = {'CASCADE', 'SET NULL', 'SET DEFAULT'}
++    destructive_refs = []
++    all_fks = get_all_foreign_keys(db)
++    
++    for table_name, fks in all_fks.items():
++        if table_name == target_table_name:
++            # Check for self-referencing destructive FKs
++            for fk in fks:
++                if fk.other_table == target_table_name and fk.on_delete.upper() in destructive_actions:
++                    destructive_refs.append((target_table_name, fk.on_delete.upper()))
++        else:
++            # Check for references from other tables
++            for fk in fks:
++                if fk.other_table == target_table_name and fk.on_delete.upper() in destructive_actions:
++                    destructive_refs.append((table_name, fk.on_delete.upper()))
++                    
++    return destructive_refs
++
+ 
+-    :param row: A Python dictionary, optionally with nested dictionaries
+-    """
+-    return dict(_flatten(row))
++OperationalError = sqlite3.OperationalError
+\ No newline at end of file

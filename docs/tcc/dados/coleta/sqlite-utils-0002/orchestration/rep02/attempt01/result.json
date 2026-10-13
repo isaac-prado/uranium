@@ -1,0 +1,103 @@
+{
+  "result_schema_version": 2,
+  "harness_version": "1.0.0",
+  "evaluated_at": "2026-10-13T15:32:56+00:00",
+  "run_id": "sqlite-utils-0002-orchestration-r02-a01",
+  "arm": "orchestration",
+  "task_id": "sqlite-utils-0002",
+  "faixa": "pequena",
+  "repetition": 2,
+  "base_commit": "75ba58846206b2c1beb39836134e763bf34177aa",
+  "resolved": true,
+  "resolved_blocked_by_cheat": false,
+  "oracle": {
+    "f2p_total": 11,
+    "f2p_passed": 11,
+    "f2p": {
+      "exit_code": 0,
+      "passed": 11,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.12,
+      "failing_node_ids": [],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "p2p": {
+      "exit_code": 0,
+      "passed": 1488,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 16,
+      "duration_s": 5.46,
+      "failing_node_ids": [],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "regression": {
+      "exit_code": 0,
+      "passed": 1488,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 16,
+      "duration_s": 5.47,
+      "failing_node_ids": [],
+      "timed_out": false,
+      "network_isolated": true
+    }
+  },
+  "cheat": {
+    "clean": true,
+    "critical_count": 0,
+    "warning_count": 0,
+    "signals": []
+  },
+  "quality": {
+    "mi_before": 0.0,
+    "mi_after": 0.0,
+    "mi_delta": 0.0,
+    "cc_mean_before": 7.23,
+    "cc_mean_after": 7.242,
+    "cc_mean_delta": 0.012,
+    "files_analyzed": 1,
+    "error": null
+  },
+  "cost": {
+    "tokens_prompt": 1896988,
+    "tokens_completion": 29836,
+    "tokens_reasoning": 0,
+    "tokens_total": 1926824,
+    "cost_usd": 0.237406,
+    "llm_calls": 121,
+    "byok_calls": 121,
+    "tool_calls": 111,
+    "wall_seconds": 456.337
+  },
+  "process": {
+    "turns": 120,
+    "test_runs": 11,
+    "tool_denials": 3,
+    "errors": 1,
+    "circuit_breaks": 2,
+    "self_recoveries": 0,
+    "stop_reason": "budget: max_turns (120 >= 120)"
+  },
+  "provenance": {
+    "model": "qwen/qwen3-coder",
+    "provider_requested": "DeepInfra",
+    "providers_served": [
+      "DeepInfra"
+    ],
+    "llm_seed": 20260822,
+    "topology": "multi_agent_roles"
+  },
+  "diff": {
+    "files_changed": 1,
+    "insertions": 27,
+    "deletions": 7,
+    "changed_files": [
+      "sqlite_utils/db.py"
+    ]
+  }
+}

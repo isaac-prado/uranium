@@ -1,0 +1,104 @@
+{
+  "result_schema_version": 2,
+  "harness_version": "1.0.0",
+  "evaluated_at": "2026-10-13T15:55:00+00:00",
+  "run_id": "attrs-0001-single-agent-r03-a01",
+  "arm": "single-agent",
+  "task_id": "attrs-0001",
+  "faixa": "media",
+  "repetition": 3,
+  "base_commit": "9cf2ed5a6b1c6977a7f545f84d87b3dd63befe0a",
+  "resolved": true,
+  "resolved_blocked_by_cheat": false,
+  "oracle": {
+    "f2p_total": 3,
+    "f2p_passed": 3,
+    "f2p": {
+      "exit_code": 0,
+      "passed": 3,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.11,
+      "failing_node_ids": [],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "p2p": {
+      "exit_code": 0,
+      "passed": 1242,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 8,
+      "duration_s": 5.34,
+      "failing_node_ids": [],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "regression": {
+      "exit_code": 0,
+      "passed": 1242,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 8,
+      "duration_s": 5.63,
+      "failing_node_ids": [],
+      "timed_out": false,
+      "network_isolated": true
+    }
+  },
+  "cheat": {
+    "clean": true,
+    "critical_count": 0,
+    "warning_count": 0,
+    "signals": []
+  },
+  "quality": {
+    "mi_before": 30.459,
+    "mi_after": 30.304,
+    "mi_delta": -0.155,
+    "cc_mean_before": 5.854,
+    "cc_mean_after": 5.944,
+    "cc_mean_delta": 0.09,
+    "files_analyzed": 2,
+    "error": null
+  },
+  "cost": {
+    "tokens_prompt": 159759,
+    "tokens_completion": 3853,
+    "tokens_reasoning": 0,
+    "tokens_total": 163612,
+    "cost_usd": 0.0209775,
+    "llm_calls": 25,
+    "byok_calls": 25,
+    "tool_calls": 24,
+    "wall_seconds": 88.249
+  },
+  "process": {
+    "turns": 25,
+    "test_runs": 1,
+    "tool_denials": 1,
+    "errors": 0,
+    "circuit_breaks": 0,
+    "self_recoveries": 0,
+    "stop_reason": "tests_pass"
+  },
+  "provenance": {
+    "model": "qwen/qwen3-coder",
+    "provider_requested": "DeepInfra",
+    "providers_served": [
+      "DeepInfra"
+    ],
+    "llm_seed": 20260823,
+    "topology": "single_agent"
+  },
+  "diff": {
+    "files_changed": 2,
+    "insertions": 9,
+    "deletions": 2,
+    "changed_files": [
+      "src/attr/_funcs.py",
+      "src/attr/_make.py"
+    ]
+  }
+}

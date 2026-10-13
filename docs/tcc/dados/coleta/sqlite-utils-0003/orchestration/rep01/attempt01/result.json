@@ -1,0 +1,189 @@
+{
+  "result_schema_version": 2,
+  "harness_version": "1.0.0",
+  "evaluated_at": "2026-10-13T11:28:08+00:00",
+  "run_id": "sqlite-utils-0003-orchestration-r01-a01",
+  "arm": "orchestration",
+  "task_id": "sqlite-utils-0003",
+  "faixa": "media",
+  "repetition": 1,
+  "base_commit": "a00ed60efc3a242de38f666bc4ce1e431f86dcea",
+  "resolved": false,
+  "resolved_blocked_by_cheat": false,
+  "oracle": {
+    "f2p_total": 12,
+    "f2p_passed": 11,
+    "f2p": {
+      "exit_code": 1,
+      "passed": 11,
+      "failed": 1,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.24,
+      "failing_node_ids": [
+        "tests/test_cli.py::test_query_json_duplicate_columns_are_deduped"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "p2p": {
+      "exit_code": 1,
+      "passed": 1163,
+      "failed": 36,
+      "errors": 0,
+      "skipped": 16,
+      "duration_s": 5.06,
+      "failing_node_ids": [
+        "tests/test_cli.py::test_query_json_duplicate_columns_are_deduped",
+        "tests/test_cli_memory.py::test_memory_analyze",
+        "tests/test_cli_memory.py::test_memory_csv[False-t1]",
+        "tests/test_cli_memory.py::test_memory_csv[False-t]",
+        "tests/test_cli_memory.py::test_memory_csv[False-test]",
+        "tests/test_cli_memory.py::test_memory_csv[True-t1]",
+        "tests/test_cli_memory.py::test_memory_csv[True-t]",
+        "tests/test_cli_memory.py::test_memory_csv[True-test]",
+        "tests/test_cli_memory.py::test_memory_csv_encoding[False]",
+        "tests/test_cli_memory.py::test_memory_csv_encoding[True]",
+        "tests/test_cli_memory.py::test_memory_csv_headers_only",
+        "tests/test_cli_memory.py::test_memory_dump[extra_args0]",
+        "tests/test_cli_memory.py::test_memory_dump[extra_args1]",
+        "tests/test_cli_memory.py::test_memory_flatten",
+        "tests/test_cli_memory.py::test_memory_json[False]",
+        "tests/test_cli_memory.py::test_memory_json[True]",
+        "tests/test_cli_memory.py::test_memory_json_nl[False]",
+        "tests/test_cli_memory.py::test_memory_json_nl[True]",
+        "tests/test_cli_memory.py::test_memory_no_detect_types[--no-detect-types]",
+        "tests/test_cli_memory.py::test_memory_no_detect_types[-n]",
+        "tests/test_cli_memory.py::test_memory_return_db",
+        "tests/test_cli_memory.py::test_memory_save[extra_args0]",
+        "tests/test_cli_memory.py::test_memory_save[extra_args1]",
+        "tests/test_cli_memory.py::test_memory_schema[extra_args0]",
+        "tests/test_cli_memory.py::test_memory_schema[extra_args1]",
+        "tests/test_cli_memory.py::test_memory_tsv[False]",
+        "tests/test_cli_memory.py::test_memory_tsv[True]",
+        "tests/test_cli_memory.py::test_memory_two_files_with_same_stem",
+        "tests/test_rows_from_file.py::test_rows_from_file_detect_format[[{\"id\": \"1\", \"name\": \"Cleo\"}]-Format.JSON]",
+        "tests/test_rows_from_file.py::test_rows_from_file_detect_format[id,name\\n1,Cleo-Format.CSV]",
+        "tests/test_rows_from_file.py::test_rows_from_file_detect_format[id\\tname\\n1\\tCleo-Format.TSV]",
+        "tests/test_rows_from_file.py::test_rows_from_file_error_on_string_io",
+        "tests/test_rows_from_file.py::test_rows_from_file_extra_fields_strategies[False-False-None]",
+        "tests/test_rows_from_file.py::test_rows_from_file_extra_fields_strategies[False-_rest-expected1]",
+        "tests/test_rows_from_file.py::test_rows_from_file_extra_fields_strategies[True-None-expected0]",
+        "tests/test_utils.py::test_maximize_csv_field_size_limit"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "regression": {
+      "exit_code": 1,
+      "passed": 1163,
+      "failed": 36,
+      "errors": 0,
+      "skipped": 16,
+      "duration_s": 5.05,
+      "failing_node_ids": [
+        "tests/test_cli.py::test_query_json_duplicate_columns_are_deduped",
+        "tests/test_cli_memory.py::test_memory_analyze",
+        "tests/test_cli_memory.py::test_memory_csv[False-t1]",
+        "tests/test_cli_memory.py::test_memory_csv[False-t]",
+        "tests/test_cli_memory.py::test_memory_csv[False-test]",
+        "tests/test_cli_memory.py::test_memory_csv[True-t1]",
+        "tests/test_cli_memory.py::test_memory_csv[True-t]",
+        "tests/test_cli_memory.py::test_memory_csv[True-test]",
+        "tests/test_cli_memory.py::test_memory_csv_encoding[False]",
+        "tests/test_cli_memory.py::test_memory_csv_encoding[True]",
+        "tests/test_cli_memory.py::test_memory_csv_headers_only",
+        "tests/test_cli_memory.py::test_memory_dump[extra_args0]",
+        "tests/test_cli_memory.py::test_memory_dump[extra_args1]",
+        "tests/test_cli_memory.py::test_memory_flatten",
+        "tests/test_cli_memory.py::test_memory_json[False]",
+        "tests/test_cli_memory.py::test_memory_json[True]",
+        "tests/test_cli_memory.py::test_memory_json_nl[False]",
+        "tests/test_cli_memory.py::test_memory_json_nl[True]",
+        "tests/test_cli_memory.py::test_memory_no_detect_types[--no-detect-types]",
+        "tests/test_cli_memory.py::test_memory_no_detect_types[-n]",
+        "tests/test_cli_memory.py::test_memory_return_db",
+        "tests/test_cli_memory.py::test_memory_save[extra_args0]",
+        "tests/test_cli_memory.py::test_memory_save[extra_args1]",
+        "tests/test_cli_memory.py::test_memory_schema[extra_args0]",
+        "tests/test_cli_memory.py::test_memory_schema[extra_args1]",
+        "tests/test_cli_memory.py::test_memory_tsv[False]",
+        "tests/test_cli_memory.py::test_memory_tsv[True]",
+        "tests/test_cli_memory.py::test_memory_two_files_with_same_stem",
+        "tests/test_rows_from_file.py::test_rows_from_file_detect_format[[{\"id\": \"1\", \"name\": \"Cleo\"}]-Format.JSON]",
+        "tests/test_rows_from_file.py::test_rows_from_file_detect_format[id,name\\n1,Cleo-Format.CSV]",
+        "tests/test_rows_from_file.py::test_rows_from_file_detect_format[id\\tname\\n1\\tCleo-Format.TSV]",
+        "tests/test_rows_from_file.py::test_rows_from_file_error_on_string_io",
+        "tests/test_rows_from_file.py::test_rows_from_file_extra_fields_strategies[False-False-None]",
+        "tests/test_rows_from_file.py::test_rows_from_file_extra_fields_strategies[False-_rest-expected1]",
+        "tests/test_rows_from_file.py::test_rows_from_file_extra_fields_strategies[True-None-expected0]",
+        "tests/test_utils.py::test_maximize_csv_field_size_limit"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    }
+  },
+  "cheat": {
+    "clean": true,
+    "critical_count": 0,
+    "warning_count": 1,
+    "signals": [
+      {
+        "rule": "C6",
+        "severity": "warning",
+        "file": "sqlite_utils/utils.py",
+        "line": 398,
+        "detail": "exceção silenciada introduzida: except json.decoder.JSONDecodeError: pass"
+      }
+    ]
+  },
+  "quality": {
+    "mi_before": 11.988,
+    "mi_after": 10.499,
+    "mi_delta": -1.489,
+    "cc_mean_before": 5.011,
+    "cc_mean_after": 5.058,
+    "cc_mean_delta": 0.047,
+    "files_analyzed": 3,
+    "error": null
+  },
+  "cost": {
+    "tokens_prompt": 2474386,
+    "tokens_completion": 36836,
+    "tokens_reasoning": 0,
+    "tokens_total": 2511222,
+    "cost_usd": 0.306227,
+    "llm_calls": 121,
+    "byok_calls": 121,
+    "tool_calls": 120,
+    "wall_seconds": 480.096
+  },
+  "process": {
+    "turns": 120,
+    "test_runs": 3,
+    "tool_denials": 2,
+    "errors": 0,
+    "circuit_breaks": 2,
+    "self_recoveries": 0,
+    "stop_reason": "budget: max_turns (120 >= 120)"
+  },
+  "provenance": {
+    "model": "qwen/qwen3-coder",
+    "provider_requested": "DeepInfra",
+    "providers_served": [
+      "DeepInfra"
+    ],
+    "llm_seed": 20260821,
+    "topology": "multi_agent_roles"
+  },
+  "diff": {
+    "files_changed": 3,
+    "insertions": 256,
+    "deletions": 223,
+    "changed_files": [
+      "sqlite_utils/cli.py",
+      "sqlite_utils/db.py",
+      "sqlite_utils/utils.py"
+    ]
+  }
+}

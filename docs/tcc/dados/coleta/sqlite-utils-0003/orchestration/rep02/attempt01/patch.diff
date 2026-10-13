@@ -1,0 +1,139 @@
+diff --git a/sqlite_utils/cli.py b/sqlite_utils/cli.py
+index a30f79a..9498c96 100644
+--- a/sqlite_utils/cli.py
++++ b/sqlite_utils/cli.py
+@@ -34,6 +34,7 @@ from .utils import (
+     OperationalError,
+     _compile_code,
+     chunks,
++    dedupe_keys,
+     file_progress,
+     find_spatialite,
+     flatten as _flatten,
+@@ -2126,6 +2127,7 @@ def _execute_query(
+             cursor = [[cursor.rowcount]]
+         else:
+             headers = [c[0] for c in cursor.description]
++            headers = dedupe_keys(headers)
+         cursor_or_rows: Any = cursor
+         if raw:
+             row = cursor_or_rows.fetchone()
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 3f23c7d..25534cc 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -1,5 +1,6 @@
+ from .utils import (
+     chunks,
++    dedupe_keys,
+     hash_record,
+     sqlite3,
+     OperationalError,
+@@ -787,7 +788,8 @@ class Database:
+             if cursor.description is None:
+                 raise ValueError(message)
+             keys = [d[0] for d in cursor.description]
+-            return (dict(zip(keys, row)) for row in cursor)
++            new_keys = dedupe_keys(keys)
++            return (dict(zip(new_keys, row)) for row in cursor)
+         # Execute inside a savepoint, so a statement that turns out not to
+         # return rows can be rolled back before the ValueError is raised
+         self.conn.execute('SAVEPOINT "sqlite_utils_query"')
+@@ -809,8 +811,10 @@ class Database:
+                 fetched = cursor.fetchall()
+                 self.conn.execute('RELEASE "sqlite_utils_query"')
+                 released = True
+-                return (dict(zip(keys, row)) for row in fetched)
+-            return (dict(zip(keys, row)) for row in cursor)
++                new_keys = dedupe_keys(keys)
++                return (dict(zip(new_keys, row)) for row in fetched)
++            new_keys = dedupe_keys(keys)
++            return (dict(zip(new_keys, row)) for row in cursor)
+         finally:
+             if not released:
+                 # An error occurred - undo anything the statement changed
+@@ -1866,8 +1870,9 @@ class Queryable:
+             sql += " offset {}".format(offset)
+         cursor = self.db.execute(sql, where_args or [])
+         columns = [c[0] for c in cursor.description]
++        new_columns = dedupe_keys(columns)
+         for row in cursor:
+-            yield dict(zip(columns, row))
++            yield dict(zip(new_columns, row))
+ 
+     def pks_and_rows_where(
+         self,
+@@ -3399,8 +3404,9 @@ class Table(Queryable):
+             args,
+         )
+         columns = [c[0] for c in cursor.description]
++        new_columns = dedupe_keys(columns)
+         for row in cursor:
+-            yield dict(zip(columns, row))
++            yield dict(zip(new_columns, row))
+ 
+     def value_or_default(self, key: str, value: Any) -> Any:
+         return self._defaults[key] if value is DEFAULT else value
+diff --git a/sqlite_utils/utils.py b/sqlite_utils/utils.py
+index 865ee79..319444f 100644
+--- a/sqlite_utils/utils.py
++++ b/sqlite_utils/utils.py
+@@ -67,6 +67,51 @@ Row = Dict[str, RowValue]
+ T = TypeVar("T")
+ 
+ 
++def dedupe_keys(keys: List[str]) -> List[str]:
++    """
++    De-duplicate a list of keys, preserving order.
++    
++    If a key appears twice, the second instance will be renamed key_2,
++    the third key_3, and so on. If key_2 already exists, it will be
++    renamed key_3, and so on.
++    
++    Examples:
++    
++    >>> dedupe_keys(['a', 'b', 'c'])
++    ['a', 'b', 'c']
++    >>> dedupe_keys(['a', 'b', 'a', 'c'])
++    ['a', 'b', 'a_2', 'c']
++    >>> dedupe_keys(['a', 'b', 'a', 'a'])
++    ['a', 'b', 'a_2', 'a_3']
++    >>> dedupe_keys(['a', 'b', 'a_2', 'a'])
++    ['a', 'b', 'a_2', 'a_3']
++    >>> dedupe_keys(['a', 'b', 'a_2', 'a', 'a_2'])
++    ['a', 'b', 'a_2', 'a_3', 'a_2_2']
++    """
++    seen: Dict[str, int] = {}
++    existing_keys: Set[str] = set()
++    new_keys: List[str] = []
++    
++    for key in keys:
++        if key in existing_keys:
++            # Key already exists, need to deduplicate
++            counter = seen.get(key, 1) + 1
++            candidate = f"{key}_{counter}"
++            while candidate in existing_keys:
++                counter += 1
++                candidate = f"{key}_{counter}"
++            new_keys.append(candidate)
++            seen[key] = counter
++            existing_keys.add(candidate)
++        else:
++            # Key is unique so far
++            new_keys.append(key)
++            existing_keys.add(key)
++            seen[key] = 1
++    
++    return new_keys
++
++
+ class _CloseableIterator(Iterator[Row]):
+     """Iterator wrapper that closes a file when iteration is complete."""
+ 
+@@ -628,4 +673,4 @@ def flatten(row: Dict[str, Any]) -> Dict[str, Any]:
+ 
+     :param row: A Python dictionary, optionally with nested dictionaries
+     """
+-    return dict(_flatten(row))
++    return dict(_flatten(row))
+\ No newline at end of file

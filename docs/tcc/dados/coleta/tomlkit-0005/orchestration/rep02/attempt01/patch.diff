@@ -1,0 +1,85 @@
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 4a24fc0..a5c535e 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -550,6 +550,26 @@ class Item:
+         raise TypeError(f"{type(self).__name__} does not support item deletion")
+ 
+ 
++class ScalarItem(Item):
++    """
++    A scalar item that does not support item access.
++    """
++    
++    def __init__(self, trivia=None):
++        super().__init__(trivia or Trivia())
++        
++    # Remover completamente o método __getitem__ para evitar 
++    # que o objeto seja reconhecido como sequência
++    def __getitem__(self, key):
++        raise AttributeError(f"'{type(self).__name__}' object has no attribute '__getitem__'")
++        
++    # Usar property para ocultar completamente o método
++    def _get_getitem(self):
++        raise AttributeError(f"'{type(self).__name__}' object has no attribute '__getitem__'")
++        
++    __getitem__ = property(_get_getitem)  # type: ignore[assignment]
++
++
+ class Whitespace(Item):
+     """
+     A whitespace literal.
+@@ -608,7 +628,7 @@ class Comment(Item):
+         return f"{self._trivia.indent}{decode(self._trivia.comment)}"
+ 
+ 
+-class Integer(Item, _CustomInt):
++class Integer(ScalarItem, _CustomInt):
+     """
+     An integer literal.
+     """
+@@ -831,7 +851,7 @@ class Integer(Item, _CustomInt):
+         return Float._new(self, result)  # type: ignore[arg-type]
+ 
+ 
+-class Float(Item, _CustomFloat):
++class Float(ScalarItem, _CustomFloat):
+     """
+     A float literal.
+     """
+@@ -986,7 +1006,7 @@ class Float(Item, _CustomFloat):
+     __floor__ = float.__floor__
+ 
+ 
+-class Bool(Item):
++class Bool(ScalarItem):
+     """
+     A boolean literal.
+     """
+@@ -1032,7 +1052,7 @@ class Bool(Item):
+         return repr(self._value)
+ 
+ 
+-class DateTime(Item, datetime):
++class DateTime(ScalarItem, datetime):
+     """
+     A datetime literal.
+     """
+@@ -1192,7 +1212,7 @@ class DateTime(Item, datetime):
+         )
+ 
+ 
+-class Date(Item, date):
++class Date(ScalarItem, date):
+     """
+     A date literal.
+     """
+@@ -1271,7 +1291,7 @@ class Date(Item, date):
+         return (self.year, self.month, self.day, self._trivia, self._raw)
+ 
+ 
+-class Time(Item, time):
++class Time(ScalarItem, time):
+     """
+     A time literal.
+     """

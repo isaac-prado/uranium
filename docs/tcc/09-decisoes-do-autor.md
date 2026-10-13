@@ -379,6 +379,7 @@ Hoje conta como "sem corte" pela definição literal, e o JSON reporta `sem_stop
 | 26 | modelo mantido (qwen/qwen3-coder); segundo modelo = trabalho futuro; confirmar por escrito | 12/10/2026 | 09, Decisão 26; 08-escolha-modelo |
 | 13 | 3 repetições, workers 1, single-agent primeiro no par, coleta começa pela faixa grande (12/10 21:09) | 12/10/2026 | 09, Decisão 13; runs/coleta |
 | 14 | erro do harness interrompe a coleta, célula refeita com a mesma semente, tentativa fora do denominador (regra manual) | 12/10/2026 | 09, Decisão 14; 07-execucao |
+| 14 (ocorrência) | reinício da máquina em 12/10 23:53 matou 1 tentativa (sqlite-utils-0003 SA rep1); refeita como attempt02, mesma semente; coleta fechada 78/78 em 13/10 | 13/10/2026 | 07-execucao; dados/coleta |
 | 15 | | | |
 | 16 | | | |
 | 17 | tomlkit-0002 + tomlkit-0001, 2 braços × 1 repetição, via run_collection.py | 08/10/2026 | 09, Decisão 17; dados/fumaca-08-10 |

@@ -1,0 +1,126 @@
+diff --git a/peewee.py b/peewee.py
+index 13d2c8e9..ef54f216 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -3711,6 +3711,25 @@ class _NoopLock(object):
+     def __exit__(self, exc_type, exc_val, exc_tb): pass
+ 
+ 
++class QueryEvent(object):
++    """
++    Representa um evento de consulta SQL executada.
++    
++    Atributos:
++        sql (str): Texto SQL executado
++        params (tuple/list): Parâmetros passados para a execução
++        duration (float): Tempo de execução em segundos (>= 0)
++        exception (Exception or None): Exceção ocorrida, se houver
++    """
++    __slots__ = ('sql', 'params', 'duration', 'exception')
++    
++    def __init__(self, sql, params, duration, exception):
++        self.sql = sql
++        self.params = params
++        self.duration = duration
++        self.exception = exception
++
++
+ class ConnectionContext(_callable_context_manager):
+     __slots__ = ('db',)
+     def __init__(self, db):
+@@ -3787,6 +3806,7 @@ class Database(_callable_context_manager):
+                            'database driver you are using.')
+ 
+         self.connect_params = {}
++        self.query_hooks = []
+         self.init(database, **kwargs)
+ 
+     def init(self, database, **kwargs):
+@@ -3890,11 +3910,31 @@ class Database(_callable_context_manager):
+         if logger.isEnabledFor(logging.DEBUG):
+             logger.debug((sql, params))
+ 
++    def _notify_query_hooks(self, sql, params, duration, exception):
++        if not self.query_hooks:
++            return
++        event = QueryEvent(sql, params, duration, exception)
++        for hook in self.query_hooks:
++            try:
++                hook(event)
++            except Exception:
++                # Erro no gancho é propagado para o chamador
++                raise
++
+     def execute_sql(self, sql, params=None):
+         self._log_query(sql, params)
+-        with __exception_wrapper__:
+-            cursor = self.cursor()
+-            cursor.execute(sql, params or ())
++        start_time = time.time()
++        exception = None
++        try:
++            with __exception_wrapper__:
++                cursor = self.cursor()
++                cursor.execute(sql, params or ())
++        except Exception as exc:
++            exception = exc
++            raise
++        finally:
++            duration = time.time() - start_time
++            self._notify_query_hooks(sql, params or (), duration, exception)
+         return cursor
+ 
+     def execute(self, query, **context_options):
+diff --git a/playhouse/postgres_ext.py b/playhouse/postgres_ext.py
+index 89eb017e..aac73efb 100644
+--- a/playhouse/postgres_ext.py
++++ b/playhouse/postgres_ext.py
+@@ -727,9 +727,18 @@ class PostgresqlExtDatabase(PostgresqlDatabase):
+         if not named_cursor:
+             return super(PostgresqlExtDatabase, self).execute_sql(sql, params)
+         self._log_query(sql, params)
+-        with __exception_wrapper__:
+-            cursor = self.cursor(named_cursor=named_cursor)
+-            cursor.execute(sql, params or ())
++        start_time = time.time()
++        exception = None
++        try:
++            with __exception_wrapper__:
++                cursor = self.cursor(named_cursor=named_cursor)
++                cursor.execute(sql, params or ())
++        except Exception as exc:
++            exception = exc
++            raise
++        finally:
++            duration = time.time() - start_time
++            self._notify_query_hooks(sql, params or (), duration, exception)
+         return cursor
+ 
+ 
+diff --git a/playhouse/pwasyncio.py b/playhouse/pwasyncio.py
+index f800353b..9ec3c716 100644
+--- a/playhouse/pwasyncio.py
++++ b/playhouse/pwasyncio.py
+@@ -237,9 +237,19 @@ class AsyncDatabaseMixin(object):
+ 
+     async def aexecute_sql(self, sql, params=None):
+         self._log_query(sql, params)
+-        conn = await self.aconnect()
+-        with __exception_wrapper__:
+-            return await conn.execute(sql, params)
++        start_time = time.time()
++        exception = None
++        try:
++            conn = await self.aconnect()
++            with __exception_wrapper__:
++                result = await conn.execute(sql, params)
++        except Exception as exc:
++            exception = exc
++            raise
++        finally:
++            duration = time.time() - start_time
++            self._notify_query_hooks(sql, params or (), duration, exception)
++        return result
+ 
+     def connect(self):
+         return await_(self.aconnect())

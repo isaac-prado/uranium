@@ -1,0 +1,40 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index d709fb9..3bf2229 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -2560,6 +2560,35 @@ class Table(Queryable):
+             self.db.execute("PRAGMA foreign_keys").fetchone()[0]
+         )
+         already_in_transaction = self.db.conn.in_transaction
++        
++        # Verificar se há chaves estrangeiras destrutivas referenciando esta tabela
++        destructive_fks = []
++        if pragma_foreign_keys_was_on and already_in_transaction:
++            # Apenas verifica se estivermos em transação e com foreign_keys ativo
++            destructive_actions = {"CASCADE", "SET NULL", "SET DEFAULT"}
++            all_tables = self.db.table_names()
++            for table_name in all_tables:
++                if table_name == self.name:
++                    continue
++                fks = self.db[table_name].foreign_keys
++                for fk in fks:
++                    if (fk.other_table == self.name and 
++                        fk.on_delete in destructive_actions):
++                        destructive_fks.append((table_name, fk.on_delete))
++
++        # Se houver FKs destrutivas em transação, recusar a operação
++        if pragma_foreign_keys_was_on and already_in_transaction and destructive_fks:
++            # Formatar mensagem de erro com tabelas e ações
++            fk_details = ", ".join(
++                f"{table} (ON DELETE {action.upper()})" 
++                for table, action in destructive_fks
++            )
++            raise TransactionError(
++                f"Cannot perform destructive transformation on table '{self.name}' "
++                f"while a transaction is active and foreign key constraints are enabled. "
++                f"Destructive foreign keys found: {fk_details}"
++            )
++            
+         should_disable_foreign_keys = (
+             pragma_foreign_keys_was_on and not already_in_transaction
+         )
