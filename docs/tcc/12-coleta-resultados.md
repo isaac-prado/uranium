@@ -11,7 +11,7 @@ Dados: `dados/coleta/<tarefa>/<braço>/rep0k/attemptNN/` (78 runs admitidos, 79 
 | Chave própria | `byok_calls == llm_calls` nos 78 runs |
 | Custo | US$ 17,26 (soma de `cost.cost_usd` dos 78 admitidos; single-agent US$ 12,05, orchestration US$ 5,21) mais US$ 0,08 da tentativa perdida |
 | Tokens | single-agent 100,6 M; orchestration 40,6 M |
-| Duração | etapa 1 (grandes) 12/10 21:09–22:18; etapa 2 12/10 22:19–23:53 (interrompida) e 13/10 08:17–15:3x |
+| Duração | etapa 1 (grandes) 12/10 21:09–22:18; etapa 2 12/10 22:19–23:53 (interrompida) e 13/10 08:17–15:31 |
 | Cortes por tokens | 5, todos no single-agent: `pygments-0001` rep. 1 e 3 (resolvidas), `sqlite-utils-0002` rep. 1 (resolvida), 2 e 3 (não) |
 | Cortes por parede | 0 |
 | Cortes por turnos | single-agent 8, orchestration 16 |
