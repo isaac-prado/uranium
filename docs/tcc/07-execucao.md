@@ -231,3 +231,16 @@ Relatório em [07-e4-fumaca.md](07-e4-fumaca.md): 4 células (`tomlkit-0002` gra
 
 **Impacto em docs.** Decisão 12 final em [09-decisoes-do-autor.md](09-decisoes-do-autor.md). Para o texto: Método › Procedimento (tetos, regra de calibração e as oito fumaças que a sustentam); Ameaças à validade (a tarefa grande `tomlkit-0004` não foi resolvida em nenhuma fumaça por nenhum braço; o teto de parede foi subido depois de um corte por latência do provedor, antes da coleta).
 
+
+---
+
+## Coleta definitiva — etapa 1, faixa grande (iniciada em 12/10/2026, 21:09)
+
+**Comando.** `scripts/run_collection.py --tasks tasks/tomlkit-0002 tasks/tomlkit-0003 tasks/tomlkit-0004 --repetitions 3 --out runs/coleta --workers 1 --retry-delay 300 --max-attempts 5`, com o `.env` nos valores congelados (decisão 12) e `OPENROUTER_PROVIDER=DeepInfra` com chave própria. Manifesto da primeira célula (`runs/coleta/tomlkit-0002/single-agent/rep01/attempt01/manifest.json`): versão 7, orçamento 120 turnos / 8.000.000 tokens / 3.600 s, modelo `qwen/qwen3-coder`, provedor DeepInfra, semente da repetição 1 = 20260821.
+
+**Ordem.** Repetição → tarefa → braço (`plan_cells`), single-agent primeiro no par. 18 células. As 10 tarefas médias e pequenas entram em seguida no mesmo diretório (coleta retomável por célula). Decisões 13 e 14 em [09-decisoes-do-autor.md](09-decisoes-do-autor.md).
+
+**Motivo da ordem.** O autor pediu a comparação do código gerado nas grandes antes de tudo. As repetições do desenho são a forma legítima de obter esse código; repetir fora da coleta até obter resolução seria escolher o resultado.
+
+**Comparação do código gerado (a produzir ao fim da etapa).** Por célula e repetição: `patch.diff`, ocultos passados por teste (`oracle.f2p.failing_node_ids`), regressão visível, `quality` (MI e CC do código alterado), custo e turnos, e no orquestrado os eventos `validation` e `memory`. Relatório a escrever em `docs/tcc/11-coleta-grandes.md` com os dados versionados em `docs/tcc/dados/coleta/`.
+

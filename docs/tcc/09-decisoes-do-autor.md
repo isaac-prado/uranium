@@ -120,6 +120,16 @@ Fontes: [04-cronograma.md](04-cronograma.md), [07-execucao.md](07-execucao.md), 
 
 **Fumaça H ([07-e4-fumaca.md](07-e4-fumaca.md) seção 13):** quatro ciclos (40/40/32/8), memória e veredito no prompt; o developer desfez a implementação para voltar ao verde depois de dois pontos de checagem vermelhos, e o revisor reprovou com motivo exato. 0/7, US$ 0,23, prompt máximo 25 k contra 71 k sem ciclos. **Decisão (09/10/2026):** implementado com 40 para a fumaça H na `tomlkit-0004` (120 turnos, DeepInfra BYOK). O valor congela junto com os tetos (decisão 12) depois da fumaça. Teste: `tests/test_nodes.py::TestDeveloperTetoPorCiclo`, `::TestGrafoPontaAPonta::test_ciclos_com_memoria_ate_resolver`, `::TestValidatorExecuta::test_reprovacao_no_ponto_de_checagem_nao_conta_para_o_teto`, `tests/test_arm_parity.py::test_mudar_developer_cycle_max_turns_muda_o_manifesto`, `::test_stop_reason_final_nunca_e_cycle`.
 
+### Decisão 26. Modelo fixo (`qwen/qwen3-coder`) e segundo modelo como trabalho futuro
+
+**Situação (12/10/2026).** Depois das fumaças, o autor perguntou se "deveria haver uma troca de modelos". O modelo é o mesmo nos dois braços ([08-escolha-modelo.md](08-escolha-modelo.md), decisão 11) e é fator fixo do desenho: o estudo compara topologias, não modelos.
+
+**Avaliação registrada.** Trocar agora (i) muda o objeto de estudo e invalida a calibração dos tetos (oito fumaças), o laudo de aptidão e as estimativas de custo; (ii) multiplica o custo: o preço efetivo observado com chave própria foi US$ 0,125 por milhão de tokens (`dados/fumaca-09-10-f` a `-h`, 24,8 M tokens por US$ 3,09), e modelos de fronteira custam uma ordem de grandeza a mais; (iii) o limite do modelo na `tomlkit-0004` é achado para a Discussão, e a comparação não depende de resolução: ocultos passados por teste, regressão, qualidade do código alterado (MI e CC, `harness/quality.py`), custo, turnos e vereditos do revisor são medidos em todo run.
+
+**Recomendação.** Manter o modelo; replicação com um segundo modelo como trabalho futuro ou extensão se sobrar crédito depois da coleta.
+
+**Decisão:** recomendação aceita tacitamente em 12/10/2026 (o autor não pediu a troca e autorizou o início da coleta pela faixa grande); confirmar por escrito: ______
+
 ## Bloco 2 — Tratamentos: o desenho do braço `orchestration`
 
 As decisões 4 a 6 **já foram tomadas pelo autor em 28/09/2026** (commits `f4c01a9`, `c2046fd`, `7068a55` na `develop`) e integradas à branch de trabalho em 08/10/2026 ([07-execucao.md](07-execucao.md), seção "Reconciliação"). Aparecem aqui para confirmação e para o texto.
@@ -242,7 +252,7 @@ As decisões 4 a 6 **já foram tomadas pelo autor em 28/09/2026** (commits `f4c0
 
 **Onde entra.** Método › Procedimento (ordem de execução, pareamento por semente).
 
-**Decisão:** ______ (data: ______)
+**Decisão (12/10/2026):** 3 repetições; `--workers 1`; ordem fixa dentro do par (single-agent primeiro), como implementado em `plan_cells`, sem alternância (não implementada antes do início; fica declarada como limitação); `--retry-delay 300`, `--max-attempts 5`. **A coleta começa pela faixa grande** (3 tarefas × 2 braços × 3 repetições = 18 runs, `runs/coleta/`, iniciada em 12/10/2026 às 21:09), a pedido do autor: "quero que seja feita a comparação [do código gerado nos grandes] e isso para mim, de não ter resultado, é uma falha que não gera resultado científico nenhum". Repetir runs fora da coleta para obter resolução seria escolher o resultado; as repetições do desenho são a forma legítima de obter e comparar o código gerado. Depois, as 10 médias e pequenas no mesmo diretório (a coleta é retomável por célula).
 
 ### Decisão 14. O que é run perdido, e o que fazer com erro do harness
 
@@ -254,7 +264,7 @@ As decisões 4 a 6 **já foram tomadas pelo autor em 28/09/2026** (commits `f4c0
 
 **Onde entra.** Método › Procedimento (perda, reexecução, denominador); Ameaças à validade (seleção: tentativas perdidas por braço são reportadas por `analyze_collection.py`).
 
-**Decisão:** ______ (data: ______)
+**Decisão (12/10/2026):** (b) na prática operacional: erro que não seja de provedor (`error:`) interrompe a coleta, o defeito é corrigido e a célula é refeita com a mesma semente e `attempt + 1`; a tentativa com `error:` não entra no denominador. A guarda automática (`CollectionAborted` em `error:`) não foi implementada antes do início; o operador monitora o log e aplica a regra manualmente, e cada ocorrência é registrada em [07-execucao.md](07-execucao.md).
 
 ### Decisão 15. Pontos abertos da revisão de 28/09 (BACKLOG 8)
 
@@ -366,8 +376,9 @@ Hoje conta como "sem corte" pela definição literal, e o JSON reporta `sem_stop
 | 25 | teto de turnos por ciclo do developer = 40 (fumaça H); reprovação em checagem não conta para o teto semântico; manifesto v7 | 09/10/2026 | 09, Decisão 25; src/agents/developer.py; src/agents/validator.py |
 | 12 (proposta) | congelar 120 turnos / 8 M / 3.600 s / ciclo 40 / memória ledger; tomlkit-0004 pode ficar sem resolução; aguarda o autor | 09/10/2026 | 07-e4-fumaca seção 13; dados/fumaca-09-10-h |
 | 12 (final) | **congelados** 120 turnos / 8 M tokens / 3.600 s / timeout 120 s; orquestrado ledger, ciclo 40, teto semântico 2 | 12/10/2026 | 09, Decisão 12; src/budget.py; .env.example; CLAUDE.md |
-| 13 | | | |
-| 14 | | | |
+| 26 | modelo mantido (qwen/qwen3-coder); segundo modelo = trabalho futuro; confirmar por escrito | 12/10/2026 | 09, Decisão 26; 08-escolha-modelo |
+| 13 | 3 repetições, workers 1, single-agent primeiro no par, coleta começa pela faixa grande (12/10 21:09) | 12/10/2026 | 09, Decisão 13; runs/coleta |
+| 14 | erro do harness interrompe a coleta, célula refeita com a mesma semente, tentativa fora do denominador (regra manual) | 12/10/2026 | 09, Decisão 14; 07-execucao |
 | 15 | | | |
 | 16 | | | |
 | 17 | tomlkit-0002 + tomlkit-0001, 2 braços × 1 repetição, via run_collection.py | 08/10/2026 | 09, Decisão 17; dados/fumaca-08-10 |
