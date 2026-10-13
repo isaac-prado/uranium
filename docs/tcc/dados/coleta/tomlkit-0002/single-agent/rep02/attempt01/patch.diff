@@ -1,0 +1,230 @@
+diff --git a/tomlkit/api.py b/tomlkit/api.py
+index fd4b2f3..2873305 100644
+--- a/tomlkit/api.py
++++ b/tomlkit/api.py
+@@ -2,7 +2,9 @@ import datetime as _datetime
+ 
+ from collections.abc import Mapping
+ from typing import IO
++from typing import List
+ from typing import Tuple
++from typing import Union
+ 
+ from ._utils import parse_rfc3339
+ from .container import Container
+@@ -18,6 +20,7 @@ from .items import Integer
+ from .items import Item as _Item
+ from .items import Key
+ from .items import SingleKey
++from .items import DottedKey
+ from .items import String
+ from .items import Table
+ from .items import Time
+@@ -141,7 +144,9 @@ def aot() -> AoT:
+     return AoT([])
+ 
+ 
+-def key(k: str) -> Key:
++def key(k: Union[str, List[str]]) -> Key:
++    if isinstance(k, list):
++        return DottedKey([SingleKey(part) for part in k], sep=" = ")
+     return SingleKey(k)
+ 
+ 
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index f325029..63ae55f 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -17,7 +17,7 @@ from typing import Iterator
+ from typing import List
+ from typing import Optional
+ from typing import TypeVar
+-from typing import Union
++from typing import Union, cast
+ from typing import cast
+ from typing import overload
+ 
+@@ -1227,6 +1227,87 @@ class Table(AbstractTable):
+             self.display_name,
+         )
+ 
++    def add(self: "Table", key: Union[Key, Item, str], item: Item = None) -> "Table":
++        """
++        Adds an item to the current Table.
++        """
++        if item is None:
++            if not isinstance(key, (Comment, Whitespace)):
++                # Special handling for dotted keys
++                if isinstance(key, Key) and key.is_dotted():
++                    return self._handle_dotted_key_add(key, None)
++                raise ValueError(
++                    "Non comment/whitespace items must have an associated key"
++                )
++
++            key, item = None, key
++
++        # Special handling for dotted keys
++        if isinstance(key, Key) and key.is_dotted():
++            return self._handle_dotted_key_add(key, item)
++        
++        return super().add(key, item)
++
++    def _handle_dotted_key_add(self, key: Key, value: Item) -> "Table":
++        """
++        Handle adding a dotted key to the table, creating the necessary nested structure.
++        """
++        from .items import item as _item
++        from .container import Container as ContainerClass
++        
++        if value is None:
++            # This case shouldn't happen for tables, but let's handle it gracefully
++            return self
++            
++        if not isinstance(value, Item):
++            value = _item(value)
++        
++        names = tuple(iter(key))
++        name = names[0]
++        name._dotted = True
++        
++        # Check if the first part already exists
++        if name.key in self:
++            existing = self[name.key]
++            if isinstance(existing, Table):
++                # It's a table, we can extend it
++                _table = existing
++                for i, _name in enumerate(names[1:]):
++                    if i == len(names) - 2:
++                        # Last part, add the value
++                        _name.sep = key.sep
++                        _table.append(_name, value)
++                        break
++                    else:
++                        # Intermediate part
++                        _name._dotted = True
++                        if _name.key in _table:
++                            _table = _table[_name.key]
++                        else:
++                            new_table = Table(ContainerClass(True), Trivia(), False, is_super_table=True)
++                            _table.append(_name, new_table)
++                            _table = new_table
++                return self
++        
++        # First part doesn't exist, create the full structure
++        table = Table(ContainerClass(True), Trivia(), False, is_super_table=True)
++        self.append(name, table)
++        
++        _table = table
++        for i, _name in enumerate(names[1:]):
++            if i == len(names) - 2:
++                # Last part, add the value
++                _name.sep = key.sep
++                _table.append(_name, value)
++            else:
++                # Intermediate part
++                _name._dotted = True
++                new_table = Table(ContainerClass(True), Trivia(), False, is_super_table=True)
++                _table.append(_name, new_table)
++                _table = new_table
++        
++        return self
++
+     def append(self, key, _item):
+         """
+         Appends a (key, item) to the table.
+diff --git a/tomlkit/toml_document.py b/tomlkit/toml_document.py
+index b485e30..0385b57 100644
+--- a/tomlkit/toml_document.py
++++ b/tomlkit/toml_document.py
+@@ -1,7 +1,91 @@
++from typing import Union
++
+ from .container import Container
++from .items import Item, Key, Table, Trivia, Comment, Whitespace
+ 
+ 
+ class TOMLDocument(Container):
+     """
+     A TOML document.
+     """
++
++    def add(self, key: Union[Key, Item, str], item: Item = None) -> "TOMLDocument":
++        """
++        Adds an item to the current Document.
++        """
++        if item is None:
++            if not isinstance(key, (Comment, Whitespace)):
++                # Special handling for dotted keys
++                if isinstance(key, Key) and key.is_dotted():
++                    return self._handle_dotted_key_add(key, None)
++                raise ValueError(
++                    "Non comment/whitespace items must have an associated key"
++                )
++
++            key, item = None, key
++
++        # Special handling for dotted keys
++        if isinstance(key, Key) and key.is_dotted():
++            return self._handle_dotted_key_add(key, item)
++        
++        return super().add(key, item)
++
++    def _handle_dotted_key_add(self, key: Key, value: Item) -> "TOMLDocument":
++        """
++        Handle adding a dotted key to the document, creating the necessary nested structure.
++        """
++        from .items import item as _item
++        from .container import Container as ContainerClass
++        
++        if value is None:
++            # This case shouldn't happen for documents, but let's handle it gracefully
++            return self
++            
++        if not isinstance(value, Item):
++            value = _item(value)
++        
++        names = tuple(iter(key))
++        name = names[0]
++        name._dotted = True
++        
++        # Check if the first part already exists
++        if name.key in self:
++            existing = self[name.key]
++            if isinstance(existing, Table):
++                # It's a table, we can extend it
++                _table = existing
++                for i, _name in enumerate(names[1:]):
++                    if i == len(names) - 2:
++                        # Last part, add the value
++                        _name.sep = key.sep
++                        _table.append(_name, value)
++                        break
++                    else:
++                        # Intermediate part
++                        _name._dotted = True
++                        if _name.key in _table:
++                            _table = _table[_name.key]
++                        else:
++                            new_table = Table(ContainerClass(True), Trivia(), False, is_super_table=True)
++                            _table.append(_name, new_table)
++                            _table = new_table
++                return self
++        
++        # First part doesn't exist, create the full structure
++        table = Table(ContainerClass(True), Trivia(), False, is_super_table=True)
++        self.append(name, table)
++        
++        _table = table
++        for i, _name in enumerate(names[1:]):
++            if i == len(names) - 2:
++                # Last part, add the value
++                _name.sep = key.sep
++                _table.append(_name, value)
++            else:
++                # Intermediate part
++                _name._dotted = True
++                new_table = Table(ContainerClass(True), Trivia(), False, is_super_table=True)
++                _table.append(_name, new_table)
++                _table = new_table
++        
++        return self

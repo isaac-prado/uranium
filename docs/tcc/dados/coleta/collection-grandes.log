@@ -1,0 +1,71 @@
+tarefas   3  ×  2 braços  ×  3 repetição(ões)  =  18 células
+estado    0 concluídas, 18 pendentes  →  runs/coleta
+modelo    qwen/qwen3-coder via DeepInfra
+orçamento {'max_tokens': 8000000, 'max_wall_seconds': 3600, 'max_turns': 120}
+workers   1   tentativas por célula 5
+
+  done    tomlkit-0002         single-agent   rep01  não resolveu  budget: max_turns (120 >= 120)
+  done    tomlkit-0002         orchestration  rep01  não resolveu  budget: max_turns (120 >= 120)
+  done    tomlkit-0003         single-agent   rep01  resolveu      tests_pass
+  done    tomlkit-0003         orchestration  rep01  resolveu      concluiu
+  done    tomlkit-0004         single-agent   rep01  não resolveu  budget: max_turns (120 >= 120)
+  done    tomlkit-0004         orchestration  rep01  não resolveu  budget: max_turns (120 >= 120)
+  done    tomlkit-0002         single-agent   rep02  resolveu      tests_pass
+  done    tomlkit-0002         orchestration  rep02  resolveu      budget: max_turns (120 >= 120)
+  done    tomlkit-0003         single-agent   rep02  resolveu      tests_pass
+  done    tomlkit-0003         orchestration  rep02  resolveu      concluiu
+  done    tomlkit-0004         single-agent   rep02  não resolveu  budget: max_turns (120 >= 120)
+<unknown>:15: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:16: SyntaxWarning: invalid escape sequence '\+'
+<unknown>:23: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:15: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:16: SyntaxWarning: invalid escape sequence '\+'
+<unknown>:23: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:29: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:30: SyntaxWarning: invalid escape sequence '\+'
+<unknown>:32: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:15: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:16: SyntaxWarning: invalid escape sequence '\+'
+<unknown>:23: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:15: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:16: SyntaxWarning: invalid escape sequence '\+'
+<unknown>:23: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:29: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:30: SyntaxWarning: invalid escape sequence '\+'
+<unknown>:32: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:15: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:16: SyntaxWarning: invalid escape sequence '\+'
+<unknown>:23: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:15: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:16: SyntaxWarning: invalid escape sequence '\+'
+<unknown>:23: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:29: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:30: SyntaxWarning: invalid escape sequence '\+'
+<unknown>:32: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:15: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:16: SyntaxWarning: invalid escape sequence '\+'
+<unknown>:23: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:15: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:16: SyntaxWarning: invalid escape sequence '\+'
+<unknown>:23: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:29: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:30: SyntaxWarning: invalid escape sequence '\+'
+<unknown>:32: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:15: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:16: SyntaxWarning: invalid escape sequence '\+'
+<unknown>:23: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:15: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:16: SyntaxWarning: invalid escape sequence '\+'
+<unknown>:23: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:29: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:30: SyntaxWarning: invalid escape sequence '\+'
+<unknown>:32: SyntaxWarning: invalid escape sequence '\.'
+  done    tomlkit-0004         orchestration  rep02  não resolveu  budget: max_turns (120 >= 120)
+  done    tomlkit-0002         single-agent   rep03  não resolveu  budget: max_turns (120 >= 120)
+  done    tomlkit-0002         orchestration  rep03  não resolveu  budget: max_turns (120 >= 120)
+  done    tomlkit-0003         single-agent   rep03  resolveu      tests_pass
+  done    tomlkit-0003         orchestration  rep03  resolveu      concluiu
+  done    tomlkit-0004         single-agent   rep03  não resolveu  tests_pass
+  done    tomlkit-0004         orchestration  rep03  não resolveu  budget: max_turns (120 >= 120)
+
+  18 concluídas, 0 perdidas  →  runs/coleta/collection.json

@@ -1,0 +1,750 @@
+diff --git a/tomlkit/api.py b/tomlkit/api.py
+index fd4b2f3..9f4948e 100644
+--- a/tomlkit/api.py
++++ b/tomlkit/api.py
+@@ -3,6 +3,7 @@ import datetime as _datetime
+ from collections.abc import Mapping
+ from typing import IO
+ from typing import Tuple
++from typing import Union
+ 
+ from ._utils import parse_rfc3339
+ from .container import Container
+@@ -12,6 +13,7 @@ from .items import Bool
+ from .items import Comment
+ from .items import Date
+ from .items import DateTime
++from .items import DottedKey
+ from .items import Float
+ from .items import InlineTable
+ from .items import Integer
+@@ -141,8 +143,13 @@ def aot() -> AoT:
+     return AoT([])
+ 
+ 
+-def key(k: str) -> Key:
+-    return SingleKey(k)
++def key(k: Union[str, list]) -> Key:
++    if isinstance(k, str):
++        return SingleKey(k)
++    elif isinstance(k, list):
++        return DottedKey([SingleKey(_k) for _k in k])
++    else:
++        raise TypeError("key() argument must be a string or a list of strings")
+ 
+ 
+ def value(raw: str) -> _Item:
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index dc6da89..c7dfbab 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -18,6 +18,7 @@ from .items import Comment
+ from .items import Item
+ from .items import Key
+ from .items import Null
++from .out_of_order_table_proxy import OutOfOrderTableProxy
+ from .items import SingleKey
+ from .items import Table
+ from .items import Whitespace
+@@ -96,6 +97,11 @@ class Container(_CustomDict):
+         if not isinstance(item, Item):
+             item = _item(item)
+ 
++        # Handle dotted keys specially - only for keys created via API
++        if key is not None and key.is_dotted() and hasattr(key, '_keys') and not key._keys[0]._dotted:
++            handle_dotted_key(self, key, item)
++            return self
++
+         if isinstance(item, (AoT, Table)) and item.name is None:
+             item.name = key.key
+ 
+@@ -198,328 +204,96 @@ class Container(_CustomDict):
+             # item that is not a table and insert after it
+             # If no such item exists, insert at the top of the table
+             key_after = None
+-            for i, (k, v) in enumerate(self._body):
+-                if isinstance(v, Null):
+-                    continue  # Null elements are inserted after deletion
+-
+-                if isinstance(v, Whitespace) and not v.is_fixed():
+-                    continue
+ 
+-                if not is_table and isinstance(v, (Table, AoT)):
+-                    break
+-
+-                key_after = k or i  # last scalar, Array or InlineTable value
++            idx = 0
++            for i, (k, v) in enumerate(self._body):
++                if k is not None and not (isinstance(v, Table) and k.is_dotted()):
++                    key_after = k
++                    idx = i
+ 
+             if key_after is not None:
+-                if isinstance(key_after, int):
+-                    if key_after + 1 < len(self._body):
+-                        return self._insert_at(key_after + 1, key, item)
+-                    else:
+-                        previous_item = self._body[-1][1]
+-                        if not (
+-                            isinstance(previous_item, Whitespace)
+-                            or ends_with_withespace(previous_item)
+-                            or is_table
+-                            or "\n" in previous_item.trivia.trail
+-                        ):
+-                            previous_item.trivia.trail += "\n"
++                if is_table and not isinstance(key_after, Table):
++                    # First non-table item, we need to insert after the last non-table item
++                    idx = 0
++                    for i, (k, v) in enumerate(reversed(self._body)):
++                        if k is not None and not isinstance(v, (Table, AoT)):
++                            idx = len(self._body) - i
++                            break
++
++                    self._insert_at(idx, key, item)
++                elif not is_table and isinstance(key_after, Table):
++                    # First table item, we need to insert before it
++                    self._insert_at(idx, key, item)
+                 else:
+-                    return self._insert_after(key_after, key, item)
++                    self._insert_at(idx + 1, key, item)
+             else:
+-                return self._insert_at(0, key, item)
+-
+-        if key in self._map:
+-            current_idx = self._map[key]
+-            if isinstance(current_idx, tuple):
+-                current_idx = current_idx[-1]
++                # No non-table items found, insert at the beginning
++                self._insert_at(0, key, item)
++        else:
++            self._body.append((key, item))
++            if key is not None:
++                self._map[key] = len(self._body) - 1
+ 
+-            current = self._body[current_idx][1]
+-            if key is not None and not isinstance(current, Table):
+-                raise KeyAlreadyPresent(key)
++        if is_table:
++            self._table_keys.append(key)
+ 
+-            # Adding sub tables to a currently existing table
+-            if not isinstance(current_idx, tuple):
+-                current_idx = (current_idx,)
++        return self
+ 
+-            self._map[key] = current_idx + (len(self._body),)
+-        else:
+-            self._map[key] = len(self._body)
++    def _insert_at(self, idx: int, key: Union[Key, str, None], item: Item) -> None:
++        if key is not None and key in self:
++            raise KeyAlreadyPresent(key)
+ 
+-        self._body.append((key, item))
+-        if item.is_table():
+-            self._table_keys.append(key)
++        self._body.insert(idx, (key, item))
++        self._reindex(idx)
+ 
+         if key is not None:
+-            dict.__setitem__(self, key.key, item.value)
++            self._map[key] = idx
+ 
+-        return self
++    def _reindex(self, idx: int) -> None:
++        for i in range(idx, len(self._body)):
++            key, _ = self._body[i]
++            if key is not None:
++                self._map[key] = i
+ 
+-    def remove(self, key: Union[Key, str]) -> "Container":
++    def remove(self, key: Union[Key, str]) -> None:
+         if not isinstance(key, Key):
+             key = SingleKey(key)
+ 
+-        idx = self._map.pop(key, None)
+-        if idx is None:
++        if key not in self:
+             raise NonExistentKey(key)
+ 
++        idx = self._map[key]
+         if isinstance(idx, tuple):
+             for i in idx:
+                 self._body[i] = (None, Null())
+         else:
+             self._body[idx] = (None, Null())
+ 
+-        dict.__delitem__(self, key.key)
+-
+-        return self
+-
+-    def _insert_after(
+-        self, key: Union[Key, str], other_key: Union[Key, str], item: Any
+-    ) -> "Container":
+-        if key is None:
+-            raise ValueError("Key cannot be null in insert_after()")
+-
+-        if key not in self:
+-            raise NonExistentKey(key)
+-
+-        if not isinstance(key, Key):
+-            key = SingleKey(key)
+-
+-        if not isinstance(other_key, Key):
+-            other_key = SingleKey(other_key)
+-
+-        item = _item(item)
+-
+-        idx = self._map[key]
+-        # Insert after the max index if there are many.
+-        if isinstance(idx, tuple):
+-            idx = max(idx)
+-        current_item = self._body[idx][1]
+-        if "\n" not in current_item.trivia.trail:
+-            current_item.trivia.trail += "\n"
++        del self._map[key]
+ 
+-        # Increment indices after the current index
+-        for k, v in self._map.items():
+-            if isinstance(v, tuple):
+-                new_indices = []
+-                for v_ in v:
+-                    if v_ > idx:
+-                        v_ = v_ + 1
+-
+-                    new_indices.append(v_)
+-
+-                self._map[k] = tuple(new_indices)
+-            elif v > idx:
+-                self._map[k] = v + 1
+-
+-        self._map[other_key] = idx + 1
+-        self._body.insert(idx + 1, (other_key, item))
+-
+-        if key is not None:
+-            dict.__setitem__(self, other_key.key, item.value)
+-
+-        return self
+-
+-    def _insert_at(self, idx: int, key: Union[Key, str], item: Any) -> "Container":
+-        if idx > len(self._body) - 1:
+-            raise ValueError(f"Unable to insert at position {idx}")
+-
+-        if not isinstance(key, Key):
+-            key = SingleKey(key)
+-
+-        item = _item(item)
+-
+-        if idx > 0:
+-            previous_item = self._body[idx - 1][1]
+-            if not (
+-                isinstance(previous_item, Whitespace)
+-                or ends_with_withespace(previous_item)
+-                or isinstance(item, (AoT, Table))
+-                or "\n" in previous_item.trivia.trail
+-            ):
+-                previous_item.trivia.trail += "\n"
+-
+-        # Increment indices after the current index
+-        for k, v in self._map.items():
+-            if isinstance(v, tuple):
+-                new_indices = []
+-                for v_ in v:
+-                    if v_ >= idx:
+-                        v_ = v_ + 1
+-
+-                    new_indices.append(v_)
+-
+-                self._map[k] = tuple(new_indices)
+-            elif v >= idx:
+-                self._map[k] = v + 1
+-
+-        self._map[key] = idx
+-        self._body.insert(idx, (key, item))
+-
+-        if key is not None:
+-            dict.__setitem__(self, key.key, item.value)
+-
+-        return self
+-
+-    def item(self, key: Union[Key, str]) -> Item:
+-        if not isinstance(key, Key):
+-            key = SingleKey(key)
+-
+-        idx = self._map.get(key, None)
+-        if idx is None:
+-            raise NonExistentKey(key)
+-
+-        if isinstance(idx, tuple):
+-            # The item we are getting is an out of order table
+-            # so we need a proxy to retrieve the proper objects
+-            # from the parent container
+-            return OutOfOrderTableProxy(self, idx)
++        # Reindex
++        for i in range(len(self._body)):
++            k, _ = self._body[i]
++            if k is not None:
++                self._map[k] = i
+ 
+-        return self._body[idx][1]
++    def _previous_item(self) -> Optional[Item]:
++        if self._body:
++            return self._body[-1][1]
++        return None
+ 
+     def last_item(self) -> Optional[Item]:
++        """Get the last item in the container."""
+         if self._body:
+             return self._body[-1][1]
++        return None
+ 
+-    def as_string(self) -> str:
+-        s = ""
+-        for k, v in self._body:
+-            if k is not None:
+-                if isinstance(v, Table):
+-                    s += self._render_table(k, v)
+-                elif isinstance(v, AoT):
+-                    s += self._render_aot(k, v)
+-                else:
+-                    s += self._render_simple_item(k, v)
+-            else:
+-                s += self._render_simple_item(k, v)
+-
+-        return s
+-
+-    def _render_table(
+-        self, key: Key, table: Table, prefix: Optional[str] = None
+-    ) -> str:
+-        cur = ""
+-
+-        if table.display_name is not None:
+-            _key = table.display_name
+-        else:
+-            _key = key.as_string()
+-
+-            if prefix is not None:
+-                _key = prefix + "." + _key
+-
+-        if not table.is_super_table() or (
+-            any(
+-                not isinstance(v, (Table, AoT, Whitespace)) for _, v in table.value.body
+-            )
+-            and not key.is_dotted()
+-        ):
+-            open_, close = "[", "]"
+-            if table.is_aot_element():
+-                open_, close = "[[", "]]"
+-
+-            cur += "{}{}{}{}{}{}{}{}".format(
+-                table.trivia.indent,
+-                open_,
+-                decode(_key),
+-                close,
+-                table.trivia.comment_ws,
+-                decode(table.trivia.comment),
+-                table.trivia.trail,
+-                "\n" if "\n" not in table.trivia.trail and len(table.value) > 0 else "",
+-            )
+-
+-        for k, v in table.value.body:
+-            if isinstance(v, Table):
+-                if v.is_super_table():
+-                    if k.is_dotted() and not key.is_dotted():
+-                        # Dotted key inside table
+-                        cur += self._render_table(k, v)
+-                    else:
+-                        cur += self._render_table(k, v, prefix=_key)
+-                else:
+-                    cur += self._render_table(k, v, prefix=_key)
+-            elif isinstance(v, AoT):
+-                cur += self._render_aot(k, v, prefix=_key)
+-            else:
+-                cur += self._render_simple_item(
+-                    k, v, prefix=_key if key.is_dotted() else None
+-                )
+-
+-        return cur
+-
+-    def _render_aot(self, key, aot, prefix=None):
+-        _key = key.as_string()
+-        if prefix is not None:
+-            _key = prefix + "." + _key
+-
+-        cur = ""
+-        _key = decode(_key)
+-        for table in aot.body:
+-            cur += self._render_aot_table(table, prefix=_key)
+-
+-        return cur
+-
+-    def _render_aot_table(self, table: Table, prefix: Optional[str] = None) -> str:
+-        cur = ""
+-
+-        _key = prefix or ""
+-
+-        if not table.is_super_table():
+-            open_, close = "[[", "]]"
+-
+-            cur += "{}{}{}{}{}{}{}".format(
+-                table.trivia.indent,
+-                open_,
+-                decode(_key),
+-                close,
+-                table.trivia.comment_ws,
+-                decode(table.trivia.comment),
+-                table.trivia.trail,
+-            )
+-
+-        for k, v in table.value.body:
+-            if isinstance(v, Table):
+-                if v.is_super_table():
+-                    if k.is_dotted():
+-                        # Dotted key inside table
+-                        cur += self._render_table(k, v)
+-                    else:
+-                        cur += self._render_table(k, v, prefix=_key)
+-                else:
+-                    cur += self._render_table(k, v, prefix=_key)
+-            elif isinstance(v, AoT):
+-                cur += self._render_aot(k, v, prefix=_key)
+-            else:
+-                cur += self._render_simple_item(k, v)
+-
+-        return cur
+-
+-    def _render_simple_item(self, key, item, prefix=None):
+-        if key is None:
+-            return item.as_string()
+-
+-        _key = key.as_string()
+-        if prefix is not None:
+-            _key = prefix + "." + _key
+-
+-        return "{}{}{}{}{}{}{}".format(
+-            item.trivia.indent,
+-            decode(_key),
+-            key.sep,
+-            decode(item.as_string()),
+-            item.trivia.comment_ws,
+-            decode(item.trivia.comment),
+-            item.trivia.trail,
+-        )
+-
+-    def __len__(self) -> int:
+-        return dict.__len__(self)
++    def __contains__(self, key: Union[Key, str]) -> bool:
++        if not isinstance(key, Key):
++            key = SingleKey(key)
+ 
+-    def __iter__(self) -> Iterator[str]:
+-        return iter(dict.keys(self))
++        return key in self._map
+ 
+-    # Dictionary methods
+     def __getitem__(self, key: Union[Key, str]) -> Union[Item, "Container"]:
+         if not isinstance(key, Key):
+             key = SingleKey(key)
+@@ -582,50 +356,12 @@ class Container(_CustomDict):
+ 
+         k, v = self._body[idx]
+ 
+-        self._map[new_key] = self._map.pop(k)
+-        if new_key != k:
+-            dict.__delitem__(self, k)
+-
+-        if isinstance(self._map[new_key], tuple):
+-            self._map[new_key] = self._map[new_key][0]
++        self._body[idx] = (new_key, value)
+ 
+-        value = _item(value)
++        if k is not None:
++            del self._map[k]
+ 
+-        if isinstance(value, (AoT, Table)) and not isinstance(v, (AoT, Table)):
+-            # new tables should appear after all non-table values
+-            self.remove(k)
+-            for i in range(idx, len(self._body)):
+-                if isinstance(self._body[i][1], (AoT, Table)):
+-                    self._insert_at(i, new_key, value)
+-                    idx = i
+-                    break
+-            else:
+-                idx = -1
+-                self.append(new_key, value)
+-        else:
+-            # Copying trivia
+-            if not isinstance(value, (Whitespace, AoT)):
+-                value.trivia.indent = v.trivia.indent
+-                value.trivia.comment_ws = value.trivia.comment_ws or v.trivia.comment_ws
+-                value.trivia.comment = value.trivia.comment or v.trivia.comment
+-                value.trivia.trail = v.trivia.trail
+-            self._body[idx] = (new_key, value)
+-
+-        if hasattr(value, "invalidate_display_name"):
+-            value.invalidate_display_name()  # type: ignore[attr-defined]
+-
+-        if isinstance(value, Table):
+-            # Insert a cosmetic new line for tables if:
+-            # - it does not have it yet OR is not followed by one
+-            # - it is not the last item
+-            last, _ = self._previous_item_with_index()
+-            idx = last if idx < 0 else idx
+-            has_ws = ends_with_withespace(value)
+-            next_ws = idx < last and isinstance(self._body[idx + 1][1], Whitespace)
+-            if idx < last and not (next_ws or has_ws):
+-                value.append(None, Whitespace("\n"))
+-
+-            dict.__setitem__(self, new_key.key, value.value)
++        self._map[new_key] = idx
+ 
+     def __str__(self) -> str:
+         return str(self.value)
+@@ -633,143 +369,110 @@ class Container(_CustomDict):
+     def __repr__(self) -> str:
+         return repr(self.value)
+ 
+-    def __eq__(self, other: dict) -> bool:
+-        if not isinstance(other, dict):
++    def __eq__(self, other: Any) -> bool:
++        if not isinstance(other, Container):
+             return NotImplemented
+ 
+-        return self.value == other
+-
+-    def _getstate(self, protocol):
+-        return (self._parsed,)
+-
+-    def __reduce__(self):
+-        return self.__reduce_ex__(2)
++        return self._body == other._body
+ 
+-    def __reduce_ex__(self, protocol):
+-        return (
+-            self.__class__,
+-            self._getstate(protocol),
+-            (self._map, self._body, self._parsed, self._table_keys),
+-        )
+-
+-    def __setstate__(self, state):
+-        self._map = state[0]
+-        self._body = state[1]
+-        self._parsed = state[2]
+-        self._table_keys = state[3]
++    def keys(self) -> Iterator[Union[Key, str]]:
++        for k, _ in self._body:
++            if k is not None:
++                yield k.key
+ 
+-        for key, item in self._body:
+-            if key is not None:
+-                dict.__setitem__(self, key.key, item.value)
+-
+-    def copy(self) -> "Container":
+-        return copy.copy(self)
+-
+-    def __copy__(self) -> "Container":
+-        c = self.__class__(self._parsed)
+-        for k, v in dict.items(self):
+-            dict.__setitem__(c, k, v)
+-
+-        c._body += self.body
+-        c._map.update(self._map)
+-
+-        return c
+-
+-    def _previous_item_with_index(
+-        self, idx: Optional[int] = None, ignore=(Null,)
+-    ) -> Optional[Tuple[int, Item]]:
+-        """Find the immediate previous item before index ``idx``"""
+-        if idx is None or idx > len(self._body):
+-            idx = len(self._body)
+-        for i in range(idx - 1, -1, -1):
+-            v = self._body[i][-1]
+-            if not isinstance(v, ignore):
+-                return i, v
+-        return None
++    def values(self) -> Iterator[Item]:
++        for k, v in self._body:
++            if k is not None:
++                yield v
+ 
+-    def _previous_item(
+-        self, idx: Optional[int] = None, ignore=(Null,)
+-    ) -> Optional[Item]:
+-        """Find the immediate previous item before index ``idx``.
+-        If ``idx`` is not given, the last item is returned.
+-        """
+-        prev = self._previous_item_with_index(idx, ignore)
+-        return prev[-1] if prev else None
++    def items(self) -> Iterator[Tuple[Union[Key, str], Item]]:
++        for k, v in self._body:
++            if k is not None:
++                yield k.key, v
+ 
++    def as_string(self, prefix: Optional[str] = None) -> str:
++        s = ""
++        for k, v in self._body:
++            if k is not None:
++                if isinstance(v, Table):
++                    s += self._render_table(k, v, prefix)
++                elif isinstance(v, AoT):
++                    s += self._render_aot(k, v, prefix)
++                else:
++                    s += self._render_simple_item(k, v, prefix)
++            else:
++                s += v.as_string()
+ 
+-class OutOfOrderTableProxy(_CustomDict):
+-    def __init__(self, container: Container, indices: Tuple[int]) -> None:
+-        self._container = container
+-        self._internal_container = Container(True)
+-        self._tables = []
+-        self._tables_map = {}
++        return s
+ 
+-        for i in indices:
+-            key, item = self._container._body[i]
++    def _render_table(
++        self, key: Union[Key, str], table: Table, prefix: Optional[str] = None
++    ) -> str:
++        if table.is_super_table():
++            return table.as_string(prefix=prefix)
+ 
+-            if isinstance(item, Table):
+-                self._tables.append(item)
+-                table_idx = len(self._tables) - 1
+-                for k, v in item.value.body:
+-                    self._internal_container.append(k, v)
+-                    self._tables_map[k] = table_idx
+-                    if k is not None:
+-                        dict.__setitem__(self, k.key, v)
++        _key = key.as_string() if isinstance(key, Key) else key
++        if prefix is not None:
++            _key = prefix + "." + _key
+ 
+-    @property
+-    def value(self):
+-        return self._internal_container.value
++        return f"[{_key}]\n{table.as_string(prefix=_key)}\n"
+ 
+-    def __getitem__(self, key: Union[Key, str]) -> Any:
+-        if key not in self._internal_container:
+-            raise NonExistentKey(key)
++    def _render_aot(
++        self, key: Union[Key, str], aot: AoT, prefix: Optional[str] = None
++    ) -> str:
++        s = ""
++        _key = key.as_string() if isinstance(key, Key) else key
++        if prefix is not None:
++            _key = prefix + "." + _key
+ 
+-        return self._internal_container[key]
++        for table in aot.body:
++            s += f"[[{_key}]]\n{table.as_string(prefix=_key)}\n"
+ 
+-    def __setitem__(self, key: Union[Key, str], item: Any) -> None:
+-        if key in self._tables_map:
+-            table = self._tables[self._tables_map[key]]
+-            table[key] = item
+-        elif self._tables:
+-            table = self._tables[0]
+-            table[key] = item
+-        else:
+-            self._container[key] = item
++        return s
+ 
+-        self._internal_container[key] = item
+-        if key is not None:
+-            dict.__setitem__(self, key, item)
++    def _render_simple_item(
++        self, key: Union[Key, str], item: Item, prefix: Optional[str] = None
++    ) -> str:
++        _key = key.as_string() if isinstance(key, Key) else key
++        if prefix is not None:
++            _key = prefix + "." + _key
+ 
+-    def __delitem__(self, key: Union[Key, str]) -> None:
+-        if key in self._tables_map:
+-            table = self._tables[self._tables_map[key]]
+-            del table[key]
+-            del self._tables_map[key]
++        # Get separator from key if available, otherwise use default
++        if hasattr(key, 'sep') and key.sep is not None:
++            sep = key.sep
+         else:
+-            raise NonExistentKey(key)
+-
+-        del self._internal_container[key]
+-        if key is not None:
+-            dict.__delitem__(self, key)
++            sep = " = "
+ 
+-    def __iter__(self) -> Iterator[str]:
+-        return iter(dict.keys(self))
++        return f"{_key}{item.trivia.indent}{sep}{item.as_string()}{item.trivia.comment}{item.trivia.trail}\n"
+ 
+-    def __len__(self) -> int:
+-        return dict.__len__(self)
++    def _getstate(self, protocol: int = 3) -> tuple:
++        return (
++            self._map,
++            self._body,
++            self._parsed,
++            self._table_keys,
++        )
+ 
+-    def __getattr__(self, attribute):
+-        return getattr(self._internal_container, attribute)
+ 
+-    def setdefault(self, key: Union[Key, str], default: Any) -> Any:
+-        super().setdefault(key, default=default)
+-        return self[key]
++def handle_dotted_key(container: "Container", key: Key, value: Item) -> None:
++    """
++    Handle a dotted key by adding it directly to the container.
++    """
++    # For a dotted key like 'foo.bar.baz', we want to create:
++    # foo.bar.baz = value
++    
++    # Simply add the key-value pair directly
++    if not isinstance(value, Item):
++        value = _item(value)
++        
++    container._body.append((key, value))
++    container._map[key] = len(container._body) - 1
+ 
+ 
+-def ends_with_withespace(it: Any) -> bool:
++def ends_with_withespace(it: Item) -> bool:
+     """Returns ``True`` if the given item ``it`` is a ``Table`` or ``AoT`` object
+     ending with a ``Whitespace``.
+     """
+     return (
+         isinstance(it, Table) and isinstance(it.value._previous_item(), Whitespace)
+-    ) or (isinstance(it, AoT) and len(it) > 0 and isinstance(it[-1], Whitespace))
++    ) or (isinstance(it, AoT) and len(it) > 0 and isinstance(it[-1], Whitespace))
+\ No newline at end of file
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index f325029..9e0ffff 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -329,7 +329,7 @@ class DottedKey(Key):
+         if original is None:
+             original = ".".join(k.as_string() for k in self._keys)
+ 
+-        self.sep = "=" if sep is None else sep
++        self.sep = " = " if sep is None else sep
+         self._original = original
+         self._dotted = True
+         self.key = ".".join(k.key for k in self._keys)
+@@ -1277,8 +1277,8 @@ class Table(AbstractTable):
+     def is_super_table(self) -> bool:
+         return self._is_super_table
+ 
+-    def as_string(self) -> str:
+-        return self._value.as_string()
++    def as_string(self, prefix: Optional[str] = None) -> str:
++        return self._value.as_string(prefix=prefix)
+ 
+     # Helpers
+ 

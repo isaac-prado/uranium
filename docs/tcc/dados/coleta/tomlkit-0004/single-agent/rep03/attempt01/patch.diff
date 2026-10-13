@@ -1,0 +1,82 @@
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..e9ee271 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -132,7 +132,44 @@ class Parser:
+ 
+             key, value = item
+             if not self._merge_ws(value, body):
+-                body.append(key, value)
++                # Handle dotted keys specially
++                if hasattr(key, '_is_dotted') and key._is_dotted:
++                    # Create nested structure for dotted key
++                    parts = key._dotted_parts
++                    current_container = body
++                    
++                    from .container import Container
++                    
++                    # Navigate/create intermediate tables
++                    for i, part in enumerate(parts[:-1]):  # All parts except the last
++                        part_key = Key(part)
++                        if part_key in current_container:
++                            # Use existing table
++                            existing = current_container[part_key]
++                            if isinstance(existing, Container):
++                                # This is the container inside a Table, use it directly
++                                current_container = existing
++                            elif isinstance(existing, Table):
++                                current_container = existing.value
++                            else:
++                                # If it's not a table/container, we have a conflict
++                                # This matches TOML spec behavior - stop here and add to current level
++                                final_key = Key(".".join(parts[i:]))
++                                current_container.append(final_key, value)
++                                break
++                        else:
++                            # Create new table for this part
++                            new_table = Table(Container(), Trivia(indent="", comment_ws="", comment="", trail="\n"), False)
++                            current_container.append(part_key, new_table)
++                            current_container = new_table.value
++                    
++                    else:
++                        # Add the final value to the deepest table
++                        final_key = Key(parts[-1])
++                        current_container.append(final_key, value)
++                else:
++                    # Regular key, append normally
++                    body.append(key, value)
+ 
+             self.mark()
+ 
+@@ -362,11 +399,30 @@ class Parser:
+ 
+         indent = self.extract()
+ 
+-        # Key
++        # Key - parse first part
+         key = self._parse_key()
+         if not key.key.strip():
+             raise self.parse_error(EmptyKeyError)
+ 
++        # Check for dotted key (additional parts separated by dots)
++        dotted_parts = [key.key]
++        while self._current == ".":
++            self.inc()  # Skip the dot
++            
++            # Parse next key part
++            next_key = self._parse_key()
++            if not next_key.key.strip():
++                raise self.parse_error(EmptyKeyError)
++            
++            dotted_parts.append(next_key.key)
++
++        # If we have multiple parts, create a dotted key representation
++        if len(dotted_parts) > 1:
++            key = Key(".".join(dotted_parts), sep="")
++            # Mark this key as dotted for special handling later
++            key._is_dotted = True
++            key._dotted_parts = dotted_parts
++
+         self.mark()
+ 
+         found_equals = self._current == "="

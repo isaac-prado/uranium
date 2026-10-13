@@ -1,0 +1,97 @@
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index 777d96a..29e28be 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -142,6 +142,7 @@ class Container(dict):
+             return self._body[-1][1]
+ 
+     def as_string(self, prefix=None):  # type: () -> str
++        
+         s = ""
+         for k, v in self._body:
+             if k is not None:
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..a5e3b37 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -69,6 +69,50 @@ class Parser:
+ 
+         self.inc()
+ 
++    def _handle_dotted_key(self, container, key, value):  # type: (Container, Key, Item) -> None
++        """
++        Handle dotted keys by creating nested table structures.
++        """
++        from .items import Table
++        from .container import Container as ItemsContainer
++        from .items import Trivia
++        
++        # Split the dotted key into parts
++        parts = list(self._split_table_name(key.key))
++        
++        # Navigate/create nested structure
++        current_container = container
++        for i, part in enumerate(parts[:-1]):  # All parts except the last one
++            if part.key not in current_container:
++                # Create new table for this part
++                trivia = Trivia(trail="")
++                new_table = Table(ItemsContainer(), trivia, False, is_super_table=True)
++                current_container.append(part, new_table)
++                current_container = new_table
++            else:
++                # Get existing table by looking through the body directly
++                existing_item = None
++                container_to_search = current_container
++                # If this is a Table, we need to look in its value (which is a Container)
++                if hasattr(container_to_search, 'value') and hasattr(container_to_search.value, 'body'):
++                    container_to_search = container_to_search.value
++                
++                for k, v in container_to_search.body:
++                    if k is not None and k.key == part.key:
++                        existing_item = v
++                        break
++                
++                if existing_item is not None and isinstance(existing_item, Table):
++                    current_container = existing_item
++                else:
++                    # This shouldn't happen in valid TOML, but let's handle it gracefully
++                    current_container = container
++                    break
++        
++        # Add the final value to the deepest table
++        final_part = parts[-1]
++        current_container.append(final_part, value)
++
+     def extract(self):  # type: () -> str
+         """
+         Extracts the value between marker and index
+@@ -132,7 +176,11 @@ class Parser:
+ 
+             key, value = item
+             if not self._merge_ws(value, body):
+-                body.append(key, value)
++                # Handle dotted keys by creating nested structures
++                if key is not None and "." in key.key and not key.key.startswith((".", '"', "'")):
++                    self._handle_dotted_key(body, key, value)
++                else:
++                    body.append(key, value)
+ 
+             self.mark()
+ 
+@@ -434,10 +482,14 @@ class Parser:
+ 
+     def _parse_bare_key(self):  # type: () -> Key
+         """
+-        Parses a bare key.
++        Parses a bare key, including dotted keys when appropriate.
+         """
+         self.mark()
+-        while self._current.is_bare_key_char() and self.inc():
++        # Parse until we hit a separator, but allow dots for dotted keys
++        while (not self.end() and 
++               not self._current.is_kv_sep() and
++               not self._current.is_ws() and
++               (self._current.is_bare_key_char() or self._current == ".")) and self.inc():
+             pass
+ 
+         key = self.extract()

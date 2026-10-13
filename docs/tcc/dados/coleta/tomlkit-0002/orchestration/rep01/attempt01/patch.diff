@@ -1,0 +1,50 @@
+diff --git a/tomlkit/api.py b/tomlkit/api.py
+index fd4b2f3..6c58d56 100644
+--- a/tomlkit/api.py
++++ b/tomlkit/api.py
+@@ -1,8 +1,9 @@
+ import datetime as _datetime
+ 
+-from collections.abc import Mapping
++from collections.abc import Iterable, Mapping
+ from typing import IO
+ from typing import Tuple
++from typing import Union
+ 
+ from ._utils import parse_rfc3339
+ from .container import Container
+@@ -12,6 +13,7 @@ from .items import Bool
+ from .items import Comment
+ from .items import Date
+ from .items import DateTime
++from .items import DottedKey
+ from .items import Float
+ from .items import InlineTable
+ from .items import Integer
+@@ -141,8 +143,11 @@ def aot() -> AoT:
+     return AoT([])
+ 
+ 
+-def key(k: str) -> Key:
+-    return SingleKey(k)
++def key(k: Union[str, Iterable[str]]) -> Key:
++    if isinstance(k, str):
++        return SingleKey(k)
++    else:
++        return DottedKey([SingleKey(_k) for _k in k])
+ 
+ 
+ def value(raw: str) -> _Item:
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index dc6da89..bdb523b 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -89,6 +89,8 @@ class Container(_CustomDict):
+ 
+         return self.append(key, item)
+ 
++
++
+     def append(self, key: Union[Key, str, None], item: Item) -> "Container":
+         if not isinstance(key, Key) and key is not None:
+             key = SingleKey(key)

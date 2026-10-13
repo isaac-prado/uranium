@@ -1,0 +1,26 @@
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index 6386e73..5f928ad 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -653,7 +653,7 @@ class Container(dict):
+         return str(self.value)
+ 
+     def __repr__(self):  # type: () -> str
+-        return super(Container, self).__repr__()
++        return self.value.__repr__()
+ 
+     def __eq__(self, other):  # type: (Dict) -> bool
+         if not isinstance(other, dict):
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 26b8f9f..08ae033 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -1045,7 +1045,7 @@ class Table(Item, dict):
+         self.remove(key)
+ 
+     def __repr__(self):
+-        return super(Table, self).__repr__()
++        return self.value.__repr__()
+ 
+     def __str__(self):
+         return str(self.value)
