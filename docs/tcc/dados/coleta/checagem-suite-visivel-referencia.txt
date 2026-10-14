@@ -1,0 +1,28 @@
+Checagem de 14/10/2026: suíte VISÍVEL (commit-base, sem o patch de teste) com cada patch de referência aplicado.
+Script inline (scripts/validate_task.py::_materializar/_aplicar + src.tools.exec.run_pytest sobre pass_to_pass), saída literal:
+attrs-0001         upstream    apply=True visível: VERDE passed=1238 failed=0 []
+attrs-0001         alternative apply=True visível: VERDE passed=1238 failed=0 []
+peewee-0001        upstream    apply=True visível: VERDE passed=1411 failed=0 []
+peewee-0001        alternative apply=True visível: VERDE passed=1411 failed=0 []
+peewee-0002        upstream    apply=True visível: VERDE passed=1399 failed=0 []
+peewee-0002        alternative apply=True visível: VERDE passed=1399 failed=0 []
+peewee-0003        upstream    apply=True visível: VERDE passed=1436 failed=0 []
+peewee-0003        alternative apply=True visível: VERDE passed=1436 failed=0 []
+pygments-0001      upstream    apply=True visível: VERMELHA passed=5294 failed=1 ['tests/examplefiles/go/generics.go::']
+pygments-0001      alternative apply=True visível: VERMELHA passed=5294 failed=1 ['tests/examplefiles/go/generics.go::']
+sqlite-utils-0001  upstream    apply=True visível: VERDE passed=1364 failed=0 []
+sqlite-utils-0001  alternative apply=True visível: VERDE passed=1364 failed=0 []
+sqlite-utils-0002  upstream    apply=True visível: VERMELHA passed=1477 failed=6 ['test_transform_sql_table_with_no_primary_key[', 'test_transform_sql_table_with_no_primary_key[', 'test_transform_sql_table_with_primary_key[Fal']
+sqlite-utils-0002  alternative apply=True visível: VERMELHA passed=1477 failed=6 (mesmos)
+sqlite-utils-0003  upstream    apply=True visível: VERDE passed=1186 failed=0 []
+sqlite-utils-0003  alternative apply=True visível: VERDE passed=1186 failed=0 []
+tomlkit-0001       upstream    apply=True visível: VERDE passed=1030 failed=0 []
+tomlkit-0001       alternative apply=True visível: VERDE passed=1030 failed=0 []
+tomlkit-0002       upstream    apply=True visível: VERDE passed=743 failed=0 []
+tomlkit-0002       alternative apply=True visível: VERDE passed=743 failed=0 []
+tomlkit-0003       upstream    apply=True visível: VERDE passed=547 failed=0 []
+tomlkit-0003       alternative apply=True visível: VERDE passed=547 failed=0 []
+tomlkit-0004       upstream    apply=True visível: VERMELHA passed=162 failed=1 ['test_items_can_be_appended_to_and_removed_from_a_table']
+tomlkit-0004       alternative apply=True visível: VERMELHA passed=162 failed=1 (mesmo)
+tomlkit-0005       upstream    apply=True visível: VERDE passed=1050 failed=0 []
+tomlkit-0005       alternative apply=True visível: VERDE passed=1050 failed=0 []
