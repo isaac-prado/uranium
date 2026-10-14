@@ -112,6 +112,10 @@ def _shared_limits(budget: RunBudget) -> dict[str, Any]:
         "max_tool_output_chars": MAX_TOOL_OUTPUT_CHARS,
         "list_files_max_results": _LIST_FILES_MAX_RESULTS,
         "recursion_limit": _recursion_limit(budget.max_turns),
+        # pytest com --rootdir=. no workspace (src/tools/exec.run_pytest); runs
+        # sem esta chave rodaram com rootdir na raiz do uranium, onde o
+        # visible_deselect não surtia efeito (rodada 2, 14/10/2026).
+        "pytest_rootdir": "workspace",
     }
 
 

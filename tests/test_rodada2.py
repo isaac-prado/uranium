@@ -60,6 +60,34 @@ class TestVisibleDeselect:
                                     run_id="desel2", dest=tmp_path / "ws2")
         assert run_pytest(ws2, ["tests/test_items.py"]).passed == com.passed + 1
 
+    @mirror_available
+    def test_deselect_vale_com_pyproject_acima_do_workspace(self, tmp_path):
+        """
+        Os runs ficam em runs/ dentro do uranium, cujo pyproject.toml tem
+        [tool.pytest.ini_options]. Sem --rootdir o pytest sobe até ele, os node
+        ids ganham o prefixo relativo à raiz do uranium e o --deselect não casa.
+        Reproduz o cenário: pyproject acima do workspace.
+        """
+        from src.tools.exec import run_pytest
+
+        (tmp_path / "pyproject.toml").write_text(
+            '[tool.pytest.ini_options]\ntestpaths = ["tests"]\npythonpath = ["."]\n', encoding="utf-8")
+        alvo = "tests/test_items.py::test_items_can_be_appended_to_and_removed_from_a_table"
+        ws = Workspace.materialize(
+            WorkspaceSpec(seed_repo=TOMLKIT, base_commit=BASE_COMMIT, visible_deselect=(alvo,)),
+            run_id="desel3", dest=tmp_path / "runs" / "ws",
+        )
+        com = run_pytest(ws, ["tests/test_items.py"])
+        assert "--rootdir ." in com.command
+        ws2 = Workspace.materialize(WorkspaceSpec(seed_repo=TOMLKIT, base_commit=BASE_COMMIT),
+                                    run_id="desel4", dest=tmp_path / "runs" / "ws2")
+        assert run_pytest(ws2, ["tests/test_items.py"]).passed == com.passed + 1
+
+    def test_manifesto_registra_o_rootdir(self):
+        from src.arms.runner import _shared_limits
+
+        assert _shared_limits(RunBudget()).get("pytest_rootdir") == "workspace"
+
     def test_as_tres_tarefas_declaram_a_lista_e_o_motivo(self):
         from harness.taskspec import load_task
 

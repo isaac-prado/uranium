@@ -120,6 +120,11 @@ def run_pytest(
         "--tb=short",
         "-p", "no:cacheprovider",
         "-o", "addopts=",
+        # rootdir fixo no workspace: sem isto o pytest sobe até o pyproject.toml
+        # do uranium (os runs ficam em runs/), os node ids ganham o prefixo
+        # runs/.../workspace/ e o --deselect, que compara prefixo de node id,
+        # não casa nada (rodada 2, 14/10/2026; shared_limits.pytest_rootdir).
+        "--rootdir", ".",
         # Testes visíveis que contradizem a correção certa (decisão 27):
         # iguais para o agente, o driver e o validador, nos dois braços.
         *(arg for node in getattr(ws.spec, "visible_deselect", ()) for arg in ("--deselect", node)),

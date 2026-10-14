@@ -23,6 +23,19 @@ def _v2(**extra) -> StructuredIntentV2:
 
 
 class TestSchemaV2:
+    def test_listas_aninhadas_e_vazias_sao_achatadas(self):
+        # tomlkit-0003 rep01 da rodada 2 morreu com reproduction=[[], [linha, linha]]
+        i = _v2(reproduction=[[], ["x = 1", "print(x)"], "y"], expected_outputs=["", " 1 "])
+        assert i.reproduction == ["x = 1\nprint(x)", "y"]
+        assert i.expected_outputs == [" 1 "]
+
+    def test_item_que_nao_e_texto_continua_invalido(self):
+        import pytest
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError):
+            _v2(reproduction=[[1, 2]])
+
     def test_markdown_carrega_reproducao_saidas_e_restricoes_literalmente(self):
         texto = _v2().to_markdown()
         assert texto.startswith("# Objetivo\nAceitar chaves pontilhadas.\n")
