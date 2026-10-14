@@ -377,6 +377,8 @@ Hoje conta como "sem corte" pela definição literal, e o JSON reporta `sem_stop
 | 12 (proposta) | congelar 120 turnos / 8 M / 3.600 s / ciclo 40 / memória ledger; tomlkit-0004 pode ficar sem resolução; aguarda o autor | 09/10/2026 | 07-e4-fumaca seção 13; dados/fumaca-09-10-h |
 | 12 (final) | **congelados** 120 turnos / 8 M tokens / 3.600 s / timeout 120 s; orquestrado ledger, ciclo 40, teto semântico 2 | 12/10/2026 | 09, Decisão 12; src/budget.py; .env.example; CLAUDE.md |
 | 26 | modelo mantido (qwen/qwen3-coder); segundo modelo = trabalho futuro; confirmar por escrito | 12/10/2026 | 09, Decisão 26; 08-escolha-modelo |
+| 7/16 (ablação) | ablação do refinador iniciada: orchestration com `DEVELOPER_INPUT=enunciado+intent`, rep. 1 das 13 tarefas, manifesto v8, `runs/ablacao-refinador/`; repetições seguintes conforme o crédito (US$ 4,70) | 14/10/2026 | 12-coleta-resultados seção 6; 13-registro-rodada-1 |
+| 27 (pendente) | três tarefas com suíte visível inalcançável (pygments-0001, sqlite-utils-0002, tomlkit-0004): declarar, excluir, reconstruir ou substituir | 14/10/2026 | 14-tres-tarefas-decisao |
 | 13 | 3 repetições, workers 1, single-agent primeiro no par, coleta começa pela faixa grande (12/10 21:09) | 12/10/2026 | 09, Decisão 13; runs/coleta |
 | 14 | erro do harness interrompe a coleta, célula refeita com a mesma semente, tentativa fora do denominador (regra manual) | 12/10/2026 | 09, Decisão 14; 07-execucao |
 | 14 (ocorrência) | reinício da máquina em 12/10 23:53 matou 1 tentativa (sqlite-utils-0003 SA rep1); refeita como attempt02, mesma semente; coleta fechada 78/78 em 13/10 | 13/10/2026 | 07-execucao; dados/coleta |
