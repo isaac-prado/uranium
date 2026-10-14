@@ -81,10 +81,20 @@ def _build_prompt(state: WorkflowState, diff: str = "") -> str:
     em que o histórico vem antes da mensagem mais recente do driver.
     """
     intent = parse_intent(state)
-    partes = [
-        "Tarefa:",
-        intent.model_dump_json(indent=2),
-    ]
+    if config.DEVELOPER_INPUT == "enunciado+intent":
+        # Ablação do refinador (decisões 7 e 16): o enunciado íntegro, a mesma
+        # string que o driver entrega ao single-agent, e a intent como anexo.
+        partes = [
+            str(state.get("raw_request") or ""),
+            "",
+            "Intenção estruturada:",
+            intent.model_dump_json(indent=2),
+        ]
+    else:
+        partes = [
+            "Tarefa:",
+            intent.model_dump_json(indent=2),
+        ]
 
     memoria = _memoria(state, diff)
     if memoria:

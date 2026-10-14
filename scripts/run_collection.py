@@ -20,6 +20,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.arms.collection import (  # noqa: E402
+    ARMS,
     CollectionAborted,
     inspect_cell,
     plan_cells,
@@ -56,13 +57,15 @@ def main() -> None:
     p.add_argument("--test-timeout", type=int, default=120)
     p.add_argument("--no-quality", action="store_true", help="Não mede MI/CC na avaliação")
     p.add_argument("--dry-run", action="store_true", help="Mostra o estado e sai")
+    p.add_argument("--arms", nargs="+", choices=list(ARMS), default=list(ARMS),
+                   help="Braços a rodar (padrão: os dois). A ablação do refinador roda só orchestration")
     args = p.parse_args()
 
     tarefas = args.tasks or sorted(d for d in Path("tasks").iterdir() if (d / "task.json").is_file())
-    celulas = plan_cells(tarefas, args.repetitions)
+    celulas = plan_cells(tarefas, args.repetitions, tuple(args.arms))
     estado = [inspect_cell(c, args.out) for c in celulas]
     contagem = Counter(e.status for e in estado)
-    print(f"tarefas   {len(tarefas)}  ×  2 braços  ×  {args.repetitions} repetição(ões)"
+    print(f"tarefas   {len(tarefas)}  ×  {len(args.arms)} braço(s) {args.arms}  ×  {args.repetitions} repetição(ões)"
           f"  =  {len(celulas)} células")
     print(f"estado    {contagem.get('done', 0)} concluídas, {contagem.get('pending', 0)} pendentes"
           f"  →  {args.out}")

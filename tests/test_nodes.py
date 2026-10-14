@@ -333,6 +333,33 @@ class TestDeveloperMemoriaDeTrabalho:
 
 
 @mirror_available
+class TestDeveloperEntradaDaAblacao:
+    """Ablação do refinador: o developer recebe o enunciado íntegro e a intent como anexo."""
+
+    def test_padrao_e_so_a_intent(self, monkeypatch):
+        from src import config
+        from src.agents.developer import _build_prompt
+
+        monkeypatch.setattr(config, "DEVELOPER_INPUT", "intent")
+        prompt = _build_prompt(_estado(raw_request="ENUNCIADO CRU"), diff="")
+        assert prompt.startswith("Tarefa:\n") and "ENUNCIADO CRU" not in prompt
+
+    def test_ablacao_entrega_o_enunciado_byte_a_byte_e_a_intent(self, monkeypatch):
+        from src import config
+        from src.agents.developer import _build_prompt
+        from src.arms.driver import DeterministicDriver
+        from src.state import parse_intent
+
+        monkeypatch.setattr(config, "DEVELOPER_INPUT", "enunciado+intent")
+        enunciado = "# Bug\n\nComo reproduzir:\n```python\nprint(1)\n```\n"
+        prompt = _build_prompt(_estado(raw_request=enunciado), diff="")
+        # a mesma string que o driver entrega ao single-agent, no início
+        assert prompt.startswith(DeterministicDriver().mensagem_inicial(enunciado))
+        assert "\n\nIntenção estruturada:\n" + parse_intent(_estado()).model_dump_json(indent=2) in prompt
+        assert "Tarefa:" not in prompt
+
+
+@mirror_available
 class TestDeveloperTetoPorCiclo:
     """
     Decisão 25 (09/10/2026): a orquestração decide quando checar. Ao bater o

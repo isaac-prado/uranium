@@ -59,6 +59,16 @@ MAX_SEMANTIC_REJECTIONS = int(os.getenv("MAX_SEMANTIC_REJECTIONS", "2"))
 DEVELOPER_CYCLE_MAX_TURNS = int(os.getenv("DEVELOPER_CYCLE_MAX_TURNS", "40"))
 if DEVELOPER_CYCLE_MAX_TURNS < 0:
     raise ValueError("DEVELOPER_CYCLE_MAX_TURNS não pode ser negativo (0 desliga)")
+# O que o developer do orchestration recebe como primeira mensagem (ablação
+# do refinador, decisões 7 e 16, 14/10/2026). "intent": só a intent do
+# `intent_refiner` (o protótipo do TFG; valor da coleta principal). "enunciado+intent":
+# o enunciado íntegro, a mesma string que o single-agent recebe, mais a intent
+# como anexo. Só o braço de ablação usa o segundo; vai ao manifesto em
+# `orchestration_policy.developer_input`.
+DEVELOPER_INPUT_MODES = ("intent", "enunciado+intent")
+DEVELOPER_INPUT = os.getenv("DEVELOPER_INPUT", "intent").strip().lower()
+if DEVELOPER_INPUT not in DEVELOPER_INPUT_MODES:
+    raise ValueError(f"DEVELOPER_INPUT={DEVELOPER_INPUT!r} inválido; use um de {DEVELOPER_INPUT_MODES}")
 DEVELOPER_MEMORY_MODES = ("ledger", "none")
 DEVELOPER_MEMORY = os.getenv("DEVELOPER_MEMORY", "ledger").strip().lower()
 if DEVELOPER_MEMORY not in DEVELOPER_MEMORY_MODES:

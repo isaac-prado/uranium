@@ -172,22 +172,30 @@ def run_cell(
     return estado
 
 
-def plan_cells(task_dirs: list[Path], repetitions: int) -> list[Cell]:
+def plan_cells(
+    task_dirs: list[Path], repetitions: int, arms: tuple[str, ...] = ARMS
+) -> list[Cell]:
     """
     Ordem de execução: repetição, depois tarefa, depois braço.
 
     Os dois braços de um par rodam em sequência, perto no tempo. Se o
     provedor degradar no meio da coleta, a degradação atinge o par inteiro,
     não um braço só — que é a direção que enviesaria a comparação.
+
+    `arms` restringe os braços: a ablação do refinador (decisões 7 e 16)
+    roda só o orchestration, pareado por semente com a coleta principal.
     """
     from harness.taskspec import load_task
 
+    desconhecidos = set(arms) - set(ARMS)
+    if desconhecidos:
+        raise ValueError(f"braço desconhecido: {sorted(desconhecidos)}")
     tarefas = [(d, load_task(d).task_id) for d in task_dirs]
     return [
         Cell(task_dir=d, task_id=tid, arm=arm, repetition=rep)
         for rep in range(1, repetitions + 1)
         for d, tid in tarefas
-        for arm in ARMS
+        for arm in arms
     ]
 
 

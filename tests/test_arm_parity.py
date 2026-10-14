@@ -176,7 +176,18 @@ class TestManifestoRegistraOQueAfetaOOrchestration:
 
     def test_manifest_version_subiu(self, tmp_path):
         """A forma do manifesto mudou (novas chaves): a versão precisa acompanhar."""
-        assert _spec("orchestration", tmp_path).manifest("t")["manifest_version"] == 7
+        assert _spec("orchestration", tmp_path).manifest("t")["manifest_version"] == 8
+
+    def test_mudar_developer_input_muda_o_manifesto(self, tmp_path, monkeypatch):
+        """Ablação do refinador (decisões 7 e 16): a entrada do developer é política do braço."""
+        from src import config
+
+        base = _spec("orchestration", tmp_path).manifest("t")["orchestration_policy"]
+        assert base["developer_input"] == config.DEVELOPER_INPUT == "intent"
+        monkeypatch.setattr(config, "DEVELOPER_INPUT", "enunciado+intent")
+
+        depois = _spec("orchestration", tmp_path).manifest("t")["orchestration_policy"]
+        assert depois != base and depois["developer_input"] == "enunciado+intent"
 
     def test_mudar_developer_cycle_max_turns_muda_o_manifesto(self, tmp_path, monkeypatch):
         """Decisão 25 (09/10/2026): o teto por ciclo é política do braço."""

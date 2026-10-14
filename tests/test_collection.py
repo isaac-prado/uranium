@@ -111,6 +111,17 @@ class TestPlano:
         ]
 
 
+    def test_so_um_braco_para_a_ablacao(self):
+        """Ablação do refinador: só o orchestration, mesma semente por repetição."""
+        celulas = plan_cells([TAREFA], repetitions=2, arms=("orchestration",))
+        assert [(c.repetition, c.arm) for c in celulas] == [(1, "orchestration"), (2, "orchestration")]
+
+    def test_braco_desconhecido_e_recusado(self):
+        import pytest
+        with pytest.raises(ValueError, match="braço desconhecido"):
+            plan_cells([TAREFA], repetitions=1, arms=("orchestration", "x"))
+
+
 class TestExecucao:
     def test_celula_concluida_nao_roda_de_novo(self, tmp_path):
         run_dir = _gravar_tentativa(tmp_path, 1, stop_reason="tests_pass", lost=False)

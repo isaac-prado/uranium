@@ -51,7 +51,11 @@ from src.workspace import Workspace, WorkspaceSpec
 # 7 = teto de turnos por ciclo do developer (decisão 25, 09/10/2026):
 # `orchestration_policy.developer_cycle_max_turns`. A fumaça G (v6) rodou
 # com o equivalente a 0 (desligado).
-MANIFEST_VERSION = 7
+# 8 = ablação do refinador (decisões 7 e 16, 14/10/2026):
+# `orchestration_policy.developer_input` ("intent" na coleta principal;
+# "enunciado+intent" só no braço de ablação). A coleta de 12-13/10 (v7)
+# rodou com o equivalente a "intent".
+MANIFEST_VERSION = 8
 
 # Chaves do manifesto que PODEM diferir entre os braços. Qualquer outra
 # divergência é violação do desenho experimental. Note que `repetition` NÃO
@@ -134,6 +138,9 @@ def _orchestration_policy() -> dict[str, Any]:
         # Memória de trabalho do developer entre ciclos (decisão 8 revista em
         # 09/10/2026): "ledger" entrega o registro dos ciclos anteriores e o
         # diff atual; "none" é a reconstrução do zero de 19/09.
+        # Primeira mensagem do developer (ablação do refinador, decisões 7 e
+        # 16): "intent" na coleta principal; "enunciado+intent" na ablação.
+        "developer_input": config.DEVELOPER_INPUT,
         "developer_memory": config.DEVELOPER_MEMORY,
         "developer_memory_diff_max_chars": MEMORIA_DIFF_MAX_CHARS,
         # Teto de turnos por ciclo do developer (decisão 25, 09/10/2026): ao
