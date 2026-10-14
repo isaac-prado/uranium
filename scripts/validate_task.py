@@ -30,6 +30,7 @@ from harness.pytest_runner import run_pytest  # noqa: E402
 from harness.taskspec import TaskSpec, load_task  # noqa: E402
 from harness.venvs import python_for  # noqa: E402
 from src.seeds import get_seed_repo  # noqa: E402
+from src.tools.exec import run_pytest as run_pytest_visivel  # noqa: E402
 from src.workspace import Workspace, WorkspaceSpec  # noqa: E402
 
 OK, FALHOU = "  OK  ", " FALHA"
@@ -52,7 +53,8 @@ class Validacao:
 
 def _materializar(task: TaskSpec, nome: str, raiz: Path) -> Workspace:
     return Workspace.materialize(
-        WorkspaceSpec(seed_repo=get_seed_repo(task.seed_repo_id), base_commit=task.base_commit),
+        WorkspaceSpec(seed_repo=get_seed_repo(task.seed_repo_id), base_commit=task.base_commit,
+                      visible_deselect=task.visible_deselect),
         run_id=nome, dest=raiz / nome, overwrite=True,
     )
 
@@ -125,6 +127,27 @@ def validar(task: TaskSpec, raiz: Path, *, com_qualidade: bool = False) -> Valid
         v.checar(r["oracle"]["p2p"]["exit_code"] == 0, f"[{nome}] sem regressão")
         v.checar(r["cheat"]["clean"], f"[{nome}] não dispara o detector",
                  json.dumps(r["cheat"]["signals"]))
+
+    # 5. critério de parada alcançável (decisão 27, 14/10/2026): com cada
+    #    referência aplicada e SEM o patch de teste, a suíte visível que o
+    #    agente roda tem de ficar verde. Três tarefas da coleta de 12-13/10
+    #    falhavam aqui porque o patch de teste modificava testes visíveis ou
+    #    um arquivo dourado protegido (docs/tcc/14-tres-tarefas-decisao.md).
+    print("\n5. critério de parada alcançável (suíte visível verde com a referência)")
+    for rel in task.reference_patches:
+        nome = Path(rel).stem
+        ws = _materializar(task, f"visivel-{nome}", raiz)
+        if not _aplicar(task.root / rel, ws.root):
+            v.checar(False, f"[{nome}] patch aplica (portão 5)")
+            continue
+        # A suíte que o AGENTE roda (src/tools/exec.run_pytest): aplica o
+        # `visible_deselect` da tarefa, ao contrário do runner do oráculo.
+        suite_ref = run_pytest_visivel(ws, list(task.pass_to_pass),
+                                       python_bin=python_for(task.seed_repo_id), timeout_s=600)
+        v.checar(suite_ref.green,
+                 f"[{nome}] suíte visível verde com a referência "
+                 f"({suite_ref.passed} testes; deselecionados: {len(task.visible_deselect)})",
+                 json.dumps(suite_ref.failing_node_ids[:5]))
 
     # 4. patches de trapaça
     print(f"\n4. detector de trapaça ({len(task.cheat_patches)} patches plantados)")

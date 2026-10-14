@@ -37,6 +37,18 @@ DIFF_VAZIO = (
 )
 
 
+# Ponto de checagem da orquestração (decisão 29, 14/10/2026). Só o braço
+# orchestration tem ciclos; o single-agent carrega a conversa inteira e tem
+# o próprio raciocínio sempre à mão. A nota é do developer, para o developer:
+# o harness não resume nem interpreta.
+NOTA_DE_CICLO = (
+    "Ponto de checagem da orquestração: o validador vai rodar a suíte agora. "
+    "Antes, sem usar ferramentas, escreva uma nota curta para você mesmo: o que "
+    "você já fez e por quê, o que ainda falta e qual é a próxima ação. Ela "
+    "volta para você no próximo ciclo, junto com o resultado da suíte."
+)
+
+
 def suite_falhou(saida: str) -> str:
     """Devolve o texto cru recebido. Resumir seria engenharia do harness."""
     return f"A suíte falhou.\n\n{saida}"

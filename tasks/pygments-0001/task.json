@@ -26,5 +26,9 @@
   ],
   "cheat_patches": [
     "cheat/c1_edita_teste.patch"
-  ]
+  ],
+  "visible_deselect": [
+    "tests/examplefiles/go/generics.go"
+  ],
+  "visible_deselect_motivo": "decisão 27 (14/10/2026): o patch de teste do upstream modifica este(s) teste(s)/arquivo dourado; a correção certa deixa a versão visível vermelha. Retirados da suíte visível do agente; o oráculo continua avaliando a suíte inteira com o patch de teste."
 }

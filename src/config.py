@@ -74,6 +74,21 @@ INTENT_REFINER_VERSIONS = ("v1", "v2")
 INTENT_REFINER = os.getenv("INTENT_REFINER", "v1").strip().lower()
 if INTENT_REFINER not in INTENT_REFINER_VERSIONS:
     raise ValueError(f"INTENT_REFINER={INTENT_REFINER!r} inválido; use um de {INTENT_REFINER_VERSIONS}")
+# Revisor que executa (decisão 29, 14/10/2026): com "on", o validador roda
+# os blocos de `reproduction` da intent v2 no código atual e entrega as
+# saídas reais ao revisor, ao lado das esperadas, antes do veredito. "off":
+# o revisor só lê o diff (coleta principal).
+REVIEW_EXECUTION_MODES = ("on", "off")
+REVIEW_EXECUTION = os.getenv("REVIEW_EXECUTION", "off").strip().lower()
+if REVIEW_EXECUTION not in REVIEW_EXECUTION_MODES:
+    raise ValueError(f"REVIEW_EXECUTION={REVIEW_EXECUTION!r} inválido; use um de {REVIEW_EXECUTION_MODES}")
+# Nota de ciclo (decisão 29): com "on", ao bater o teto do ciclo o developer
+# escreve, numa chamada sem ferramentas, o que fez, por que e o que falta; a
+# nota entra na memória de trabalho. "off": a memória leva só o registro.
+CYCLE_NOTE_MODES = ("on", "off")
+CYCLE_NOTE = os.getenv("CYCLE_NOTE", "off").strip().lower()
+if CYCLE_NOTE not in CYCLE_NOTE_MODES:
+    raise ValueError(f"CYCLE_NOTE={CYCLE_NOTE!r} inválido; use um de {CYCLE_NOTE_MODES}")
 DEVELOPER_INPUT_MODES = ("intent", "enunciado+intent")
 DEVELOPER_INPUT = os.getenv("DEVELOPER_INPUT", "intent").strip().lower()
 if DEVELOPER_INPUT not in DEVELOPER_INPUT_MODES:

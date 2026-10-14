@@ -136,7 +136,7 @@ Fontes: [04-cronograma.md](04-cronograma.md), [07-execucao.md](07-execucao.md), 
 
 **Recomendação.** (c) quando houver crédito; (a) no texto até lá.
 
-**Decisão:** ______ (data: ______)
+**Decisão (14/10/2026), palavras do autor: "Vamos seguir a proposta então, iniciar com a rodada 2 no qwen."** (c): as três tarefas ganham `visible_deselect` no `task.json` (pygments-0001: `tests/examplefiles/go/generics.go`; sqlite-utils-0002: os 6 node ids de `test_transform_sql_table_with_(no_)primary_key` que o patch de teste altera; tomlkit-0004: `tests/test_items.py::test_items_can_be_appended_to_and_removed_from_a_table`), retirados da suíte visível do agente, do driver e do validador por `--deselect`, mantidos no oráculo. `scripts/validate_task.py` ganha o quinto portão (suíte visível verde com cada referência, sem o patch de teste). As 18 células dessas tarefas são recoletadas na rodada 2, nos dois braços; as células da rodada 1 ficam versionadas. Faixas inalteradas (o patch de referência não mudou).
 
 ### Decisão 28. Refinador v2: enriquecer em vez de resumir
 
@@ -149,9 +149,20 @@ Fontes: [04-cronograma.md](04-cronograma.md), [07-execucao.md](07-execucao.md), 
 - Developer e revisor recebem o mesmo texto (`Tarefa:` + markdown). Manifesto v9: `orchestration_policy.intent_refiner`.
 - Testes: `tests/test_intent_v2.py` (schema, parse, escolha de versão, prompts do developer e do revisor), `tests/test_arm_parity.py::test_mudar_intent_refiner_muda_o_manifesto`. Suíte: 627 passando.
 
-**O que não entrou (fica como decisão 29, pendente):** revisor semântico que executa os critérios em vez de ler o diff; clarificação com fonte de verdade ou remoção do nó.
+**O que não entrou na 28 e virou a decisão 29:** revisor que executa e nota de ciclo (abaixo). Clarificação com fonte de verdade ou remoção do nó: pendente.
 
 **Execução.** Coleta própria do braço orquestrado com `INTENT_REFINER=v2`, repetição 1 das 13 tarefas (≈ US$ 1,7), depois da ablação do refinador em curso; pareada por semente com a coleta principal e com a ablação.
+
+### Decisão 29. Revisor que executa e nota de ciclo (rodada 2)
+
+**Situação (14/10/2026).** Diagnóstico da coleta ([12-coleta-resultados.md](12-coleta-resultados.md), seção 6): o revisor semântico lê o diff sem executar e devolveu falsos negativos em 5 runs resolvidos; o developer, depois do reset do ciclo, desfaz ou reescreve em 8 runs porque a memória de trabalho carrega o que ele fez, não por quê.
+
+**Decisão (14/10/2026), palavras do autor: "Vamos seguir a proposta então, iniciar com a rodada 2 no qwen. Força qwen!!!!"** Aprovados por escrito, como políticas do braço orquestrado da rodada 2 (manifesto v10):
+
+- `REVIEW_EXECUTION=on`: com a suíte verde e intent v2, o validador executa cada bloco Python de `reproduction` no código atual (`run_python`, 60 s por bloco, saída truncada em 2.000 caracteres; blocos que não são Python são marcados e não executados) e entrega as saídas reais ao revisor ao lado das saídas esperadas, antes do veredito. As execuções ficam no evento `validation` (`executions`). Com intent v1 ou `off`, nada muda.
+- `CYCLE_NOTE=on`: ao bater o teto do ciclo, o developer recebe `NOTA_DE_CICLO` (`src/feedback.py`) e responde sem ferramentas; a resposta entra na memória de trabalho como `nota`. A chamada conta como turno e não acontece com o orçamento esgotado.
+
+**Rodada 2.** Orquestrado nas 13 tarefas × 3 repetições com `INTENT_REFINER=v2`, `REVIEW_EXECUTION=on`, `CYCLE_NOTE=on`, `DEVELOPER_INPUT=intent`; single-agent só nas três tarefas reconstruídas (decisão 27) × 3 repetições; as outras 30 células do single-agent vêm da rodada 1 (braço sem mudança, mesmas sementes, manifesto v7 cujas chaves novas são todas do orquestrado). 57 runs, ≈ US$ 9 a 10. Testes: `tests/test_rodada2.py`. Suíte: 641 passando.
 
 ## Bloco 2 — Tratamentos: o desenho do braço `orchestration`
 
@@ -402,6 +413,8 @@ Hoje conta como "sem corte" pela definição literal, e o JSON reporta `sem_stop
 | 26 | modelo mantido (qwen/qwen3-coder); segundo modelo = trabalho futuro; confirmar por escrito | 12/10/2026 | 09, Decisão 26; 08-escolha-modelo |
 | 7/16 (ablação) | ablação do refinador iniciada: orchestration com `DEVELOPER_INPUT=enunciado+intent`, rep. 1 das 13 tarefas, manifesto v8, `runs/ablacao-refinador/`; repetições seguintes conforme o crédito (US$ 4,70) | 14/10/2026 | 12-coleta-resultados seção 6; 13-registro-rodada-1 |
 | 27 (pendente) | três tarefas com suíte visível inalcançável (pygments-0001, sqlite-utils-0002, tomlkit-0004): declarar, excluir, reconstruir ou substituir | 14/10/2026 | 14-tres-tarefas-decisao |
+| 27 | (c) reconstruir: `visible_deselect` nas três tarefas, quinto portão em validate_task, recoleta de 18 células na rodada 2 | 14/10/2026 | 09, Decisão 27; tasks/*/task.json; scripts/validate_task.py |
+| 29 | revisor que executa (`REVIEW_EXECUTION`) e nota de ciclo (`CYCLE_NOTE`), manifesto v10; rodada 2 = 39 OR + 18 SA | 14/10/2026 | 09, Decisão 29; src/agents/validator.py; src/agents/developer.py |
 | 28 | **refinador v2 aprovado por escrito** ("EXATAMENTE, quero que ele enriqueça, compreenda e facilite. Implemente-o"): `INTENT_REFINER=v2`, schema `StructuredIntentV2` (reprodução, saídas esperadas, restrições, pontos em aberto), prompt `SYSTEM_PROMPT_V2`, intent em markdown para developer e revisor, manifesto v9; coleta própria do braço orquestrado, nunca misturada com a principal | 14/10/2026 | 09, Decisão 28; 15-refinador-analise; src/agents/intent_refiner.py; src/schemas/intent.py |
 | 13 | 3 repetições, workers 1, single-agent primeiro no par, coleta começa pela faixa grande (12/10 21:09) | 12/10/2026 | 09, Decisão 13; runs/coleta |
 | 14 | erro do harness interrompe a coleta, célula refeita com a mesma semente, tentativa fora do denominador (regra manual) | 12/10/2026 | 09, Decisão 14; 07-execucao |

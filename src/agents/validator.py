@@ -15,14 +15,17 @@ oráculos que o agente nunca viu.
 from __future__ import annotations
 
 import os
+import re
 from typing import Any
 
+from src import config
 from src.runtime import RunContext
-from src.schemas.intent import intent_as_text
+from src.schemas.intent import StructuredIntentV2, intent_as_text
 from src.schemas.validation_result import ValidationResult
 from src.state import WorkflowState, parse_intent
 from src.structured_llm import StructuredOutputError, invoke_structured
-from src.tools.exec import run_pytest
+from src.tools.base import truncate
+from src.tools.exec import run_pytest, run_python
 
 SYSTEM_PROMPT = """\
 Você é um revisor técnico. A suíte de testes JÁ PASSOU — isto não está em
@@ -51,17 +54,18 @@ def validator(state: WorkflowState) -> dict[str, Any]:
 
         semantic: ValidationResult | None = None
         if report.green and semantic_review_enabled():
+            execucoes = _executar_reproducao(state, ctx)
             try:
                 semantic = ctx.invoke_structured(
                     ValidationResult,
                     [
                         ("system", SYSTEM_PROMPT),
-                        ("user", _build_review_prompt(state, ctx)),
+                        ("user", _build_review_prompt(state, ctx, execucoes)),
                     ],
                 )
                 # O veredito vai à telemetria: na fumaça D de 09/10 o revisor
                 # reprovou um patch com a suíte verde e nada registrava o motivo.
-                ctx.telemetry.emit_validation(semantic)
+                ctx.telemetry.emit_validation(semantic, executions=execucoes)
             except StructuredOutputError as exc:
                 # Falha de conformidade não pode reprovar código que passa nos
                 # testes; fica registrada e o veredito segue pela execução.
@@ -98,17 +102,60 @@ def validator(state: WorkflowState) -> dict[str, Any]:
     }
 
 
-def _build_review_prompt(state: WorkflowState, ctx: RunContext) -> str:
+_CERCA = re.compile(r"^```([\w+-]*)\s*\n(.*?)\n?```\s*$", re.S)
+MAX_SAIDA_EXECUCAO_CHARS = 2_000
+
+
+def _codigo_python(bloco: str) -> str | None:
+    """Conteúdo de um bloco de `reproduction` se for Python (cerca `python` ou sem cerca)."""
+    m = _CERCA.match(bloco.strip())
+    if not m:
+        return bloco.strip()
+    linguagem = (m.group(1) or "").lower()
+    return m.group(2) if linguagem in ("", "python", "py", "python3") else None
+
+
+def _executar_reproducao(state: WorkflowState, ctx: RunContext) -> list[dict[str, Any]]:
+    """
+    Revisor que executa (decisão 29): roda os blocos de reprodução da intent
+    v2 no código atual e devolve as saídas reais. Com `REVIEW_EXECUTION=off`,
+    ou com intent v1 (sem `reproduction`), não faz nada e o revisor segue
+    lendo só o diff, como na coleta principal.
+    """
+    intent = parse_intent(state)
+    if config.REVIEW_EXECUTION != "on" or not isinstance(intent, StructuredIntentV2):
+        return []
+    saidas: list[dict[str, Any]] = []
+    for i, bloco in enumerate(intent.reproduction, 1):
+        codigo = _codigo_python(bloco)
+        if codigo is None or not codigo.strip():
+            saidas.append({"bloco": i, "executado": False, "saida": "(não executado: não é Python)"})
+            continue
+        saida = run_python(ctx.workspace, codigo, timeout_s=min(60, ctx.test_timeout_s))
+        saidas.append({"bloco": i, "executado": True,
+                       "saida": truncate(saida, MAX_SAIDA_EXECUCAO_CHARS)})
+    return saidas
+
+
+def _build_review_prompt(
+    state: WorkflowState, ctx: RunContext, execucoes: list[dict[str, Any]] | None = None
+) -> str:
     """Tarefa + diff efetivo, que é o artefato real produzido pelo agente."""
     intent = parse_intent(state)
     diff = ctx.workspace.diff()
     if len(diff) > 20_000:
         diff = diff[:20_000] + "\n[... diff truncado ...]"
 
-    return "\n".join([
+    partes = [
         "Tarefa:",
         intent_as_text(intent),
         "",
         "Diff aplicado pelo agente (a suíte passou com ele):",
         diff or "(nenhuma alteração)",
-    ])
+    ]
+    if execucoes:
+        partes += ["", "Execução dos exemplos de reprodução sobre o código atual "
+                       "(saída real, para comparar com as saídas esperadas da tarefa):"]
+        for ex in execucoes:
+            partes += [f"[bloco {ex['bloco']}]", ex["saida"]]
+    return "\n".join(partes)

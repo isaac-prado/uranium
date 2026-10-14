@@ -266,3 +266,14 @@ Relatório em [07-e4-fumaca.md](07-e4-fumaca.md): 4 células (`tomlkit-0002` gra
 
 **Impacto em docs.** Decisões 7/16 (ablação em curso), 27 (pendente) e 28 (decidida) em [09-decisoes-do-autor.md](09-decisoes-do-autor.md); [15-refinador-analise.md](15-refinador-analise.md); `CLAUDE.md` (prompts: refinador v2 aprovado por escrito, coleta própria). Para o texto: Método › Tratamentos ganha o braço de ablação e o braço com refinador v2 como variantes do orquestrado, cada um com manifesto próprio; Discussão compara os três orquestrados contra o mesmo single-agent.
 
+
+---
+
+## Rodada 2: tarefas reconstruídas, revisor que executa, nota de ciclo (14/10/2026, decisões 27 e 29)
+
+**Diff resumido.** `harness/taskspec.py` e `src/workspace.py` (`visible_deselect`), `src/tools/exec.py::run_pytest` (`--deselect` por node id, nos dois braços), `src/arms/runner.py` (`RunSpec.visible_deselect`, manifesto com a lista, chaves `review_execution` e `cycle_note`, `MANIFEST_VERSION = 10`), `src/arms/collection.py` (repassa da tarefa), `scripts/validate_task.py` (quinto portão com o runner do agente), `tasks/{pygments-0001,sqlite-utils-0002,tomlkit-0004}/task.json` (`visible_deselect` + motivo), `src/config.py` (`REVIEW_EXECUTION`, `CYCLE_NOTE`), `src/agents/validator.py` (`_executar_reproducao`, saídas no prompt e no evento `validation`), `src/agents/developer.py` (nota de ciclo), `src/feedback.py::NOTA_DE_CICLO`, `.env.example`, `CLAUDE.md`.
+
+**Teste que prova.** `tests/test_rodada2.py` (task.json carrega a lista; `run_pytest` deseleciona e a suíte visível perde exatamente o teste; as três tarefas declaram lista e motivo; manifesto leva a lista igual nos dois braços; revisor `off` não executa, `on` executa só blocos Python e leva a saída ao prompt e ao evento; intent v1 não executa; nota de ciclo `on` pede sem ferramentas e entra na memória, `off` não pede, orçamento esgotado não pede; chaves novas mudam o manifesto; `NOTA_DE_CICLO` no canário de `src/feedback.py`). `scripts/validate_task.py` nas três tarefas com os cinco portões: ver `dados/coleta-r2/validate_task_r2.txt`. Suíte: 641 passando.
+
+**Impacto em docs.** Decisões 27 e 29 em [09-decisoes-do-autor.md](09-decisoes-do-autor.md); [14-tres-tarefas-decisao.md](14-tres-tarefas-decisao.md); `CLAUDE.md` (quinto portão e `visible_deselect`; políticas da rodada 2). Para o texto: Método › Tarefas (quinto portão e a correção das três), Método › Tratamentos (orquestrado da rodada 2 como variante com três componentes novos, cada um com chave no manifesto), Ameaças à validade (instrumento corrigido depois da rodada 1, com as células antigas versionadas).
+

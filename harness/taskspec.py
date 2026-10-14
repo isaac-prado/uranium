@@ -52,6 +52,14 @@ class TaskSpec:
     # estão sendo redefinidas (E3 item 1) — "baixa/media/alta" vira
     # "pequena/media/grande". Ausente no task.json → None, nunca inventado.
     faixa: str | None = None
+    # Node ids (ou prefixos) retirados da suíte VISÍVEL que o agente, o driver
+    # e o validador rodam. Existe para o caso em que o patch de teste do
+    # upstream modifica um teste visível ou um arquivo dourado protegido:
+    # sem isto, a correção certa deixa a suíte visível vermelha e o critério
+    # de parada "suíte verde" é inalcançável (docs/tcc/14-tres-tarefas-decisao.md,
+    # decisão 27 de 14/10/2026). O oráculo (harness/oracle.py) NÃO usa esta
+    # lista: avalia a suíte inteira com o patch de teste aplicado.
+    visible_deselect: tuple[str, ...] = ()
 
     @property
     def statement(self) -> str:
@@ -109,4 +117,5 @@ def load_task(path: str | Path) -> TaskSpec:
         reference_patches=tuple(dados.get("reference_patches", ())),
         cheat_patches=tuple(dados.get("cheat_patches", ())),
         faixa=dados.get("faixa"),
+        visible_deselect=tuple(dados.get("visible_deselect", ())),
     )

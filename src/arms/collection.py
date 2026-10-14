@@ -137,6 +137,7 @@ def run_cell(
             seed_repo_id=task.seed_repo_id, repetition=cell.repetition,
             out_dir=cell.attempt_dir(out_root, tentativa),
             llm=llm, budget=budget, test_timeout_s=test_timeout_s,
+            visible_deselect=task.visible_deselect,
         )
         try:
             run_arm(spec, llm_factory=llm_factory)

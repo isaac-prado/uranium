@@ -76,6 +76,8 @@ class WorkspaceSpec:
 
     seed_repo: SeedRepoSpec
     base_commit: str
+    # Node ids retirados da suíte visível (`--deselect`); ver harness/taskspec.py.
+    visible_deselect: tuple[str, ...] = ()
 
     @property
     def protected_globs(self) -> tuple[str, ...]:

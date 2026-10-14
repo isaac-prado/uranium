@@ -23,6 +23,7 @@ from langchain_core.messages import (
 from src import config
 from src.feedback import (
     DIFF_VAZIO,
+    NOTA_DE_CICLO,
     feedback_de_falha,
     memoria_de_trabalho,
     revisao_reprovada,
@@ -220,6 +221,21 @@ def developer(state: WorkflowState) -> dict[str, Any]:
             teto_ciclo = config.DEVELOPER_CYCLE_MAX_TURNS
             if teto_ciclo and turnos_no_ciclo >= teto_ciclo:
                 stop_reason = f"cycle: max_turns_per_cycle ({turnos_no_ciclo} >= {teto_ciclo})"
+                # Nota de ciclo (decisão 29): o developer registra o próprio
+                # raciocínio antes de perder a conversa. Uma chamada sem
+                # ferramentas, contada no orçamento como qualquer turno.
+                if config.CYCLE_NOTE == "on" and not ctx.budget.exceeded():
+                    turno = ctx.budget.next_turn()
+                    ctx.telemetry.set_turn(turno)
+                    turnos_no_ciclo += 1
+                    mensagens.append(HumanMessage(content=NOTA_DE_CICLO))
+                    inicio = time.perf_counter()
+                    nota = ctx.bound_llm(tools=False).invoke(mensagens)
+                    ctx.telemetry.emit_llm_call(
+                        nota, latency_ms=int((time.perf_counter() - inicio) * 1000), prompt=mensagens
+                    )
+                    mensagens.append(nota)
+                    resumo = str(nota.content)[:2000]
                 break
 
             turno = ctx.budget.next_turn()

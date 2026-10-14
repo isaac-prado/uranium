@@ -57,7 +57,10 @@ from src.workspace import Workspace, WorkspaceSpec
 # rodou com o equivalente a "intent".
 # 9 = refinador v2 (decisão 28, 14/10/2026): `orchestration_policy.intent_refiner`
 # ("v1" na coleta principal; "v2" no braço com o refinador que enriquece).
-MANIFEST_VERSION = 9
+# 10 = rodada 2 (decisões 27 e 29, 14/10/2026): `visible_deselect` da tarefa
+# no manifesto (igual nos dois braços), `orchestration_policy.review_execution`
+# e `cycle_note`.
+MANIFEST_VERSION = 10
 
 # Chaves do manifesto que PODEM diferir entre os braços. Qualquer outra
 # divergência é violação do desenho experimental. Note que `repetition` NÃO
@@ -145,6 +148,10 @@ def _orchestration_policy() -> dict[str, Any]:
         # Versão do refinador (decisão 28): "v1" resume (coleta principal);
         # "v2" enriquece com reprodução, saídas esperadas e restrições.
         "intent_refiner": config.INTENT_REFINER,
+        # Decisão 29: revisor que executa a reprodução (intent v2) e nota de
+        # ciclo do developer; "off" nos dois é a coleta principal.
+        "review_execution": config.REVIEW_EXECUTION,
+        "cycle_note": config.CYCLE_NOTE,
         "developer_input": config.DEVELOPER_INPUT,
         "developer_memory": config.DEVELOPER_MEMORY,
         "developer_memory_diff_max_chars": MEMORIA_DIFF_MAX_CHARS,
@@ -225,6 +232,9 @@ class RunSpec:
     driver_policy: DriverPolicy | None = None
     orchestration_policy: dict[str, Any] | None = None
     test_timeout_s: int = 120
+    # Testes visíveis retirados da suíte do agente (decisão 27); da tarefa,
+    # igual nos dois braços. Ver harness/taskspec.py.
+    visible_deselect: tuple[str, ...] = ()
     # Nº da tentativa dentro da repetição (1-based). Sobe quando este run
     # substitui um anterior perdido por erro de provedor (E5 item 2); a
     # primeira execução de cada repetição é sempre attempt=1.
@@ -252,6 +262,7 @@ class RunSpec:
             "orchestration_policy": self.orchestration_policy,
             "shared_limits": _shared_limits(self.budget),
             "test_timeout_s": self.test_timeout_s,
+            "visible_deselect": list(self.visible_deselect),
             "python": sys.version.split()[0],
             "platform": platform.platform(),
         }
@@ -271,6 +282,7 @@ def build_run_spec(
     budget: RunBudget | None = None,
     test_timeout_s: int = 120,
     attempt: int = 1,
+    visible_deselect: tuple[str, ...] = (),
 ) -> RunSpec:
     """
     Resolve a configuração de um run.
@@ -304,6 +316,7 @@ def build_run_spec(
         orchestration_policy=_orchestration_policy() if arm == "orchestration" else None,
         test_timeout_s=test_timeout_s,
         attempt=attempt,
+        visible_deselect=tuple(visible_deselect),
     )
 
 
@@ -322,7 +335,8 @@ def run_arm(spec: RunSpec, *, llm_factory: Any = None) -> dict[str, Any]:
     )
 
     workspace = Workspace.materialize(
-        WorkspaceSpec(seed_repo=get_seed_repo(spec.seed_repo_id), base_commit=spec.base_commit),
+        WorkspaceSpec(seed_repo=get_seed_repo(spec.seed_repo_id), base_commit=spec.base_commit,
+                      visible_deselect=spec.visible_deselect),
         run_id=spec.run_id,
         dest=spec.out_dir / "workspace",
         overwrite=True,
