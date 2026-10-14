@@ -55,7 +55,9 @@ from src.workspace import Workspace, WorkspaceSpec
 # `orchestration_policy.developer_input` ("intent" na coleta principal;
 # "enunciado+intent" só no braço de ablação). A coleta de 12-13/10 (v7)
 # rodou com o equivalente a "intent".
-MANIFEST_VERSION = 8
+# 9 = refinador v2 (decisão 28, 14/10/2026): `orchestration_policy.intent_refiner`
+# ("v1" na coleta principal; "v2" no braço com o refinador que enriquece).
+MANIFEST_VERSION = 9
 
 # Chaves do manifesto que PODEM diferir entre os braços. Qualquer outra
 # divergência é violação do desenho experimental. Note que `repetition` NÃO
@@ -140,6 +142,9 @@ def _orchestration_policy() -> dict[str, Any]:
         # diff atual; "none" é a reconstrução do zero de 19/09.
         # Primeira mensagem do developer (ablação do refinador, decisões 7 e
         # 16): "intent" na coleta principal; "enunciado+intent" na ablação.
+        # Versão do refinador (decisão 28): "v1" resume (coleta principal);
+        # "v2" enriquece com reprodução, saídas esperadas e restrições.
+        "intent_refiner": config.INTENT_REFINER,
         "developer_input": config.DEVELOPER_INPUT,
         "developer_memory": config.DEVELOPER_MEMORY,
         "developer_memory_diff_max_chars": MEMORIA_DIFF_MAX_CHARS,

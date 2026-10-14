@@ -29,6 +29,7 @@ from src.feedback import (
 )
 from src.prompts import AGENT_SYSTEM_PROMPT
 from src.runtime import RunContext
+from src.schemas.intent import intent_as_text
 from src.state import WorkflowState, parse_intent, parse_test_report, parse_validation
 
 # Mesmo prompt do braço single-agent. A decomposição em papéis do
@@ -88,12 +89,14 @@ def _build_prompt(state: WorkflowState, diff: str = "") -> str:
             str(state.get("raw_request") or ""),
             "",
             "Intenção estruturada:",
-            intent.model_dump_json(indent=2),
+            intent_as_text(intent),
         ]
     else:
         partes = [
             "Tarefa:",
-            intent.model_dump_json(indent=2),
+            # v1: o JSON de sempre; v2 (decisão 28): markdown com reprodução,
+            # saídas esperadas e restrições literais do enunciado.
+            intent_as_text(intent),
         ]
 
     memoria = _memoria(state, diff)

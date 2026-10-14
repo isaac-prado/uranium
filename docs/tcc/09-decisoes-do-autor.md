@@ -130,6 +130,29 @@ Fontes: [04-cronograma.md](04-cronograma.md), [07-execucao.md](07-execucao.md), 
 
 **Decisão:** recomendação aceita tacitamente em 12/10/2026 (o autor não pediu a troca e autorizou o início da coleta pela faixa grande); confirmar por escrito: ______
 
+### Decisão 27. Três tarefas com "suíte visível verde" inalcançável
+
+**Situação (14/10/2026).** [14-tres-tarefas-decisao.md](14-tres-tarefas-decisao.md): `pygments-0001`, `sqlite-utils-0002` e `tomlkit-0004` ficam vermelhas na suíte visível com a correção de referência, porque o patch de teste modifica testes visíveis ou um arquivo dourado protegido. Opções: (a) declarar e manter; (b) excluir da análise principal; (c) reconstruir (testes modificados fora do alvo visível, quinto portão) e recoletar 18 runs; (d) substituir.
+
+**Recomendação.** (c) quando houver crédito; (a) no texto até lá.
+
+**Decisão:** ______ (data: ______)
+
+### Decisão 28. Refinador v2: enriquecer em vez de resumir
+
+**Situação (14/10/2026).** [15-refinador-analise.md](15-refinador-analise.md): o refinador v1 resume por desenho (sem campo para exemplos, regra "seja objetivo", `is_ready` sempre verdadeiro, 7 de 39 intents mandando escrever testes em área protegida). Nas três tarefas em que o orquestrado zerou e o single-agent resolveu, a intent referia conteúdo que não carregava.
+
+**Decisão (14/10/2026), palavras do autor:** "EXATAMENTE, quero que ele enriqueça, compreenda e facilite. Implemente-o." Aprovação por escrito da mudança de prompt e schema do refinador, como versão nova e política do manifesto, sem tocar a coleta principal:
+
+- `INTENT_REFINER=v2` → `SYSTEM_PROMPT_V2` em `src/agents/intent_refiner.py`: o developer não verá o enunciado; copiar literalmente blocos de código, comandos, tabelas, valores e mensagens; critérios verificáveis por execução; plano com verificação por `run_python`; restrições do ambiente (área de testes protegida, suíte visível pode não cobrir o comportamento novo); não inventar; ambiguidades em `open_questions` com a leitura adotada; `is_ready` sempre true (o usuário não está disponível).
+- `StructuredIntentV2` (`src/schemas/intent.py`): `reproduction`, `expected_outputs`, `constraints`, `open_questions` além dos campos v1; `to_markdown()`; `intent_as_text` entrega markdown para v2 e o JSON de sempre para v1. `parse_intent` reconhece a v2 pelas chaves; o estado inicial dos dois braços e o single-agent não mudam.
+- Developer e revisor recebem o mesmo texto (`Tarefa:` + markdown). Manifesto v9: `orchestration_policy.intent_refiner`.
+- Testes: `tests/test_intent_v2.py` (schema, parse, escolha de versão, prompts do developer e do revisor), `tests/test_arm_parity.py::test_mudar_intent_refiner_muda_o_manifesto`. Suíte: 627 passando.
+
+**O que não entrou (fica como decisão 29, pendente):** revisor semântico que executa os critérios em vez de ler o diff; clarificação com fonte de verdade ou remoção do nó.
+
+**Execução.** Coleta própria do braço orquestrado com `INTENT_REFINER=v2`, repetição 1 das 13 tarefas (≈ US$ 1,7), depois da ablação do refinador em curso; pareada por semente com a coleta principal e com a ablação.
+
 ## Bloco 2 — Tratamentos: o desenho do braço `orchestration`
 
 As decisões 4 a 6 **já foram tomadas pelo autor em 28/09/2026** (commits `f4c01a9`, `c2046fd`, `7068a55` na `develop`) e integradas à branch de trabalho em 08/10/2026 ([07-execucao.md](07-execucao.md), seção "Reconciliação"). Aparecem aqui para confirmação e para o texto.
@@ -379,7 +402,7 @@ Hoje conta como "sem corte" pela definição literal, e o JSON reporta `sem_stop
 | 26 | modelo mantido (qwen/qwen3-coder); segundo modelo = trabalho futuro; confirmar por escrito | 12/10/2026 | 09, Decisão 26; 08-escolha-modelo |
 | 7/16 (ablação) | ablação do refinador iniciada: orchestration com `DEVELOPER_INPUT=enunciado+intent`, rep. 1 das 13 tarefas, manifesto v8, `runs/ablacao-refinador/`; repetições seguintes conforme o crédito (US$ 4,70) | 14/10/2026 | 12-coleta-resultados seção 6; 13-registro-rodada-1 |
 | 27 (pendente) | três tarefas com suíte visível inalcançável (pygments-0001, sqlite-utils-0002, tomlkit-0004): declarar, excluir, reconstruir ou substituir | 14/10/2026 | 14-tres-tarefas-decisao |
-| 28 (pendente) | refinador v2 (schema com reprodução/saídas esperadas literais, critérios verificáveis, restrições do ambiente, clarificação com fonte de verdade): aprovar mudança de prompt/schema e coleta própria | 14/10/2026 | 15-refinador-analise |
+| 28 | **refinador v2 aprovado por escrito** ("EXATAMENTE, quero que ele enriqueça, compreenda e facilite. Implemente-o"): `INTENT_REFINER=v2`, schema `StructuredIntentV2` (reprodução, saídas esperadas, restrições, pontos em aberto), prompt `SYSTEM_PROMPT_V2`, intent em markdown para developer e revisor, manifesto v9; coleta própria do braço orquestrado, nunca misturada com a principal | 14/10/2026 | 09, Decisão 28; 15-refinador-analise; src/agents/intent_refiner.py; src/schemas/intent.py |
 | 13 | 3 repetições, workers 1, single-agent primeiro no par, coleta começa pela faixa grande (12/10 21:09) | 12/10/2026 | 09, Decisão 13; runs/coleta |
 | 14 | erro do harness interrompe a coleta, célula refeita com a mesma semente, tentativa fora do denominador (regra manual) | 12/10/2026 | 09, Decisão 14; 07-execucao |
 | 14 (ocorrência) | reinício da máquina em 12/10 23:53 matou 1 tentativa (sqlite-utils-0003 SA rep1); refeita como attempt02, mesma semente; coleta fechada 78/78 em 13/10 | 13/10/2026 | 07-execucao; dados/coleta |

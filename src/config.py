@@ -65,6 +65,15 @@ if DEVELOPER_CYCLE_MAX_TURNS < 0:
 # o enunciado íntegro, a mesma string que o single-agent recebe, mais a intent
 # como anexo. Só o braço de ablação usa o segundo; vai ao manifesto em
 # `orchestration_policy.developer_input`.
+# Versão do refinador de intent (decisão 28 do autor, 14/10/2026, aprovada
+# por escrito: "quero que ele enriqueça, compreenda e facilite"). "v1": o
+# prompt do TFG, que resume (coleta principal). "v2": enriquece — copia
+# literalmente reprodução, saídas esperadas e restrições do ambiente, com
+# critérios verificáveis (src/agents/intent_refiner.py, SYSTEM_PROMPT_V2).
+INTENT_REFINER_VERSIONS = ("v1", "v2")
+INTENT_REFINER = os.getenv("INTENT_REFINER", "v1").strip().lower()
+if INTENT_REFINER not in INTENT_REFINER_VERSIONS:
+    raise ValueError(f"INTENT_REFINER={INTENT_REFINER!r} inválido; use um de {INTENT_REFINER_VERSIONS}")
 DEVELOPER_INPUT_MODES = ("intent", "enunciado+intent")
 DEVELOPER_INPUT = os.getenv("DEVELOPER_INPUT", "intent").strip().lower()
 if DEVELOPER_INPUT not in DEVELOPER_INPUT_MODES:

@@ -3,7 +3,7 @@
 from typing import Any, TypedDict
 
 from src.schemas.clarification import ClarificationItem
-from src.schemas.intent import StructuredIntent
+from src.schemas.intent import V2_KEYS, StructuredIntent, StructuredIntentV2
 from src.schemas.test_plan import TestPlan
 from src.schemas.test_report import TestReport
 from src.schemas.validation_result import ValidationResult
@@ -67,8 +67,16 @@ class WorkflowState(TypedDict, total=False):
 
 
 def parse_intent(state: WorkflowState) -> StructuredIntent:
-    """Converte intent do estado para modelo tipado."""
-    return StructuredIntent.model_validate(state.get("intent") or {})
+    """
+    Converte intent do estado para modelo tipado.
+
+    Uma intent do refinador v2 (decisão 28) é reconhecida pelas chaves que só
+    ele preenche; a v1 e o estado inicial dos dois braços seguem como antes.
+    """
+    bruto = state.get("intent") or {}
+    if any(k in bruto for k in V2_KEYS):
+        return StructuredIntentV2.model_validate(bruto)
+    return StructuredIntent.model_validate(bruto)
 
 
 def parse_clarifications(state: WorkflowState) -> list[ClarificationItem]:

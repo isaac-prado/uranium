@@ -176,7 +176,18 @@ class TestManifestoRegistraOQueAfetaOOrchestration:
 
     def test_manifest_version_subiu(self, tmp_path):
         """A forma do manifesto mudou (novas chaves): a versão precisa acompanhar."""
-        assert _spec("orchestration", tmp_path).manifest("t")["manifest_version"] == 8
+        assert _spec("orchestration", tmp_path).manifest("t")["manifest_version"] == 9
+
+    def test_mudar_intent_refiner_muda_o_manifesto(self, tmp_path, monkeypatch):
+        """Refinador v2 (decisão 28): a versão do refinador é política do braço."""
+        from src import config
+
+        base = _spec("orchestration", tmp_path).manifest("t")["orchestration_policy"]
+        assert base["intent_refiner"] == config.INTENT_REFINER == "v1"
+        monkeypatch.setattr(config, "INTENT_REFINER", "v2")
+
+        depois = _spec("orchestration", tmp_path).manifest("t")["orchestration_policy"]
+        assert depois != base and depois["intent_refiner"] == "v2"
 
     def test_mudar_developer_input_muda_o_manifesto(self, tmp_path, monkeypatch):
         """Ablação do refinador (decisões 7 e 16): a entrada do developer é política do braço."""

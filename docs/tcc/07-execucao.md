@@ -255,3 +255,14 @@ Relatório em [07-e4-fumaca.md](07-e4-fumaca.md): 4 células (`tomlkit-0002` gra
 
 **Impacto em docs.** Resultados (as sete métricas), Discussão (revisor sem execução; custo do histórico persistente; faixa média), Ameaças à validade (interrupção por reinício, tratada pela regra de perda).
 
+
+---
+
+## Ablação do refinador e refinador v2 (14/10/2026, decisões 7/16 e 28)
+
+**Diff resumido.** Ablação: `src/config.py: DEVELOPER_INPUT` (`intent` | `enunciado+intent`), `src/agents/developer.py::_build_prompt` (ramo da ablação: enunciado íntegro + "Intenção estruturada:" + intent), `src/arms/collection.py::plan_cells(arms=...)` e `scripts/run_collection.py --arms`, manifesto v8 (`orchestration_policy.developer_input`). Refinador v2: `src/config.py: INTENT_REFINER` (`v1` | `v2`), `src/agents/intent_refiner.py: SYSTEM_PROMPT_V2` e `_versao()`, `src/schemas/intent.py: StructuredIntentV2, V2_KEYS, intent_as_text`, `src/state.py::parse_intent` (reconhece v2), developer e validador usam `intent_as_text`, manifesto v9 (`orchestration_policy.intent_refiner`). `.env.example` e `CLAUDE.md` atualizados.
+
+**Teste que prova.** `tests/test_collection.py::TestPlano` (um braço só; braço desconhecido recusado), `tests/test_nodes.py::TestDeveloperEntradaDaAblacao` (padrão só intent; ablação entrega o enunciado byte a byte como o driver), `tests/test_intent_v2.py` (markdown literal; v1 segue JSON; `parse_intent`; escolha de prompt e schema; developer e revisor recebem o mesmo texto), `tests/test_arm_parity.py` (manifesto 9, chaves `developer_input` e `intent_refiner`). Suíte: 627 passando.
+
+**Impacto em docs.** Decisões 7/16 (ablação em curso), 27 (pendente) e 28 (decidida) em [09-decisoes-do-autor.md](09-decisoes-do-autor.md); [15-refinador-analise.md](15-refinador-analise.md); `CLAUDE.md` (prompts: refinador v2 aprovado por escrito, coleta própria). Para o texto: Método › Tratamentos ganha o braço de ablação e o braço com refinador v2 como variantes do orquestrado, cada um com manifesto próprio; Discussão compara os três orquestrados contra o mesmo single-agent.
+

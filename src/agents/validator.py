@@ -18,6 +18,7 @@ import os
 from typing import Any
 
 from src.runtime import RunContext
+from src.schemas.intent import intent_as_text
 from src.schemas.validation_result import ValidationResult
 from src.state import WorkflowState, parse_intent
 from src.structured_llm import StructuredOutputError, invoke_structured
@@ -106,7 +107,7 @@ def _build_review_prompt(state: WorkflowState, ctx: RunContext) -> str:
 
     return "\n".join([
         "Tarefa:",
-        intent.model_dump_json(indent=2),
+        intent_as_text(intent),
         "",
         "Diff aplicado pelo agente (a suíte passou com ele):",
         diff or "(nenhuma alteração)",
