@@ -1,0 +1,154 @@
+diff --git a/sqlite_utils/cli.py b/sqlite_utils/cli.py
+index a30f79a..47231a3 100644
+--- a/sqlite_utils/cli.py
++++ b/sqlite_utils/cli.py
+@@ -2142,9 +2142,11 @@ def _execute_query(
+                 else:
+                     sys.stdout.write(str(data) + "\n")
+         elif fmt or table:
++            from .utils import dedupe_keys
++            deduped_headers = dedupe_keys(headers)
+             print(
+                 tabulate.tabulate(
+-                    list(cursor), headers=headers, tablefmt=fmt or "simple"
++                    list(cursor), headers=deduped_headers, tablefmt=fmt or "simple"
+                 )
+             )
+         elif csv or tsv:
+@@ -2154,7 +2156,9 @@ def _execute_query(
+             for row in cursor:
+                 writer.writerow(row)
+         else:
+-            for line in output_rows(cursor, headers, nl, arrays, json_cols):
++            from .utils import dedupe_keys
++            deduped_headers = dedupe_keys(headers)
++            for line in output_rows(cursor, deduped_headers, nl, arrays, json_cols):
+                 click.echo(line)
+ 
+ 
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 3f23c7d..fe93e3d 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -786,8 +786,10 @@ class Database:
+                     cursor = self.conn.execute(sql, *args)
+             if cursor.description is None:
+                 raise ValueError(message)
++            from .utils import dedupe_keys
+             keys = [d[0] for d in cursor.description]
+-            return (dict(zip(keys, row)) for row in cursor)
++            deduped_keys = dedupe_keys(keys)
++            return (dict(zip(deduped_keys, row)) for row in cursor)
+         # Execute inside a savepoint, so a statement that turns out not to
+         # return rows can be rolled back before the ValueError is raised
+         self.conn.execute('SAVEPOINT "sqlite_utils_query"')
+@@ -796,7 +798,9 @@ class Database:
+             cursor = self.conn.execute(sql, *args)
+             if cursor.description is None:
+                 raise ValueError(message)
++            from .utils import dedupe_keys
+             keys = [d[0] for d in cursor.description]
++            deduped_keys = dedupe_keys(keys)
+             try:
+                 self.conn.execute('RELEASE "sqlite_utils_query"')
+                 released = True
+@@ -809,8 +813,8 @@ class Database:
+                 fetched = cursor.fetchall()
+                 self.conn.execute('RELEASE "sqlite_utils_query"')
+                 released = True
+-                return (dict(zip(keys, row)) for row in fetched)
+-            return (dict(zip(keys, row)) for row in cursor)
++                return (dict(zip(deduped_keys, row)) for row in fetched)
++            return (dict(zip(deduped_keys, row)) for row in cursor)
+         finally:
+             if not released:
+                 # An error occurred - undo anything the statement changed
+@@ -1864,10 +1868,12 @@ class Queryable:
+             sql += " limit {}".format(limit)
+         if offset is not None:
+             sql += " offset {}".format(offset)
++        from .utils import dedupe_keys
+         cursor = self.db.execute(sql, where_args or [])
+         columns = [c[0] for c in cursor.description]
++        deduped_columns = dedupe_keys(columns)
+         for row in cursor:
+-            yield dict(zip(columns, row))
++            yield dict(zip(deduped_columns, row))
+ 
+     def pks_and_rows_where(
+         self,
+@@ -3387,6 +3393,7 @@ class Table(Queryable):
+         if where_args:
+             args.update(where_args)
+ 
++        from .utils import dedupe_keys
+         cursor = self.db.execute(
+             self.search_sql(
+                 order_by=order_by,
+@@ -3399,8 +3406,9 @@ class Table(Queryable):
+             args,
+         )
+         columns = [c[0] for c in cursor.description]
++        deduped_columns = dedupe_keys(columns)
+         for row in cursor:
+-            yield dict(zip(columns, row))
++            yield dict(zip(deduped_columns, row))
+ 
+     def value_or_default(self, key: str, value: Any) -> Any:
+         return self._defaults[key] if value is DEFAULT else value
+diff --git a/sqlite_utils/utils.py b/sqlite_utils/utils.py
+index 865ee79..a14f901 100644
+--- a/sqlite_utils/utils.py
++++ b/sqlite_utils/utils.py
+@@ -629,3 +629,50 @@ def flatten(row: Dict[str, Any]) -> Dict[str, Any]:
+     :param row: A Python dictionary, optionally with nested dictionaries
+     """
+     return dict(_flatten(row))
++
++
++def dedupe_keys(keys: List[str]) -> List[str]:
++    """
++    Renames duplicate keys by appending numeric suffixes (_2, _3, etc.)
++    
++    When a key appears multiple times, the first occurrence keeps its original name,
++    and subsequent occurrences are renamed with a suffix starting from _2.
++    
++    Examples:
++        [] -> []
++        ["id", "name"] -> ["id", "name"]
++        ["id", "id"] -> ["id", "id_2"]
++        ["id", "id", "id"] -> ["id", "id_2", "id_3"]
++        ["id", "id", "id_2"] -> ["id", "id_3", "id_2"]
++        ["id_2", "id", "id"] -> ["id_2", "id", "id_3"]
++        ["id", "id", "id_2", "id_2"] -> ["id", "id_3", "id_2", "id_2_2"]
++        
++    :param keys: List of column names that may contain duplicates
++    :return: List of column names with duplicates renamed
++    """
++    if not keys:
++        return []
++    
++    # Create a working copy
++    result = list(keys)
++    # Keep track of all names we've seen so far
++    seen_names = set()
++    
++    # Process each position
++    for i in range(len(result)):
++        current_key = result[i]
++        # Check if this key has been seen before
++        if current_key in seen_names:
++            # Need to rename this key
++            counter = 2
++            new_key = f"{current_key}_{counter}"
++            # Make sure the new key doesn't conflict with existing keys
++            while new_key in seen_names or new_key in result[i+1:]:
++                counter += 1
++                new_key = f"{current_key}_{counter}"
++            result[i] = new_key
++            seen_names.add(new_key)
++        else:
++            seen_names.add(current_key)
++    
++    return result
+\ No newline at end of file

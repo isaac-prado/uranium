@@ -277,3 +277,14 @@ Relatório em [07-e4-fumaca.md](07-e4-fumaca.md): 4 células (`tomlkit-0002` gra
 
 **Impacto em docs.** Decisões 27 e 29 em [09-decisoes-do-autor.md](09-decisoes-do-autor.md); [14-tres-tarefas-decisao.md](14-tres-tarefas-decisao.md); `CLAUDE.md` (quinto portão e `visible_deselect`; políticas da rodada 2). Para o texto: Método › Tarefas (quinto portão e a correção das três), Método › Tratamentos (orquestrado da rodada 2 como variante com três componentes novos, cada um com chave no manifesto), Ameaças à validade (instrumento corrigido depois da rodada 1, com as células antigas versionadas).
 
+---
+
+## Correção do rootdir do pytest e schema v2 tolerante (14/10/2026, decisão 30)
+
+**Diff resumido.** `src/tools/exec.py::run_pytest` (`--rootdir .`: sem isso o pytest sobe até o `pyproject.toml` do uranium, os node ids ganham o prefixo `runs/.../workspace/` e o `--deselect` da decisão 27 não casa), `src/arms/runner.py::_shared_limits` (`pytest_rootdir: "workspace"`), `src/schemas/intent.py::StructuredIntentV2._achatar_listas` (lista de listas e itens vazios em `reproduction`/`expected_outputs`/`constraints`/`open_questions`). Commit `4f4f80e`.
+
+**Teste que prova.** `tests/test_rodada2.py::TestVisibleDeselect::test_deselect_vale_com_pyproject_acima_do_workspace` (workspace sob diretório com pyproject; a suíte perde exatamente o teste) e `test_manifesto_registra_o_rootdir`; `tests/test_intent_v2.py::TestSchemaV2::test_listas_aninhadas_e_vazias_sao_achatadas` e `test_item_que_nao_e_texto_continua_invalido`. Suíte: 645 verdes. Verificação no workspace real do run OR-v2 do pygments: suíte inteira `passed=5294 failed=0` com o golden deselecionado.
+
+**Dados.** Rodada 2 interrompida às 16:45 com 19 células; pygments-0001 (rep01, rep02), sqlite-utils-0002 (rep01, rep02 em andamento) e tomlkit-0004 (rep01) movidas para `runs/coleta-r2-descartados/` (README), mais tomlkit-0003 rep01 (`error: StructuredOutputError`, 0 turnos). Fila retomada às 17:00. Ablação e v2 versionados em `dados/ablacao-refinador/` e `dados/refinador-v2/`.
+
+**Impacto em docs.** [16-ablacao-e-v2.md](16-ablacao-e-v2.md) (novo); decisões 7, 16, 28 (resultado), 30 e 31 em [09-decisoes-do-autor.md](09-decisoes-do-autor.md); `CLAUDE.md` (rootdir no quinto portão).

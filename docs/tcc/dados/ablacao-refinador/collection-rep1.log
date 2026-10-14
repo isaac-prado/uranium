@@ -1,0 +1,21 @@
+tarefas   13  ×  1 braço(s) ['orchestration']  ×  1 repetição(ões)  =  13 células
+estado    0 concluídas, 13 pendentes  →  runs/ablacao-refinador
+modelo    qwen/qwen3-coder via DeepInfra
+orçamento {'max_tokens': 8000000, 'max_wall_seconds': 3600, 'max_turns': 120}
+workers   1   tentativas por célula 5
+
+  done    attrs-0001           orchestration  rep01  resolveu      concluiu
+  done    peewee-0001          orchestration  rep01  resolveu      concluiu
+  done    peewee-0002          orchestration  rep01  não resolveu  concluiu
+  done    peewee-0003          orchestration  rep01  resolveu      concluiu
+  done    pygments-0001        orchestration  rep01  resolveu      budget: max_turns (120 >= 120)
+  done    sqlite-utils-0001    orchestration  rep01  não resolveu  concluiu
+  done    sqlite-utils-0002    orchestration  rep01  resolveu      budget: max_turns (120 >= 120)
+  done    sqlite-utils-0003    orchestration  rep01  resolveu      concluiu
+  done    tomlkit-0001         orchestration  rep01  resolveu      concluiu
+  done    tomlkit-0002         orchestration  rep01  não resolveu  budget: max_turns (120 >= 120)
+  done    tomlkit-0003         orchestration  rep01  resolveu      concluiu
+  done    tomlkit-0004         orchestration  rep01  não resolveu  budget: max_turns (120 >= 120)
+  done    tomlkit-0005         orchestration  rep01  não resolveu  budget: max_turns (120 >= 120)
+
+  13 concluídas, 0 perdidas  →  runs/ablacao-refinador/collection.json

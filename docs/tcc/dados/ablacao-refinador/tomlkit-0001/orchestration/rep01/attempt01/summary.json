@@ -1,0 +1,33 @@
+{
+  "run_id": "tomlkit-0001-orchestration-r01-a01",
+  "arm": "orchestration",
+  "task_id": "tomlkit-0001",
+  "repetition": 1,
+  "attempt": 1,
+  "llm_seed": 20260821,
+  "topology": "multi_agent_roles",
+  "stop_reason": "concluiu",
+  "lost": false,
+  "is_valid": true,
+  "changed_files": [
+    "tomlkit/parser.py"
+  ],
+  "diff_stat": {
+    "files_changed": 1,
+    "insertions": 2,
+    "deletions": 1
+  },
+  "turns": 11,
+  "totals": {
+    "tokens_prompt": 53862,
+    "tokens_completion": 2350,
+    "tokens_reasoning": 0,
+    "tokens_total": 56212,
+    "cost_usd": 0.009875,
+    "llm_calls": 14,
+    "tool_calls": 10,
+    "test_runs": 1,
+    "errors": 0
+  },
+  "out_dir": "runs/ablacao-refinador/tomlkit-0001/orchestration/rep01/attempt01"
+}

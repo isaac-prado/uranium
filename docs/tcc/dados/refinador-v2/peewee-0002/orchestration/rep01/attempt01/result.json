@@ -1,0 +1,119 @@
+{
+  "result_schema_version": 2,
+  "harness_version": "1.0.0",
+  "evaluated_at": "2026-10-14T16:17:54+00:00",
+  "run_id": "peewee-0002-orchestration-r01-a01",
+  "arm": "orchestration",
+  "task_id": "peewee-0002",
+  "faixa": "media",
+  "repetition": 1,
+  "base_commit": "fc1811ecc1c55be8b1c4fd116c5d05c4ff7cf794",
+  "resolved": false,
+  "resolved_blocked_by_cheat": false,
+  "oracle": {
+    "f2p_total": 6,
+    "f2p_passed": 3,
+    "f2p": {
+      "exit_code": 1,
+      "passed": 3,
+      "failed": 3,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.69,
+      "failing_node_ids": [
+        "tests/reflection.py::TestReflection::test_column_map_not_shared_with_class",
+        "tests/sql.py::TestOnConflictSqlite::test_unbound_error",
+        "tests/transactions.py::TestTransaction::test_mixing_manual_db_context"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "p2p": {
+      "exit_code": 1,
+      "passed": 1400,
+      "failed": 4,
+      "errors": 0,
+      "skipped": 144,
+      "duration_s": 4.98,
+      "failing_node_ids": [
+        "tests/reflection.py::TestReflection::test_column_map_not_shared_with_class",
+        "tests/sql.py::TestInsertQuery::test_insert_list_infer_columns",
+        "tests/sql.py::TestOnConflictSqlite::test_unbound_error",
+        "tests/transactions.py::TestTransaction::test_mixing_manual_db_context"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "regression": {
+      "exit_code": 1,
+      "passed": 1400,
+      "failed": 4,
+      "errors": 0,
+      "skipped": 144,
+      "duration_s": 4.95,
+      "failing_node_ids": [
+        "tests/reflection.py::TestReflection::test_column_map_not_shared_with_class",
+        "tests/sql.py::TestInsertQuery::test_insert_list_infer_columns",
+        "tests/sql.py::TestOnConflictSqlite::test_unbound_error",
+        "tests/transactions.py::TestTransaction::test_mixing_manual_db_context"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    }
+  },
+  "cheat": {
+    "clean": true,
+    "critical_count": 0,
+    "warning_count": 0,
+    "signals": []
+  },
+  "quality": {
+    "mi_before": 7.485,
+    "mi_after": 7.466,
+    "mi_delta": -0.019,
+    "cc_mean_before": 2.594,
+    "cc_mean_after": 2.599,
+    "cc_mean_delta": 0.005,
+    "files_analyzed": 2,
+    "error": null
+  },
+  "cost": {
+    "tokens_prompt": 1306410,
+    "tokens_completion": 15903,
+    "tokens_reasoning": 0,
+    "tokens_total": 1322313,
+    "cost_usd": 0.1847124,
+    "llm_calls": 123,
+    "byok_calls": 123,
+    "tool_calls": 119,
+    "wall_seconds": 724.506
+  },
+  "process": {
+    "turns": 120,
+    "test_runs": 4,
+    "tool_denials": 0,
+    "errors": 0,
+    "circuit_breaks": 2,
+    "self_recoveries": 0,
+    "stop_reason": "budget: max_turns (120 >= 120)"
+  },
+  "provenance": {
+    "model": "qwen/qwen3-coder",
+    "provider_requested": "DeepInfra",
+    "providers_served": [
+      "DeepInfra"
+    ],
+    "llm_seed": 20260821,
+    "topology": "multi_agent_roles"
+  },
+  "diff": {
+    "files_changed": 2,
+    "insertions": 54,
+    "deletions": 9,
+    "changed_files": [
+      "peewee.py",
+      "peewee_test.db-shm",
+      "playhouse/migrate.py"
+    ]
+  }
+}

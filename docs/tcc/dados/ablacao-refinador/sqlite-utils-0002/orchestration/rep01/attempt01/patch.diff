@@ -1,0 +1,68 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 48987a6..e7e33e1 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -26,6 +26,7 @@ from typing import (
+ from sqlite_fts4 import rank_bm25
+ from typing_extensions import Self
+ 
++from .nullify_empty_strings import is_numeric_type
+ from sqlite_utils.plugins import ensure_plugins_loaded, pm
+ 
+ from .create_table_parser import (
+@@ -3103,10 +3104,54 @@ class Table(Queryable):
+         if "rowid" not in new_cols:
+             new_cols.insert(0, "rowid")
+             old_cols.insert(0, "rowid")
++            
++        # Handle empty strings conversion to NULL for numeric types
++        processed_old_cols = []
++        for i, col in enumerate(old_cols):
++            from_col = col
++            to_col = new_cols[i]
++            
++            # For rowid, we don't apply NULLIF
++            if from_col == "rowid":
++                processed_old_cols.append(quote_identifier(col))
++                continue
++            
++            # Check if this column is being converted from TEXT to a numeric type
++            # First, find the original column name (before any renaming)
++            original_col_name = None
++            for old_name, new_name in copy_from_to.items():
++                if new_name == to_col:
++                    original_col_name = old_name
++                    break
++            
++            # If we couldn't find it, use the column name directly
++            if original_col_name is None:
++                original_col_name = from_col
++                
++            # Check if the original column exists and its type
++            original_type = self.columns_dict.get(original_col_name)
++            
++            # Find the target type for this column
++            target_type = None
++            for name, type_ in new_column_pairs:
++                if name == to_col:
++                    target_type = type_
++                    break
++            
++            # Only apply NULLIF when converting from TEXT to numeric type
++            if (original_type == str and 
++                target_type is not None and 
++                original_type != target_type and  # There's actually a type change
++                is_numeric_type(target_type)):
++                # Apply NULLIF for conversion from TEXT to numeric type
++                processed_old_cols.append(f"NULLIF({quote_identifier(from_col)}, '')")
++            else:
++                processed_old_cols.append(quote_identifier(from_col))
++                
+         copy_sql = "INSERT INTO {} ({new_cols})\n   SELECT {old_cols} FROM {};".format(
+             quote_identifier(new_table_name),
+             quote_identifier(self.name),
+-            old_cols=", ".join(quote_identifier(col) for col in old_cols),
++            old_cols=", ".join(processed_old_cols),
+             new_cols=", ".join(quote_identifier(col) for col in new_cols),
+         )
+         sqls.append(copy_sql)

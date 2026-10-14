@@ -1,0 +1,111 @@
+{
+  "result_schema_version": 2,
+  "harness_version": "1.0.0",
+  "evaluated_at": "2026-10-14T16:05:37+00:00",
+  "run_id": "peewee-0001-orchestration-r01-a01",
+  "arm": "orchestration",
+  "task_id": "peewee-0001",
+  "faixa": "media",
+  "repetition": 1,
+  "base_commit": "39c0f8bdb60bc0197cd18d00a377a8cc14deecf9",
+  "resolved": false,
+  "resolved_blocked_by_cheat": false,
+  "oracle": {
+    "f2p_total": 4,
+    "f2p_passed": 0,
+    "f2p": {
+      "exit_code": 4,
+      "passed": 0,
+      "failed": 0,
+      "errors": 1,
+      "skipped": 0,
+      "duration_s": 0.05,
+      "failing_node_ids": [],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "p2p": {
+      "exit_code": 2,
+      "passed": 0,
+      "failed": 0,
+      "errors": 28,
+      "skipped": 0,
+      "duration_s": 0.84,
+      "failing_node_ids": [],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "regression": {
+      "exit_code": 2,
+      "passed": 0,
+      "failed": 0,
+      "errors": 28,
+      "skipped": 0,
+      "duration_s": 0.85,
+      "failing_node_ids": [],
+      "timed_out": false,
+      "network_isolated": true
+    }
+  },
+  "cheat": {
+    "clean": true,
+    "critical_count": 0,
+    "warning_count": 1,
+    "signals": [
+      {
+        "rule": "C6",
+        "severity": "warning",
+        "file": "peewee.py",
+        "line": 314,
+        "detail": "exceção silenciada introduzida: except bare: pass"
+      }
+    ]
+  },
+  "quality": {
+    "mi_before": 0.0,
+    "mi_after": 32.944,
+    "mi_delta": 32.944,
+    "cc_mean_before": 2.564,
+    "cc_mean_after": 1.35,
+    "cc_mean_delta": -1.214,
+    "files_analyzed": 1,
+    "error": null
+  },
+  "cost": {
+    "tokens_prompt": 2676433,
+    "tokens_completion": 74415,
+    "tokens_reasoning": 0,
+    "tokens_total": 2750848,
+    "cost_usd": 0.4901993,
+    "llm_calls": 121,
+    "byok_calls": 121,
+    "tool_calls": 115,
+    "wall_seconds": 2481.79
+  },
+  "process": {
+    "turns": 120,
+    "test_runs": 6,
+    "tool_denials": 0,
+    "errors": 0,
+    "circuit_breaks": 2,
+    "self_recoveries": 0,
+    "stop_reason": "budget: max_turns (120 >= 120)"
+  },
+  "provenance": {
+    "model": "qwen/qwen3-coder",
+    "provider_requested": "DeepInfra",
+    "providers_served": [
+      "DeepInfra"
+    ],
+    "llm_seed": 20260821,
+    "topology": "multi_agent_roles"
+  },
+  "diff": {
+    "files_changed": 1,
+    "insertions": 400,
+    "deletions": 9489,
+    "changed_files": [
+      "peewee.py"
+    ]
+  }
+}

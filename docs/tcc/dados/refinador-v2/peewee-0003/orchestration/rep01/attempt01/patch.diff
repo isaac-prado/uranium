@@ -1,0 +1,24 @@
+diff --git a/playhouse/fields.py b/playhouse/fields.py
+index 5eefd0a6..dae6a273 100644
+--- a/playhouse/fields.py
++++ b/playhouse/fields.py
+@@ -71,6 +71,19 @@ class EnumFieldMixin(object):
+         self.enum_class = enum_class
+         super(EnumFieldMixin, self).__init__(*args, **kwargs)
+ 
++    @property
++    def choices(self):
++        # If choices were explicitly provided, use them.
++        if self._choices is not None:
++            return self._choices
++        # Otherwise, generate choices from the enum members in declaration order.
++        return [(member.value, member.name) for member in self.enum_class]
++    
++    @choices.setter
++    def choices(self, value):
++        # Store the value in a private attribute.
++        self._choices = value
++
+     def db_value(self, value):
+         if value is None:
+             return value

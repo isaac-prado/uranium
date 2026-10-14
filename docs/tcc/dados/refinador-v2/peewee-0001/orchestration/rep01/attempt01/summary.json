@@ -1,0 +1,33 @@
+{
+  "run_id": "peewee-0001-orchestration-r01-a01",
+  "arm": "orchestration",
+  "task_id": "peewee-0001",
+  "repetition": 1,
+  "attempt": 1,
+  "llm_seed": 20260821,
+  "topology": "multi_agent_roles",
+  "stop_reason": "budget: max_turns (120 >= 120)",
+  "lost": false,
+  "is_valid": false,
+  "changed_files": [
+    "peewee.py"
+  ],
+  "diff_stat": {
+    "files_changed": 1,
+    "insertions": 400,
+    "deletions": 9489
+  },
+  "turns": 120,
+  "totals": {
+    "tokens_prompt": 2676433,
+    "tokens_completion": 74415,
+    "tokens_reasoning": 0,
+    "tokens_total": 2750848,
+    "cost_usd": 0.4901993,
+    "llm_calls": 121,
+    "tool_calls": 115,
+    "test_runs": 6,
+    "errors": 0
+  },
+  "out_dir": "runs/refinador-v2/peewee-0001/orchestration/rep01/attempt01"
+}

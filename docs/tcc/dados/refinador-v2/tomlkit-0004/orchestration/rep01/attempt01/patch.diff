@@ -1,0 +1,138 @@
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index 777d96a..55e5161 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -13,6 +13,7 @@ from .items import AoT
+ from .items import Comment
+ from .items import Item
+ from .items import Key
++from .items import KeyType
+ from .items import Null
+ from .items import Table
+ from .items import Trivia
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..30bb022 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -130,9 +130,21 @@ class Parser:
+             if not item:
+                 break
+ 
+-            key, value = item
+-            if not self._merge_ws(value, body):
+-                body.append(key, value)
++            # Handle both regular key-value pairs and dotted key containers
++            if hasattr(item, 'value') and hasattr(item, 'append') and not isinstance(item, Item):
++                # This is a container returned from handling dotted keys
++                # We need to merge its contents into our current body
++                container = item
++                for entry in container.value.body:
++                    if isinstance(entry, tuple) and len(entry) == 2:
++                        k, v = entry
++                        if isinstance(k, Key) or k is not None:
++                            if not self._merge_ws(v, body):
++                                body.append(k, v)
++            else:
++                key, value = item
++                if not self._merge_ws(value, body):
++                    body.append(key, value)
+ 
+             self.mark()
+ 
+@@ -247,7 +259,7 @@ class Parser:
+         if current:
+             yield Key(current, t=t, sep="")
+ 
+-    def _parse_item(self):  # type: () -> Optional[Tuple[Optional[Key], Item]]
++    def _parse_item(self):  # type: () -> Optional[Tuple[Optional[Key], Item, Optional[List[str]]]]
+         """
+         Attempts to parse the next item and returns it, along with its key
+         if the item is value-like.
+@@ -276,13 +288,19 @@ class Parser:
+                 # Found a table, delegate to the calling function.
+                 return
+             else:
+-                # Begining of a KV pair.
+                 # Return to beginning of whitespace so it gets included
+                 # as indentation for the KV about to be parsed.
+                 self._restore_idx(*saved_idx)
+-                key, value = self._parse_key_value(True)
++                result = self._parse_key_value(True)
++                
++                # Ensure we always return a 3-tuple for consistency
++                if len(result) == 2:
++                    key, val = result
++                    return key, val, None
++                else:
++                    return result
+ 
+-                return key, value
++                return result
+ 
+     def _save_idx(self):  # type: () -> Tuple[Iterator, int, str]
+         if PY2:
+@@ -353,7 +371,7 @@ class Parser:
+ 
+     def _parse_key_value(
+         self, parse_comment=False, inline=True
+-    ):  # type: (bool, bool) -> (Key, Item)
++    ):  # type: (bool, bool) -> (Key, Item, Optional[List[str]])
+         # Leading indent
+         self.mark()
+ 
+@@ -395,6 +413,17 @@ class Parser:
+ 
+         val.trivia.indent = indent
+ 
++        # Handle dotted keys
++        if isinstance(key, Key) and "." in key.key and key.t == KeyType.Bare:
++            # This is a dotted key - only bare keys can be dotted
++            # Check that it doesn't contain quoted parts
++            if '"' not in key.key and "'" not in key.key:
++                dotted_parts = key.key.split(".")
++                
++                # We'll handle this by creating the nested structure directly in the container
++                # that calls this method
++                return key, val, dotted_parts
++        
+         return key, val
+ 
+     def _parse_key(self):  # type: () -> Key
+@@ -517,7 +546,12 @@ class Parser:
+                 if self._current == "}":
+                     break
+ 
+-                key, val = self._parse_key_value(False, inline=True)
++                result = self._parse_key_value(False, inline=True)
++                if isinstance(result, tuple) and len(result) == 2:
++                    key, val = result
++                else:
++                    # Handle dotted key case
++                    key, val = result, None
+                 elems.append(key, val)
+ 
+             self.inc()
+@@ -858,9 +892,20 @@ class Parser:
+         while not self.end():
+             item = self._parse_item()
+             if item:
+-                _key, item = item
+-                if not self._merge_ws(item, values):
+-                    values.append(_key, item)
++                if hasattr(item, 'value') and hasattr(item, 'append') and not isinstance(item, Item):
++                    # This is a container returned from handling dotted keys
++                    # We need to merge its contents into our current body
++                    container = item
++                    for entry in container.value.body:
++                        if isinstance(entry, tuple) and len(entry) == 2:
++                            k, v = entry
++                            if isinstance(k, Key) or k is not None:
++                                if not self._merge_ws(v, body):
++                                    body.append(k, v)
++                else:
++                    _key, item = item
++                    if not self._merge_ws(item, body):
++                        body.append(_key, item)
+             else:
+                 if self._current == "[":
+                     is_aot_next, name_next = self._peek_table()

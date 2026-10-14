@@ -1,0 +1,22 @@
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 4a24fc0..2778e76 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -1022,12 +1022,16 @@ class Bool(Item):
+     def __eq__(self, other: object) -> bool:
+         if not isinstance(other, bool):
+             return NotImplemented
+-
+         return other == self._value
+ 
++
++
+     def __hash__(self) -> int:
+         return hash(self._value)
+ 
++    def __getitem__(self, key: Key | str | int) -> Any:
++        raise TypeError(f"{type(self).__name__} does not support item access")
++
+     def __repr__(self) -> str:
+         return repr(self._value)
+ 

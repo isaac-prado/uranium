@@ -1,0 +1,66 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 48987a6..cb965db 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -27,6 +27,7 @@ from sqlite_fts4 import rank_bm25
+ from typing_extensions import Self
+ 
+ from sqlite_utils.plugins import ensure_plugins_loaded, pm
++from .utils import is_numeric_type
+ 
+ from .create_table_parser import (
+     Check,
+@@ -3103,11 +3104,31 @@ class Table(Queryable):
+         if "rowid" not in new_cols:
+             new_cols.insert(0, "rowid")
+             old_cols.insert(0, "rowid")
+-        copy_sql = "INSERT INTO {} ({new_cols})\n   SELECT {old_cols} FROM {};".format(
++        
++        # Apply NULLIF for converting empty strings to NULL when changing TEXT to numeric types
++        current_columns_dict = self.columns_dict
++        select_parts = []
++        for old_col in old_cols:
++            # Only apply NULLIF for the actual columns (skip rowid)
++            if old_col == "rowid":
++                select_parts.append(quote_identifier(old_col))
++            else:
++                # Check if we're converting from TEXT to a numeric type
++                current_type = current_columns_dict.get(old_col)
++                target_type = types.get(old_col)
++                
++                # If current type is TEXT (or str) and target type is numeric, apply NULLIF
++                if (current_type == str and 
++                    target_type is not None and is_numeric_type(target_type)):
++                    select_parts.append(f"NULLIF({quote_identifier(old_col)}, '')")
++                else:
++                    select_parts.append(quote_identifier(old_col))
++        
++        copy_sql = "INSERT INTO {} ({})\n   SELECT {} FROM {};".format(
+             quote_identifier(new_table_name),
++            ", ".join(quote_identifier(col) for col in new_cols),
++            ", ".join(select_parts),
+             quote_identifier(self.name),
+-            old_cols=", ".join(quote_identifier(col) for col in old_cols),
+-            new_cols=", ".join(quote_identifier(col) for col in new_cols),
+         )
+         sqls.append(copy_sql)
+         # Capture indexes before the old table is changed. Simple indexes that
+diff --git a/sqlite_utils/utils.py b/sqlite_utils/utils.py
+index ee6695b..38da378 100644
+--- a/sqlite_utils/utils.py
++++ b/sqlite_utils/utils.py
+@@ -167,6 +167,14 @@ def types_for_column_types(
+     return column_types
+ 
+ 
++def is_numeric_type(type_) -> bool:
++    """
++    Check if a type is numeric (int, float, or their string representations).
++    """
++    numeric_types = {int, float, "integer", "int", "float", "real", "INTEGER", "FLOAT", "REAL"}
++    return type_ in numeric_types
++
++
+ def column_affinity(column_type: str) -> type:
+     # Implementation of SQLite affinity rules from
+     # https://www.sqlite.org/datatype3.html#determination_of_column_affinity

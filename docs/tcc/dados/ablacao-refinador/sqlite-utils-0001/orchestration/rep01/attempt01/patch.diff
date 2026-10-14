@@ -1,0 +1,63 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index d709fb9..7ea8c68 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -2500,6 +2500,41 @@ class Table(Queryable):
+             self.db.execute(sql)
+         return self.db.table(new_name)
+ 
++    def _get_destructive_foreign_key_references(self) -> List[Tuple[str, str]]:
++        """
++        Returns a list of (table_name, on_delete_action) tuples for all tables
++        that reference this table with destructive foreign key actions.
++        
++        Destructive actions are: CASCADE, SET NULL, SET DEFAULT
++        """
++        destructive_actions = {"CASCADE", "SET NULL", "SET DEFAULT"}
++        destructive_refs = []
++        
++        # Get all tables in the database
++        for table_obj in self.db.tables:
++            table_name = table_obj.name
++                
++            # Check foreign keys in this table
++            try:
++                fk_rows = self.db.execute(
++                    "PRAGMA foreign_key_list({})".format(quote_identifier(table_name))
++                ).fetchall()
++                
++                for row in fk_rows:
++                    id, seq, referenced_table, from_col, to_col, on_update, on_delete, match = row
++                    # Check if this foreign key references our table
++                    if referenced_table == self.name:
++                        # Normalize the on_delete action to uppercase for comparison
++                        on_delete_upper = on_delete.upper() if on_delete else ""
++                        # Check if it's a destructive action
++                        if on_delete_upper in destructive_actions:
++                            destructive_refs.append((table_name, on_delete_upper))
++            except Exception:
++                # If we can't get foreign key info for a table, skip it
++                continue
++                
++        return destructive_refs
++
+     def transform(
+         self,
+         *,
+@@ -2560,6 +2595,16 @@ class Table(Queryable):
+             self.db.execute("PRAGMA foreign_keys").fetchone()[0]
+         )
+         already_in_transaction = self.db.conn.in_transaction
++        
++        # Check for destructive foreign key references if we're in a transaction
++        if already_in_transaction and pragma_foreign_keys_was_on:
++            destructive_refs = self._get_destructive_foreign_key_references()
++            if destructive_refs:
++                ref_info = ", ".join([f"{table} ({action})" for table, action in destructive_refs])
++                raise TransactionError(
++                    f"Cannot transform table '{self.name}' with destructive foreign key references: {ref_info}"
++                )
++        
+         should_disable_foreign_keys = (
+             pragma_foreign_keys_was_on and not already_in_transaction
+         )

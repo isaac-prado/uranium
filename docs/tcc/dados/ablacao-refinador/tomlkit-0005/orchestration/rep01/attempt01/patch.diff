@@ -1,0 +1,66 @@
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 4a24fc0..935b220 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -613,6 +613,11 @@ class Integer(Item, _CustomInt):
+     An integer literal.
+     """
+ 
++    __getitem__ = None
++    __setitem__ = None
++    __delitem__ = None
++    __iter__ = None
++
+     def __new__(cls, value: int, trivia: Trivia, raw: str) -> Integer:
+         return int.__new__(cls, value)
+ 
+@@ -836,6 +841,11 @@ class Float(Item, _CustomFloat):
+     A float literal.
+     """
+ 
++    __getitem__ = None
++    __setitem__ = None
++    __delitem__ = None
++    __iter__ = None
++
+     def __new__(cls, value: float, trivia: Trivia, raw: str) -> Float:
+         return float.__new__(cls, value)
+ 
+@@ -991,6 +1001,11 @@ class Bool(Item):
+     A boolean literal.
+     """
+ 
++    __getitem__ = None
++    __setitem__ = None
++    __delitem__ = None
++    __iter__ = None
++
+     def __init__(self, t: int | BoolType, trivia: Trivia) -> None:
+         super().__init__(trivia)
+ 
+@@ -1037,6 +1052,12 @@ class DateTime(Item, datetime):
+     A datetime literal.
+     """
+ 
++    # Remove sequence protocol for scalar values by deleting the methods
++    __getitem__ = None
++    __setitem__ = None
++    __delitem__ = None
++    __iter__ = None
++
+     def __new__(
+         cls,
+         year: int,
+@@ -1197,6 +1218,12 @@ class Date(Item, date):
+     A date literal.
+     """
+ 
++    # Remove sequence protocol for scalar values by deleting the methods
++    __getitem__ = None
++    __setitem__ = None
++    __delitem__ = None
++    __iter__ = None
++
+     def __new__(
+         cls,
+         year: int,

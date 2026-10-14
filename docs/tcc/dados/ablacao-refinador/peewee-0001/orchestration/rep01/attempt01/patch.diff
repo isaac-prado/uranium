@@ -1,0 +1,79 @@
+diff --git a/peewee.py b/peewee.py
+index 13d2c8e9..a8a2df4a 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -3727,6 +3727,23 @@ class ConnectionContext(_callable_context_manager):
+         return type(self)(self.db)
+ 
+ 
++class QueryEvent:
++    """
++    Representa um evento de query SQL executada.
++    
++    Atributos:
++        sql (str): O texto SQL executado
++        params (tuple/list): Os parâmetros passados para a execução
++        duration (float): Tempo de execução em segundos (>= 0)
++        exception (Exception or None): Exceção ocorrida, se houver
++    """
++    def __init__(self, sql, params, duration, exception):
++        self.sql = sql
++        self.params = params
++        self.duration = duration
++        self.exception = exception
++
++
+ class Database(_callable_context_manager):
+     context_class = Context
+     field_types = {}
+@@ -3763,6 +3780,7 @@ class Database(_callable_context_manager):
+ 
+         self.autoconnect = autoconnect
+         self.thread_safe = thread_safe
++        self.query_hooks = []
+         if thread_safe:
+             self._state = _ConnectionLocal()
+             self._lock = threading.Lock()
+@@ -3891,10 +3909,38 @@ class Database(_callable_context_manager):
+             logger.debug((sql, params))
+ 
+     def execute_sql(self, sql, params=None):
+-        self._log_query(sql, params)
+-        with __exception_wrapper__:
+-            cursor = self.cursor()
+-            cursor.execute(sql, params or ())
++        if not self.query_hooks:
++            # Se não há ganchos registrados, usa a implementação original
++            self._log_query(sql, params)
++            with __exception_wrapper__:
++                cursor = self.cursor()
++                cursor.execute(sql, params or ())
++            return cursor
++        
++        # Se há ganchos registrados, executa com notificação
++        start_time = time.time()
++        exception = None
++        
++        try:
++            self._log_query(sql, params)
++            with __exception_wrapper__:
++                cursor = self.cursor()
++                cursor.execute(sql, params or ())
++        except Exception as exc:
++            exception = exc
++            raise
++        finally:
++            duration = time.time() - start_time
++            event = QueryEvent(sql, params or (), duration, exception)
++            
++            # Chama todos os ganchos registrados
++            for hook in self.query_hooks:
++                try:
++                    hook(event)
++                except Exception:
++                    # Se um gancho levantar exceção, propaga para o chamador
++                    raise
++        
+         return cursor
+ 
+     def execute(self, query, **context_options):

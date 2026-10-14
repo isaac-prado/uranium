@@ -1,0 +1,35 @@
+{
+  "run_id": "peewee-0003-orchestration-r01-a01",
+  "arm": "orchestration",
+  "task_id": "peewee-0003",
+  "repetition": 1,
+  "attempt": 1,
+  "llm_seed": 20260821,
+  "topology": "multi_agent_roles",
+  "stop_reason": "concluiu",
+  "lost": false,
+  "is_valid": true,
+  "changed_files": [
+    "peewee_pwiz.db",
+    "peewee_test.db-shm",
+    "playhouse/fields.py"
+  ],
+  "diff_stat": {
+    "files_changed": 1,
+    "insertions": 13,
+    "deletions": 0
+  },
+  "turns": 10,
+  "totals": {
+    "tokens_prompt": 45229,
+    "tokens_completion": 3661,
+    "tokens_reasoning": 0,
+    "tokens_total": 48890,
+    "cost_usd": 0.0112041,
+    "llm_calls": 13,
+    "tool_calls": 9,
+    "test_runs": 1,
+    "errors": 0
+  },
+  "out_dir": "runs/refinador-v2/peewee-0003/orchestration/rep01/attempt01"
+}

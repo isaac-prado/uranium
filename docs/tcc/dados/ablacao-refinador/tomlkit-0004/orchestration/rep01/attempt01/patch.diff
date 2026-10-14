@@ -1,0 +1,100 @@
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..6c1b869 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -44,6 +44,7 @@ from .items import Table
+ from .items import Time
+ from .items import Trivia
+ from .items import Whitespace
++from .container import Container
+ from .toml_char import TOMLChar
+ from .toml_document import TOMLDocument
+ 
+@@ -132,7 +133,7 @@ class Parser:
+ 
+             key, value = item
+             if not self._merge_ws(value, body):
+-                body.append(key, value)
++                self._insert_dotted_key(key, value, body)
+ 
+             self.mark()
+ 
+@@ -147,6 +148,65 @@ class Parser:
+ 
+         return body
+ 
++    def _insert_dotted_key(self, key, value, container):
++        """
++        Insert a dotted key into the container, creating nested structures as needed.
++        """
++        # Check if this is actually a dotted key
++        if key is None or "." not in key.key:
++            # Not a dotted key, insert normally
++            container.append(key, value)
++            return
++            
++        # Check if the key is a quoted string (not a dotted key)
++        # If the entire key is quoted, it's not a dotted key
++        stripped_key = key.key.strip()
++        if ((stripped_key.startswith('"') and stripped_key.endswith('"') and stripped_key.count('"') == 2 and stripped_key[1:-1].count('"') == 0) or \
++           (stripped_key.startswith("'") and stripped_key.endswith("'") and stripped_key.count("'") == 2 and stripped_key[1:-1].count("'") == 0)):
++            # This is a quoted key, not a dotted key
++            container.append(key, value)
++            return
++            
++        # Split the key by dots, respecting quoted strings
++        try:
++            key_parts = list(self._split_table_name(key.key))
++        except:
++            # If we can't split it properly, treat as regular key
++            container.append(key, value)
++            return
++        
++        if len(key_parts) == 1:
++            # Not a dotted key after splitting, insert normally
++            container.append(key, value)
++            return
++            
++        # Handle dotted key by creating nested structure
++        current_container = container
++        for i, part in enumerate(key_parts[:-1]):
++            part_str = part.key
++            if part_str not in current_container:
++                # Create new table for this part
++                new_table = Table(
++                    Container(),
++                    value.trivia if value.trivia is not None else Trivia(),
++                    False,  # is_aot_element
++                    is_super_table=True,
++                    name=part_str
++                )
++                current_container.append(part_str, new_table)
++                current_container = new_table
++            else:
++                existing = current_container[part_str]
++                if isinstance(existing, Table):
++                    current_container = existing
++                else:
++                    # This part already exists as a non-table value, which is an error
++                    raise self.parse_error(ParseError, ("Cannot overwrite existing value with table",))
++        
++        # Set the final value
++        final_key = key_parts[-1]
++        current_container.append(final_key.key, value)
++
+     def _merge_ws(self, item, container):  # type: (Item, Container) -> bool:
+         """
+         Merges the given Item with the last one currently in the given Container if
+diff --git a/tomlkit/toml_char.py b/tomlkit/toml_char.py
+index 8d8d660..fd2c802 100644
+--- a/tomlkit/toml_char.py
++++ b/tomlkit/toml_char.py
+@@ -14,7 +14,7 @@ class TOMLChar(unicode):
+         """
+         Whether the character is a valid bare key name or not.
+         """
+-        return self in string.ascii_letters + string.digits + "-" + "_"
++        return self in string.ascii_letters + string.digits + "-" + "_" + "."
+ 
+     def is_kv_sep(self):  # type: () -> bool
+         """

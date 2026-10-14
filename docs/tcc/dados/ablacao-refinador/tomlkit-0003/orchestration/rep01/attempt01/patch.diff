@@ -1,0 +1,16 @@
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 26b8f9f..8fbf307 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -1045,7 +1045,10 @@ class Table(Item, dict):
+         self.remove(key)
+ 
+     def __repr__(self):
+-        return super(Table, self).__repr__()
++        return repr(self._value)
++
++    def __iter__(self):
++        return iter(self._value)
+ 
+     def __str__(self):
+         return str(self.value)

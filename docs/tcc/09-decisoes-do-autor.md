@@ -164,6 +164,26 @@ Fontes: [04-cronograma.md](04-cronograma.md), [07-execucao.md](07-execucao.md), 
 
 **Rodada 2.** Orquestrado nas 13 tarefas × 3 repetições com `INTENT_REFINER=v2`, `REVIEW_EXECUTION=on`, `CYCLE_NOTE=on`, `DEVELOPER_INPUT=intent`; single-agent só nas três tarefas reconstruídas (decisão 27) × 3 repetições; as outras 30 células do single-agent vêm da rodada 1 (braço sem mudança, mesmas sementes, manifesto v7 cujas chaves novas são todas do orquestrado). 57 runs, ≈ US$ 9 a 10. Testes: `tests/test_rodada2.py`. Suíte: 641 passando.
 
+### Decisão 30. Bug do rootdir do pytest: o `visible_deselect` não valia em `runs/` (correção do harness)
+
+**Situação.** Os workspaces dos runs ficam em `runs/` dentro do uranium; o pytest sobe até o `pyproject.toml` do projeto, o rootdir vira a raiz do uranium e os node ids ganham o prefixo `runs/.../workspace/`. O `--deselect` da decisão 27 compara prefixo de node id e não casava nada: a suíte visível das três tarefas reconstruídas continuou contraditória nos primeiros runs da rodada 2 e no run OR-v2 do pygments. O quinto portão passou porque `scripts/validate_task.py` materializa em `/tmp`. Diagnóstico e verificação em [16-ablacao-e-v2.md](16-ablacao-e-v2.md), seção 4.
+
+**O que foi feito (14/10/2026, commit `4f4f80e`).** `src/tools/exec.run_pytest` passa `--rootdir .`; chave `shared_limits.pytest_rootdir` no manifesto; teste que reproduz o cenário. Células afetadas da rodada 2 (pygments-0001, sqlite-utils-0002, tomlkit-0004, todas as repetições gravadas) movidas para `runs/coleta-r2-descartados/` e refeitas com a mesma semente; as 15 células das outras tarefas mantidas. Coleta principal, ablação e v2 não mudam (não tinham deselect). Oráculo intocado.
+
+**Para o autor confirmar.** (a) manter as 15 células da rodada 2 gravadas antes da correção (única diferença para as 10 tarefas: forma do node id na saída do pytest), ou (b) refazer a rodada 2 inteira (≈ US$ 4 a mais). Recomendação: (a), com a chave do manifesto como registro.
+
+**Decisão:** correção aplicada e registrada pelo executor em 14/10/2026; (a)/(b): ______ (data: ______)
+
+### Decisão 31. `run_python` pode reescrever arquivos-fonte (pendente)
+
+**Situação.** No run OR-v2 do peewee-0001, depois de um `replace_in_file` falhar por trecho inexato, o developer reescreveu `peewee.py` por `run_python` (9 694 → 550 linhas) e perdeu o run ([16-ablacao-e-v2.md](16-ablacao-e-v2.md), seção 3.2). `run_python` executa qualquer código no workspace e contorna a correspondência exata do `replace_in_file`. A ferramenta é compartilhada pelos dois braços e está congelada (`shared_limits`).
+
+**Opções.** (a) Nada: comportamento do modelo, igual nos dois braços, fica em Discussão; (b) `run_python` com o workspace somente leitura fora de um diretório de rascunho (muda os dois braços, invalida comparação com as coletas já feitas, exige nova rodada); (c) só registrar na telemetria quando um `run_python` altera arquivos rastreados (não muda o comportamento, dá a contagem para o texto).
+
+**Recomendação.** (a) agora, (c) se houver tempo; (b) só em trabalho futuro.
+
+**Decisão:** ______ (data: ______)
+
 ## Bloco 2 — Tratamentos: o desenho do braço `orchestration`
 
 As decisões 4 a 6 **já foram tomadas pelo autor em 28/09/2026** (commits `f4c01a9`, `c2046fd`, `7068a55` na `develop`) e integradas à branch de trabalho em 08/10/2026 ([07-execucao.md](07-execucao.md), seção "Reconciliação"). Aparecem aqui para confirmação e para o texto.
@@ -396,7 +416,7 @@ Hoje conta como "sem corte" pela definição literal, e o JSON reporta `sem_stop
 | 4 | | | |
 | 5 | | | |
 | 6 | | | |
-| 7 | | | |
+| 7 | (a) ablação rodada: 13 pares na repetição 1 (OR com enunciado+intent vs OR-v1 da coleta, mesma semente): 8/13 contra 6/13; entra em Resultados como ablação, sem estatística | 14/10/2026 | 09, Decisão 7; 16-ablacao-e-v2; dados/ablacao-refinador |
 | 8 | memória de trabalho do developer entre ciclos (registro determinístico + diff), `DEVELOPER_MEMORY=ledger`, manifesto v6 | 09/10/2026 | 09, Decisão 8; 07-execucao; src/feedback.py; src/agents/developer.py |
 | 9 | | | |
 | 10 | | | |
@@ -420,7 +440,7 @@ Hoje conta como "sem corte" pela definição literal, e o JSON reporta `sem_stop
 | 14 | erro do harness interrompe a coleta, célula refeita com a mesma semente, tentativa fora do denominador (regra manual) | 12/10/2026 | 09, Decisão 14; 07-execucao |
 | 14 (ocorrência) | reinício da máquina em 12/10 23:53 matou 1 tentativa (sqlite-utils-0003 SA rep1); refeita como attempt02, mesma semente; coleta fechada 78/78 em 13/10 | 13/10/2026 | 07-execucao; dados/coleta |
 | 15 | | | |
-| 16 | | | |
+| 16 | sim, 13 pares × 1 repetição (US$ 1,77, `dados/ablacao-refinador/collection.json`), como Resultado | 14/10/2026 | 09, Decisão 16; 16-ablacao-e-v2 |
 | 17 | tomlkit-0002 + tomlkit-0001, 2 braços × 1 repetição, via run_collection.py | 08/10/2026 | 09, Decisão 17; dados/fumaca-08-10 |
 | 18 | | | |
 | 19 | | | |
@@ -429,3 +449,6 @@ Hoje conta como "sem corte" pela definição literal, e o JSON reporta `sem_stop
 | 22 | faixa média: módulo = arquivo .py; condição de diretórios cai; regras congeladas no CLAUDE.md | 08/10/2026 | 09, Decisão 22; CLAUDE.md; 07-e3-1 seção 1; scripts/mine_tasks.py |
 | 23 | as 13 tarefas ficam (3/4/6); 78 execuções; pendências do 10-tarefas resolvidas a favor de manter | 08/10/2026 | 09, Decisão 23; 10-tarefas seção 5 |
 | 24 | implementada e REVERTIDA no mesmo dia: developer recebe só a intent (protótipo do TFG); manifesto v5; D3 declarado | 09/10/2026 | 09, Decisão 24; 07-e4-fumaca seção 10; CLAUDE.md |
+| 28 (resultado) | v2 na repetição 1: 7/13 (OR-v1 6/13, OR-abl 8/13, SA 9/13); intent com 126 % do enunciado; as duas perdas (peewee-0001, pygments-0001) não estão na intent | 14/10/2026 | 16-ablacao-e-v2; dados/refinador-v2 |
+| 30 | bug do rootdir do pytest corrigido (`--rootdir .`, `shared_limits.pytest_rootdir`); células afetadas da rodada 2 descartadas e refeitas; (a)/(b) pendente do autor | 14/10/2026 | 09, Decisão 30; 16-ablacao-e-v2 §4; runs/coleta-r2-descartados/README.md |
+| 31 (pendente) | `run_python` reescreve arquivos-fonte (peewee-0001 OR-v2) | | 09, Decisão 31; 16-ablacao-e-v2 §3.2 |

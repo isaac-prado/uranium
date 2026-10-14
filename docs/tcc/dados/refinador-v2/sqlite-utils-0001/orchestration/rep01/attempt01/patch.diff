@@ -1,0 +1,42 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index d709fb9..ecfbd71 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -2542,6 +2542,37 @@ class Table(Queryable):
+         """
+         if not self.exists():
+             raise ValueError("Cannot transform a table that doesn't exist yet")
++        
++        # Check for destructive foreign key references when in transaction
++        pragma_foreign_keys_was_on = bool(
++            self.db.execute("PRAGMA foreign_keys").fetchone()[0]
++        )
++        already_in_transaction = self.db.conn.in_transaction
++        
++        if pragma_foreign_keys_was_on and already_in_transaction:
++            # Find tables that reference this table with destructive ON DELETE actions
++            destructive_refs = []
++            for table in self.db.tables:
++                if table.name != self.name:  # Skip self-references for this check
++                    for fk in table.foreign_keys:
++                        if fk.other_table == self.name:
++                            # Check if the ON DELETE action is destructive
++                            on_delete_action = fk.on_delete.upper() if fk.on_delete else "NO ACTION"
++                            if on_delete_action in ("CASCADE", "SET NULL", "SET DEFAULT"):
++                                destructive_refs.append((table.name, on_delete_action))
++            
++            if destructive_refs:
++                ref_details = ", ".join(
++                    f"{table_name} (ON DELETE {action})" 
++                    for table_name, action in destructive_refs
++                )
++                raise TransactionError(
++                    f"Cannot transform table '{self.name}' with destructive foreign key references "
++                    f"from tables: {ref_details}. "
++                    "This would cause data loss when foreign_keys pragma is ignored within transactions. "
++                    "Consider disabling foreign key checks temporarily or performing this operation outside a transaction."
++                )
++        
+         sqls = self.transform_sql(
+             types=types,
+             rename=rename,

@@ -1,0 +1,190 @@
+diff --git a/sqlite_utils/cli.py b/sqlite_utils/cli.py
+index a30f79a..01e64f0 100644
+--- a/sqlite_utils/cli.py
++++ b/sqlite_utils/cli.py
+@@ -1053,13 +1053,15 @@ def insert_upsert_implementation(
+                 reader = itertools.chain([first_row], reader)
+             else:
+                 headers = first_row
++            from .utils import dedupe_keys
++            deduped_headers = dedupe_keys(headers)
+             if empty_null:
+                 docs = (
+-                    dict(zip(headers, [None if cell == "" else cell for cell in row]))
++                    dict(zip(deduped_headers, [None if cell == "" else cell for cell in row]))
+                     for row in reader
+                 )
+             else:
+-                docs = (dict(zip(headers, row)) for row in reader)
++                docs = (dict(zip(deduped_headers, row)) for row in reader)
+             # Type detection is the default, unless --no-detect-types is passed
+             if not no_detect_types:
+                 tracker = TypeTracker()
+@@ -3505,8 +3507,10 @@ def output_rows(iterator, headers, nl, arrays, json_cols):
+         if json_cols:
+             # Any value that is a valid JSON string should be treated as JSON
+             data = [maybe_json(value) for value in data]
++        from .utils import dedupe_keys
+         if not arrays:
+-            data = dict(zip(headers, data))
++            deduped_headers = dedupe_keys(headers)
++            data = dict(zip(deduped_headers, data))
+         line = "{firstchar}{serialized}{maybecomma}{lastchar}".format(
+             firstchar=("[" if first else " ") if not nl else "",
+             serialized=json.dumps(data, default=json_binary),
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 3f23c7d..ae0938d 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -786,8 +786,10 @@ class Database:
+                     cursor = self.conn.execute(sql, *args)
+             if cursor.description is None:
+                 raise ValueError(message)
++            from .utils import dedupe_keys
+             keys = [d[0] for d in cursor.description]
+-            return (dict(zip(keys, row)) for row in cursor)
++            deduped_keys = dedupe_keys(keys)
++            return (dict(zip(deduped_keys, row)) for row in cursor)
+         # Execute inside a savepoint, so a statement that turns out not to
+         # return rows can be rolled back before the ValueError is raised
+         self.conn.execute('SAVEPOINT "sqlite_utils_query"')
+@@ -796,7 +798,9 @@ class Database:
+             cursor = self.conn.execute(sql, *args)
+             if cursor.description is None:
+                 raise ValueError(message)
++            from .utils import dedupe_keys
+             keys = [d[0] for d in cursor.description]
++            deduped_keys = dedupe_keys(keys)
+             try:
+                 self.conn.execute('RELEASE "sqlite_utils_query"')
+                 released = True
+@@ -809,8 +813,8 @@ class Database:
+                 fetched = cursor.fetchall()
+                 self.conn.execute('RELEASE "sqlite_utils_query"')
+                 released = True
+-                return (dict(zip(keys, row)) for row in fetched)
+-            return (dict(zip(keys, row)) for row in cursor)
++                return (dict(zip(deduped_keys, row)) for row in fetched)
++            return (dict(zip(deduped_keys, row)) for row in cursor)
+         finally:
+             if not released:
+                 # An error occurred - undo anything the statement changed
+@@ -1864,10 +1868,12 @@ class Queryable:
+             sql += " limit {}".format(limit)
+         if offset is not None:
+             sql += " offset {}".format(offset)
++        from .utils import dedupe_keys
+         cursor = self.db.execute(sql, where_args or [])
+         columns = [c[0] for c in cursor.description]
++        deduped_columns = dedupe_keys(columns)
+         for row in cursor:
+-            yield dict(zip(columns, row))
++            yield dict(zip(deduped_columns, row))
+ 
+     def pks_and_rows_where(
+         self,
+@@ -3398,9 +3404,11 @@ class Table(Queryable):
+             ),
+             args,
+         )
++        from .utils import dedupe_keys
+         columns = [c[0] for c in cursor.description]
++        deduped_columns = dedupe_keys(columns)
+         for row in cursor:
+-            yield dict(zip(columns, row))
++            yield dict(zip(deduped_columns, row))
+ 
+     def value_or_default(self, key: str, value: Any) -> Any:
+         return self._defaults[key] if value is DEFAULT else value
+@@ -3808,8 +3816,10 @@ class Table(Queryable):
+         else:
+             pks = pk
+         self.last_pk = None
++        from .utils import dedupe_keys
++        deduped_all_columns = dedupe_keys(all_columns)
+         for record_values in values:
+-            record = dict(zip(all_columns, record_values))
++            record = dict(zip(deduped_all_columns, record_values))
+             placeholders = list(pks)
+             # Need to populate not-null columns too, or INSERT OR IGNORE ignores
+             # them since it ignores the resulting integrity errors
+@@ -4146,7 +4156,9 @@ class Table(Queryable):
+                     # Use the first batch to derive the table names
+                     if list_mode:
+                         # Convert list records to dicts for type detection
+-                        chunk_as_dicts = [dict(zip(column_names, row)) for row in chunk]
++                        from .utils import dedupe_keys
++                        deduped_column_names = dedupe_keys(column_names)
++                        chunk_as_dicts = [dict(zip(deduped_column_names, row)) for row in chunk]
+                         column_types = suggest_column_types(chunk_as_dicts)
+                     else:
+                         dict_chunk = cast(List[Dict[str, Any]], chunk)
+diff --git a/sqlite_utils/utils.py b/sqlite_utils/utils.py
+index 865ee79..6e97a9e 100644
+--- a/sqlite_utils/utils.py
++++ b/sqlite_utils/utils.py
+@@ -67,6 +67,57 @@ Row = Dict[str, RowValue]
+ T = TypeVar("T")
+ 
+ 
++def dedupe_keys(keys: List[str]) -> List[str]:
++    """
++    Given a list of column names, return a new list with duplicates renamed with numeric suffixes.
++    
++    Examples:
++        [] -> []
++        ["id", "name"] -> ["id", "name"]
++        ["id", "id"] -> ["id", "id_2"]
++        ["id", "id", "id"] -> ["id", "id_2", "id_3"]
++        ["id", "id", "id_2"] -> ["id", "id_3", "id_2"]
++        ["id_2", "id", "id"] -> ["id_2", "id", "id_3"]
++        ["id", "id", "id_2", "id_2"] -> ["id", "id_3", "id_2", "id_2_2"]
++    """
++    if not keys:
++        return []
++    
++    # Count occurrences of each key
++    counts: Dict[str, int] = {}
++    for key in keys:
++        counts[key] = counts.get(key, 0) + 1
++    
++    # Track how many times we've used each base key
++    used_counts: Dict[str, int] = {}
++    result = []
++    
++    for key in keys:
++        if counts[key] == 1:
++            # Unique key, no change needed
++            result.append(key)
++        else:
++            # Duplicate key, need to add suffix
++            used_count = used_counts.get(key, 0) + 1
++            used_counts[key] = used_count
++            
++            if used_count == 1:
++                # First occurrence stays as-is
++                result.append(key)
++            else:
++                # Subsequent occurrences get suffixed
++                new_key = f"{key}_{used_count}"
++                # Handle potential conflicts with existing keys
++                counter = used_count
++                while new_key in used_counts or new_key in counts:
++                    counter += 1
++                    new_key = f"{key}_{counter}"
++                used_counts[new_key] = 1
++                result.append(new_key)
++                
++    return result
++
++
+ class _CloseableIterator(Iterator[Row]):
+     """Iterator wrapper that closes a file when iteration is complete."""
+ 
+@@ -628,4 +679,4 @@ def flatten(row: Dict[str, Any]) -> Dict[str, Any]:
+ 
+     :param row: A Python dictionary, optionally with nested dictionaries
+     """
+-    return dict(_flatten(row))
++    return dict(_flatten(row))
+\ No newline at end of file
