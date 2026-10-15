@@ -49,6 +49,8 @@ EVENT_TYPES = frozenset({
     "intent",
     "validation",
     "memory",
+    # Plano do planejador e mudanças de estado das sub-tarefas (decisão 33).
+    "plan",
 })
 
 
@@ -358,6 +360,10 @@ class TelemetryWriter:
     def emit_validation(self, result: Any, **fields: Any) -> dict[str, Any]:
         """Registra o veredito do revisor semântico (só roda com a suíte verde)."""
         return self.emit("validation", payload=result.model_dump(), **fields)
+
+    def emit_plan(self, payload: dict[str, Any], **fields: Any) -> dict[str, Any]:
+        """Registra o plano de sub-tarefas e cada mudança de estado dele."""
+        return self.emit("plan", payload=dict(payload), **fields)
 
     def emit_memory(self, entry: dict[str, Any], **fields: Any) -> dict[str, Any]:
         """Registra o ciclo que entra na memória de trabalho do developer."""

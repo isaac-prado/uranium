@@ -105,7 +105,7 @@ class TestVisibleDeselect:
         a = build_run_spec(run_id="a", arm="single-agent", **kw).manifest("t")
         b = build_run_spec(run_id="b", arm="orchestration", **kw).manifest("t")
         assert a["visible_deselect"] == b["visible_deselect"] == ["tests/a.py::t"]
-        assert a["manifest_version"] == 11
+        assert a["manifest_version"] == 12
 
 
 def _v2(reproduction):

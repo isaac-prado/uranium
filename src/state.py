@@ -45,6 +45,13 @@ class WorkflowState(TypedDict, total=False):
     # Memória de trabalho do developer: um registro por ciclo encerrado,
     # montado pelo próprio nó a partir do que ele fez (decisão 8, 09/10/2026).
     developer_memory: list[dict[str, Any]]
+    # Planejador (decisão 33): plano com `subtasks` e `status`, sub-tarefa
+    # corrente, parecer da revisão da sub-tarefa e pedido de replanejamento.
+    plan: dict[str, Any] | None
+    subtask_current: int | None
+    subtask_review: dict[str, Any] | None
+    replan_requested: bool
+    replans: int
 
     # Validator — corretude vem de execução real
     test_report: TestReportState

@@ -24,13 +24,16 @@ from src import config
 from src.feedback import (
     DIFF_VAZIO,
     NOTA_DE_CICLO,
+    SUBTAREFA_CONCLUIDA_NAO,
     feedback_de_falha,
     memoria_de_trabalho,
+    plano_em_andamento,
     revisao_reprovada,
+    subtarefa_atual,
 )
 from src.prompts import AGENT_SYSTEM_PROMPT
 from src.runtime import RunContext
-from src.schemas.intent import intent_as_text
+from src.schemas.intent import StructuredIntentV2, intent_as_text
 from src.state import WorkflowState, parse_intent, parse_test_report, parse_validation
 
 # Mesmo prompt do braço single-agent. A decomposição em papéis do
@@ -76,6 +79,46 @@ def _memoria(state: WorkflowState, diff: str) -> str | None:
     return memoria_de_trabalho(ciclos, diff)
 
 
+def _subtarefa(state: WorkflowState) -> str | None:
+    """
+    Sub-tarefa corrente do plano (decisão 33), quando o planejador está
+    ligado e ainda há sub-tarefa a atacar. Critérios e blocos vêm da
+    intent, copiados pelo índice que o planejador apontou.
+    """
+    if config.PLANNER != "on":
+        return None
+    plano = state.get("plan") or {}
+    atual = state.get("subtask_current")
+    subtasks = plano.get("subtasks") or []
+    if not subtasks:
+        return None
+    partes = [plano_em_andamento(subtasks, plano.get("status") or [])]
+    sub = next((s for s in subtasks if s.get("id") == atual), None)
+    if sub is not None:
+        intent = parse_intent(state)
+        criterios = [intent.acceptance_criteria[i - 1] for i in sub.get("criteria") or []
+                     if 1 <= i <= len(intent.acceptance_criteria)]
+        blocos_intent = intent.reproduction if isinstance(intent, StructuredIntentV2) else []
+        blocos = [blocos_intent[i - 1] for i in sub.get("reproduction") or [] if 1 <= i <= len(blocos_intent)]
+        posicao = next((k for k, s in enumerate(subtasks, 1) if s.get("id") == atual), 0)
+        partes += ["", subtarefa_atual(sub, posicao=posicao, total=len(subtasks),
+                                       criterios=criterios, blocos=blocos)]
+    return "\n".join(partes)
+
+
+def _revisao_da_subtarefa(state: WorkflowState) -> str | None:
+    """Parecer do revisor sobre a sub-tarefa corrente, quando não a deu por concluída."""
+    parecer = state.get("subtask_review")
+    if not parecer or parecer.get("is_valid"):
+        return None
+    return revisao_reprovada(
+        issues=list(parecer.get("issues") or []),
+        missing_criteria=list(parecer.get("missing_criteria") or []),
+        suggestions=list(parecer.get("suggestions") or []),
+        cabecalho=SUBTAREFA_CONCLUIDA_NAO,
+    )
+
+
 def _build_prompt(state: WorkflowState, diff: str = "") -> str:
     """
     Monta a instrução do turno: tarefa, memória de trabalho (se houver ciclo
@@ -99,6 +142,10 @@ def _build_prompt(state: WorkflowState, diff: str = "") -> str:
             # saídas esperadas e restrições literais do enunciado.
             intent_as_text(intent),
         ]
+
+    subtarefa = _subtarefa(state)
+    if subtarefa:
+        partes += ["", subtarefa]
 
     memoria = _memoria(state, diff)
     if memoria:
@@ -128,11 +175,16 @@ def _build_prompt(state: WorkflowState, diff: str = "") -> str:
         if reprovada:
             partes += ["", reprovada]
 
+    parecer = _revisao_da_subtarefa(state)
+    if parecer:
+        partes += ["", parecer]
+
     return "\n".join(partes)
 
 
 def _registro_do_ciclo(
-    mensagens: list[BaseMessage], *, ciclo: int, turnos: int, parada: str, nota: str
+    mensagens: list[BaseMessage], *, ciclo: int, turnos: int, parada: str, nota: str,
+    subtarefa: int | None = None,
 ) -> dict[str, Any]:
     """
     Registro determinístico do que o developer fez neste ciclo, a partir da
@@ -181,6 +233,7 @@ def _registro_do_ciclo(
         "ciclo": ciclo,
         "turnos": turnos,
         "parada": parada,
+        "subtarefa": subtarefa,
         "arquivos_lidos": lidos,
         "buscas": buscas,
         "arquivos_escritos": escritos,
@@ -263,6 +316,7 @@ def developer(state: WorkflowState) -> dict[str, Any]:
             turnos=turnos_no_ciclo,
             parada=stop_reason,
             nota=resumo,
+            subtarefa=state.get("subtask_current"),
         )
         ctx.telemetry.emit_memory(registro)
 

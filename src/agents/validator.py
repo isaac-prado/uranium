@@ -21,6 +21,13 @@ from typing import Any
 from src import config
 from src.runtime import RunContext
 from src.schemas.intent import StructuredIntentV2, intent_as_text
+from src.schemas.plan import (
+    STATUS_ABANDONADA,
+    STATUS_ADIADA,
+    STATUS_EM_ANDAMENTO,
+    STATUS_FEITA,
+    STATUS_PENDENTE,
+)
 from src.schemas.validation_result import ValidationResult
 from src.state import WorkflowState, parse_intent
 from src.structured_llm import StructuredOutputError, invoke_structured
@@ -38,6 +45,21 @@ grudado, comportamento não relacionado alterado)?
 Retorne JSON com is_valid, issues, suggestions, covered_criteria e
 missing_criteria. Use is_valid=false apenas se houver lacuna real frente à
 tarefa.
+"""
+
+
+# Revisão de sub-tarefa (decisão 33): o mesmo revisor, com a pergunta
+# restrita à sub-tarefa corrente do plano.
+SYSTEM_PROMPT_SUBTAREFA = """\
+Você é o revisor técnico de uma equipe de agentes de IA. O desenvolvedor
+trabalhou numa sub-tarefa de um plano. Decida só isto: a sub-tarefa atual está
+concluída? Use os critérios dela, a saída real dos exemplos executados e o
+diff. Um exemplo que não rodou por falta de contexto (import ou variável de
+outro bloco) não prova nada: não conte isso como falha do código.
+
+Retorne JSON com is_valid (true = sub-tarefa concluída), issues, suggestions,
+covered_criteria e missing_criteria, restritos a esta sub-tarefa. Não julgue o
+resto do plano.
 """
 
 
@@ -78,23 +100,31 @@ def validator(state: WorkflowState) -> dict[str, Any]:
                 # testes; fica registrada e o veredito segue pela execução.
                 ctx.telemetry.emit_error(exc)
 
-    # Diff vazio não pode ser sucesso. A suíte visível já está verde no
-    # commit-base — o teste que discrimina é oculto —, então "testes passam"
-    # é satisfeito por não fazer nada. No piloto foi exatamente isso: o
-    # agente explorou 10 turnos, não escreveu nada, a suíte passou e o run
-    # foi dado como válido com patch.diff de zero byte.
-    houve_mudanca = bool(ctx.workspace.changed_files())
+        # Diff vazio não pode ser sucesso. A suíte visível já está verde no
+        # commit-base — o teste que discrimina é oculto —, então "testes passam"
+        # é satisfeito por não fazer nada. No piloto foi exatamente isso: o
+        # agente explorou 10 turnos, não escreveu nada, a suíte passou e o run
+        # foi dado como válido com patch.diff de zero byte.
+        houve_mudanca = bool(ctx.workspace.changed_files())
 
-    # O LLM só rebaixa. Nunca promove.
-    is_valid = report.green and houve_mudanca and (semantic is None or semantic.is_valid)
+        # O LLM só rebaixa. Nunca promove.
+        is_valid = report.green and houve_mudanca and (semantic is None or semantic.is_valid)
+
+        # Planejador (decisão 33): se a tarefa não fechou, confere a sub-tarefa
+        # corrente e avança o plano.
+        avanco: dict[str, Any] = {}
+        if config.PLANNER == "on" and state.get("plan") and not is_valid:
+            avanco = _avancar_plano(state, ctx, houve_mudanca=houve_mudanca)
+    plano_aberto = avanco.get("subtask_current") is not None or bool(avanco.get("replan_requested"))
 
     # O teto de reprovações vale para o laço "developer diz que terminou,
     # revisor discorda". Quando o developer chegou aqui pelo teto do ciclo
-    # (decisão 25), a reprovação é feedback do ponto de checagem, não uma
-    # submissão recusada, e não conta.
-    submeteu = not str(state.get("stop_reason") or "").startswith("cycle:")
+    # (decisão 25), ou quando o plano ainda tem sub-tarefas (decisão 33), a
+    # reprovação é feedback do ponto de checagem, não uma submissão
+    # recusada, e não conta.
+    submeteu = not str(state.get("stop_reason") or "").startswith("cycle:") and not plano_aberto
 
-    return {
+    return avanco | {
         "test_report": report.model_dump(),
         "is_valid": is_valid,
         "validation_result": semantic.model_dump() if semantic else None,
@@ -122,7 +152,9 @@ def _codigo_python(bloco: str) -> str | None:
     return m.group(2) if linguagem in ("", "python", "py", "python3") else None
 
 
-def _executar_reproducao(state: WorkflowState, ctx: RunContext) -> list[dict[str, Any]]:
+def _executar_reproducao(
+    state: WorkflowState, ctx: RunContext, *, indices: list[int] | None = None
+) -> list[dict[str, Any]]:
     """
     Revisor que executa (decisão 29): roda os blocos de reprodução da intent
     v2 no código atual e devolve as saídas reais. Com `REVIEW_EXECUTION=off`,
@@ -130,16 +162,25 @@ def _executar_reproducao(state: WorkflowState, ctx: RunContext) -> list[dict[str
     lendo só o diff, como na coleta principal.
     """
     intent = parse_intent(state)
-    if config.REVIEW_EXECUTION != "on" or not isinstance(intent, StructuredIntentV2):
+    if config.REVIEW_EXECUTION == "off" or not isinstance(intent, StructuredIntentV2):
         return []
+    codigos = {i: _codigo_python(b) for i, b in enumerate(intent.reproduction, 1)}
+    acumulado = config.REVIEW_EXECUTION == "cumulative"
+    selecionados = (list(codigos) if indices is None
+                    else [i for i in indices if i in codigos])
     saidas: list[dict[str, Any]] = []
-    for i, bloco in enumerate(intent.reproduction, 1):
-        codigo = _codigo_python(bloco)
+    for i in selecionados:
+        codigo = codigos[i]
         if codigo is None or not codigo.strip():
             saidas.append({"bloco": i, "executado": False, "saida": "(não executado: não é Python)"})
             continue
+        if acumulado:
+            # Decisão 34: o bloco i roda precedido dos blocos 1..i-1, porque
+            # os enunciados encadeiam (o segundo usa o `db` do primeiro).
+            anteriores = [codigos[j] for j in range(1, i) if codigos[j] and codigos[j].strip()]
+            codigo = "\n\n".join(anteriores + [codigo])
         saida = run_python(ctx.workspace, codigo, timeout_s=min(60, ctx.test_timeout_s))
-        saidas.append({"bloco": i, "executado": True,
+        saidas.append({"bloco": i, "executado": True, "acumulado": acumulado and i > 1,
                        "saida": truncate(saida, MAX_SAIDA_EXECUCAO_CHARS)})
     return saidas
 
@@ -164,5 +205,106 @@ def _build_review_prompt(
         partes += ["", "Execução dos exemplos de reprodução sobre o código atual "
                        "(saída real, para comparar com as saídas esperadas da tarefa):"]
         for ex in execucoes:
-            partes += [f"[bloco {ex['bloco']}]", ex["saida"]]
+            rotulo = f"[bloco {ex['bloco']}]" + (" (executado junto com os blocos anteriores)" if ex.get("acumulado") else "")
+            partes += [rotulo, ex["saida"]]
     return "\n".join(partes)
+
+
+# ------------------------------------------------------- plano (decisão 33)
+
+
+def _proxima_subtarefa(status: list[dict[str, Any]]) -> int | None:
+    """Sub-tarefa a atacar: a em andamento; senão a primeira pendente; senão uma adiada."""
+    for s in status:
+        if s["status"] == STATUS_EM_ANDAMENTO:
+            return s["id"]
+    for estado in (STATUS_PENDENTE, STATUS_ADIADA):
+        for s in status:
+            if s["status"] == estado:
+                s["status"] = STATUS_EM_ANDAMENTO
+                return s["id"]
+    return None
+
+
+def _build_subtask_review_prompt(
+    state: WorkflowState, ctx: RunContext, sub: dict[str, Any], execucoes: list[dict[str, Any]]
+) -> str:
+    intent = parse_intent(state)
+    criterios = [intent.acceptance_criteria[i - 1] for i in sub.get("criteria") or []
+                 if 1 <= i <= len(intent.acceptance_criteria)]
+    diff = ctx.workspace.diff()
+    if len(diff) > 20_000:
+        diff = diff[:20_000] + "\n[... diff truncado ...]"
+    partes = [
+        f"Sub-tarefa {sub.get('id')}: {sub.get('title', '')}",
+        "O que fazer:", str(sub.get("objective", "")),
+        f"Pronto quando: {sub.get('done_when', '')}",
+    ]
+    if criterios:
+        partes += ["", "Critérios desta sub-tarefa:", *(f"- {c}" for c in criterios)]
+    partes += ["", "Diff atual do workspace:", diff or "(nenhuma alteração)"]
+    if execucoes:
+        partes += ["", "Execução dos exemplos desta sub-tarefa sobre o código atual (saída real):"]
+        for ex in execucoes:
+            rotulo = f"[bloco {ex['bloco']}]" + (" (executado junto com os blocos anteriores)" if ex.get("acumulado") else "")
+            partes += [rotulo, ex["saida"]]
+    return "\n".join(partes)
+
+
+def _avancar_plano(state: WorkflowState, ctx: RunContext, *, houve_mudanca: bool) -> dict[str, Any]:
+    """
+    Confere a sub-tarefa corrente com os blocos de reprodução dela e avança o
+    plano: feita → próxima; não feita → mais um ciclo, até o teto, depois
+    adiada (uma vez) e abandonada. Plano esgotado com a tarefa aberta →
+    pede replanejamento, enquanto houver cota.
+    """
+    plano = dict(state.get("plan") or {})
+    subtasks: list[dict[str, Any]] = list(plano.get("subtasks") or [])
+    status = [dict(s) for s in plano.get("status") or []]
+    atual = state.get("subtask_current")
+    parecer: ValidationResult | None = None
+
+    sub = next((s for s in subtasks if s.get("id") == atual), None)
+    linha = next((s for s in status if s.get("id") == atual), None)
+    if sub is not None and linha is not None:
+        concluida = False
+        if houve_mudanca and semantic_review_enabled():
+            execucoes = _executar_reproducao(state, ctx, indices=list(sub.get("reproduction") or []))
+            try:
+                parecer = ctx.invoke_structured(
+                    ValidationResult,
+                    [("system", SYSTEM_PROMPT_SUBTAREFA),
+                     ("user", _build_subtask_review_prompt(state, ctx, sub, execucoes))],
+                )
+                if config.REVIEW_STRICT == "on" and parecer.is_valid and parecer.missing_criteria:
+                    parecer = parecer.model_copy(update={"is_valid": False})
+                ctx.telemetry.emit_validation(parecer, executions=execucoes, scope="subtask", subtask=atual)
+                concluida = parecer.is_valid
+            except StructuredOutputError as exc:
+                ctx.telemetry.emit_error(exc)
+        linha["ciclos"] = int(linha.get("ciclos", 0)) + 1
+        if concluida:
+            linha["status"] = STATUS_FEITA
+        else:
+            teto = config.SUBTASK_MAX_CYCLES * (2 if linha.get("adiada_antes") else 1)
+            if linha["ciclos"] >= teto:
+                linha["status"] = STATUS_ABANDONADA if linha.get("adiada_antes") else STATUS_ADIADA
+                linha["adiada_antes"] = True
+            else:
+                linha["status"] = STATUS_EM_ANDAMENTO
+
+    proximo = _proxima_subtarefa(status)
+    replan = (proximo is None and not plano.get("esgotado")
+              and int(state.get("replans", 0)) < config.PLANNER_MAX_REPLANS)
+    plano["status"] = status
+    if proximo is None and not replan:
+        plano["esgotado"] = True
+    ctx.telemetry.emit_plan({
+        "evento": "avanco", "status": status, "subtask_current": proximo, "replan_requested": replan,
+    })
+    return {
+        "plan": plano,
+        "subtask_current": proximo,
+        "subtask_review": parecer.model_dump() if (parecer is not None and proximo == atual) else None,
+        "replan_requested": replan,
+    }

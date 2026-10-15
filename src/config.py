@@ -83,7 +83,10 @@ if INTENT_REFINER not in INTENT_REFINER_VERSIONS:
 # os blocos de `reproduction` da intent v2 no código atual e entrega as
 # saídas reais ao revisor, ao lado das esperadas, antes do veredito. "off":
 # o revisor só lê o diff (coleta principal).
-REVIEW_EXECUTION_MODES = ("on", "off")
+# "cumulative" (decisão 34, 15/10/2026): o bloco i roda precedido dos blocos
+# 1..i-1 no mesmo namespace, porque os enunciados encadeiam blocos (o
+# segundo usa o `db` ou o import do primeiro) e, isolados, 26 % quebravam.
+REVIEW_EXECUTION_MODES = ("on", "off", "cumulative")
 REVIEW_EXECUTION = os.getenv("REVIEW_EXECUTION", "off").strip().lower()
 if REVIEW_EXECUTION not in REVIEW_EXECUTION_MODES:
     raise ValueError(f"REVIEW_EXECUTION={REVIEW_EXECUTION!r} inválido; use um de {REVIEW_EXECUTION_MODES}")
@@ -103,6 +106,23 @@ REVIEW_STRICT_MODES = ("on", "off")
 REVIEW_STRICT = os.getenv("REVIEW_STRICT", "off").strip().lower()
 if REVIEW_STRICT not in REVIEW_STRICT_MODES:
     raise ValueError(f"REVIEW_STRICT={REVIEW_STRICT!r} inválido; use um de {REVIEW_STRICT_MODES}")
+# Planejador (decisão 33, 15/10/2026, rodada 4): com "on", um nó planejador
+# explora o repositório com ferramentas de leitura e fatia a intent em
+# sub-tarefas; o developer ataca uma por ciclo e o validador confere cada
+# uma com os blocos de reprodução dela. "off" reproduz a rodada 2.
+PLANNER_MODES = ("on", "off")
+PLANNER = os.getenv("PLANNER", "off").strip().lower()
+if PLANNER not in PLANNER_MODES:
+    raise ValueError(f"PLANNER={PLANNER!r} inválido; use um de {PLANNER_MODES}")
+# Turnos de exploração (só leitura) do planejador, contados no orçamento.
+PLANNER_MAX_TURNS = int(os.getenv("PLANNER_MAX_TURNS", "12"))
+# Quantas vezes o planejador pode ser chamado de novo quando o plano acabou
+# e a tarefa ainda não fechou.
+PLANNER_MAX_REPLANS = int(os.getenv("PLANNER_MAX_REPLANS", "1"))
+# Ciclos do developer numa sub-tarefa antes de ela ser adiada.
+SUBTASK_MAX_CYCLES = int(os.getenv("SUBTASK_MAX_CYCLES", "2"))
+# Tamanho máximo do plano.
+PLANNER_MAX_SUBTASKS = int(os.getenv("PLANNER_MAX_SUBTASKS", "6"))
 DEVELOPER_INPUT_MODES = ("intent", "enunciado+intent")
 DEVELOPER_INPUT = os.getenv("DEVELOPER_INPUT", "intent").strip().lower()
 if DEVELOPER_INPUT not in DEVELOPER_INPUT_MODES:

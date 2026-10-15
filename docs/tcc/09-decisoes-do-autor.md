@@ -194,11 +194,15 @@ Fontes: [04-cronograma.md](04-cronograma.md), [07-execucao.md](07-execucao.md), 
 
 **Implementação.** `REVIEW_STRICT=on` (`src/config.py`; `src/agents/validator.py` rebaixa `is_valid` quando `missing_criteria` não está vazio e grava `strict_coerced` no evento `validation`); `MAX_SEMANTIC_REJECTIONS=0` = sem teto (`src/graph.py`); `orchestration_policy.review_strict`, manifesto v11. Rodada 3 = rodada 2 + estas duas chaves; `off`/2 reproduz a rodada 2. A opção (3) fica como decisão 33 pendente (trabalho futuro ou rodada 4 se o cronograma permitir).
 
-### Decisão 33. Decomposição por critério no orquestrado (pendente, "carta na manga")
+### Decisão 33. Decomposição por critério no orquestrado: planejador (aprovada)
 
-Versão leve: o validador já devolve `covered_criteria`/`missing_criteria`; a memória de trabalho passaria a carregar a lista de pendências e o developer receberia ordem de atacar o próximo critério, verificando com o bloco de reprodução dele (muda `src/feedback.py`, exige aprovação por escrito). Versão completa: nó planejador que fatia a intent v2 em sub-tarefas executadas uma por vez, com o validador checando o critério da vez (prompt novo, ≈ 1 dia, rodada própria ≈ US$ 5). Autor em 14/10/2026: guardar, não executar agora.
+**Situação.** O protótipo do TFG fatia o tempo (ciclos de 40 turnos) e as responsabilidades (papéis), não o problema: o developer ataca todos os critérios de uma vez e, perdendo a conversa a cada ciclo, reexplora e não chega aos arquivos mais distantes nas tarefas médias e grandes ([19-balanco-e-caminhos.md](19-balanco-e-caminhos.md), §4; tomlkit-0004: nenhum run dos dois braços tocou `tomlkit/items.py`, que a referência altera). A hipótese do autor ("quebrar deveria ser melhor quanto pior o caso") é sobre fatiar o problema, e nenhuma rodada até a 3 testou isso.
 
-**Decisão:** ______ (data: ______)
+**Decisão do autor (15/10/2026, por escrito).** "Podemos sim seguir com o planejador fatiando as sub-tarefas, ele precisa de atenção pois será o foco de todas e precisa de autonomia e conhecimento para saber quando fatiar e quando prosseguir. EU QUERO RODAR AS TAREFAS GRANDES COM O ORQUESTRADOR DE QUALQUER FORMA."
+
+**Implementação (rodada 4, manifesto v12).** Nó `planner` (`src/agents/planner.py`, prompt próprio): recebe a intent v2, explora o repositório só com `list_files`/`read_file`/`search_code` por até `PLANNER_MAX_TURNS` turnos contados no orçamento, e devolve um `Plan` (`src/schemas/plan.py`): sub-tarefas com objetivo, arquivos, índices dos critérios e dos blocos de reprodução da intent, e "pronto quando". Fatiar é decisão dele (uma sub-tarefa só quando a mudança é uma). O developer recebe a sub-tarefa corrente (critérios e blocos copiados da intent pelo índice, `src/feedback.py::subtarefa_atual`) e o estado do plano; o validador, além da suíte e da revisão final, confere a sub-tarefa com os blocos dela (`SYSTEM_PROMPT_SUBTAREFA`) e avança o plano: feita → próxima; não feita → mais um ciclo até `SUBTASK_MAX_CYCLES`, depois adiada e, na segunda rodada, abandonada; plano esgotado com a tarefa aberta → replanejamento (`PLANNER_MAX_REPLANS`). Aprovação final com plano aberto encerra; reprovação final com plano aberto não conta para o teto. Execução acumulada dos blocos (decisão 34) entra junto. Rodada 4 = rodada 2 + `PLANNER=on` + `REVIEW_EXECUTION=cumulative`, teto de reprovações 2.
+
+**Decisão:** aprovada em 15/10/2026; só o orquestrado roda (39 runs); tarefas grandes primeiro, como fumaça.
 
 ### Decisão 34. Execução acumulada dos blocos de reprodução e "não verificável" ≠ reprovado (pendente)
 
@@ -484,3 +488,5 @@ Hoje conta como "sem corte" pela definição literal, e o JSON reporta `sem_stop
 | 33 (pendente) | decomposição por critério (leve ou com planejador): guardada para rodada 4 / trabalho futuro | | 09, Decisão 33 |
 | 32 (resultado) | rodada 3 fechada 15/10 05:0x, 39/39, 0 perdidos: 19/39 (rodada 2: 23/39), por tarefa 5 × 8; 98 revisões, 76 reprovações, coerção disparou 3×; sem teto, falsos negativos do revisor consumiram orçamento (peewee-0003 11 reprovações); rodada 2 segue como configuração final | 15/10/2026 | 18-rodada-3; dados/coleta-r3 |
 | 34 (pendente) | execução acumulada dos blocos de reprodução e não-verificável ≠ reprovado; voltar ao teto 2 | | 09, Decisão 34; 18-rodada-3 §2 |
+| 33 | planejador aprovado por escrito e implementado (`PLANNER=on`, manifesto v12): explora só com leitura, fatia a intent em sub-tarefas verificáveis, developer uma por ciclo, validador confere e avança, replanejamento; rodada 4 = rodada 2 + planejador + execução acumulada | 15/10/2026 | 09, Decisão 33; src/agents/planner.py; src/schemas/plan.py |
+| 34 (parcial) | execução acumulada implementada (`REVIEW_EXECUTION=cumulative`) e usada na rodada 4; 'não verificável ≠ reprovado' entrou só no prompt da revisão de sub-tarefa | 15/10/2026 | 09, Decisão 34; src/agents/validator.py |

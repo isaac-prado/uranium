@@ -68,7 +68,8 @@ def feedback_de_falha(report: TestReport) -> str:
 
 
 def revisao_reprovada(
-    *, issues: list[str], missing_criteria: list[str], suggestions: list[str]
+    *, issues: list[str], missing_criteria: list[str], suggestions: list[str],
+    cabecalho: str | None = None,
 ) -> str:
     """
     Parecer do revisor semântico devolvido ao developer, quando ele reprovou
@@ -79,7 +80,7 @@ def revisao_reprovada(
     títulos); o conteúdo é do próprio revisor, que é um papel do braço. O
     harness não acrescenta diagnóstico nem sugestão própria.
     """
-    partes = ["A suíte passou, mas a revisão reprovou a mudança."]
+    partes = [cabecalho or "A suíte passou, mas a revisão reprovou a mudança."]
     for titulo, itens in (
         ("Problemas apontados", issues),
         ("Critérios não cobertos", missing_criteria),
@@ -114,7 +115,8 @@ def memoria_de_trabalho(ciclos: list[dict[str, Any]], diff: str) -> str:
         partes += [
             "",
             f"Ciclo {ciclo.get('ciclo')}: {ciclo.get('turnos', 0)} turnos, "
-            f"encerrado por: {ciclo.get('parada', '')}",
+            f"encerrado por: {ciclo.get('parada', '')}"
+            + (f" (sub-tarefa {ciclo['subtarefa']})" if ciclo.get("subtarefa") else ""),
         ]
         for titulo, chave in (
             ("Arquivos lidos", "arquivos_lidos"),
@@ -140,4 +142,66 @@ def memoria_de_trabalho(ciclos: list[dict[str, Any]], diff: str) -> str:
         "Diff atual do workspace (o que você já mudou):",
         truncate(diff, MEMORIA_DIFF_MAX_CHARS) if diff else "(nenhuma alteração)",
     ]
+    return "\n".join(partes)
+
+
+# ------------------------------------------------------- planejador (decisão 33)
+#
+# Só o braço orchestration com `PLANNER=on` tem sub-tarefas. O harness monta
+# a moldura; o conteúdo (título, objetivo, arquivos, "pronto quando") é do
+# planejador, que é um papel do braço, e os critérios e blocos são copiados
+# da intent pelo índice, nunca reescritos.
+
+SUBTAREFA_CONCLUIDA_NAO = (
+    "A revisão da sub-tarefa atual não a considerou concluída."
+)
+
+
+def subtarefa_atual(
+    sub: dict[str, Any],
+    *,
+    posicao: int,
+    total: int,
+    criterios: list[str],
+    blocos: list[str],
+) -> str:
+    """
+    Sub-tarefa que o developer deve atacar neste ciclo, com os critérios e os
+    blocos de reprodução da intent que ela cobre, copiados literalmente.
+    """
+    partes = [
+        f"Sub-tarefa atual ({posicao} de {total}): {sub.get('title', '')}",
+        "",
+        "O que fazer:",
+        str(sub.get("objective", "")).strip(),
+    ]
+    arquivos = sub.get("files") or []
+    if arquivos:
+        partes += ["", "Arquivos prováveis: " + ", ".join(str(a) for a in arquivos)]
+    if criterios:
+        partes += ["", "Critérios desta sub-tarefa:"]
+        partes += [f"- {c.strip()}" for c in criterios]
+    if blocos:
+        partes += ["", "Exemplos que verificam esta sub-tarefa (rode com run_python):"]
+        for b in blocos:
+            b = b.strip()
+            partes += [b if b.startswith("```") else f"```\n{b}\n```", ""]
+    pronto = str(sub.get("done_when", "")).strip()
+    if pronto:
+        partes += ["", f"Pronto quando: {pronto}"]
+    partes += [
+        "",
+        "Concentre-se nesta sub-tarefa. Quando ela estiver pronta e verificada, "
+        "encerre o turno sem chamar ferramentas: o validador confere e entrega a próxima.",
+    ]
+    return "\n".join(partes)
+
+
+def plano_em_andamento(subtasks: list[dict[str, Any]], status: list[dict[str, Any]]) -> str:
+    """Lista das sub-tarefas do plano com o estado de cada uma."""
+    por_id = {s["id"]: s for s in status}
+    partes = ["Plano de sub-tarefas (estado atual):"]
+    for sub in subtasks:
+        st = por_id.get(sub["id"], {})
+        partes.append(f"- [{st.get('status', '?')}] {sub['id']}. {sub.get('title', '')}")
     return "\n".join(partes)

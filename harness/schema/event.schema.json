@@ -77,7 +77,8 @@
         "circuit_break",
         "intent",
         "validation",
-        "memory"
+        "memory",
+        "plan"
       ]
     },
     "node": {

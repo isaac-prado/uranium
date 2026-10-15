@@ -11,7 +11,7 @@ inteiro offline, com um LLM de sequência gravada, sem gastar um centavo.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any, ClassVar
 
@@ -124,10 +124,21 @@ class RunContext:
     def tool_by_name(self) -> dict[str, BaseTool]:
         return {tool.name: tool for tool in self.tools}
 
-    def bound_llm(self, *, tools: bool = True) -> Any:
-        """LLM pronto para uso, com as ferramentas ligadas quando pedido."""
+    def bound_llm(self, *, tools: bool | Sequence[str] = True) -> Any:
+        """
+        LLM pronto para uso, com as ferramentas ligadas quando pedido.
+
+        `tools` pode ser uma lista de nomes: o papel recebe só esse
+        subconjunto (o planejador, decisão 33, só lê). O conjunto completo
+        continua idêntico nos dois braços; o subconjunto é do papel.
+        """
         llm = self.llm_factory()
-        return llm.bind_tools(self.tools) if tools else llm
+        if tools is True:
+            return llm.bind_tools(self.tools)
+        if tools is False:
+            return llm
+        permitidas = set(tools)
+        return llm.bind_tools([t for t in self.tools if t.name in permitidas])
 
     def invoke_structured(self, schema: Any, messages: Any, **kwargs: Any) -> Any:
         """
@@ -162,7 +173,7 @@ class RunContext:
             self.telemetry.emit_circuit_break(reason)
         return reason
 
-    def executar_tool_calls(self, ai: Any) -> list[Any]:
+    def executar_tool_calls(self, ai: Any, *, permitidas: Sequence[str] | None = None) -> list[Any]:
         """
         Executa as tool calls de um turno e devolve as respostas ao modelo.
 
@@ -184,6 +195,10 @@ class RunContext:
 
         for chamada in (ai.tool_calls or [])[:MAX_TOOL_CALLS_POR_TURNO]:
             ferramenta = por_nome.get(chamada["name"])
+            if permitidas is not None and chamada["name"] not in permitidas:
+                # O papel não tem esta ferramenta (planejador só lê).
+                ferramenta = None
+                por_nome = {k: v for k, v in por_nome.items() if k in permitidas}
             if ferramenta is None:
                 conteudo = (
                     f"ERRO: ferramenta desconhecida {chamada['name']!r}. "

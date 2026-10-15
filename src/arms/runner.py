@@ -60,7 +60,7 @@ from src.workspace import Workspace, WorkspaceSpec
 # 10 = rodada 2 (decisões 27 e 29, 14/10/2026): `visible_deselect` da tarefa
 # no manifesto (igual nos dois braços), `orchestration_policy.review_execution`
 # e `cycle_note`.
-MANIFEST_VERSION = 11
+MANIFEST_VERSION = 12
 
 # Chaves do manifesto que PODEM diferir entre os braços. Qualquer outra
 # divergência é violação do desenho experimental. Note que `repetition` NÃO
@@ -159,6 +159,12 @@ def _orchestration_policy() -> dict[str, Any]:
         # Decisão 32 (rodada 3): revisor coerente; junto com
         # max_semantic_rejections = 0 (sem teto). "off"/2 é a rodada 2.
         "review_strict": config.REVIEW_STRICT,
+        # Decisão 33 (rodada 4): planejador que fatia a intent em sub-tarefas.
+        "planner": config.PLANNER,
+        "planner_max_turns": config.PLANNER_MAX_TURNS,
+        "planner_max_replans": config.PLANNER_MAX_REPLANS,
+        "planner_max_subtasks": config.PLANNER_MAX_SUBTASKS,
+        "subtask_max_cycles": config.SUBTASK_MAX_CYCLES,
         "developer_input": config.DEVELOPER_INPUT,
         "developer_memory": config.DEVELOPER_MEMORY,
         "developer_memory_diff_max_chars": MEMORIA_DIFF_MAX_CHARS,
@@ -373,6 +379,8 @@ def run_arm(spec: RunSpec, *, llm_factory: Any = None) -> dict[str, Any]:
         },
         "iteration_count": 0, "validation_iteration_count": 0, "semantic_rejections": 0,
         "clarification_responses": [], "turn_count": 0, "developer_memory": [],
+        "plan": None, "subtask_current": None, "subtask_review": None,
+        "replan_requested": False, "replans": 0,
     }
 
     telemetry.run_start(

@@ -6,6 +6,7 @@ from src import config
 from src.agents.clarification import clarification
 from src.agents.developer import developer
 from src.agents.intent_refiner import intent_refiner
+from src.agents.planner import planner
 from src.agents.test_generator import test_generator
 from src.agents.validator import validator
 from src.state import WorkflowState, parse_test_report
@@ -18,10 +19,10 @@ from src.state import WorkflowState, parse_test_report
 # própria cópia, e as duas poderiam divergir sem teste notar.
 def route_after_intent_refiner(state: WorkflowState) -> str:
     """Roteia para clarificação ou desenvolvimento após refinamento de intent."""
-    if state.get("is_ready"):
-        return "developer"
-    if state.get("iteration_count", 0) >= config.MAX_CLARIFICATION_ITERATIONS:
-        return "developer"
+    pronto = state.get("is_ready") or state.get("iteration_count", 0) >= config.MAX_CLARIFICATION_ITERATIONS
+    if pronto:
+        # Decisão 33: com o planejador ligado, a intent vira plano antes do developer.
+        return "planner" if config.PLANNER == "on" else "developer"
     return "clarification"
 def route_after_validator(state: WorkflowState) -> str:
     """
@@ -43,6 +44,9 @@ def route_after_validator(state: WorkflowState) -> str:
     teto = config.MAX_SEMANTIC_REJECTIONS  # 0 = sem teto (decisão 32)
     if reprovada_agora and teto and state.get("semantic_rejections", 0) >= teto:
         return "test_generator"
+    # Decisão 33: plano esgotado e tarefa aberta → o planejador replaneja.
+    if config.PLANNER == "on" and state.get("replan_requested"):
+        return "planner"
     return "developer"
 def build_graph():
     """
@@ -58,6 +62,7 @@ def build_graph():
 
     builder.add_node("intent_refiner", intent_refiner)
     builder.add_node("clarification", clarification)
+    builder.add_node("planner", planner)
     builder.add_node("developer", developer)
     builder.add_node("validator", validator)
     builder.add_node("test_generator", test_generator)
@@ -66,14 +71,15 @@ def build_graph():
     builder.add_conditional_edges(
         "intent_refiner",
         route_after_intent_refiner,
-        {"clarification": "clarification", "developer": "developer"},
+        {"clarification": "clarification", "developer": "developer", "planner": "planner"},
     )
     builder.add_edge("clarification", "intent_refiner")
+    builder.add_edge("planner", "developer")
     builder.add_edge("developer", "validator")
     builder.add_conditional_edges(
         "validator",
         route_after_validator,
-        {"developer": "developer", "test_generator": "test_generator"},
+        {"developer": "developer", "test_generator": "test_generator", "planner": "planner"},
     )
     builder.add_edge("test_generator", END)
 

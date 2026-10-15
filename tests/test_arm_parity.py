@@ -176,7 +176,7 @@ class TestManifestoRegistraOQueAfetaOOrchestration:
 
     def test_manifest_version_subiu(self, tmp_path):
         """A forma do manifesto mudou (novas chaves): a versão precisa acompanhar."""
-        assert _spec("orchestration", tmp_path).manifest("t")["manifest_version"] == 11
+        assert _spec("orchestration", tmp_path).manifest("t")["manifest_version"] == 12
 
     def test_mudar_intent_refiner_muda_o_manifesto(self, tmp_path, monkeypatch):
         """Refinador v2 (decisão 28): a versão do refinador é política do braço."""
@@ -806,6 +806,8 @@ class TestMensagensDeProtocoloSaoUnicas:
         assert publicos == {
             "DIFF_VAZIO", "suite_falhou", "feedback_de_falha", "revisao_reprovada",
             "MEMORIA_DIFF_MAX_CHARS", "memoria_de_trabalho", "NOTA_DE_CICLO",
+            # Planejador (decisão 33): moldura da sub-tarefa e do plano.
+            "SUBTAREFA_CONCLUIDA_NAO", "subtarefa_atual", "plano_em_andamento",
         }
 
     def test_memoria_de_trabalho_so_tem_moldura(self):

@@ -320,3 +320,13 @@ Relatório em [07-e4-fumaca.md](07-e4-fumaca.md): 4 células (`tomlkit-0002` gra
 **Resultados.** [18-rodada-3.md](18-rodada-3.md): 19/39 (rodada 2: 23/39); 98 revisões, 76 reprovações, 58 de 221 blocos de reprodução quebrados por execução isolada; 7 aprovações com oráculo vermelho. Análises em `dados/coleta-r3/analise-sete-metricas.{md,json}` e `apendice-metricas.md`.
 
 **Impacto em docs.** Resultados (três rodadas lado a lado, rodada 2 como configuração final), Discussão (revisor como gargalo nos dois sentidos; teto de reprovações como proteção contra falso negativo), decisão 34 pendente em [09-decisoes-do-autor.md](09-decisoes-do-autor.md).
+
+---
+
+## Rodada 4: planejador de sub-tarefas e execução acumulada (15/10/2026, decisões 33 e 34)
+
+**Diff resumido.** `src/agents/planner.py` (nó novo: exploração só-leitura com teto de turnos, chamada estruturada `Plan`, fallback para plano de uma sub-tarefa, replanejamento que acrescenta sub-tarefas), `src/schemas/plan.py` (`Subtask`, `Plan`, `sanear`, estados), `src/agents/developer.py` (`_subtarefa`, `_revisao_da_subtarefa`, sub-tarefa no registro do ciclo), `src/agents/validator.py` (`SYSTEM_PROMPT_SUBTAREFA`, `_avancar_plano`, `_proxima_subtarefa`, `_executar_reproducao` com índices e modo `cumulative`), `src/feedback.py` (`subtarefa_atual`, `plano_em_andamento`, `SUBTAREFA_CONCLUIDA_NAO`, cabeçalho opcional em `revisao_reprovada`), `src/graph.py` (nó e rotas), `src/runtime.py` (ferramentas por papel: `bound_llm(tools=[...])`, `executar_tool_calls(permitidas=...)`), `src/telemetry.py` e `harness/schema/event.schema.json` (evento `plan`), `src/state.py`, `src/config.py` (`PLANNER`, `PLANNER_MAX_TURNS`, `PLANNER_MAX_SUBTASKS`, `PLANNER_MAX_REPLANS`, `SUBTASK_MAX_CYCLES`, `REVIEW_EXECUTION=cumulative`), `src/arms/runner.py` (política, manifesto v12, estado inicial).
+
+**Teste que prova.** `tests/test_planner.py` (16 testes: schema e saneamento; planejador explora só com leitura e recusa escrita, teto de exploração, fallback, replanejamento; developer recebe a sub-tarefa com critérios e blocos copiados e o parecer; validador avança o plano, adia, replaneja uma vez, aprovação final encerra; execução acumulada; rotas e manifesto). Canário do feedback atualizado em `tests/test_arm_parity.py`.
+
+**Execução.** Fumaça nas três tarefas grandes (1 repetição) antes dos 39 runs: `INTENT_REFINER=v2 REVIEW_EXECUTION=cumulative CYCLE_NOTE=on PLANNER=on MAX_SEMANTIC_REJECTIONS=2 REVIEW_STRICT=off scripts/run_collection.py --arms orchestration ...`.
