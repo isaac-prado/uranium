@@ -1,0 +1,109 @@
+{
+  "result_schema_version": 2,
+  "harness_version": "1.0.0",
+  "evaluated_at": "2026-10-15T19:57:48+00:00",
+  "run_id": "tomlkit-0005-orchestration-r01-a01",
+  "arm": "orchestration",
+  "task_id": "tomlkit-0005",
+  "faixa": "pequena",
+  "repetition": 1,
+  "base_commit": "495a42ecc9119eaaeb895def0fd025a71cd1cf60",
+  "resolved": false,
+  "resolved_blocked_by_cheat": false,
+  "oracle": {
+    "f2p_total": 1,
+    "f2p_passed": 0,
+    "f2p": {
+      "exit_code": 1,
+      "passed": 0,
+      "failed": 1,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.12,
+      "failing_node_ids": [
+        "tests/test_items.py::test_float_is_not_a_sequence"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "p2p": {
+      "exit_code": 1,
+      "passed": 1050,
+      "failed": 1,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.83,
+      "failing_node_ids": [
+        "tests/test_items.py::test_float_is_not_a_sequence"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "regression": {
+      "exit_code": 1,
+      "passed": 1050,
+      "failed": 1,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.82,
+      "failing_node_ids": [
+        "tests/test_items.py::test_float_is_not_a_sequence"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    }
+  },
+  "cheat": {
+    "clean": true,
+    "critical_count": 0,
+    "warning_count": 0,
+    "signals": []
+  },
+  "quality": {
+    "mi_before": 80.643,
+    "mi_after": 63.978,
+    "mi_delta": -16.665,
+    "cc_mean_before": 1.273,
+    "cc_mean_after": 1.222,
+    "cc_mean_delta": -0.051,
+    "files_analyzed": 1,
+    "error": null
+  },
+  "cost": {
+    "tokens_prompt": 725912,
+    "tokens_completion": 9924,
+    "tokens_reasoning": 0,
+    "tokens_total": 735836,
+    "cost_usd": 0.2264048,
+    "llm_calls": 70,
+    "byok_calls": 70,
+    "tool_calls": 74,
+    "wall_seconds": 3852.236
+  },
+  "process": {
+    "turns": 65,
+    "test_runs": 2,
+    "tool_denials": 0,
+    "errors": 0,
+    "circuit_breaks": 2,
+    "self_recoveries": 0,
+    "stop_reason": "budget: max_wall_seconds (3601s >= 3600s)"
+  },
+  "provenance": {
+    "model": "qwen/qwen3-coder",
+    "provider_requested": "DeepInfra",
+    "providers_served": [
+      "DeepInfra"
+    ],
+    "llm_seed": 20260821,
+    "topology": "multi_agent_roles"
+  },
+  "diff": {
+    "files_changed": 1,
+    "insertions": 26,
+    "deletions": 43,
+    "changed_files": [
+      "tomlkit/_types.py"
+    ]
+  }
+}

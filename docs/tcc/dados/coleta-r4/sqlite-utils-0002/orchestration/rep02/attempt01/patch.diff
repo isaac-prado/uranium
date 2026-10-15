@@ -1,0 +1,43 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 48987a6..dd5eb35 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -3103,10 +3103,37 @@ class Table(Queryable):
+         if "rowid" not in new_cols:
+             new_cols.insert(0, "rowid")
+             old_cols.insert(0, "rowid")
++            
++        # Handle conversion of empty strings to NULL for TEXT to numeric conversions
++        def is_numeric_type(type_):
++            """Check if a type is considered numeric for NULLIF conversion."""
++            numeric_types = {
++                int, float,
++                'integer', 'int',
++                'float', 'real', 'REAL'
++            }
++            return type_ in numeric_types
++        
++        # Get original column types
++        original_column_types = self.columns_dict
++        
++        # Process old_cols to apply NULLIF where needed
++        processed_old_cols = []
++        for col in old_cols:
++            # Find the target type for this column
++            target_type = types.get(col) or original_column_types.get(col)
++            # Check if original column was TEXT and target is numeric
++            if (col in original_column_types and 
++                original_column_types[col] == str and 
++                is_numeric_type(target_type)):
++                processed_old_cols.append('NULLIF({}, \'{}\')'.format(quote_identifier(col), ''))
++            else:
++                processed_old_cols.append(quote_identifier(col))
++        
+         copy_sql = "INSERT INTO {} ({new_cols})\n   SELECT {old_cols} FROM {};".format(
+             quote_identifier(new_table_name),
+             quote_identifier(self.name),
+-            old_cols=", ".join(quote_identifier(col) for col in old_cols),
++            old_cols=", ".join(processed_old_cols),
+             new_cols=", ".join(quote_identifier(col) for col in new_cols),
+         )
+         sqls.append(copy_sql)

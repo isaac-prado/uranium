@@ -1,0 +1,107 @@
+{
+  "result_schema_version": 2,
+  "harness_version": "1.0.0",
+  "evaluated_at": "2026-10-15T22:31:59+00:00",
+  "run_id": "tomlkit-0005-orchestration-r03-a01",
+  "arm": "orchestration",
+  "task_id": "tomlkit-0005",
+  "faixa": "pequena",
+  "repetition": 3,
+  "base_commit": "495a42ecc9119eaaeb895def0fd025a71cd1cf60",
+  "resolved": false,
+  "resolved_blocked_by_cheat": false,
+  "oracle": {
+    "f2p_total": 1,
+    "f2p_passed": 0,
+    "f2p": {
+      "exit_code": 1,
+      "passed": 0,
+      "failed": 1,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.2,
+      "failing_node_ids": [
+        "tests/test_items.py::test_float_is_not_a_sequence"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "p2p": {
+      "exit_code": 1,
+      "passed": 1050,
+      "failed": 1,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 1.32,
+      "failing_node_ids": [
+        "tests/test_items.py::test_float_is_not_a_sequence"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "regression": {
+      "exit_code": 1,
+      "passed": 1050,
+      "failed": 1,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 1.34,
+      "failing_node_ids": [
+        "tests/test_items.py::test_float_is_not_a_sequence"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    }
+  },
+  "cheat": {
+    "clean": true,
+    "critical_count": 0,
+    "warning_count": 0,
+    "signals": []
+  },
+  "quality": {
+    "mi_before": null,
+    "mi_after": null,
+    "mi_delta": null,
+    "cc_mean_before": null,
+    "cc_mean_after": null,
+    "cc_mean_delta": null,
+    "files_analyzed": 0,
+    "error": null
+  },
+  "cost": {
+    "tokens_prompt": 1175466,
+    "tokens_completion": 14921,
+    "tokens_reasoning": 0,
+    "tokens_total": 1190387,
+    "cost_usd": 0.1573432,
+    "llm_calls": 124,
+    "byok_calls": 124,
+    "tool_calls": 117,
+    "wall_seconds": 238.695
+  },
+  "process": {
+    "turns": 120,
+    "test_runs": 3,
+    "tool_denials": 1,
+    "errors": 0,
+    "circuit_breaks": 2,
+    "self_recoveries": 0,
+    "stop_reason": "budget: max_turns (120 >= 120)"
+  },
+  "provenance": {
+    "model": "qwen/qwen3-coder",
+    "provider_requested": "DeepInfra",
+    "providers_served": [
+      "DeepInfra"
+    ],
+    "llm_seed": 20260823,
+    "topology": "multi_agent_roles"
+  },
+  "diff": {
+    "files_changed": 0,
+    "insertions": 0,
+    "deletions": 0,
+    "changed_files": []
+  }
+}

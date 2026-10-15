@@ -1,0 +1,35 @@
+diff --git a/peewee.py b/peewee.py
+index 6a666d5b..8116d6e7 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -4037,10 +4037,14 @@ class Database(_callable_context_manager):
+             self.cursor().execute('BEGIN')
+ 
+     def rollback(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot rollback transaction, no connection.')
+         with __exception_wrapper__:
+             self.cursor().execute('ROLLBACK')
+ 
+     def commit(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot commit transaction, no connection.')
+         with __exception_wrapper__:
+             self.cursor().execute('COMMIT')
+ 
+@@ -5242,7 +5246,14 @@ class _atomic(object):
+                              'manual commit mode.')
+         else:
+             self._helper = self.db.savepoint()
+-        return self._helper.__enter__()
++        self.db._state.ctx.append(self)
++        try:
++            return self._helper.__enter__()
++        except:
++            # Se ocorrer uma exceção em __enter__, remova este contexto
++            # da pilha de contextos do banco antes de relançar a exceção
++            self.db._state.ctx.pop()
++            raise
+ 
+     def __exit__(self, exc_type, exc_val, exc_tb):
+         return self._helper.__exit__(exc_type, exc_val, exc_tb)

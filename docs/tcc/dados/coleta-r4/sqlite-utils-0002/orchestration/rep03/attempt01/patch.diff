@@ -1,0 +1,50 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 48987a6..147c51f 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -371,6 +371,12 @@ def _iter_complete_sql_statements(sql: str) -> Generator[str, None, None]:
+         yield statement_sql
+ 
+ 
++def is_numeric_type(type_):
++    """Check if a type is considered numeric for SQLite conversion."""
++    sqlite_type = COLUMN_TYPE_MAPPING.get(type_)
++    return sqlite_type in ("INTEGER", "REAL", "FLOAT")
++
++
+ COLUMN_TYPE_MAPPING: dict[Any, str] = {
+     float: "REAL",
+     int: "INTEGER",
+@@ -3095,18 +3101,28 @@ class Table(Queryable):
+ 
+         # Copy across data, respecting any renamed columns
+         new_cols = []
+-        old_cols = []
++        old_cols_select_items = []
+         for from_, to_ in copy_from_to.items():
+-            old_cols.append(from_)
+             new_cols.append(to_)
++            # Check if we need to apply NULLIF for TEXT to numeric conversion
++            original_col_info = next((c for c in self.columns if c.name == from_), None)
++            original_col_type = original_col_info.type if original_col_info else None
++            target_type = types.get(from_)
++            
++            if (original_col_type in ("TEXT",) or original_col_type is str) and is_numeric_type(target_type):
++                # Apply NULLIF to convert empty strings to NULL
++                old_cols_select_items.append(f'NULLIF({quote_identifier(from_)}, \'\') AS {quote_identifier(from_)}')
++            else:
++                old_cols_select_items.append(quote_identifier(from_))
++                
+         # Ensure rowid is copied too
+         if "rowid" not in new_cols:
+             new_cols.insert(0, "rowid")
+-            old_cols.insert(0, "rowid")
++            old_cols_select_items.insert(0, quote_identifier("rowid"))
+         copy_sql = "INSERT INTO {} ({new_cols})\n   SELECT {old_cols} FROM {};".format(
+             quote_identifier(new_table_name),
+             quote_identifier(self.name),
+-            old_cols=", ".join(quote_identifier(col) for col in old_cols),
++            old_cols=", ".join(old_cols_select_items),
+             new_cols=", ".join(quote_identifier(col) for col in new_cols),
+         )
+         sqls.append(copy_sql)

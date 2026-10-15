@@ -1,0 +1,60 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index d709fb9..e4b7da1 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -2148,6 +2148,28 @@ class Table(Queryable):
+     #: The ``rowid`` of the last inserted, updated or selected row.
+     last_rowid: Optional[int] = None
+     #: The primary key of the last inserted, updated or selected row.
++
++    def _get_destructive_foreign_keys(self):
++        """
++        Retorna uma lista de tuplas (tabela_referenciadora, acao_on_delete) para
++        chaves estrangeiras que possuem ações destrutivas (CASCADE, SET NULL, SET DEFAULT)
++        apontando para esta tabela.
++        """
++        destructive_actions = {"CASCADE", "SET NULL", "SET DEFAULT"}
++        destructive_fks = []
++        
++        # Itera por todas as tabelas do banco para verificar suas chaves estrangeiras
++        for table_info in self.db.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall():
++            referencing_table = table_info[0]
++            # Para cada tabela, obtém a lista de chaves estrangeiras
++            fk_list_query = f"PRAGMA foreign_key_list({referencing_table!r})"
++            for fk_row in self.db.execute(fk_list_query).fetchall():
++                # Colunas da linha de pragma: id, seq, table, from, to, on_update, on_delete, match
++                _, _, referenced_table, _, _, _, on_delete, _ = fk_row
++                if referenced_table == self.name and on_delete.upper() in destructive_actions:
++                    destructive_fks.append((referencing_table, on_delete.upper()))
++                    
++        return destructive_fks
+     last_pk: Optional[Any] = None
+ 
+     def __init__(
+@@ -2542,6 +2564,26 @@ class Table(Queryable):
+         """
+         if not self.exists():
+             raise ValueError("Cannot transform a table that doesn't exist yet")
++        
++        # Verificação de chaves estrangeiras destrutivas dentro de transação
++        pragma_foreign_keys_was_on = bool(
++            self.db.execute("PRAGMA foreign_keys").fetchone()[0]
++        )
++        already_in_transaction = self.db.conn.in_transaction
++        
++        if pragma_foreign_keys_was_on and already_in_transaction:
++            destructive_fks = self._get_destructive_foreign_keys()
++            if destructive_fks:
++                ref_details = ", ".join(
++                    f"{table} (ON DELETE {action})" 
++                    for table, action in destructive_fks
++                )
++                raise TransactionError(
++                    f"Cannot transform table '{self.name}' while a transaction is active "
++                    f"and it is referenced by foreign keys with destructive actions "
++                    f"in tables: {ref_details}."
++                )
++
+         sqls = self.transform_sql(
+             types=types,
+             rename=rename,

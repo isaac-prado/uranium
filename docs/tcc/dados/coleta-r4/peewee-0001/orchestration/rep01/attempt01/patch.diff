@@ -1,0 +1,61 @@
+diff --git a/peewee.py b/peewee.py
+index 13d2c8e9..3de2a62d 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -1,5 +1,6 @@
+ from bisect import bisect_left
+ from bisect import bisect_right
++from collections import namedtuple
+ from collections.abc import Callable
+ from collections.abc import Mapping
+ from contextlib import contextmanager
+@@ -27,6 +28,9 @@ import types
+ import uuid
+ import warnings
+ 
++# Define QueryEvent namedtuple for hook events
++QueryEvent = namedtuple('QueryEvent', ['sql', 'params', 'duration', 'exception'])
++
+ try:
+     from pysqlite3 import dbapi2 as pysq3
+ except ImportError:
+@@ -3763,6 +3767,7 @@ class Database(_callable_context_manager):
+ 
+         self.autoconnect = autoconnect
+         self.thread_safe = thread_safe
++        self.query_hooks = []
+         if thread_safe:
+             self._state = _ConnectionLocal()
+             self._lock = threading.Lock()
+@@ -3890,12 +3895,27 @@ class Database(_callable_context_manager):
+         if logger.isEnabledFor(logging.DEBUG):
+             logger.debug((sql, params))
+ 
++    def _call_query_hooks(self, sql, params, duration, exception):
++        if not self.query_hooks:
++            return
++        event = QueryEvent(sql, params, duration, exception)
++        for hook in self.query_hooks:
++            hook(event)
++
+     def execute_sql(self, sql, params=None):
+         self._log_query(sql, params)
+-        with __exception_wrapper__:
+-            cursor = self.cursor()
+-            cursor.execute(sql, params or ())
+-        return cursor
++        start_time = time.time()
++        try:
++            with __exception_wrapper__:
++                cursor = self.cursor()
++                cursor.execute(sql, params or ())
++            duration = time.time() - start_time
++            self._call_query_hooks(sql, params, duration, None)
++            return cursor
++        except Exception as exc:
++            duration = time.time() - start_time
++            self._call_query_hooks(sql, params, duration, exc)
++            raise
+ 
+     def execute(self, query, **context_options):
+         ctx = self.get_sql_context(**context_options)

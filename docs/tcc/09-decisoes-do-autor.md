@@ -214,6 +214,16 @@ Fontes: [04-cronograma.md](04-cronograma.md), [07-execucao.md](07-execucao.md), 
 
 **Decisão:** ______ (data: ______)
 
+### Decisão 35. Revisão de sub-tarefa: calibrar ou substituir (pendente)
+
+**Situação.** Na rodada 4 ([20-rodada-4.md](20-rodada-4.md)), a revisão de sub-tarefa reprovou 68 de 81 vezes; de 186 sub-tarefas, 13 foram marcadas feitas e 108 nunca começaram; 16 dos 24 runs resolvidos fecharam pela revisão final com o plano aberto. O ganho da rodada veio da exploração do planejador e da primeira fatia, não da esteira de sub-tarefas.
+
+**Opções.** (a) Manter como está e reportar; (b) revisão de sub-tarefa só pode reprovar com motivo executável (bloco de reprodução da sub-tarefa que rodou e divergiu da saída esperada); (c) substituir a revisão de sub-tarefa por comparação determinística das saídas dos blocos com `expected_outputs` quando a intent os traz, sem LLM; (d) planejador com menos sub-tarefas (máximo 3) e primeira fatia maior.
+
+**Recomendação.** (b) ou (c) numa rodada 5, se houver orçamento e tempo; senão (a), com o registro de que a rodada 4 mede "planejador + primeira fatia", não "esteira de sub-tarefas".
+
+**Decisão:** ______ (data: ______)
+
 ## Bloco 2 — Tratamentos: o desenho do braço `orchestration`
 
 As decisões 4 a 6 **já foram tomadas pelo autor em 28/09/2026** (commits `f4c01a9`, `c2046fd`, `7068a55` na `develop`) e integradas à branch de trabalho em 08/10/2026 ([07-execucao.md](07-execucao.md), seção "Reconciliação"). Aparecem aqui para confirmação e para o texto.
@@ -490,3 +500,5 @@ Hoje conta como "sem corte" pela definição literal, e o JSON reporta `sem_stop
 | 34 (pendente) | execução acumulada dos blocos de reprodução e não-verificável ≠ reprovado; voltar ao teto 2 | | 09, Decisão 34; 18-rodada-3 §2 |
 | 33 | planejador aprovado por escrito e implementado (`PLANNER=on`, manifesto v12): explora só com leitura, fatia a intent em sub-tarefas verificáveis, developer uma por ciclo, validador confere e avança, replanejamento; rodada 4 = rodada 2 + planejador + execução acumulada | 15/10/2026 | 09, Decisão 33; src/agents/planner.py; src/schemas/plan.py |
 | 34 (parcial) | execução acumulada implementada (`REVIEW_EXECUTION=cumulative`) e usada na rodada 4; 'não verificável ≠ reprovado' entrou só no prompt da revisão de sub-tarefa | 15/10/2026 | 09, Decisão 34; src/agents/validator.py |
+| 33 (resultado) | rodada 4 fechada 15/10 19:32, 39/39: 24/39 runs, 9/13 tarefas (SA 8/13, p = 1,0), grande 5/9; tokens por run 2× a rodada 2 (884 k × 464 k), US$ 5,67, 7,8 h, 3 cortes por parede (latência do provedor); 13 de 186 sub-tarefas feitas, 16 dos 24 resolvidos fecharam com o plano aberto | 15/10/2026 | 20-rodada-4; dados/coleta-r4 |
+| 35 (pendente) | revisão de sub-tarefa reprova 84 %: calibrar (motivo executável), substituir por comparação determinística ou reportar como está | | 09, Decisão 35; 20-rodada-4 §3 |

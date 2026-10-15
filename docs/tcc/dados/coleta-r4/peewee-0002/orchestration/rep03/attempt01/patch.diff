@@ -1,0 +1,68 @@
+diff --git a/peewee.py b/peewee.py
+index 6a666d5b..b2cfd20a 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -2652,6 +2652,13 @@ class Select(SelectBase):
+ 
+     @Node.copy
+     def window(self, *windows):
++        # Verificar se há aliases duplicados
++        aliases = set()
++        for window in windows:
++            alias = getattr(window, '_alias', 'w')
++            if alias in aliases:
++                raise ValueError('Window with duplicate alias "%s".' % alias)
++            aliases.add(alias)
+         self._windows = windows if windows else None
+ 
+     @Node.copy
+@@ -3782,9 +3789,16 @@ class Database(_callable_context_manager):
+         if self.is_closed():
+             self.connect()
+         ctx = self.atomic()
+-        self._state.ctx.append(ctx)
+-        ctx.__enter__()
+-        return self
++        try:
++            ctx.__enter__()
++        except:
++            # Se houver falha ao entrar no contexto, não devemos
++            # manter referências a ele no estado
++            raise
++        else:
++            # Só adiciona ao contexto se a entrada for bem-sucedida
++            self._state.ctx.append(ctx)
++            return self
+ 
+     def __exit__(self, exc_type, exc_val, exc_tb):
+         ctx = self._state.ctx.pop()
+@@ -4037,10 +4051,14 @@ class Database(_callable_context_manager):
+             self.cursor().execute('BEGIN')
+ 
+     def rollback(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot rollback - database connection is closed.')
+         with __exception_wrapper__:
+             self.cursor().execute('ROLLBACK')
+ 
+     def commit(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot commit - database connection is closed.')
+         with __exception_wrapper__:
+             self.cursor().execute('COMMIT')
+ 
+@@ -4382,10 +4400,14 @@ class SqliteDatabase(Database):
+         self.execute_sql(statement)
+ 
+     def commit(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot commit - database connection is closed.')
+         with __exception_wrapper__:
+             return self.execute_sql('COMMIT')
+ 
+     def rollback(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot rollback - database connection is closed.')
+         with __exception_wrapper__:
+             return self.execute_sql('ROLLBACK')
+ 

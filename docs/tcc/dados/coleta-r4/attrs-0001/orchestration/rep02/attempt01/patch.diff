@@ -1,0 +1,45 @@
+diff --git a/src/attr/_funcs.py b/src/attr/_funcs.py
+index 518be16e..ee9a2e66 100644
+--- a/src/attr/_funcs.py
++++ b/src/attr/_funcs.py
+@@ -2,6 +2,7 @@
+ 
+ 
+ import copy
++import typing
+ 
+ from ._make import NOTHING, _obj_setattr, fields
+ from .exceptions import AttrsAttributeNotFoundError
+@@ -296,6 +297,10 @@ def has(cls):
+ 
+     :rtype: bool
+     """
++    # Handle generic types by checking the origin class
++    if isinstance(cls, typing._GenericAlias):
++        cls = typing.get_origin(cls)
++    
+     return getattr(cls, "__attrs_attrs__", None) is not None
+ 
+ 
+diff --git a/src/attr/_make.py b/src/attr/_make.py
+index 014b7bc2..f6b9617d 100644
+--- a/src/attr/_make.py
++++ b/src/attr/_make.py
+@@ -1919,11 +1919,16 @@ def fields(cls):
+     .. versionchanged:: 16.2.0 Returned tuple allows accessing the fields
+        by name.
+     """
++    # Handle generic types by checking the origin class
++    original_cls = cls
++    if isinstance(cls, typing._GenericAlias):
++        cls = typing.get_origin(cls)
++        
+     if not isinstance(cls, type):
+         raise TypeError("Passed object must be a class.")
+     attrs = getattr(cls, "__attrs_attrs__", None)
+     if attrs is None:
+-        raise NotAnAttrsClassError(f"{cls!r} is not an attrs-decorated class.")
++        raise NotAnAttrsClassError(f"{original_cls!r} is not an attrs-decorated class.")
+     return attrs
+ 
+ 

@@ -1,0 +1,47 @@
+tarefas   13  ×  1 braço(s) ['orchestration']  ×  3 repetição(ões)  =  39 células
+estado    0 concluídas, 39 pendentes  →  runs/coleta-r4
+modelo    qwen/qwen3-coder via DeepInfra
+orçamento {'max_tokens': 8000000, 'max_wall_seconds': 3600, 'max_turns': 120}
+workers   1   tentativas por célula 5
+
+  done    attrs-0001           orchestration  rep01  resolveu      concluiu
+  done    peewee-0001          orchestration  rep01  resolveu      concluiu
+  done    peewee-0002          orchestration  rep01  não resolveu  budget: max_turns (120 >= 120)  (1 perdida(s))
+  done    peewee-0003          orchestration  rep01  resolveu      concluiu
+  done    pygments-0001        orchestration  rep01  resolveu      concluiu
+  done    sqlite-utils-0001    orchestration  rep01  não resolveu  budget: max_turns (120 >= 120)
+  done    sqlite-utils-0002    orchestration  rep01  resolveu      concluiu
+  done    sqlite-utils-0003    orchestration  rep01  não resolveu  concluiu
+  done    tomlkit-0001         orchestration  rep01  resolveu      budget: max_turns (120 >= 120)
+  done    tomlkit-0002         orchestration  rep01  não resolveu  budget: max_turns (120 >= 120)
+  done    tomlkit-0003         orchestration  rep01  resolveu      budget: max_wall_seconds (3632s >= 3600s)
+  done    tomlkit-0004         orchestration  rep01  não resolveu  budget: max_wall_seconds (3647s >= 3600s)
+  done    tomlkit-0005         orchestration  rep01  não resolveu  budget: max_wall_seconds (3601s >= 3600s)
+  done    attrs-0001           orchestration  rep02  resolveu      concluiu
+  done    peewee-0001          orchestration  rep02  resolveu      concluiu
+  done    peewee-0002          orchestration  rep02  não resolveu  budget: max_turns (120 >= 120)
+  done    peewee-0003          orchestration  rep02  resolveu      concluiu
+  done    pygments-0001        orchestration  rep02  resolveu      concluiu
+  done    sqlite-utils-0001    orchestration  rep02  resolveu      concluiu
+  done    sqlite-utils-0002    orchestration  rep02  resolveu      concluiu
+  done    sqlite-utils-0003    orchestration  rep02  resolveu      concluiu
+  done    tomlkit-0001         orchestration  rep02  resolveu      concluiu
+  done    tomlkit-0002         orchestration  rep02  resolveu      concluiu
+  done    tomlkit-0003         orchestration  rep02  resolveu      budget: max_turns (120 >= 120)
+  done    tomlkit-0004         orchestration  rep02  não resolveu  budget: max_turns (120 >= 120)
+  done    tomlkit-0005         orchestration  rep02  não resolveu  budget: max_turns (120 >= 120)
+  done    attrs-0001           orchestration  rep03  não resolveu  budget: max_turns (120 >= 120)
+  done    peewee-0001          orchestration  rep03  resolveu      concluiu
+  done    peewee-0002          orchestration  rep03  não resolveu  budget: max_turns (120 >= 120)
+  done    peewee-0003          orchestration  rep03  resolveu      concluiu
+  done    pygments-0001        orchestration  rep03  resolveu      concluiu
+  done    sqlite-utils-0001    orchestration  rep03  não resolveu  concluiu
+  done    sqlite-utils-0002    orchestration  rep03  não resolveu  concluiu
+  done    sqlite-utils-0003    orchestration  rep03  resolveu      concluiu
+  done    tomlkit-0001         orchestration  rep03  resolveu      budget: max_turns (120 >= 120)
+  done    tomlkit-0002         orchestration  rep03  resolveu      concluiu
+  done    tomlkit-0003         orchestration  rep03  resolveu      concluiu
+  done    tomlkit-0004         orchestration  rep03  não resolveu  budget: max_turns (120 >= 120)
+  done    tomlkit-0005         orchestration  rep03  não resolveu  budget: max_turns (120 >= 120)
+
+  39 concluídas, 0 perdidas  →  runs/coleta-r4/collection.json

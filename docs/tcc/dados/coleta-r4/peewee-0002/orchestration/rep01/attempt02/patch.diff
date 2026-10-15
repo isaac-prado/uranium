@@ -1,0 +1,41 @@
+diff --git a/peewee.py b/peewee.py
+index 6a666d5b..b721c28b 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -3783,7 +3783,14 @@ class Database(_callable_context_manager):
+             self.connect()
+         ctx = self.atomic()
+         self._state.ctx.append(ctx)
+-        ctx.__enter__()
++        try:
++            ctx.__enter__()
++        except:
++            # Se houver uma exceção em ctx.__enter__(), remover o ctx da pilha
++            # para não deixar o banco em estado inconsistente
++            if self._state.ctx and self._state.ctx[-1] is ctx:
++                self._state.ctx.pop()
++            raise
+         return self
+ 
+     def __exit__(self, exc_type, exc_val, exc_tb):
+@@ -4032,15 +4039,19 @@ class Database(_callable_context_manager):
+ 
+     def begin(self):
+         if self.is_closed():
+-            self.connect()
++            raise InterfaceError('Cannot open transaction, no connection available.')
+         with __exception_wrapper__:
+             self.cursor().execute('BEGIN')
+ 
+     def rollback(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot rollback transaction, no connection available.')
+         with __exception_wrapper__:
+             self.cursor().execute('ROLLBACK')
+ 
+     def commit(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot commit transaction, no connection available.')
+         with __exception_wrapper__:
+             self.cursor().execute('COMMIT')
+ 

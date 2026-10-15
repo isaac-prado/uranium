@@ -1,0 +1,38 @@
+diff --git a/tomlkit/api.py b/tomlkit/api.py
+index fd4b2f3..906477f 100644
+--- a/tomlkit/api.py
++++ b/tomlkit/api.py
+@@ -2,7 +2,9 @@ import datetime as _datetime
+ 
+ from collections.abc import Mapping
+ from typing import IO
++from typing import List
+ from typing import Tuple
++from typing import Union
+ 
+ from ._utils import parse_rfc3339
+ from .container import Container
+@@ -18,6 +20,7 @@ from .items import Integer
+ from .items import Item as _Item
+ from .items import Key
+ from .items import SingleKey
++from .items import DottedKey
+ from .items import String
+ from .items import Table
+ from .items import Time
+@@ -141,8 +144,13 @@ def aot() -> AoT:
+     return AoT([])
+ 
+ 
+-def key(k: str) -> Key:
+-    return SingleKey(k)
++def key(k: Union[str, List[str]]) -> Key:
++    if isinstance(k, str):
++        return SingleKey(k)
++    elif isinstance(k, list):
++        return DottedKey([SingleKey(part) for part in k], sep=" = ")
++    else:
++        raise TypeError(f"key() argument must be str or List[str], got {type(k).__name__}")
+ 
+ 
+ def value(raw: str) -> _Item:

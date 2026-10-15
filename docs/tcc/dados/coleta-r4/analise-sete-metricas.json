@@ -1,0 +1,1181 @@
+{
+  "raizes": [
+    "runs/coleta-r4-analise"
+  ],
+  "tasks_dir": "tasks",
+  "referencia": "single-agent",
+  "comparado": "orchestration",
+  "runs_encontrados": 78,
+  "runs_admitidos": 78,
+  "nao_admitidos": [],
+  "pares_quebrados": [],
+  "celulas": [
+    {
+      "task_id": "attrs-0001",
+      "arm": "orchestration",
+      "faixa": "media",
+      "repeticoes": [
+        1,
+        2,
+        3
+      ],
+      "n_reps": 3,
+      "resolvidas": 2,
+      "fracao_resolvida": 0.6666666666666666,
+      "resolvida": true,
+      "valores": {
+        "cost.tokens_total": 214263.0,
+        "cost.cost_usd": 0.0399182,
+        "cost.llm_calls": 46.0,
+        "cost.tool_calls": 38.0,
+        "cost.wall_seconds": 467.788,
+        "quality.cc_mean_delta": 0.078
+      }
+    },
+    {
+      "task_id": "attrs-0001",
+      "arm": "single-agent",
+      "faixa": "media",
+      "repeticoes": [
+        1,
+        2,
+        3
+      ],
+      "n_reps": 3,
+      "resolvidas": 3,
+      "fracao_resolvida": 1.0,
+      "resolvida": true,
+      "valores": {
+        "cost.tokens_total": 113319.0,
+        "cost.cost_usd": 0.0150718,
+        "cost.llm_calls": 19.0,
+        "cost.tool_calls": 18.0,
+        "cost.wall_seconds": 77.745,
+        "quality.cc_mean_delta": 0.078
+      }
+    },
+    {
+      "task_id": "peewee-0001",
+      "arm": "orchestration",
+      "faixa": "media",
+      "repeticoes": [
+        1,
+        2,
+        3
+      ],
+      "n_reps": 3,
+      "resolvidas": 3,
+      "fracao_resolvida": 1.0,
+      "resolvida": true,
+      "valores": {
+        "cost.tokens_total": 265226.0,
+        "cost.cost_usd": 0.0431249,
+        "cost.llm_calls": 41.0,
+        "cost.tool_calls": 33.0,
+        "cost.wall_seconds": 270.693,
+        "quality.cc_mean_delta": 0.001
+      }
+    },
+    {
+      "task_id": "peewee-0001",
+      "arm": "single-agent",
+      "faixa": "media",
+      "repeticoes": [
+        1,
+        2,
+        3
+      ],
+      "n_reps": 3,
+      "resolvidas": 3,
+      "fracao_resolvida": 1.0,
+      "resolvida": true,
+      "valores": {
+        "cost.tokens_total": 314294.0,
+        "cost.cost_usd": 0.0371769,
+        "cost.llm_calls": 29.0,
+        "cost.tool_calls": 28.0,
+        "cost.wall_seconds": 286.941,
+        "quality.cc_mean_delta": 0.003
+      }
+    },
+    {
+      "task_id": "peewee-0002",
+      "arm": "orchestration",
+      "faixa": "media",
+      "repeticoes": [
+        1,
+        2,
+        3
+      ],
+      "n_reps": 3,
+      "resolvidas": 0,
+      "fracao_resolvida": 0.0,
+      "resolvida": false,
+      "valores": {
+        "cost.tokens_total": 1284448.0,
+        "cost.cost_usd": 0.1693028,
+        "cost.llm_calls": 129.0,
+        "cost.tool_calls": 116.0,
+        "cost.wall_seconds": 558.66,
+        "quality.cc_mean_delta": 0.003
+      }
+    },
+    {
+      "task_id": "peewee-0002",
+      "arm": "single-agent",
+      "faixa": "media",
+      "repeticoes": [
+        1,
+        2,
+        3
+      ],
+      "n_reps": 3,
+      "resolvidas": 2,
+      "fracao_resolvida": 0.6666666666666666,
+      "resolvida": true,
+      "valores": {
+        "cost.tokens_total": 2108779.0,
+        "cost.cost_usd": 0.2277002,
+        "cost.llm_calls": 111.0,
+        "cost.tool_calls": 110.0,
+        "cost.wall_seconds": 308.632,
+        "quality.cc_mean_delta": 0.014
+      }
+    },
+    {
+      "task_id": "peewee-0003",
+      "arm": "orchestration",
+      "faixa": "pequena",
+      "repeticoes": [
+        1,
+        2,
+        3
+      ],
+      "n_reps": 3,
+      "resolvidas": 3,
+      "fracao_resolvida": 1.0,
+      "resolvida": true,
+      "valores": {
+        "cost.tokens_total": 118844.0,
+        "cost.cost_usd": 0.0203297,
+        "cost.llm_calls": 23.0,
+        "cost.tool_calls": 18.0,
+        "cost.wall_seconds": 108.765,
+        "quality.cc_mean_delta": 0.154
+      }
+    },
+    {
+      "task_id": "peewee-0003",
+      "arm": "single-agent",
+      "faixa": "pequena",
+      "repeticoes": [
+        1,
+        2,
+        3
+      ],
+      "n_reps": 3,
+      "resolvidas": 3,
+      "fracao_resolvida": 1.0,
+      "resolvida": true,
+      "valores": {
+        "cost.tokens_total": 101593.0,
+        "cost.cost_usd": 0.0156653,
+        "cost.llm_calls": 16.0,
+        "cost.tool_calls": 15.0,
+        "cost.wall_seconds": 178.646,
+        "quality.cc_mean_delta": 0.154
+      }
+    },
+    {
+      "task_id": "pygments-0001",
+      "arm": "orchestration",
+      "faixa": "pequena",
+      "repeticoes": [
+        1,
+        2,
+        3
+      ],
+      "n_reps": 3,
+      "resolvidas": 3,
+      "fracao_resolvida": 1.0,
+      "resolvida": true,
+      "valores": {
+        "cost.tokens_total": 883706.0,
+        "cost.cost_usd": 0.1234519,
+        "cost.llm_calls": 61.0,
+        "cost.tool_calls": 52.0,
+        "cost.wall_seconds": 365.0,
+        "quality.cc_mean_delta": 0.0
+      }
+    },
+    {
+      "task_id": "pygments-0001",
+      "arm": "single-agent",
+      "faixa": "pequena",
+      "repeticoes": [
+        1,
+        2,
+        3
+      ],
+      "n_reps": 3,
+      "resolvidas": 2,
+      "fracao_resolvida": 0.6666666666666666,
+      "resolvida": true,
+      "valores": {
+        "cost.tokens_total": 1288314.0,
+        "cost.cost_usd": 0.1792901,
+        "cost.llm_calls": 50.0,
+        "cost.tool_calls": 49.0,
+        "cost.wall_seconds": 605.645,
+        "quality.cc_mean_delta": 0.0
+      }
+    },
+    {
+      "task_id": "sqlite-utils-0001",
+      "arm": "orchestration",
+      "faixa": "pequena",
+      "repeticoes": [
+        1,
+        2,
+        3
+      ],
+      "n_reps": 3,
+      "resolvidas": 1,
+      "fracao_resolvida": 0.3333333333333333,
+      "resolvida": false,
+      "valores": {
+        "cost.tokens_total": 709873.0,
+        "cost.cost_usd": 0.0989881,
+        "cost.llm_calls": 85.0,
+        "cost.tool_calls": 76.0,
+        "cost.wall_seconds": 230.274,
+        "quality.cc_mean_delta": 0.065
+      }
+    },
+    {
+      "task_id": "sqlite-utils-0001",
+      "arm": "single-agent",
+      "faixa": "pequena",
+      "repeticoes": [
+        1,
+        2,
+        3
+      ],
+      "n_reps": 3,
+      "resolvidas": 1,
+      "fracao_resolvida": 0.3333333333333333,
+      "resolvida": false,
+      "valores": {
+        "cost.tokens_total": 507709.0,
+        "cost.cost_usd": 0.0684691,
+        "cost.llm_calls": 35.0,
+        "cost.tool_calls": 34.0,
+        "cost.wall_seconds": 130.21,
+        "quality.cc_mean_delta": 0.065
+      }
+    },
+    {
+      "task_id": "sqlite-utils-0002",
+      "arm": "orchestration",
+      "faixa": "pequena",
+      "repeticoes": [
+        1,
+        2,
+        3
+      ],
+      "n_reps": 3,
+      "resolvidas": 2,
+      "fracao_resolvida": 0.6666666666666666,
+      "resolvida": true,
+      "valores": {
+        "cost.tokens_total": 864819.0,
+        "cost.cost_usd": 0.1137574,
+        "cost.llm_calls": 57.0,
+        "cost.tool_calls": 52.0,
+        "cost.wall_seconds": 368.105,
+        "quality.cc_mean_delta": 0.025
+      }
+    },
+    {
+      "task_id": "sqlite-utils-0002",
+      "arm": "single-agent",
+      "faixa": "pequena",
+      "repeticoes": [
+        1,
+        2,
+        3
+      ],
+      "n_reps": 3,
+      "resolvidas": 0,
+      "fracao_resolvida": 0.0,
+      "resolvida": false,
+      "valores": {
+        "cost.tokens_total": 821788.0,
+        "cost.cost_usd": 0.0964724,
+        "cost.llm_calls": 45.0,
+        "cost.tool_calls": 44.0,
+        "cost.wall_seconds": 160.809,
+        "quality.cc_mean_delta": 0.011
+      }
+    },
+    {
+      "task_id": "sqlite-utils-0003",
+      "arm": "orchestration",
+      "faixa": "media",
+      "repeticoes": [
+        1,
+        2,
+        3
+      ],
+      "n_reps": 3,
+      "resolvidas": 2,
+      "fracao_resolvida": 0.6666666666666666,
+      "resolvida": true,
+      "valores": {
+        "cost.tokens_total": 1327799.0,
+        "cost.cost_usd": 0.1836098,
+        "cost.llm_calls": 80.0,
+        "cost.tool_calls": 69.0,
+        "cost.wall_seconds": 465.339,
+        "quality.cc_mean_delta": 0.02
+      }
+    },
+    {
+      "task_id": "sqlite-utils-0003",
+      "arm": "single-agent",
+      "faixa": "media",
+      "repeticoes": [
+        1,
+        2,
+        3
+      ],
+      "n_reps": 3,
+      "resolvidas": 2,
+      "fracao_resolvida": 0.6666666666666666,
+      "resolvida": true,
+      "valores": {
+        "cost.tokens_total": 1012916.0,
+        "cost.cost_usd": 0.1206824,
+        "cost.llm_calls": 60.0,
+        "cost.tool_calls": 59.0,
+        "cost.wall_seconds": 154.903,
+        "quality.cc_mean_delta": 0.038
+      }
+    },
+    {
+      "task_id": "tomlkit-0001",
+      "arm": "orchestration",
+      "faixa": "pequena",
+      "repeticoes": [
+        1,
+        2,
+        3
+      ],
+      "n_reps": 3,
+      "resolvidas": 3,
+      "fracao_resolvida": 1.0,
+      "resolvida": true,
+      "valores": {
+        "cost.tokens_total": 769526.0,
+        "cost.cost_usd": 0.1037529,
+        "cost.llm_calls": 132.0,
+        "cost.tool_calls": 110.0,
+        "cost.wall_seconds": 232.995,
+        "quality.cc_mean_delta": 0.0
+      }
+    },
+    {
+      "task_id": "tomlkit-0001",
+      "arm": "single-agent",
+      "faixa": "pequena",
+      "repeticoes": [
+        1,
+        2,
+        3
+      ],
+      "n_reps": 3,
+      "resolvidas": 3,
+      "fracao_resolvida": 1.0,
+      "resolvida": true,
+      "valores": {
+        "cost.tokens_total": 121675.0,
+        "cost.cost_usd": 0.0147497,
+        "cost.llm_calls": 17.0,
+        "cost.tool_calls": 16.0,
+        "cost.wall_seconds": 22.97,
+        "quality.cc_mean_delta": 0.0
+      }
+    },
+    {
+      "task_id": "tomlkit-0002",
+      "arm": "orchestration",
+      "faixa": "grande",
+      "repeticoes": [
+        1,
+        2,
+        3
+      ],
+      "n_reps": 3,
+      "resolvidas": 2,
+      "fracao_resolvida": 0.6666666666666666,
+      "resolvida": true,
+      "valores": {
+        "cost.tokens_total": 752819.0,
+        "cost.cost_usd": 0.0970992,
+        "cost.llm_calls": 78.0,
+        "cost.tool_calls": 79.0,
+        "cost.wall_seconds": 133.144,
+        "quality.cc_mean_delta": 0.043
+      }
+    },
+    {
+      "task_id": "tomlkit-0002",
+      "arm": "single-agent",
+      "faixa": "grande",
+      "repeticoes": [
+        1,
+        2,
+        3
+      ],
+      "n_reps": 3,
+      "resolvidas": 1,
+      "fracao_resolvida": 0.3333333333333333,
+      "resolvida": false,
+      "valores": {
+        "cost.tokens_total": 3265263.0,
+        "cost.cost_usd": 0.3496088,
+        "cost.llm_calls": 120.0,
+        "cost.tool_calls": 88.0,
+        "cost.wall_seconds": 295.301,
+        "quality.cc_mean_delta": 0.025
+      }
+    },
+    {
+      "task_id": "tomlkit-0003",
+      "arm": "orchestration",
+      "faixa": "grande",
+      "repeticoes": [
+        1,
+        2,
+        3
+      ],
+      "n_reps": 3,
+      "resolvidas": 3,
+      "fracao_resolvida": 1.0,
+      "resolvida": true,
+      "valores": {
+        "cost.tokens_total": 1197082.0,
+        "cost.cost_usd": 0.1615299,
+        "cost.llm_calls": 110.0,
+        "cost.tool_calls": 103.0,
+        "cost.wall_seconds": 284.192,
+        "quality.cc_mean_delta": 0.0
+      }
+    },
+    {
+      "task_id": "tomlkit-0003",
+      "arm": "single-agent",
+      "faixa": "grande",
+      "repeticoes": [
+        1,
+        2,
+        3
+      ],
+      "n_reps": 3,
+      "resolvidas": 3,
+      "fracao_resolvida": 1.0,
+      "resolvida": true,
+      "valores": {
+        "cost.tokens_total": 599857.0,
+        "cost.cost_usd": 0.0683896,
+        "cost.llm_calls": 42.0,
+        "cost.tool_calls": 41.0,
+        "cost.wall_seconds": 113.449,
+        "quality.cc_mean_delta": 0.0
+      }
+    },
+    {
+      "task_id": "tomlkit-0004",
+      "arm": "orchestration",
+      "faixa": "grande",
+      "repeticoes": [
+        1,
+        2,
+        3
+      ],
+      "n_reps": 3,
+      "resolvidas": 0,
+      "fracao_resolvida": 0.0,
+      "resolvida": false,
+      "valores": {
+        "cost.tokens_total": 2348749.0,
+        "cost.cost_usd": 0.315126,
+        "cost.llm_calls": 124.0,
+        "cost.tool_calls": 117.0,
+        "cost.wall_seconds": 290.078,
+        "quality.cc_mean_delta": 0.01
+      }
+    },
+    {
+      "task_id": "tomlkit-0004",
+      "arm": "single-agent",
+      "faixa": "grande",
+      "repeticoes": [
+        1,
+        2,
+        3
+      ],
+      "n_reps": 3,
+      "resolvidas": 0,
+      "fracao_resolvida": 0.0,
+      "resolvida": false,
+      "valores": {
+        "cost.tokens_total": 4864896.0,
+        "cost.cost_usd": 0.5221198,
+        "cost.llm_calls": 120.0,
+        "cost.tool_calls": 120.0,
+        "cost.wall_seconds": 366.977,
+        "quality.cc_mean_delta": 0.814
+      }
+    },
+    {
+      "task_id": "tomlkit-0005",
+      "arm": "orchestration",
+      "faixa": "pequena",
+      "repeticoes": [
+        1,
+        2,
+        3
+      ],
+      "n_reps": 3,
+      "resolvidas": 0,
+      "fracao_resolvida": 0.0,
+      "resolvida": false,
+      "valores": {
+        "cost.tokens_total": 1190387.0,
+        "cost.cost_usd": 0.2264048,
+        "cost.llm_calls": 124.0,
+        "cost.tool_calls": 117.0,
+        "cost.wall_seconds": 690.895,
+        "quality.cc_mean_delta": -0.0255
+      }
+    },
+    {
+      "task_id": "tomlkit-0005",
+      "arm": "single-agent",
+      "faixa": "pequena",
+      "repeticoes": [
+        1,
+        2,
+        3
+      ],
+      "n_reps": 3,
+      "resolvidas": 0,
+      "fracao_resolvida": 0.0,
+      "resolvida": false,
+      "valores": {
+        "cost.tokens_total": 1031426.0,
+        "cost.cost_usd": 0.1263621,
+        "cost.llm_calls": 75.0,
+        "cost.tool_calls": 74.0,
+        "cost.wall_seconds": 377.161,
+        "quality.cc_mean_delta": -0.065
+      }
+    }
+  ],
+  "metricas": {
+    "1_efetividade": {
+      "nome": "Taxa de resolução",
+      "campo": "resolved",
+      "unidade": "proporção",
+      "melhor": "maior",
+      "por_braco": {
+        "single-agent": {
+          "tarefas_resolvidas": 8,
+          "tarefas_com_dado": 13,
+          "execucoes_resolvidas": 23,
+          "execucoes": 39
+        },
+        "orchestration": {
+          "tarefas_resolvidas": 9,
+          "tarefas_com_dado": 13,
+          "execucoes_resolvidas": 24,
+          "execucoes": 39
+        }
+      },
+      "teste": {
+        "nome": "sinal exato bilateral",
+        "n": 5,
+        "n_empates": 8,
+        "estatistica": 3.0,
+        "p": 1.0,
+        "mediana_diferencas": 0.0,
+        "detalhe": "3 positivas, 2 negativas"
+      },
+      "por_tarefa": [
+        {
+          "task_id": "attrs-0001",
+          "faixa": "media",
+          "single-agent": 1.0,
+          "orchestration": 0.6666666666666666,
+          "diferenca": -0.33333333333333337
+        },
+        {
+          "task_id": "peewee-0001",
+          "faixa": "media",
+          "single-agent": 1.0,
+          "orchestration": 1.0,
+          "diferenca": 0.0
+        },
+        {
+          "task_id": "peewee-0002",
+          "faixa": "media",
+          "single-agent": 0.6666666666666666,
+          "orchestration": 0.0,
+          "diferenca": -0.6666666666666666
+        },
+        {
+          "task_id": "peewee-0003",
+          "faixa": "pequena",
+          "single-agent": 1.0,
+          "orchestration": 1.0,
+          "diferenca": 0.0
+        },
+        {
+          "task_id": "pygments-0001",
+          "faixa": "pequena",
+          "single-agent": 0.6666666666666666,
+          "orchestration": 1.0,
+          "diferenca": 0.33333333333333337
+        },
+        {
+          "task_id": "sqlite-utils-0001",
+          "faixa": "pequena",
+          "single-agent": 0.3333333333333333,
+          "orchestration": 0.3333333333333333,
+          "diferenca": 0.0
+        },
+        {
+          "task_id": "sqlite-utils-0002",
+          "faixa": "pequena",
+          "single-agent": 0.0,
+          "orchestration": 0.6666666666666666,
+          "diferenca": 0.6666666666666666
+        },
+        {
+          "task_id": "sqlite-utils-0003",
+          "faixa": "media",
+          "single-agent": 0.6666666666666666,
+          "orchestration": 0.6666666666666666,
+          "diferenca": 0.0
+        },
+        {
+          "task_id": "tomlkit-0001",
+          "faixa": "pequena",
+          "single-agent": 1.0,
+          "orchestration": 1.0,
+          "diferenca": 0.0
+        },
+        {
+          "task_id": "tomlkit-0002",
+          "faixa": "grande",
+          "single-agent": 0.3333333333333333,
+          "orchestration": 0.6666666666666666,
+          "diferenca": 0.3333333333333333
+        },
+        {
+          "task_id": "tomlkit-0003",
+          "faixa": "grande",
+          "single-agent": 1.0,
+          "orchestration": 1.0,
+          "diferenca": 0.0
+        },
+        {
+          "task_id": "tomlkit-0004",
+          "faixa": "grande",
+          "single-agent": 0.0,
+          "orchestration": 0.0,
+          "diferenca": 0.0
+        },
+        {
+          "task_id": "tomlkit-0005",
+          "faixa": "pequena",
+          "single-agent": 0.0,
+          "orchestration": 0.0,
+          "diferenca": 0.0
+        }
+      ]
+    },
+    "2_custo": {
+      "nome": "Custo computacional",
+      "campo": "cost.tokens_total",
+      "unidade": "tokens",
+      "melhor": "menor",
+      "papel": "primária inferencial",
+      "censura": "resolvidas_por_ambos",
+      "por_braco": {
+        "single-agent": {
+          "mediana_das_tarefas_usadas": 314294.0,
+          "mediana_de_todas_as_tarefas": 821788.0
+        },
+        "orchestration": {
+          "mediana_das_tarefas_usadas": 769526.0,
+          "mediana_de_todas_as_tarefas": 864819.0
+        }
+      },
+      "tarefas_usadas": [
+        "attrs-0001",
+        "peewee-0001",
+        "peewee-0003",
+        "pygments-0001",
+        "sqlite-utils-0003",
+        "tomlkit-0001",
+        "tomlkit-0003"
+      ],
+      "tarefas_excluidas": [
+        {
+          "task_id": "peewee-0002",
+          "faixa": "media",
+          "motivo": "não resolvida por orchestration"
+        },
+        {
+          "task_id": "sqlite-utils-0001",
+          "faixa": "pequena",
+          "motivo": "não resolvida por single-agent e orchestration"
+        },
+        {
+          "task_id": "sqlite-utils-0002",
+          "faixa": "pequena",
+          "motivo": "não resolvida por single-agent"
+        },
+        {
+          "task_id": "tomlkit-0002",
+          "faixa": "grande",
+          "motivo": "não resolvida por single-agent"
+        },
+        {
+          "task_id": "tomlkit-0004",
+          "faixa": "grande",
+          "motivo": "não resolvida por single-agent e orchestration"
+        },
+        {
+          "task_id": "tomlkit-0005",
+          "faixa": "pequena",
+          "motivo": "não resolvida por single-agent e orchestration"
+        }
+      ],
+      "teste": {
+        "nome": "Wilcoxon exato bilateral",
+        "n": 7,
+        "n_empates": 0,
+        "estatistica": 7.0,
+        "p": 0.296875,
+        "mediana_diferencas": 100944.0,
+        "detalhe": "W+=21, W-=7"
+      },
+      "por_tarefa": [
+        {
+          "task_id": "attrs-0001",
+          "faixa": "media",
+          "single-agent": 113319.0,
+          "orchestration": 214263.0,
+          "diferenca": 100944.0
+        },
+        {
+          "task_id": "peewee-0001",
+          "faixa": "media",
+          "single-agent": 314294.0,
+          "orchestration": 265226.0,
+          "diferenca": -49068.0
+        },
+        {
+          "task_id": "peewee-0003",
+          "faixa": "pequena",
+          "single-agent": 101593.0,
+          "orchestration": 118844.0,
+          "diferenca": 17251.0
+        },
+        {
+          "task_id": "pygments-0001",
+          "faixa": "pequena",
+          "single-agent": 1288314.0,
+          "orchestration": 883706.0,
+          "diferenca": -404608.0
+        },
+        {
+          "task_id": "sqlite-utils-0003",
+          "faixa": "media",
+          "single-agent": 1012916.0,
+          "orchestration": 1327799.0,
+          "diferenca": 314883.0
+        },
+        {
+          "task_id": "tomlkit-0001",
+          "faixa": "pequena",
+          "single-agent": 121675.0,
+          "orchestration": 769526.0,
+          "diferenca": 647851.0
+        },
+        {
+          "task_id": "tomlkit-0003",
+          "faixa": "grande",
+          "single-agent": 599857.0,
+          "orchestration": 1197082.0,
+          "diferenca": 597225.0
+        }
+      ],
+      "acompanham": {
+        "cost.cost_usd": {
+          "single-agent": 0.0371769,
+          "orchestration": 0.1037529
+        },
+        "cost.llm_calls": {
+          "single-agent": 29.0,
+          "orchestration": 61.0
+        }
+      }
+    },
+    "3_tempo": {
+      "nome": "Tempo até a solução",
+      "campo": "cost.wall_seconds",
+      "unidade": "segundos",
+      "melhor": "menor",
+      "papel": "secundária",
+      "censura": "resolvidas_por_ambos",
+      "por_braco": {
+        "single-agent": {
+          "mediana_das_tarefas_usadas": 154.903,
+          "mediana_de_todas_as_tarefas": 178.646
+        },
+        "orchestration": {
+          "mediana_das_tarefas_usadas": 284.192,
+          "mediana_de_todas_as_tarefas": 290.078
+        }
+      },
+      "tarefas_usadas": [
+        "attrs-0001",
+        "peewee-0001",
+        "peewee-0003",
+        "pygments-0001",
+        "sqlite-utils-0003",
+        "tomlkit-0001",
+        "tomlkit-0003"
+      ],
+      "tarefas_excluidas": [
+        {
+          "task_id": "peewee-0002",
+          "faixa": "media",
+          "motivo": "não resolvida por orchestration"
+        },
+        {
+          "task_id": "sqlite-utils-0001",
+          "faixa": "pequena",
+          "motivo": "não resolvida por single-agent e orchestration"
+        },
+        {
+          "task_id": "sqlite-utils-0002",
+          "faixa": "pequena",
+          "motivo": "não resolvida por single-agent"
+        },
+        {
+          "task_id": "tomlkit-0002",
+          "faixa": "grande",
+          "motivo": "não resolvida por single-agent"
+        },
+        {
+          "task_id": "tomlkit-0004",
+          "faixa": "grande",
+          "motivo": "não resolvida por single-agent e orchestration"
+        },
+        {
+          "task_id": "tomlkit-0005",
+          "faixa": "pequena",
+          "motivo": "não resolvida por single-agent e orchestration"
+        }
+      ],
+      "teste": {
+        "nome": "Wilcoxon exato bilateral",
+        "n": 7,
+        "n_empates": 0,
+        "estatistica": 8.0,
+        "p": 0.375,
+        "mediana_diferencas": 170.743,
+        "detalhe": "W+=20, W-=8"
+      },
+      "por_tarefa": [
+        {
+          "task_id": "attrs-0001",
+          "faixa": "media",
+          "single-agent": 77.745,
+          "orchestration": 467.788,
+          "diferenca": 390.043
+        },
+        {
+          "task_id": "peewee-0001",
+          "faixa": "media",
+          "single-agent": 286.941,
+          "orchestration": 270.693,
+          "diferenca": -16.24799999999999
+        },
+        {
+          "task_id": "peewee-0003",
+          "faixa": "pequena",
+          "single-agent": 178.646,
+          "orchestration": 108.765,
+          "diferenca": -69.88099999999999
+        },
+        {
+          "task_id": "pygments-0001",
+          "faixa": "pequena",
+          "single-agent": 605.645,
+          "orchestration": 365.0,
+          "diferenca": -240.64499999999998
+        },
+        {
+          "task_id": "sqlite-utils-0003",
+          "faixa": "media",
+          "single-agent": 154.903,
+          "orchestration": 465.339,
+          "diferenca": 310.43600000000004
+        },
+        {
+          "task_id": "tomlkit-0001",
+          "faixa": "pequena",
+          "single-agent": 22.97,
+          "orchestration": 232.995,
+          "diferenca": 210.025
+        },
+        {
+          "task_id": "tomlkit-0003",
+          "faixa": "grande",
+          "single-agent": 113.449,
+          "orchestration": 284.192,
+          "diferenca": 170.743
+        }
+      ]
+    },
+    "5_qualidade": {
+      "nome": "Variação da complexidade",
+      "campo": "quality.cc_mean_delta",
+      "unidade": "pontos de complexidade",
+      "melhor": "menor",
+      "papel": "secundária exploratória",
+      "censura": "ambos_com_valor",
+      "por_braco": {
+        "single-agent": {
+          "mediana_das_tarefas_usadas": 0.014,
+          "mediana_de_todas_as_tarefas": 0.014
+        },
+        "orchestration": {
+          "mediana_das_tarefas_usadas": 0.01,
+          "mediana_de_todas_as_tarefas": 0.01
+        }
+      },
+      "tarefas_usadas": [
+        "attrs-0001",
+        "peewee-0001",
+        "peewee-0002",
+        "peewee-0003",
+        "pygments-0001",
+        "sqlite-utils-0001",
+        "sqlite-utils-0002",
+        "sqlite-utils-0003",
+        "tomlkit-0001",
+        "tomlkit-0002",
+        "tomlkit-0003",
+        "tomlkit-0004",
+        "tomlkit-0005"
+      ],
+      "tarefas_excluidas": [],
+      "teste": {
+        "nome": "Wilcoxon exato bilateral",
+        "n": 7,
+        "n_empates": 6,
+        "estatistica": 13.0,
+        "p": 0.9375,
+        "mediana_diferencas": 0.0,
+        "detalhe": "W+=13, W-=15"
+      },
+      "por_tarefa": [
+        {
+          "task_id": "attrs-0001",
+          "faixa": "media",
+          "single-agent": 0.078,
+          "orchestration": 0.078,
+          "diferenca": 0.0
+        },
+        {
+          "task_id": "peewee-0001",
+          "faixa": "media",
+          "single-agent": 0.003,
+          "orchestration": 0.001,
+          "diferenca": -0.002
+        },
+        {
+          "task_id": "peewee-0002",
+          "faixa": "media",
+          "single-agent": 0.014,
+          "orchestration": 0.003,
+          "diferenca": -0.011
+        },
+        {
+          "task_id": "peewee-0003",
+          "faixa": "pequena",
+          "single-agent": 0.154,
+          "orchestration": 0.154,
+          "diferenca": 0.0
+        },
+        {
+          "task_id": "pygments-0001",
+          "faixa": "pequena",
+          "single-agent": 0.0,
+          "orchestration": 0.0,
+          "diferenca": 0.0
+        },
+        {
+          "task_id": "sqlite-utils-0001",
+          "faixa": "pequena",
+          "single-agent": 0.065,
+          "orchestration": 0.065,
+          "diferenca": 0.0
+        },
+        {
+          "task_id": "sqlite-utils-0002",
+          "faixa": "pequena",
+          "single-agent": 0.011,
+          "orchestration": 0.025,
+          "diferenca": 0.014000000000000002
+        },
+        {
+          "task_id": "sqlite-utils-0003",
+          "faixa": "media",
+          "single-agent": 0.038,
+          "orchestration": 0.02,
+          "diferenca": -0.018
+        },
+        {
+          "task_id": "tomlkit-0001",
+          "faixa": "pequena",
+          "single-agent": 0.0,
+          "orchestration": 0.0,
+          "diferenca": 0.0
+        },
+        {
+          "task_id": "tomlkit-0002",
+          "faixa": "grande",
+          "single-agent": 0.025,
+          "orchestration": 0.043,
+          "diferenca": 0.017999999999999995
+        },
+        {
+          "task_id": "tomlkit-0003",
+          "faixa": "grande",
+          "single-agent": 0.0,
+          "orchestration": 0.0,
+          "diferenca": 0.0
+        },
+        {
+          "task_id": "tomlkit-0004",
+          "faixa": "grande",
+          "single-agent": 0.814,
+          "orchestration": 0.01,
+          "diferenca": -0.8039999999999999
+        },
+        {
+          "task_id": "tomlkit-0005",
+          "faixa": "pequena",
+          "single-agent": -0.065,
+          "orchestration": -0.0255,
+          "diferenca": 0.03950000000000001
+        }
+      ]
+    },
+    "4_consistencia": {
+      "nome": "Consistência",
+      "campo": "resolved por repetição",
+      "unidade": "proporção",
+      "melhor": "maior",
+      "teste": null,
+      "por_braco": {
+        "single-agent": {
+          "tarefas_resolvidas_ao_menos_uma_vez": 10,
+          "tarefas_resolvidas_em_todas_as_repeticoes": 5,
+          "proporcao": 0.5,
+          "tarefas": [
+            "attrs-0001",
+            "peewee-0001",
+            "peewee-0003",
+            "tomlkit-0001",
+            "tomlkit-0003"
+          ]
+        },
+        "orchestration": {
+          "tarefas_resolvidas_ao_menos_uma_vez": 10,
+          "tarefas_resolvidas_em_todas_as_repeticoes": 5,
+          "proporcao": 0.5,
+          "tarefas": [
+            "peewee-0001",
+            "peewee-0003",
+            "pygments-0001",
+            "tomlkit-0001",
+            "tomlkit-0003"
+          ]
+        }
+      }
+    },
+    "6_autonomia": {
+      "nome": "Conclusão sem corte",
+      "campo": "process.stop_reason",
+      "unidade": "proporção",
+      "melhor": "maior",
+      "teste": null,
+      "por_braco": {
+        "single-agent": {
+          "execucoes": 39,
+          "encerradas_por_corte": 10,
+          "sem_stop_reason": 0,
+          "proporcao_sem_corte": 0.7435897435897436,
+          "motivos_de_corte": [
+            "budget: max_tokens (8077370 >= 8000000)",
+            "budget: max_turns (120 >= 120)"
+          ]
+        },
+        "orchestration": {
+          "execucoes": 39,
+          "encerradas_por_corte": 16,
+          "sem_stop_reason": 0,
+          "proporcao_sem_corte": 0.5897435897435898,
+          "motivos_de_corte": [
+            "budget: max_turns (120 >= 120)",
+            "budget: max_wall_seconds (3601s >= 3600s)",
+            "budget: max_wall_seconds (3632s >= 3600s)",
+            "budget: max_wall_seconds (3647s >= 3600s)"
+          ]
+        }
+      }
+    },
+    "7_integridade": {
+      "nome": "Violações",
+      "campo": "cheat.critical_count; resolved_blocked_by_cheat; process.tool_denials",
+      "unidade": "contagem por braço",
+      "melhor": "menor",
+      "teste": null,
+      "por_braco": {
+        "single-agent": {
+          "execucoes": 39,
+          "cheat_critical_count": 0,
+          "execucoes_com_trapaca_critica": 0,
+          "resolved_blocked_by_cheat": 0,
+          "tool_denials": 5
+        },
+        "orchestration": {
+          "execucoes": 39,
+          "cheat_critical_count": 0,
+          "execucoes_com_trapaca_critica": 0,
+          "resolved_blocked_by_cheat": 0,
+          "tool_denials": 10
+        }
+      }
+    }
+  }
+}

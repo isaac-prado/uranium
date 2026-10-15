@@ -1,0 +1,38 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index d709fb9..dccf5ed 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -2567,6 +2567,33 @@ class Table(Queryable):
+             pragma_foreign_keys_was_on and already_in_transaction
+         )
+         defer_foreign_keys_was_on = False
++        # Check for destructive foreign keys when in transaction with foreign keys enabled
++        if should_defer_foreign_keys:
++            destructive_actions = {'CASCADE', 'SET NULL', 'SET DEFAULT'}
++            referencing_tables = []
++            
++            # Get all table names
++            tables = [row[0] for row in self.db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").fetchall()]
++            
++            for table in tables:
++                if table == self.name:
++                    continue
++                    
++                fks = self.db.execute(f"PRAGMA foreign_key_list('{table}')").fetchall()
++                for fk in fks:
++                    # fk structure: (id, seq, table_name, from_, to_, on_update, on_delete, match)
++                    if fk[2] == self.name:  # references our target table
++                        on_delete_action = fk[6]  # on_delete is at index 6
++                        if on_delete_action in destructive_actions:
++                            referencing_tables.append((table, on_delete_action))
++                            
++            if referencing_tables:
++                table_names = [ref[0] for ref in referencing_tables]
++                actions = [ref[1] for ref in referencing_tables]
++                raise TransactionError(
++                    f"Cannot transform table '{self.name}' - it is referenced by tables {table_names} with destructive foreign key actions {actions}"
++                )
++        
+         try:
+             if should_disable_foreign_keys:
+                 self.db.execute("PRAGMA foreign_keys=0;")

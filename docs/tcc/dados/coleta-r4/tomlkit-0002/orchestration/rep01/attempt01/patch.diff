@@ -1,0 +1,389 @@
+diff --git a/tomlkit/__init__.py b/tomlkit/__init__.py
+index 6843f57..1841e41 100644
+--- a/tomlkit/__init__.py
++++ b/tomlkit/__init__.py
+@@ -1,7 +1,7 @@
+-from .api import TOMLDocument
++from .api import _Document as TOMLDocument
+ from .api import aot
+ from .api import array
+-from .api import boolean
++from .api import bool_ as boolean
+ from .api import comment
+ from .api import date
+ from .api import datetime
+@@ -13,7 +13,6 @@ from .api import inline_table
+ from .api import integer
+ from .api import item
+ from .api import key
+-from .api import key_value
+ from .api import load
+ from .api import loads
+ from .api import nl
+@@ -23,32 +22,6 @@ from .api import table
+ from .api import time
+ from .api import value
+ from .api import ws
++from .items import Null
+ 
+-
+-__version__ = "0.8.0"
+-__all__ = [
+-    "aot",
+-    "array",
+-    "boolean",
+-    "comment",
+-    "date",
+-    "datetime",
+-    "document",
+-    "dump",
+-    "dumps",
+-    "float_",
+-    "inline_table",
+-    "integer",
+-    "item",
+-    "key",
+-    "key_value",
+-    "load",
+-    "loads",
+-    "nl",
+-    "parse",
+-    "string",
+-    "table",
+-    "time",
+-    "value",
+-    "ws",
+-]
++__version__ = "0.12.6"
+\ No newline at end of file
+diff --git a/tomlkit/api.py b/tomlkit/api.py
+index fd4b2f3..004e8a3 100644
+--- a/tomlkit/api.py
++++ b/tomlkit/api.py
+@@ -1,8 +1,9 @@
+ import datetime as _datetime
+-
+ from collections.abc import Mapping
+ from typing import IO
+ from typing import Tuple
++from typing import Union
++from typing import Iterable
+ 
+ from ._utils import parse_rfc3339
+ from .container import Container
+@@ -18,6 +19,7 @@ from .items import Integer
+ from .items import Item as _Item
+ from .items import Key
+ from .items import SingleKey
++from .items import DottedKey
+ from .items import String
+ from .items import Table
+ from .items import Time
+@@ -25,83 +27,58 @@ from .items import Trivia
+ from .items import Whitespace
+ from .items import item
+ from .parser import Parser
+-from .toml_document import TOMLDocument
+-
+-
+-def loads(string: str) -> TOMLDocument:
+-    """
+-    Parses a string into a TOMLDocument.
++from .toml_document import TOMLDocument as _Document
++from collections.abc import MutableMapping as _Dict
+ 
+-    Alias for parse().
+-    """
+-    return parse(string)
+ 
++def document() -> _Document:
++    return _Document()
+ 
+-def dumps(data: Mapping, sort_keys: bool = False) -> str:
+-    """
+-    Dumps a TOMLDocument into a string.
+-    """
+-    if not isinstance(data, Container) and isinstance(data, Mapping):
+-        data = item(dict(data), _sort_keys=sort_keys)
+ 
+-    try:
+-        # data should be a `Container` (and therefore implement `as_string`)
+-        # for all type safe invocations of this function
+-        return data.as_string()  # type: ignore[attr-defined]
+-    except AttributeError as ex:
+-        msg = f"Expecting Mapping or TOML Container, {type(data)} given"
+-        raise TypeError(msg) from ex
++def loads(content: str | bytes) -> _Document:
++    return parse(content)
+ 
+ 
+-def load(fp: IO) -> TOMLDocument:
+-    """
+-    Load toml document from a file-like object.
+-    """
++def load(fp: IO) -> _Document:
+     return parse(fp.read())
+ 
+ 
+-def dump(data: Mapping, fp: IO[str], *, sort_keys: bool = False) -> None:
+-    """
+-    Dump a TOMLDocument into a writable file stream.
+-    """
+-    fp.write(dumps(data, sort_keys=sort_keys))
++def dumps(data: _Dict, sort_keys: bool = False) -> str:
++    return _Document(data).as_string(sort_keys=sort_keys)
+ 
+ 
+-def parse(string: str) -> TOMLDocument:
+-    """
+-    Parses a string into a TOMLDocument.
+-    """
+-    return Parser(string).parse()
++def dump(data: _Dict, fp: IO, sort_keys: bool = False) -> None:
++    fp.write(dumps(data, sort_keys=sort_keys))
+ 
+ 
+-def document() -> TOMLDocument:
+-    """
+-    Returns a new TOMLDocument instance.
+-    """
+-    return TOMLDocument()
++def table() -> Table:
++    from .items import Table as _Table, Trivia
++    return _Table(Container(), Trivia(), False)
+ 
+ 
+-# Items
+-def integer(raw: str) -> Integer:
+-    return item(int(raw))
++def inline_table() -> InlineTable:
++    from .items import InlineTable as _InlineTable, Trivia
++    return _InlineTable(Container(), Trivia(), new=True)
+ 
+ 
+-def float_(raw: str) -> Float:
+-    return item(float(raw))
++def aot() -> AoT:
++    return AoT([])
+ 
+ 
+-def boolean(raw: str) -> Bool:
+-    return item(raw == "true")
++def key(k: Union[str, Iterable[str]]) -> Key:
++    if isinstance(k, str):
++        return SingleKey(k)
++    return DottedKey([SingleKey(_k) for _k in k])
+ 
+ 
+-def string(raw: str) -> String:
+-    return item(raw)
++def value(raw: str) -> _Item:
++    return Parser(raw)._parse_value()
+ 
+ 
+ def date(raw: str) -> Date:
+     value = parse_rfc3339(raw)
+     if not isinstance(value, _datetime.date):
+-        raise ValueError("date() only accepts date strings.")
++        raise ValueError("date() only supports date strings.")
+ 
+     return item(value)
+ 
+@@ -109,7 +86,7 @@ def date(raw: str) -> Date:
+ def time(raw: str) -> Time:
+     value = parse_rfc3339(raw)
+     if not isinstance(value, _datetime.time):
+-        raise ValueError("time() only accepts time strings.")
++        raise ValueError("time() only supports time strings.")
+ 
+     return item(value)
+ 
+@@ -117,7 +94,7 @@ def time(raw: str) -> Time:
+ def datetime(raw: str) -> DateTime:
+     value = parse_rfc3339(raw)
+     if not isinstance(value, _datetime.datetime):
+-        raise ValueError("datetime() only accepts datetime strings.")
++        raise ValueError("datetime() only supports datetime strings.")
+ 
+     return item(value)
+ 
+@@ -125,41 +102,68 @@ def datetime(raw: str) -> DateTime:
+ def array(raw: str = None) -> Array:
+     if raw is None:
+         raw = "[]"
+-
+     return value(raw)
+ 
+ 
+-def table(is_super_table: bool = False) -> Table:
+-    return Table(Container(), Trivia(), False, is_super_table)
++def string(raw: str) -> String:
++    return item(raw)
+ 
+ 
+-def inline_table() -> InlineTable:
+-    return InlineTable(Container(), Trivia(), new=True)
++def bool_(raw: str) -> Bool:
++    return item(raw == "true")
+ 
+ 
+-def aot() -> AoT:
+-    return AoT([])
++def integer(raw: str) -> Integer:
++    return item(int(raw))
+ 
+ 
+-def key(k: str) -> Key:
+-    return SingleKey(k)
++def float_(raw: str) -> Float:
++    return item(float(raw))
+ 
+ 
+-def value(raw: str) -> _Item:
+-    return Parser(raw)._parse_value()
++def parse(raw: str | bytes) -> _Document:
++    return Parser(raw).parse()
++
++
++def comment(string: str) -> Comment:
++    return Comment(Trivia(comment_ws="", comment="# " + string))
+ 
+ 
+ def key_value(src: str) -> Tuple[Key, _Item]:
+     return Parser(src)._parse_key_value()
+ 
+ 
+-def ws(src: str) -> Whitespace:
+-    return Whitespace(src, fixed=True)
++def ws(string: str) -> Whitespace:
++    return Whitespace(Trivia(indent=string, fixed=True))
+ 
+ 
+ def nl() -> Whitespace:
+     return ws("\n")
+ 
+ 
+-def comment(string: str) -> Comment:
+-    return Comment(Trivia(comment_ws="  ", comment="# " + string))
++from .items import Null
++
++__all__ = [
++    "loads",
++    "load",
++    "dumps",
++    "dump",
++    "table",
++    "inline_table",
++    "aot",
++    "key",
++    "value",
++    "date",
++    "time",
++    "datetime",
++    "array",
++    "string",
++    "bool_",
++    "integer",
++    "float_",
++    "parse",
++    "comment",
++    "ws",
++    "nl",
++    "Null",
++]
+\ No newline at end of file
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index dc6da89..78d7ef7 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -89,6 +89,57 @@ class Container(_CustomDict):
+ 
+         return self.append(key, item)
+ 
++    def _handle_dotted_key(self, key: Key, value: Item) -> "Container":
++        """
++        Handle dotted keys by creating nested table structure.
++        """
++        from .items import Table, Trivia
++        
++        names = tuple(iter(key))
++        name = names[0]
++        name._dotted = True
++        
++        # Create the nested structure from scratch
++        table = Table(Container(True), Trivia(), False, is_super_table=True)
++        # Add the first part of the key directly to avoid recursion
++        if not isinstance(key, Key):
++            key = SingleKey(key)
++        
++        if not isinstance(value, Item):
++            value = _item(value)
++        
++        # Add the first part of the key
++        if name not in self:
++            super(Container, self).__setitem__(str(name), table)
++            self._map[name] = len(self._body)
++            self._body.append((name, table))
++            self._table_keys.append(name)
++        
++        _table = self[name]
++        if not isinstance(_table, Table):
++            raise KeyError(f"Cannot create dotted key '{key}' because '{name}' already exists as a non-table")
++        
++        # Navigate through the nested structure
++        for i, _name in enumerate(names[1:]):
++            if i == len(names) - 2:  # Last part - assign the value
++                _name.sep = key.sep
++                _table.append(_name, value)
++                break
++            else:
++                _name._dotted = True
++                if _name not in _table:
++                    # Create intermediate table
++                    new_table = Table(
++                        Container(True),
++                        Trivia(),
++                        False,
++                        is_super_table=True,
++                    )
++                    _table.append(_name, new_table)
++                _table = _table[_name]
++        
++        return self
++
+     def append(self, key: Union[Key, str, None], item: Item) -> "Container":
+         if not isinstance(key, Key) and key is not None:
+             key = SingleKey(key)
+@@ -96,6 +147,10 @@ class Container(_CustomDict):
+         if not isinstance(item, Item):
+             item = _item(item)
+ 
++        # Handle dotted keys specially
++        if key is not None and key.is_dotted():
++            return self._handle_dotted_key(key, item)
++
+         if isinstance(item, (AoT, Table)) and item.name is None:
+             item.name = key.key
+ 
+@@ -380,7 +435,7 @@ class Container(_CustomDict):
+         if self._body:
+             return self._body[-1][1]
+ 
+-    def as_string(self) -> str:
++    def as_string(self, sort_keys: bool = False) -> str:
+         s = ""
+         for k, v in self._body:
+             if k is not None:
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index f325029..929d559 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -329,7 +329,7 @@ class DottedKey(Key):
+         if original is None:
+             original = ".".join(k.as_string() for k in self._keys)
+ 
+-        self.sep = "=" if sep is None else sep
++        self.sep = " = " if sep is None else sep
+         self._original = original
+         self._dotted = True
+         self.key = ".".join(k.key for k in self._keys)

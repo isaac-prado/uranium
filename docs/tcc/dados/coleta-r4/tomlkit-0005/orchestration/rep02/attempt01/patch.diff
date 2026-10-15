@@ -1,0 +1,20 @@
+diff --git a/tomlkit/_types.py b/tomlkit/_types.py
+index 3585d56..9bc6961 100644
+--- a/tomlkit/_types.py
++++ b/tomlkit/_types.py
+@@ -71,11 +71,11 @@ else:
+             self.update(other)
+             return self
+ 
+-    class _CustomInt(Integral, int):
+-        """Adds Integral mixin while pretending to be a builtin int"""
++    class _CustomInt(int):
++        """Pretending to be a builtin int"""
+ 
+-    class _CustomFloat(Real, float):
+-        """Adds Real mixin while pretending to be a builtin float"""
++    class _CustomFloat(float):
++        """Pretending to be a builtin float"""
+ 
+ 
+ def wrap_method(

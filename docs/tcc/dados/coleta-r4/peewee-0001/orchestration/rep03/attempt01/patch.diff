@@ -1,0 +1,70 @@
+diff --git a/peewee.py b/peewee.py
+index 13d2c8e9..3f0c607c 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -3616,6 +3616,17 @@ class MySQLJSONMethods(BaseJSONMethods):
+ # DB-API 2.0 EXCEPTIONS.
+ 
+ 
++class QueryHookEvent(object):
++    """Representa um evento gerado por uma consulta SQL."""
++    __slots__ = ('sql', 'params', 'duration', 'exception')
++    
++    def __init__(self, sql, params, duration, exception):
++        self.sql = sql
++        self.params = params
++        self.duration = duration
++        self.exception = exception
++
++
+ class PeeweeException(Exception):
+     def __init__(self, *args):
+         if args and isinstance(args[0], Exception):
+@@ -3770,6 +3781,9 @@ class Database(_callable_context_manager):
+             self._state = _ConnectionState()
+             self._lock = _NoopLock()
+ 
++        # Inicializa a lista de ganchos de consulta para esta instância.
++        self.query_hooks = []
++
+         if autorollback:
+             __deprecated__('Peewee no longer uses the "autorollback" option, '
+                            'as we always run in autocommit-mode now. This '
+@@ -3892,9 +3906,34 @@ class Database(_callable_context_manager):
+ 
+     def execute_sql(self, sql, params=None):
+         self._log_query(sql, params)
+-        with __exception_wrapper__:
+-            cursor = self.cursor()
+-            cursor.execute(sql, params or ())
++        
++        # Se não há ganchos registrados, usar a implementação original
++        if not self.query_hooks:
++            with __exception_wrapper__:
++                cursor = self.cursor()
++                cursor.execute(sql, params or ())
++            return cursor
++            
++        # Coletar métricas e notificar ganchos
++        import time
++        start_time = time.time()
++        exception = None
++        
++        try:
++            with __exception_wrapper__:
++                cursor = self.cursor()
++                cursor.execute(sql, params or ())
++        except Exception as exc:
++            exception = exc
++            raise
++        finally:
++            duration = time.time() - start_time
++            event = QueryHookEvent(sql, params, duration, exception)
++            
++            # Notificar todos os ganchos registrados
++            for hook in self.query_hooks:
++                hook(event)
++                
+         return cursor
+ 
+     def execute(self, query, **context_options):

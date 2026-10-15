@@ -1,0 +1,46 @@
+diff --git a/peewee.py b/peewee.py
+index 6a666d5b..1b229c7e 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -2652,6 +2652,13 @@ class Select(SelectBase):
+ 
+     @Node.copy
+     def window(self, *windows):
++        if windows:
++            aliases = set()
++            for window in windows:
++                alias = getattr(window, '_alias', None)
++                if alias in aliases:
++                    raise ValueError('Window with duplicate alias "%s".' % alias)
++                aliases.add(alias)
+         self._windows = windows if windows else None
+ 
+     @Node.copy
+@@ -3783,7 +3790,11 @@ class Database(_callable_context_manager):
+             self.connect()
+         ctx = self.atomic()
+         self._state.ctx.append(ctx)
+-        ctx.__enter__()
++        try:
++            ctx.__enter__()
++        except:
++            self._state.ctx.pop()
++            raise
+         return self
+ 
+     def __exit__(self, exc_type, exc_val, exc_tb):
+@@ -4037,10 +4048,14 @@ class Database(_callable_context_manager):
+             self.cursor().execute('BEGIN')
+ 
+     def rollback(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot rollback transaction on closed database.')
+         with __exception_wrapper__:
+             self.cursor().execute('ROLLBACK')
+ 
+     def commit(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot commit transaction on closed database.')
+         with __exception_wrapper__:
+             self.cursor().execute('COMMIT')
+ 

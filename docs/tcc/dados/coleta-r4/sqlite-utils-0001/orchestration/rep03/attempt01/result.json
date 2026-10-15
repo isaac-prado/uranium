@@ -1,0 +1,122 @@
+{
+  "result_schema_version": 2,
+  "harness_version": "1.0.0",
+  "evaluated_at": "2026-10-15T21:55:11+00:00",
+  "run_id": "sqlite-utils-0001-orchestration-r03-a01",
+  "arm": "orchestration",
+  "task_id": "sqlite-utils-0001",
+  "faixa": "pequena",
+  "repetition": 3,
+  "base_commit": "d71420065903ff54247b5062b8c6af6165b7e638",
+  "resolved": false,
+  "resolved_blocked_by_cheat": false,
+  "oracle": {
+    "f2p_total": 5,
+    "f2p_passed": 0,
+    "f2p": {
+      "exit_code": 1,
+      "passed": 0,
+      "failed": 5,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.24,
+      "failing_node_ids": [
+        "tests/test_transform.py::test_transform_in_transaction_refuses_destructive_on_delete[CASCADE]",
+        "tests/test_transform.py::test_transform_in_transaction_refuses_destructive_on_delete[SET DEFAULT]",
+        "tests/test_transform.py::test_transform_in_transaction_refuses_destructive_on_delete[SET NULL]",
+        "tests/test_transform.py::test_transform_in_transaction_refuses_destructive_on_delete[cascade]",
+        "tests/test_transform.py::test_transform_in_transaction_refuses_self_referential_cascade"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "p2p": {
+      "exit_code": 1,
+      "passed": 1367,
+      "failed": 5,
+      "errors": 0,
+      "skipped": 16,
+      "duration_s": 7.25,
+      "failing_node_ids": [
+        "tests/test_transform.py::test_transform_in_transaction_refuses_destructive_on_delete[CASCADE]",
+        "tests/test_transform.py::test_transform_in_transaction_refuses_destructive_on_delete[SET DEFAULT]",
+        "tests/test_transform.py::test_transform_in_transaction_refuses_destructive_on_delete[SET NULL]",
+        "tests/test_transform.py::test_transform_in_transaction_refuses_destructive_on_delete[cascade]",
+        "tests/test_transform.py::test_transform_in_transaction_refuses_self_referential_cascade"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "regression": {
+      "exit_code": 1,
+      "passed": 1367,
+      "failed": 5,
+      "errors": 0,
+      "skipped": 16,
+      "duration_s": 7.09,
+      "failing_node_ids": [
+        "tests/test_transform.py::test_transform_in_transaction_refuses_destructive_on_delete[CASCADE]",
+        "tests/test_transform.py::test_transform_in_transaction_refuses_destructive_on_delete[SET DEFAULT]",
+        "tests/test_transform.py::test_transform_in_transaction_refuses_destructive_on_delete[SET NULL]",
+        "tests/test_transform.py::test_transform_in_transaction_refuses_destructive_on_delete[cascade]",
+        "tests/test_transform.py::test_transform_in_transaction_refuses_self_referential_cascade"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    }
+  },
+  "cheat": {
+    "clean": true,
+    "critical_count": 0,
+    "warning_count": 0,
+    "signals": []
+  },
+  "quality": {
+    "mi_before": 0.0,
+    "mi_after": 0.0,
+    "mi_delta": 0.0,
+    "cc_mean_before": 6.716,
+    "cc_mean_after": 6.781,
+    "cc_mean_delta": 0.065,
+    "files_analyzed": 1,
+    "error": null
+  },
+  "cost": {
+    "tokens_prompt": 693895,
+    "tokens_completion": 15978,
+    "tokens_reasoning": 0,
+    "tokens_total": 709873,
+    "cost_usd": 0.0989881,
+    "llm_calls": 85,
+    "byok_calls": 85,
+    "tool_calls": 76,
+    "wall_seconds": 224.812
+  },
+  "process": {
+    "turns": 80,
+    "test_runs": 3,
+    "tool_denials": 1,
+    "errors": 0,
+    "circuit_breaks": 0,
+    "self_recoveries": 0,
+    "stop_reason": "concluiu"
+  },
+  "provenance": {
+    "model": "qwen/qwen3-coder",
+    "provider_requested": "DeepInfra",
+    "providers_served": [
+      "DeepInfra"
+    ],
+    "llm_seed": 20260823,
+    "topology": "multi_agent_roles"
+  },
+  "diff": {
+    "files_changed": 1,
+    "insertions": 27,
+    "deletions": 0,
+    "changed_files": [
+      "sqlite_utils/db.py",
+      "temp_verification.py"
+    ]
+  }
+}

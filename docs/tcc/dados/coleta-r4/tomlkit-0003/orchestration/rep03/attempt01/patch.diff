@@ -1,0 +1,78 @@
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index 6386e73..18b55c6 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -709,9 +709,13 @@ class OutOfOrderTableProxy(dict):
+                 table_idx = len(self._tables) - 1
+                 for k, v in item.value.body:
+                     self._internal_container.append(k, v)
+-                    self._tables_map[k] = table_idx
+                     if k is not None:
++                        # Always map the key to its table index for setitem purposes
++                        self._tables_map[k] = table_idx
+                         super(OutOfOrderTableProxy, self).__setitem__(k.key, v)
++                    else:
++                        # For non-keyed items (like comments or whitespace), just append
++                        self._internal_container.append(k, v)
+             else:
+                 self._internal_container.append(key, item)
+                 self._map[key] = i
+@@ -788,7 +792,44 @@ class OutOfOrderTableProxy(dict):
+         return str(self._internal_container)
+ 
+     def __repr__(self):
+-        return repr(self._internal_container)
++        # Create a new Container to hold the combined items from all tables
++        # This ensures the representation includes all keys from all tables
++        # in the correct order of appearance.
++        combined_container = Container(self._internal_container.parsing)
++        
++        # Keep track of keys we've already added to avoid duplicates
++        # This is important when the same key appears in multiple tables
++        # In that case, the first occurrence should take precedence for representation
++        added_keys = set()
++        
++        # Iterate through each table in the order they were added
++        # to ensure we get all items from all tables
++        for table in self._tables:
++            # Iterate through the body of each table to get items in order
++            for k, v in table.value.body:
++                if k is not None:
++                    # Check if this key has already been added
++                    if k.key not in added_keys:
++                        # Append the key-value pair to the combined container
++                        # This will preserve the order of insertion across all tables
++                        combined_container.append(k, v)
++                        added_keys.add(k.key)
++                else:
++                    # For non-keyed items (like comments or whitespace), just append
++                    combined_container.append(k, v)
++        
++        # Also append any non-table items that were directly added to _internal_container
++        # This loop handles items that are not part of any table in _tables
++        for k, v in self._internal_container.body:
++            # Check if this key/item is not from any of the tables
++            if k is not None and k.key not in added_keys:
++                combined_container.append(k, v)
++                added_keys.add(k.key)
++            elif k is None:
++                # Handle non-keyed items not in tables
++                combined_container.append(k, v)
++
++        return repr(combined_container)
+ 
+     def __eq__(self, other):  # type: (Dict) -> bool
+         if not isinstance(other, dict):
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 26b8f9f..a6efccc 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -1045,7 +1045,7 @@ class Table(Item, dict):
+         self.remove(key)
+ 
+     def __repr__(self):
+-        return super(Table, self).__repr__()
++        return repr(self._value)
+ 
+     def __str__(self):
+         return str(self.value)

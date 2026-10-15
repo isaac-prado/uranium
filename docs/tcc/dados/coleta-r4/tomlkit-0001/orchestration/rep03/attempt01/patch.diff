@@ -1,0 +1,22 @@
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index b952b36..9f07c04 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -670,7 +670,7 @@ class Parser:
+                     prev_value = True
+                     continue
+                 except UnexpectedCharError:
+-                    pass
++                    raise
+ 
+             # consume comma
+             if prev_value and self._current == ",":
+@@ -694,7 +694,7 @@ class Parser:
+         try:
+             res = Array(elems, Trivia())
+         except ValueError:
+-            pass
++            raise self.parse_error(UnexpectedCharError, self._current)
+         else:
+             return res
+ 

@@ -1,0 +1,67 @@
+diff --git a/peewee.py b/peewee.py
+index 13d2c8e9..46e3abfc 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -3780,13 +3780,14 @@ class Database(_callable_context_manager):
+             __deprecated__('Peewee no longer uses the "autocommit" option, as '
+                            'the semantics now require it to always be True. '
+                            'Because some database-drivers also use the '
+-                           '"autocommit" parameter, you are receiving a '
++                           'autocommit" parameter, you are receiving a '
+                            'warning so you may update your code and remove '
+                            'the parameter, as in the future, specifying '
+                            'autocommit could impact the behavior of the '
+                            'database driver you are using.')
+ 
+         self.connect_params = {}
++        self.query_hooks = []
+         self.init(database, **kwargs)
+ 
+     def init(self, database, **kwargs):
+@@ -3892,9 +3893,28 @@ class Database(_callable_context_manager):
+ 
+     def execute_sql(self, sql, params=None):
+         self._log_query(sql, params)
+-        with __exception_wrapper__:
+-            cursor = self.cursor()
+-            cursor.execute(sql, params or ())
++        start_time = time.time()
++        exception = None
++        cursor = None
++        try:
++            with __exception_wrapper__:
++                cursor = self.cursor()
++                cursor.execute(sql, params or ())
++        except Exception as exc:
++            exception = exc
++            raise
++        finally:
++            end_time = time.time()
++            duration = end_time - start_time
++            # Notificar os ganchos, mesmo em caso de exceção
++            if hasattr(self, 'query_hooks'):
++                event = QueryEvent(sql, params, duration, exception)
++                for hook in self.query_hooks:
++                    try:
++                        hook(event)
++                    except Exception:
++                        # Se um gancho levantar exceção, propagar imediatamente
++                        raise
+         return cursor
+ 
+     def execute(self, query, **context_options):
+@@ -4149,6 +4169,14 @@ class Database(_callable_context_manager):
+         return self._Model
+ 
+ 
++class QueryEvent(object):
++    def __init__(self, sql, params, duration, exception):
++        self.sql = sql
++        self.params = params
++        self.duration = duration
++        self.exception = exception
++
++
+ def __pragma__(name):
+     def __get__(self):
+         return self.pragma(name)
