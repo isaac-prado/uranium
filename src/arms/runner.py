@@ -60,7 +60,7 @@ from src.workspace import Workspace, WorkspaceSpec
 # 10 = rodada 2 (decisões 27 e 29, 14/10/2026): `visible_deselect` da tarefa
 # no manifesto (igual nos dois braços), `orchestration_policy.review_execution`
 # e `cycle_note`.
-MANIFEST_VERSION = 10
+MANIFEST_VERSION = 11
 
 # Chaves do manifesto que PODEM diferir entre os braços. Qualquer outra
 # divergência é violação do desenho experimental. Note que `repetition` NÃO
@@ -156,6 +156,9 @@ def _orchestration_policy() -> dict[str, Any]:
         # ciclo do developer; "off" nos dois é a coleta principal.
         "review_execution": config.REVIEW_EXECUTION,
         "cycle_note": config.CYCLE_NOTE,
+        # Decisão 32 (rodada 3): revisor coerente; junto com
+        # max_semantic_rejections = 0 (sem teto). "off"/2 é a rodada 2.
+        "review_strict": config.REVIEW_STRICT,
         "developer_input": config.DEVELOPER_INPUT,
         "developer_memory": config.DEVELOPER_MEMORY,
         "developer_memory_diff_max_chars": MEMORIA_DIFF_MAX_CHARS,

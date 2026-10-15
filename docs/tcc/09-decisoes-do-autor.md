@@ -184,6 +184,22 @@ Fontes: [04-cronograma.md](04-cronograma.md), [07-execucao.md](07-execucao.md), 
 
 **Decisão:** ______ (data: ______)
 
+### Decisão 32. Rodada 3: revisor coerente e fim do teto de reprovações (aprovada)
+
+**Situação.** Dos 16 runs orquestrados não resolvidos da rodada 2 ([17-rodada-2.md](17-rodada-2.md)), 4 encerraram porque o revisor aprovou código que o oráculo reprovou (peewee-0002 5/6, sqlite-utils-0003 11/12, pygments-0001 1/2, sqlite-utils-0001 0/5) e 1 porque bateu o teto de duas reprovações no turno 24 com 96 turnos sobrando (attrs-0001 rep3, 2/3). Em 4 das 59 revisões o revisor listou `missing_criteria` e aprovou mesmo assim. Nas tarefas médias o padrão é quase-acerto: 4/6, 5/6, 11/12.
+
+**Opções apresentadas em 14/10/2026.** (1) revisor coerente: revisão que lista critérios não cobertos não aprova (regra do harness, sem tocar prompt); (2) retirar o teto de reprovações: parada só por suíte verde ou orçamento, igual ao single-agent; (3) decomposição por critério, na versão leve (lista de pendências na memória de trabalho) ou completa (nó planejador que fatia a intent em sub-tarefas).
+
+**Decisão do autor (14/10/2026, por escrito).** "1. Perfeito, faz muito sentido. 2. Excelente, retire-o. 3. MUITO ambicioso e interessante, vamos guardar essa carta na manga [...] Mas não vamos executar agora mesmo." Rodar só o orquestrado de novo (rodada 3), 39 runs; o single-agent não muda.
+
+**Implementação.** `REVIEW_STRICT=on` (`src/config.py`; `src/agents/validator.py` rebaixa `is_valid` quando `missing_criteria` não está vazio e grava `strict_coerced` no evento `validation`); `MAX_SEMANTIC_REJECTIONS=0` = sem teto (`src/graph.py`); `orchestration_policy.review_strict`, manifesto v11. Rodada 3 = rodada 2 + estas duas chaves; `off`/2 reproduz a rodada 2. A opção (3) fica como decisão 33 pendente (trabalho futuro ou rodada 4 se o cronograma permitir).
+
+### Decisão 33. Decomposição por critério no orquestrado (pendente, "carta na manga")
+
+Versão leve: o validador já devolve `covered_criteria`/`missing_criteria`; a memória de trabalho passaria a carregar a lista de pendências e o developer receberia ordem de atacar o próximo critério, verificando com o bloco de reprodução dele (muda `src/feedback.py`, exige aprovação por escrito). Versão completa: nó planejador que fatia a intent v2 em sub-tarefas executadas uma por vez, com o validador checando o critério da vez (prompt novo, ≈ 1 dia, rodada própria ≈ US$ 5). Autor em 14/10/2026: guardar, não executar agora.
+
+**Decisão:** ______ (data: ______)
+
 ## Bloco 2 — Tratamentos: o desenho do braço `orchestration`
 
 As decisões 4 a 6 **já foram tomadas pelo autor em 28/09/2026** (commits `f4c01a9`, `c2046fd`, `7068a55` na `develop`) e integradas à branch de trabalho em 08/10/2026 ([07-execucao.md](07-execucao.md), seção "Reconciliação"). Aparecem aqui para confirmação e para o texto.
@@ -454,3 +470,5 @@ Hoje conta como "sem corte" pela definição literal, e o JSON reporta `sem_stop
 | 31 (pendente) | `run_python` reescreve arquivos-fonte (peewee-0001 OR-v2) | | 09, Decisão 31; 16-ablacao-e-v2 §3.2 |
 | 27 (resultado) | com o deselect efetivo: sqlite-utils-0002 OR 3/3 × SA 0/3 (SA para com suíte verde e falha as 6 versões novas no oráculo); pygments-0001 OR 1/3 × SA 2/3; tomlkit-0004 0/3 × 0/3 | 14/10/2026 | 17-rodada-2 §4; dados/coleta-r2 |
 | 29 (resultado) | rodada 2 fechada 14/10 22:16, 48/48, 0 perdidos: OR 23/39 runs (coleta principal 17/39), SA pareado 23/39; por tarefa 7 × 8, sinal p = 0,69; negações 39 → 3; revisor 59 revisões/37 reprovações; 31 notas de ciclo; tempo até solução pior (245 s × 113 s, p = 0,125) | 14/10/2026 | 17-rodada-2; dados/coleta-r2/analise-sete-metricas.md |
+| 32 | rodada 3 aprovada por escrito: revisor coerente (`REVIEW_STRICT=on`) e sem teto de reprovações (`MAX_SEMANTIC_REJECTIONS=0`), manifesto v11; só o orquestrado roda de novo (39 runs) | 14/10/2026 | 09, Decisão 32; src/agents/validator.py; src/graph.py |
+| 33 (pendente) | decomposição por critério (leve ou com planejador): guardada para rodada 4 / trabalho futuro | | 09, Decisão 33 |

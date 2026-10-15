@@ -298,3 +298,15 @@ Relatório em [07-e4-fumaca.md](07-e4-fumaca.md): 4 células (`tomlkit-0002` gra
 **Resultados.** [17-rodada-2.md](17-rodada-2.md). Análises em `dados/coleta-r2/analise-sete-metricas.{md,json}`, `apendice-metricas.md`, `analise-operacional.md`; raiz pareada `runs/coleta-r2-analise/` (OR da rodada 2 + SA da rodada 2 nas três reconstruídas e da coleta principal nas outras dez). Resumo: OR 23/39 runs (antes 17/39), SA pareado 23/39; por tarefa 7 × 8 (p = 0,69); negações 39 → 3; tempo até a solução pior para o OR (p = 0,125).
 
 **Impacto em docs.** Resultados (rodada 2 ao lado da coleta principal), Discussão (sqlite-utils-0002: suíte verde cedo demais no single-agent; custo de parede do revisor que executa; faixa média), Ameaças à validade (single-agent pareado híbrido; 14 runs anteriores ao rootdir; oráculo do pygments mais estrito que o enunciado). Decisões 27 e 29 com resultado em [09-decisoes-do-autor.md](09-decisoes-do-autor.md).
+
+---
+
+## Rodada 3: revisor coerente e sem teto de reprovações (14/10/2026, decisão 32)
+
+**Diff resumido.** `src/config.py` (`REVIEW_STRICT` on|off, padrão off; `MAX_SEMANTIC_REJECTIONS` aceita 0 = sem teto), `src/agents/validator.py` (com strict, revisão aprovada com `missing_criteria` é rebaixada a reprovada; `strict_coerced` no evento `validation`), `src/graph.py::route_after_validator` (teto 0 nunca encerra por reprovação), `src/arms/runner.py` (`orchestration_policy.review_strict`, manifesto v11), `.env.example`, `CLAUDE.md`.
+
+**Teste que prova.** `tests/test_rodada2.py::TestRodada3RevisorCoerenteESemTeto` (rebaixa aprovação com critério faltando e conta a reprovação; não toca aprovação limpa nem reprovação; off reproduz a rodada 2; teto 0 nunca encerra; manifesto registra), `tests/test_arm_parity.py` (versão 11).
+
+**Execução.** `INTENT_REFINER=v2 REVIEW_EXECUTION=on CYCLE_NOTE=on REVIEW_STRICT=on MAX_SEMANTIC_REJECTIONS=0 scripts/run_collection.py --arms orchestration --repetitions 3 --out runs/coleta-r3 --workers 1 --retry-delay 300 --max-attempts 5`, sementes da coleta principal. Single-agent de comparação: o mesmo pareado da rodada 2 (`runs/coleta-r2-analise/*/single-agent`).
+
+**Impacto em docs.** Decisões 32 e 33 em [09-decisoes-do-autor.md](09-decisoes-do-autor.md); resultados em 18-rodada-3 (a escrever).

@@ -40,7 +40,8 @@ def route_after_validator(state: WorkflowState) -> str:
         return "test_generator"
     revisao = state.get("validation_result") or {}
     reprovada_agora = revisao and not revisao.get("is_valid", True)
-    if reprovada_agora and state.get("semantic_rejections", 0) >= config.MAX_SEMANTIC_REJECTIONS:
+    teto = config.MAX_SEMANTIC_REJECTIONS  # 0 = sem teto (decisão 32)
+    if reprovada_agora and teto and state.get("semantic_rejections", 0) >= teto:
         return "test_generator"
     return "developer"
 def build_graph():

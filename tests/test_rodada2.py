@@ -105,7 +105,7 @@ class TestVisibleDeselect:
         a = build_run_spec(run_id="a", arm="single-agent", **kw).manifest("t")
         b = build_run_spec(run_id="b", arm="orchestration", **kw).manifest("t")
         assert a["visible_deselect"] == b["visible_deselect"] == ["tests/a.py::t"]
-        assert a["manifest_version"] == 10
+        assert a["manifest_version"] == 11
 
 
 def _v2(reproduction):
@@ -234,3 +234,69 @@ class TestManifestoRodada2:
         assert "NOTA_DE_CICLO" in dir(fb)
         for palavra in ("parser", ".py", "função", "provavelmente", "sugir"):
             assert palavra not in fb.NOTA_DE_CICLO.lower()
+
+
+@mirror_available
+class TestRodada3RevisorCoerenteESemTeto:
+    """Decisão 32 (14/10/2026): revisão que lista critérios faltando não aprova; teto 0 = sem teto."""
+
+    def _roda(self, ambiente, monkeypatch, *, strict: str, veredito):
+        from src.agents.validator import validator
+        from tests.test_nodes import _mudanca_benigna
+
+        monkeypatch.setattr(config, "REVIEW_EXECUTION", "on")
+        monkeypatch.setattr(config, "REVIEW_STRICT", strict)
+        monkeypatch.setenv("SEMANTIC_REVIEW", "true")
+        ws, tel, montar = ambiente
+        _mudanca_benigna(ws)
+        montar(FakeToolCallingLLM([ai(content="x")]))
+        monkeypatch.setattr("src.structured_llm.invoke_structured_raw", lambda *a, **k: (veredito, None))
+        out = validator(_estado(intent=_v2(["print(2 + 2)"]), semantic_rejections=0))
+        ev = [e for e in read_events(tel.path) if e["event_type"] == "validation"][-1]
+        return out, ev
+
+    def test_on_rebaixa_aprovacao_com_criterio_faltando(self, ambiente, monkeypatch):
+        from src.schemas.validation_result import ValidationResult
+
+        out, ev = self._roda(ambiente, monkeypatch, strict="on",
+                             veredito=ValidationResult(is_valid=True, missing_criteria=["Critério 2"]))
+        assert out["is_valid"] is False
+        assert out["validation_result"]["is_valid"] is False
+        assert out["validation_result"]["missing_criteria"] == ["Critério 2"]
+        assert out["semantic_rejections"] == 1
+        assert ev["payload"]["strict_coerced"] is True and ev["payload"]["is_valid"] is False
+
+    def test_on_nao_toca_aprovacao_limpa_nem_reprovacao(self, ambiente, monkeypatch):
+        from src.schemas.validation_result import ValidationResult
+
+        out, ev = self._roda(ambiente, monkeypatch, strict="on", veredito=ValidationResult(is_valid=True))
+        assert out["is_valid"] is True and ev["payload"]["strict_coerced"] is False
+        out, ev = self._roda(ambiente, monkeypatch, strict="on",
+                             veredito=ValidationResult(is_valid=False, missing_criteria=["1"]))
+        assert out["is_valid"] is False and ev["payload"]["strict_coerced"] is False
+
+    def test_off_reproduz_a_rodada_2(self, ambiente, monkeypatch):
+        from src.schemas.validation_result import ValidationResult
+
+        out, ev = self._roda(ambiente, monkeypatch, strict="off",
+                             veredito=ValidationResult(is_valid=True, missing_criteria=["Critério 2"]))
+        assert out["is_valid"] is True and out["semantic_rejections"] == 0
+        assert ev["payload"]["strict_coerced"] is False
+
+    def test_teto_zero_nunca_encerra_por_reprovacao(self, monkeypatch):
+        from src.graph import route_after_validator
+
+        monkeypatch.setattr(config, "MAX_SEMANTIC_REJECTIONS", 0)
+        estado = {"is_valid": False, "validation_result": {"is_valid": False}, "semantic_rejections": 50}
+        assert route_after_validator(estado) == "developer"
+        monkeypatch.setattr(config, "MAX_SEMANTIC_REJECTIONS", 2)
+        assert route_after_validator(estado) == "test_generator"
+
+    def test_manifesto_registra_review_strict(self, monkeypatch):
+        from src.arms.runner import _orchestration_policy
+
+        monkeypatch.setattr(config, "REVIEW_STRICT", "on")
+        monkeypatch.setattr(config, "MAX_SEMANTIC_REJECTIONS", 0)
+        pol = _orchestration_policy()
+        assert pol["review_strict"] == "on" and pol["max_semantic_rejections"] == 0
+

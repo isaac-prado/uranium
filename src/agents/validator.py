@@ -63,9 +63,16 @@ def validator(state: WorkflowState) -> dict[str, Any]:
                         ("user", _build_review_prompt(state, ctx, execucoes)),
                     ],
                 )
+                # Revisor coerente (decisão 32): aprovar listando critérios não
+                # cobertos é contradição; o harness rebaixa, nunca promove.
+                coagida = (
+                    config.REVIEW_STRICT == "on" and semantic.is_valid and bool(semantic.missing_criteria)
+                )
+                if coagida:
+                    semantic = semantic.model_copy(update={"is_valid": False})
                 # O veredito vai à telemetria: na fumaça D de 09/10 o revisor
                 # reprovou um patch com a suíte verde e nada registrava o motivo.
-                ctx.telemetry.emit_validation(semantic, executions=execucoes)
+                ctx.telemetry.emit_validation(semantic, executions=execucoes, strict_coerced=coagida)
             except StructuredOutputError as exc:
                 # Falha de conformidade não pode reprovar código que passa nos
                 # testes; fica registrada e o veredito segue pela execução.

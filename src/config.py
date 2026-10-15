@@ -44,6 +44,11 @@ MAX_CLARIFICATION_ITERATIONS = int(os.getenv("MAX_CLARIFICATION_ITERATIONS", "3"
 # single-agent faz. Um teto ali daria a um braço menos chances de corrigir que
 # ao outro, e a diferença não viria da topologia.
 MAX_SEMANTIC_REJECTIONS = int(os.getenv("MAX_SEMANTIC_REJECTIONS", "2"))
+# 0 = sem teto (decisão 32, 14/10/2026, rodada 3): a parada passa a ser só
+# "suíte verde ou orçamento", igual ao single-agent. Na rodada 2 o attrs-0001
+# rep3 encerrou no turno 24 com 2/3 do oráculo e 96 turnos sobrando.
+if MAX_SEMANTIC_REJECTIONS < 0:
+    raise ValueError("MAX_SEMANTIC_REJECTIONS deve ser >= 0 (0 = sem teto)")
 # Memória de trabalho do developer do orchestration entre os ciclos de
 # validação (decisão 8 do autor, revista em 09/10/2026). "ledger": a cada
 # reentrada no nó o developer recebe o registro determinístico dos ciclos
@@ -89,6 +94,15 @@ CYCLE_NOTE_MODES = ("on", "off")
 CYCLE_NOTE = os.getenv("CYCLE_NOTE", "off").strip().lower()
 if CYCLE_NOTE not in CYCLE_NOTE_MODES:
     raise ValueError(f"CYCLE_NOTE={CYCLE_NOTE!r} inválido; use um de {CYCLE_NOTE_MODES}")
+# Revisor coerente (decisão 32, rodada 3): com "on", uma revisão que lista
+# `missing_criteria` não pode aprovar; o harness rebaixa `is_valid` para
+# False e registra `strict_coerced` no evento `validation`. Na rodada 2, 4
+# das 59 revisões aprovaram com critérios faltando e duas encerraram runs
+# com 11/12 e 5/6 no oráculo. "off": o veredito do revisor vale como veio.
+REVIEW_STRICT_MODES = ("on", "off")
+REVIEW_STRICT = os.getenv("REVIEW_STRICT", "off").strip().lower()
+if REVIEW_STRICT not in REVIEW_STRICT_MODES:
+    raise ValueError(f"REVIEW_STRICT={REVIEW_STRICT!r} inválido; use um de {REVIEW_STRICT_MODES}")
 DEVELOPER_INPUT_MODES = ("intent", "enunciado+intent")
 DEVELOPER_INPUT = os.getenv("DEVELOPER_INPUT", "intent").strip().lower()
 if DEVELOPER_INPUT not in DEVELOPER_INPUT_MODES:
