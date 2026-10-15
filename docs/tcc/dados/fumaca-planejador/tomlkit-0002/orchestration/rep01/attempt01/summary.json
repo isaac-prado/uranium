@@ -1,0 +1,27 @@
+{
+  "run_id": "tomlkit-0002-orchestration-r01-a01",
+  "arm": "orchestration",
+  "task_id": "tomlkit-0002",
+  "repetition": 1,
+  "attempt": 1,
+  "llm_seed": 20260821,
+  "topology": "multi_agent_roles",
+  "stop_reason": "infra_error: AuthenticationError",
+  "lost": true,
+  "is_valid": false,
+  "changed_files": [],
+  "diff_stat": {},
+  "turns": 0,
+  "totals": {
+    "tokens_prompt": 112506,
+    "tokens_completion": 3644,
+    "tokens_reasoning": 0,
+    "tokens_total": 116150,
+    "cost_usd": 0.0373958,
+    "llm_calls": 11,
+    "tool_calls": 20,
+    "test_runs": 0,
+    "errors": 2
+  },
+  "out_dir": "runs/fumaca-planejador/tomlkit-0002/orchestration/rep01/attempt01"
+}

@@ -1,0 +1,55 @@
+diff --git a/tomlkit/api.py b/tomlkit/api.py
+index fd4b2f3..9a22980 100644
+--- a/tomlkit/api.py
++++ b/tomlkit/api.py
+@@ -1,4 +1,5 @@
+ import datetime as _datetime
++from typing import Union, Iterable
+ 
+ from collections.abc import Mapping
+ from typing import IO
+@@ -16,7 +17,7 @@ from .items import Float
+ from .items import InlineTable
+ from .items import Integer
+ from .items import Item as _Item
+-from .items import Key
++from .items import Key, DottedKey, SingleKey
+ from .items import SingleKey
+ from .items import String
+ from .items import Table
+@@ -141,8 +142,10 @@ def aot() -> AoT:
+     return AoT([])
+ 
+ 
+-def key(k: str) -> Key:
+-    return SingleKey(k)
++def key(k: Union[str, Iterable[str]]) -> Key:
++    if isinstance(k, str):
++        return SingleKey(k)
++    return DottedKey([SingleKey(_k) for _k in k])
+ 
+ 
+ def value(raw: str) -> _Item:
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index f325029..8da28e5 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -329,7 +329,7 @@ class DottedKey(Key):
+         if original is None:
+             original = ".".join(k.as_string() for k in self._keys)
+ 
+-        self.sep = "=" if sep is None else sep
++        self.sep = " = " if sep is None else sep
+         self._original = original
+         self._dotted = True
+         self.key = ".".join(k.key for k in self._keys)
+@@ -340,6 +340,9 @@ class DottedKey(Key):
+     def __eq__(self, __o: object) -> bool:
+         return isinstance(__o, DottedKey) and self._keys == __o._keys
+ 
++    def as_string(self) -> str:
++        return ".".join(k.as_string() for k in self._keys)
++
+ 
+ class Item:
+     """

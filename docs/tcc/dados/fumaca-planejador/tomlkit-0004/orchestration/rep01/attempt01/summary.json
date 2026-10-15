@@ -1,0 +1,35 @@
+{
+  "run_id": "tomlkit-0004-orchestration-r01-a01",
+  "arm": "orchestration",
+  "task_id": "tomlkit-0004",
+  "repetition": 1,
+  "attempt": 1,
+  "llm_seed": 20260821,
+  "topology": "multi_agent_roles",
+  "stop_reason": "budget: max_turns (120 >= 120)",
+  "lost": false,
+  "is_valid": false,
+  "changed_files": [
+    "tomlkit/debug_parser.py",
+    "tomlkit/debug_parser2.py",
+    "tomlkit/parser.py"
+  ],
+  "diff_stat": {
+    "files_changed": 1,
+    "insertions": 120,
+    "deletions": 3
+  },
+  "turns": 120,
+  "totals": {
+    "tokens_prompt": 1874925,
+    "tokens_completion": 17279,
+    "tokens_reasoning": 0,
+    "tokens_total": 1892204,
+    "cost_usd": 0.4064541,
+    "llm_calls": 125,
+    "tool_calls": 117,
+    "test_runs": 3,
+    "errors": 0
+  },
+  "out_dir": "runs/fumaca-planejador/tomlkit-0004/orchestration/rep01/attempt01"
+}

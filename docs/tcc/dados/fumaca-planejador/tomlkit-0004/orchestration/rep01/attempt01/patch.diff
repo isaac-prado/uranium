@@ -1,0 +1,169 @@
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..8a15d4e 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -22,6 +22,7 @@ from .exceptions import EmptyTableNameError
+ from .exceptions import InternalParserError
+ from .exceptions import InvalidCharInStringError
+ from .exceptions import InvalidNumberOrDateError
++from .exceptions import KeyAlreadyPresent
+ from .exceptions import MixedArrayTypesError
+ from .exceptions import ParseError
+ from .exceptions import UnexpectedCharError
+@@ -130,9 +131,17 @@ class Parser:
+             if not item:
+                 break
+ 
+-            key, value = item
+-            if not self._merge_ws(value, body):
+-                body.append(key, value)
++            if item is not None:
++                key, value = item
++                if not self._merge_ws(value, body):
++                    # Handle dotted keys by creating nested structure
++                    if key is not None and "." in key.key and not key.key.startswith("."):
++                        self._handle_dotted_key(body, key, value)
++                    else:
++                        body.append(key, value)
++            else:
++                # This is likely a whitespace item, which is handled by _merge_ws
++                pass
+ 
+             self.mark()
+ 
+@@ -147,6 +156,38 @@ class Parser:
+ 
+         return body
+ 
++    def _handle_dotted_key(self, container, key, value):
++        """
++        Handle dotted keys by creating nested table structure.
++        """
++        from .api import item as _item
++        from .api import table as _table
++        from .items import Table
++        
++        parts = key.key.split(".")
++        current_container = container
++        
++        # Navigate/create intermediate tables
++        for i, part in enumerate(parts[:-1]):
++            if part in current_container:
++                existing = current_container[part]
++                if isinstance(existing, Table):
++                    current_container = existing
++                else:
++                    # Convert existing value to a super table
++                    # This is complex, so for now we'll raise an error
++                    raise self.parse_error(KeyAlreadyPresent, (part,))
++            else:
++                # Create new table for this part
++                new_table = _table()
++                new_table.name = part
++                current_container.append(part, new_table)
++                current_container = new_table
++        
++        # Set the final value
++        final_part = parts[-1]
++        current_container.append(final_part, value)
++
+     def _merge_ws(self, item, container):  # type: (Item, Container) -> bool:
+         """
+         Merges the given Item with the last one currently in the given Container if
+@@ -395,6 +436,14 @@ class Parser:
+ 
+         val.trivia.indent = indent
+ 
++        # Handle dotted keys by creating nested structure
++        if "." in key.key and not key.key.startswith("."):
++            # This is a dotted key, split it and create nested structure
++            parts = key.key.split(".")
++            # We'll handle this in the caller by returning a special indicator
++            # For now, we keep the key as-is but the caller will need to process it specially
++            pass
++
+         return key, val
+ 
+     def _parse_key(self):  # type: () -> Key
+@@ -402,6 +451,23 @@ class Parser:
+         Parses a Key at the current position;
+         WS before the key must be exhausted first at the callsite.
+         """
++        # Check if this might be a dotted key
++        if self._current not in "\"'":
++            # Look ahead to see if there's a dot that would indicate a dotted key
++            saved_idx = self._save_idx()
++            self.mark()
++            while (not self.end() and 
++                   (self._current.is_bare_key_char() or self._current == ".") and 
++                   self.inc()):
++                pass
++            
++            key_str = self.extract()
++            self._restore_idx(*saved_idx)
++            
++            # If we found a dot, this is a dotted key
++            if "." in key_str and not key_str.startswith("."):
++                return self._parse_dotted_key()
++        
+         if self._current in "\"'":
+             return self._parse_quoted_key()
+         else:
+@@ -444,6 +510,57 @@ class Parser:
+ 
+         return Key(key, sep="")
+ 
++    def _parse_dotted_key(self):  # type: () -> Key
++        """
++        Parses a dotted key containing multiple parts separated by dots.
++        Each part can be a bare key or a quoted key.
++        """
++        parts = []
++        self.mark()
++        
++        while True:
++            # Parse each part of the dotted key
++            if self._current in "\"'":
++                # Quoted key part
++                quote_char = self._current
++                self.inc()
++                part_start = self._idx
++                
++                # Find the closing quote
++                while not self.end() and self._current != quote_char:
++                    self.inc()
++                
++                if self.end():
++                    raise self.parse_error(UnexpectedCharError, ("EOF",))
++                
++                part = self._src[part_start:self._idx]
++                self.inc()  # Skip closing quote
++            else:
++                # Bare key part
++                part_start = self._idx
++                while not self.end() and self._current.is_bare_key_char():
++                    self.inc()
++                
++                part = self._src[part_start:self._idx]
++            
++            parts.append(part)
++            
++            # Check if there's a dot to continue
++            if self._current == ".":
++                self.inc()  # Skip the dot
++                # Skip any whitespace after the dot
++                while not self.end() and self._current.is_spaces():
++                    self.inc()
++                    
++                if self.end():
++                    raise self.parse_error(UnexpectedCharError, ("EOF",))
++            else:
++                break
++        
++        # Create a special key representation for dotted keys
++        dotted_key_str = ".".join(parts)
++        return Key(dotted_key_str, sep="")
++
+     def _parse_value(self):  # type: () -> Item
+         """
+         Attempts to parse a value at the current position.
