@@ -72,7 +72,10 @@ class Subtask(BaseModel):
 
 class Plan(BaseModel):
     rationale: str = Field(default="", description="Por que fatiar assim (ou por que não fatiar)")
-    subtasks: list[Subtask] = Field(default_factory=list)
+    # Ao menos uma sub-tarefa: na fumaça de 15/10 o modelo devolveu `Plan()`
+    # vazio numa chamada de 12 tokens; vazio é não conformar, e o harness
+    # retenta e depois cai no plano de uma sub-tarefa só.
+    subtasks: list[Subtask] = Field(min_length=1)
 
     @field_validator("subtasks", mode="after")
     @classmethod
@@ -80,6 +83,12 @@ class Plan(BaseModel):
         for i, s in enumerate(subtasks, 1):
             s.id = i
         return subtasks
+
+
+class Replan(Plan):
+    """Replanejamento: pode vir vazio (nada mais cabe num plano)."""
+
+    subtasks: list[Subtask] = Field(default_factory=list)
 
 
 def sanear(plan: Plan, *, n_criterios: int, n_reproducao: int, maximo: int = 6) -> Plan:
@@ -92,7 +101,7 @@ def sanear(plan: Plan, *, n_criterios: int, n_reproducao: int, maximo: int = 6) 
     for s in subtasks:
         s.criteria = sorted({i for i in s.criteria if 1 <= i <= n_criterios})
         s.reproduction = sorted({i for i in s.reproduction if 1 <= i <= n_reproducao})
-    return Plan(rationale=plan.rationale, subtasks=subtasks)
+    return type(plan).model_construct(rationale=plan.rationale, subtasks=subtasks)
 
 
 def estado_inicial(plan: Plan) -> list[dict[str, Any]]:

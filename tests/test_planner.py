@@ -85,7 +85,7 @@ class TestPlanejador:
         assert [s["id"] for s in out["plan"]["subtasks"]] == [1, 2]
         assert out["subtask_current"] == 1
         assert [s["status"] for s in out["plan"]["status"]] == ["em_andamento", "pendente"]
-        assert out["turn_count"] == 3  # 2 turnos de exploração + 1 da chamada estruturada
+        assert out["turn_count"] == 4  # 2 de exploração + 1 do pedido em texto + 1 da chamada estruturada
         ev = [e for e in read_events(tel.path) if e["event_type"] == "plan"]
         assert ev and ev[-1]["payload"]["evento"] == "plano" and ev[-1]["payload"]["turnos_de_exploracao"] == 2
 
@@ -100,7 +100,28 @@ class TestPlanejador:
         monkeypatch.setattr("src.structured_llm.invoke_structured_raw", lambda *a, **k: (_plano(1), None))
 
         out = planner(_estado(intent=_intent_v2(), turn_count=0, replans=0))
-        assert llm.n_invocacoes == 2 and out["turn_count"] == 3
+        assert llm.n_invocacoes == 3 and out["turn_count"] == 4
+
+    def test_plano_em_json_no_texto_dispensa_a_chamada_estruturada(self, ambiente, monkeypatch):
+        from src.agents.planner import planner
+
+        monkeypatch.setattr(config, "PLANNER", "on")
+        _, _, montar = ambiente
+        texto = "```json\n" + _plano().model_dump_json() + "\n```"
+        llm = FakeToolCallingLLM([ai(content="explorei"), ai(content=texto)])
+        montar(llm)
+
+        def _nao_chama(*a, **k):
+            raise AssertionError("chamada estruturada não deveria acontecer")
+        monkeypatch.setattr("src.structured_llm.invoke_structured_raw", _nao_chama)
+
+        out = planner(_estado(intent=_intent_v2(), turn_count=0, replans=0))
+        assert [s["title"] for s in out["plan"]["subtasks"]] == ["Parser de array", "Chave pontilhada"]
+        assert out["turn_count"] == 2
+
+    def test_plano_vazio_nao_conforma(self):
+        with pytest.raises(Exception):
+            Plan(subtasks=[])
 
     def test_fallback_quando_o_modelo_nao_conforma(self, ambiente, monkeypatch):
         from src.agents.planner import planner

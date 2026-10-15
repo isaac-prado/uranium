@@ -18,8 +18,12 @@ quando prosseguir").
 
 from __future__ import annotations
 
+import json
+import re
 import time
 from typing import Any
+
+from pydantic import ValidationError
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 
@@ -30,6 +34,7 @@ from src.schemas.plan import (
     STATUS_EM_ANDAMENTO,
     STATUS_PENDENTE,
     Plan,
+    Replan,
     Subtask,
     estado_inicial,
     sanear,
@@ -77,7 +82,10 @@ files, criteria, reproduction, done_when).
 
 PEDIDO_DO_PLANO = (
     "Com base na especificação e no que você leu do repositório, entregue agora "
-    "o plano de sub-tarefas em JSON (rationale, subtasks)."
+    "o plano de sub-tarefas. Responda SÓ com um objeto JSON, sem texto em volta, "
+    "no formato {\"rationale\": str, \"subtasks\": [{\"id\": int, \"title\": str, "
+    "\"objective\": str, \"files\": [str], \"criteria\": [int], \"reproduction\": [int], "
+    "\"done_when\": str}]}."
 )
 
 PEDIDO_DE_REPLANEJAMENTO = (
@@ -87,6 +95,17 @@ PEDIDO_DE_REPLANEJAMENTO = (
     "em JSON (rationale, subtasks). Se nada mais couber num plano, devolva "
     "subtasks vazio."
 )
+
+
+def _plano_do_texto(texto: str, schema: type[Plan]) -> Plan | None:
+    """Plano escrito em JSON no texto da resposta, com ou sem cerca de código."""
+    m = re.search(r"```(?:json)?\s*(\{.*\})\s*```", texto, re.S) or re.search(r"(\{.*\})", texto, re.S)
+    if not m:
+        return None
+    try:
+        return schema.model_validate(json.loads(m.group(1)))
+    except (ValueError, ValidationError):
+        return None
 
 
 def _transcricao(mensagens: list[BaseMessage], limite: int = 24_000) -> str:
@@ -176,8 +195,21 @@ def planner(state: WorkflowState) -> dict[str, Any]:
                 break
             mensagens.extend(ctx.executar_tool_calls(ai, permitidas=FERRAMENTAS_DE_LEITURA))
 
-        # Plano: chamada estruturada sobre a especificação e a exploração.
-        if not stop_reason:
+        schema = Replan if replanejar else Plan
+        # Plano, primeiro na própria conversa (o modelo acabou de ler os
+        # arquivos): JSON em texto, sem ferramentas. Na fumaça de 15/10 a
+        # chamada estruturada sobre a transcrição devolveu um plano vazio.
+        if not stop_reason and not ctx.budget.exceeded():
+            turno = ctx.budget.next_turn()
+            ctx.telemetry.set_turn(turno)
+            mensagens.append(HumanMessage(content=PEDIDO_DO_PLANO))
+            inicio = time.perf_counter()
+            resposta = ctx.bound_llm(tools=False).invoke(mensagens)
+            ctx.telemetry.emit_llm_call(resposta, latency_ms=int((time.perf_counter() - inicio) * 1000), prompt=mensagens)
+            mensagens.append(resposta)
+            plano = _plano_do_texto(str(resposta.content), schema)
+        # Senão, chamada estruturada sobre a especificação e a exploração.
+        if plano is None and not stop_reason and not ctx.budget.exceeded():
             turno = ctx.budget.next_turn()
             ctx.telemetry.set_turn(turno)
             pedido = "\n".join([
@@ -188,16 +220,18 @@ def planner(state: WorkflowState) -> dict[str, Any]:
                 PEDIDO_DO_PLANO,
             ])
             try:
-                plano = ctx.invoke_structured(Plan, [("system", SYSTEM_PROMPT), ("user", pedido)])
+                plano = ctx.invoke_structured(schema, [("system", SYSTEM_PROMPT), ("user", pedido)])
             except StructuredOutputError as exc:
                 ctx.telemetry.emit_error(exc)
                 plano = None
 
         if plano is None:
-            plano = Plan(subtasks=[]) if replanejar else _plano_unico(intent)
+            plano = Replan(subtasks=[]) if replanejar else _plano_unico(intent)
         n_crit = len(intent.acceptance_criteria or [])
         n_rep = len(intent.reproduction) if isinstance(intent, StructuredIntentV2) else 0
         plano = sanear(plano, n_criterios=n_crit, n_reproducao=n_rep, maximo=config.PLANNER_MAX_SUBTASKS)
+        if not plano.subtasks and not replanejar:
+            plano = _plano_unico(intent)
 
         if replanejar:
             anterior = dict(state["plan"])
