@@ -1,0 +1,71 @@
+diff --git a/tomlkit/api.py b/tomlkit/api.py
+index fd4b2f3..0bab1d5 100644
+--- a/tomlkit/api.py
++++ b/tomlkit/api.py
+@@ -3,6 +3,7 @@ import datetime as _datetime
+ from collections.abc import Mapping
+ from typing import IO
+ from typing import Tuple
++from typing import Union, List
+ 
+ from ._utils import parse_rfc3339
+ from .container import Container
+@@ -18,6 +19,7 @@ from .items import Integer
+ from .items import Item as _Item
+ from .items import Key
+ from .items import SingleKey
++from .items import DottedKey
+ from .items import String
+ from .items import Table
+ from .items import Time
+@@ -141,7 +143,9 @@ def aot() -> AoT:
+     return AoT([])
+ 
+ 
+-def key(k: str) -> Key:
++def key(k: Union[str, List[str]]) -> Key:
++    if isinstance(k, list):
++        return DottedKey([SingleKey(_k) for _k in k])
+     return SingleKey(k)
+ 
+ 
+@@ -162,4 +166,4 @@ def nl() -> Whitespace:
+ 
+ 
+ def comment(string: str) -> Comment:
+-    return Comment(Trivia(comment_ws="  ", comment="# " + string))
++    return Comment(Trivia(comment_ws="  ", comment="# " + string))
+\ No newline at end of file
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index dc6da89..c6e7a18 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -526,6 +526,28 @@ class Container(_CustomDict):
+ 
+         idx = self._map.get(key, None)
+         if idx is None:
++            # Check if this key is a partial match for any dotted key
++            for k, idx in self._map.items():
++                if hasattr(k, 'is_dotted') and k.is_dotted():
++                    try:
++                        names = tuple(iter(k))
++                        if len(names) > 0 and names[0].key == key.key:
++                            # Found a matching dotted key, get the actual item
++                            item_idx = idx
++                            if isinstance(item_idx, tuple):
++                                item_idx = item_idx[-1]
++                            
++                            item = self._body[item_idx][1]
++                            # Navigate through the nested structure
++                            current = item
++                            for i in range(1, len(names)):
++                                if hasattr(current, 'value') and hasattr(current.value, '__getitem__'):
++                                    current = current.value[names[i].key]
++                                else:
++                                    break
++                            return current
++                    except Exception:
++                        pass  # Continue searching
+             raise NonExistentKey(key)
+ 
+         if isinstance(idx, tuple):

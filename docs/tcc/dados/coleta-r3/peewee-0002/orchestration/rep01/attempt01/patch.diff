@@ -1,0 +1,63 @@
+diff --git a/peewee.py b/peewee.py
+index 6a666d5b..7cd841dd 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -2652,6 +2652,17 @@ class Select(SelectBase):
+ 
+     @Node.copy
+     def window(self, *windows):
++        # Validar aliases únicos
++        aliases = set()
++        for w in windows:
++            alias = getattr(w, '_alias', None)
++            if alias is None:
++                alias = 'w'  # Alias padrão
++            
++            if alias in aliases:
++                raise ValueError('Duplicate window alias: %s' % alias)
++            aliases.add(alias)
++        
+         self._windows = windows if windows else None
+ 
+     @Node.copy
+@@ -4037,12 +4048,14 @@ class Database(_callable_context_manager):
+             self.cursor().execute('BEGIN')
+ 
+     def rollback(self):
+-        with __exception_wrapper__:
+-            self.cursor().execute('ROLLBACK')
++        if self.is_closed():
++            raise InterfaceError('Error, database connection not opened.')
++        self.execute_sql('ROLLBACK', commit=False)
+ 
+     def commit(self):
+-        with __exception_wrapper__:
+-            self.cursor().execute('COMMIT')
++        if self.is_closed():
++            raise InterfaceError('Error, database connection not opened.')
++        self.execute_sql('COMMIT', commit=False)
+ 
+     def batch_commit(self, it, n):
+         for group in chunked(it, n):
+@@ -5213,11 +5226,18 @@ class _manual(object):
+             raise ValueError('Cannot enter manual commit block while a '
+                              'transaction is active.')
+         self.db.push_transaction(self)
++        return self
+ 
+     def __exit__(self, exc_type, exc_val, exc_tb):
+-        if self.db.pop_transaction() is not self:
+-            raise ValueError('Transaction stack corrupted while exiting '
+-                             'manual commit block.')
++        try:
++            if self.db.pop_transaction() is not self:
++                raise ValueError('Transaction stack corrupted while exiting '
++                                 'manual commit block.')
++        except:
++            # Em caso de erro durante __enter__, garantir que o estado seja limpo
++            if self.db.top_transaction() is self:
++                self.db.pop_transaction()
++            raise
+ 
+ 
+ class _atomic(object):

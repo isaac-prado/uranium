@@ -1,0 +1,61 @@
+diff --git a/tomlkit/_types.py b/tomlkit/_types.py
+index 3585d56..1f59295 100644
+--- a/tomlkit/_types.py
++++ b/tomlkit/_types.py
+@@ -71,11 +71,17 @@ else:
+             self.update(other)
+             return self
+ 
+-    class _CustomInt(Integral, int):
+-        """Adds Integral mixin while pretending to be a builtin int"""
+-
+-    class _CustomFloat(Real, float):
+-        """Adds Real mixin while pretending to be a builtin float"""
++    class _CustomInt(int):
++        """Pretends to be a builtin int without sequence behavior"""
++        
++        def __iter__(self):
++            raise TypeError(f"'{type(self).__name__}' object is not iterable")
++
++    class _CustomFloat(float):
++        """Pretends to be a builtin float without sequence behavior"""
++        
++        def __iter__(self):
++            raise TypeError(f"'{type(self).__name__}' object is not iterable")
+ 
+ 
+ def wrap_method(
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 4a24fc0..aa158bc 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -624,6 +624,9 @@ class Integer(Item, _CustomInt):
+ 
+         if re.match(r"^[+\-]\d+$", raw):
+             self._sign = True
++            
++    def __getitem__(self, key):
++        raise AttributeError(f"'{type(self).__name__}' object has no attribute '__getitem__'")
+ 
+     def unwrap(self) -> int:
+         return self._original
+@@ -847,6 +850,9 @@ class Float(Item, _CustomFloat):
+ 
+         if re.match(r"^[+\-].+$", raw):
+             self._sign = True
++            
++    def __getitem__(self, key):
++        raise AttributeError(f"'{type(self).__name__}' object has no attribute '__getitem__'")
+ 
+     def unwrap(self) -> float:
+         return self._original
+@@ -1218,6 +1224,9 @@ class Date(Item, date):
+         super().__init__(trivia or Trivia())
+ 
+         self._raw = raw
++        
++    def __getitem__(self, key):
++        raise AttributeError(f"'{type(self).__name__}' object has no attribute '__getitem__'")
+ 
+     def unwrap(self) -> date:
+         (year, month, day, _, _) = self._getstate()

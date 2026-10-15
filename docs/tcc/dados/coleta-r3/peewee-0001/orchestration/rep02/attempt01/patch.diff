@@ -1,0 +1,154 @@
+diff --git a/peewee.py b/peewee.py
+index 13d2c8e9..c449c2d7 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -27,6 +27,15 @@ import types
+ import uuid
+ import warnings
+ 
++
++class QueryEvent:
++    """Representa um evento de query executado."""
++    def __init__(self, sql, params, duration, exception=None):
++        self.sql = sql
++        self.params = params or ()
++        self.duration = duration
++        self.exception = exception
++
+ try:
+     from pysqlite3 import dbapi2 as pysq3
+ except ImportError:
+@@ -3787,6 +3796,7 @@ class Database(_callable_context_manager):
+                            'database driver you are using.')
+ 
+         self.connect_params = {}
++        self.query_hooks = []
+         self.init(database, **kwargs)
+ 
+     def init(self, database, **kwargs):
+@@ -3892,9 +3902,20 @@ class Database(_callable_context_manager):
+ 
+     def execute_sql(self, sql, params=None):
+         self._log_query(sql, params)
+-        with __exception_wrapper__:
+-            cursor = self.cursor()
+-            cursor.execute(sql, params or ())
++        start_time = time.time()
++        exception = None
++        
++        try:
++            with __exception_wrapper__:
++                cursor = self.cursor()
++                cursor.execute(sql, params or ())
++        except Exception as exc:
++            exception = exc
++            raise
++        finally:
++            duration = time.time() - start_time
++            self._call_query_hooks(sql, params, duration, exception)
++            
+         return cursor
+ 
+     def execute(self, query, **context_options):
+@@ -3902,6 +3923,14 @@ class Database(_callable_context_manager):
+         sql, params = ctx.sql(query).query()
+         return self.execute_sql(sql, params)
+ 
++    def _call_query_hooks(self, sql, params, duration, exception=None):
++        if not self.query_hooks:
++            return
++            
++        event = QueryEvent(sql, params, duration, exception)
++        for hook in self.query_hooks:
++            hook(event)
++
+     def get_context_options(self):
+         return {
+             'field_types': self._field_types,
+diff --git a/playhouse/postgres_ext.py b/playhouse/postgres_ext.py
+index 89eb017e..f21df311 100644
+--- a/playhouse/postgres_ext.py
++++ b/playhouse/postgres_ext.py
+@@ -696,6 +696,14 @@ class PostgresqlExtDatabase(PostgresqlDatabase):
+         self._server_side_cursors = kwargs.pop('server_side_cursors', False)
+         super(PostgresqlExtDatabase, self).__init__(*args, **kwargs)
+ 
++    def _call_query_hooks(self, sql, params, duration, exception=None):
++        if not self.query_hooks:
++            return
++            
++        event = QueryEvent(sql, params, duration, exception)
++        for hook in self.query_hooks:
++            hook(event)
++
+     def _connect(self):
+         conn = super(PostgresqlExtDatabase, self)._connect()
+         if self._register_hstore:
+@@ -727,9 +735,20 @@ class PostgresqlExtDatabase(PostgresqlDatabase):
+         if not named_cursor:
+             return super(PostgresqlExtDatabase, self).execute_sql(sql, params)
+         self._log_query(sql, params)
+-        with __exception_wrapper__:
+-            cursor = self.cursor(named_cursor=named_cursor)
+-            cursor.execute(sql, params or ())
++        start_time = time.time()
++        exception = None
++        
++        try:
++            with __exception_wrapper__:
++                cursor = self.cursor(named_cursor=named_cursor)
++                cursor.execute(sql, params or ())
++        except Exception as exc:
++            exception = exc
++            raise
++        finally:
++            duration = time.time() - start_time
++            self._call_query_hooks(sql, params, duration, exception)
++            
+         return cursor
+ 
+ 
+diff --git a/playhouse/pwasyncio.py b/playhouse/pwasyncio.py
+index f800353b..a2b8020f 100644
+--- a/playhouse/pwasyncio.py
++++ b/playhouse/pwasyncio.py
+@@ -228,6 +228,14 @@ class AsyncDatabaseMixin(object):
+         self._pool_lock = asyncio.Lock()
+         self._closing = False  # Guard against use during shutdown.
+ 
++    def _call_query_hooks(self, sql, params, duration, exception=None):
++        if not self.query_hooks:
++            return
++            
++        event = QueryEvent(sql, params, duration, exception)
++        for hook in self.query_hooks:
++            hook(event)
++
+     def execute_sql(self, sql, params=None):
+         try:
+             return await_(self.aexecute_sql(sql, params or ()))
+@@ -237,9 +245,21 @@ class AsyncDatabaseMixin(object):
+ 
+     async def aexecute_sql(self, sql, params=None):
+         self._log_query(sql, params)
+-        conn = await self.aconnect()
+-        with __exception_wrapper__:
+-            return await conn.execute(sql, params)
++        start_time = time.time()
++        exception = None
++        
++        try:
++            conn = await self.aconnect()
++            with __exception_wrapper__:
++                result = await conn.execute(sql, params)
++        except Exception as exc:
++            exception = exc
++            raise
++        finally:
++            duration = time.time() - start_time
++            self._call_query_hooks(sql, params, duration, exception)
++            
++        return result
+ 
+     def connect(self):
+         return await_(self.aconnect())

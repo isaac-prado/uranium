@@ -1,0 +1,37 @@
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 4a24fc0..82959a3 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -645,6 +645,10 @@ class Integer(Item, _CustomInt):
+     def as_string(self) -> str:
+         return self._raw
+ 
++    __getitem__ = None
++    __setitem__ = None
++    __delitem__ = None
++
+     def _new(self, result: int) -> Integer:
+         raw = str(result)
+         if self._sign and result >= 0:
+@@ -868,6 +872,10 @@ class Float(Item, _CustomFloat):
+     def as_string(self) -> str:
+         return self._raw
+ 
++    __getitem__ = None
++    __setitem__ = None
++    __delitem__ = None
++
+     def _new(self, result: float) -> Float:
+         raw = str(result)
+ 
+@@ -1234,6 +1242,10 @@ class Date(Item, date):
+     def as_string(self) -> str:
+         return self._raw
+ 
++    __getitem__ = None
++    __setitem__ = None
++    __delitem__ = None
++
+     def __add__(self, other: timedelta) -> Date:
+         if PY38:
+             result = date(self.year, self.month, self.day).__add__(other)

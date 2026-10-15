@@ -1,0 +1,31 @@
+diff --git a/playhouse/fields.py b/playhouse/fields.py
+index 5eefd0a6..b1e65da5 100644
+--- a/playhouse/fields.py
++++ b/playhouse/fields.py
+@@ -69,7 +69,13 @@ class EnumFieldMixin(object):
+                         enum_class.__name__, member.name, member.value,
+                         self.enum_value_type.__name__))
+         self.enum_class = enum_class
++        explicit_choices = kwargs.get('choices')
++        
+         super(EnumFieldMixin, self).__init__(*args, **kwargs)
++        
++        # Only set auto choices if choices wasn't explicitly provided and is still None
++        if explicit_choices is None and self.choices is None:
++            self.choices = self._get_auto_choices()
+ 
+     def db_value(self, value):
+         if value is None:
+@@ -83,6 +89,12 @@ class EnumFieldMixin(object):
+         return self.enum_class(
+             super(EnumFieldMixin, self).python_value(value))
+ 
++    def _get_auto_choices(self):
++        """Generate automatic choices from enum members"""
++        if hasattr(self, 'enum_class'):
++            return [(member.value, member.name) for member in self.enum_class]
++        return None
++
+ 
+ class EnumField(EnumFieldMixin, CharField):
+     enum_value_type = str

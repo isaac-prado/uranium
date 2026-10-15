@@ -1,0 +1,143 @@
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..141ee0e 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -131,8 +131,14 @@ class Parser:
+                 break
+ 
+             key, value = item
+-            if not self._merge_ws(value, body):
+-                body.append(key, value)
++            if key is not None:
++                if not self._merge_ws(value, body):
++                    # Handle dotted keys specially
++                    if not self._handle_dotted_key(key, value, body):
++                        body.append(key, value)
++            else:
++                # This is a whitespace or comment item
++                body.append(None, value)
+ 
+             self.mark()
+ 
+@@ -147,6 +153,50 @@ class Parser:
+ 
+         return body
+ 
++    def _handle_dotted_key(self, key, value, container):
++        """
++        Handle dotted keys by creating nested tables automatically.
++        
++        For example: key="a.b.c", value="value" creates:
++        [a]
++        [a.b] 
++        a.b.c = "value"
++        """
++        # Check if key contains dots (and not just quoted dots)
++        # Only handle dotted keys for bare keys that contain dots
++        if "." in key.key and key.t == KeyType.Bare:
++            # Split the dotted key
++            parts = list(self._split_dotted_key(key.key))
++            
++            if len(parts) > 1:
++                # Create nested structure
++                current_container = container
++                
++                # Navigate/create intermediate tables
++                for part in parts[:-1]:
++                    if part.key not in current_container:
++                        # Create new table
++                        from .items import Table, Trivia
++                        from .container import Container
++                        new_table = Table(Container(), Trivia("", "", "", ""), False, is_super_table=True)
++                        current_container.append(part, new_table)
++                        current_container = new_table.value
++                    else:
++                        existing = current_container[part.key]
++                        if hasattr(existing, 'value') and hasattr(existing.value, 'body'):
++                            # It's already a table
++                            current_container = existing.value
++                        else:
++                            # Convert existing value to table
++                            raise self.parse_error(ValueError, "Cannot convert existing key '{}' to table".format(part.key))
++                
++                # Set the final value
++                final_key = parts[-1]
++                current_container.append(final_key, value)
++                return True
++        
++        return False
++
+     def _merge_ws(self, item, container):  # type: (Item, Container) -> bool:
+         """
+         Merges the given Item with the last one currently in the given Container if
+@@ -203,6 +253,47 @@ class Parser:
+ 
+         return parent_parts == child_parts[: len(parent_parts)]
+ 
++    def _split_dotted_key(self, name):  # type: (str) -> Generator[Key]
++        """
++        Split a dotted key into its components.
++        
++        For example: "a.b.c" -> ["a", "b", "c"]
++        Quoted parts are preserved: 'a."b.c".d' -> ["a", "b.c", "d"]
++        """
++        in_name = False
++        in_quotes = False
++        current = ""
++        quote_char = None
++        
++        i = 0
++        while i < len(name):
++            c = name[i]
++            
++            if c in {'"', "'"} and not in_quotes:
++                # Start of quoted section
++                in_quotes = True
++                quote_char = c
++                current += c
++            elif c == quote_char and in_quotes:
++                # End of quoted section
++                in_quotes = False
++                current += c
++                quote_char = None
++            elif c == "." and not in_quotes:
++                # Dot outside quotes - end of component
++                if current:
++                    yield Key(current.strip(), sep="")
++                    current = ""
++                else:
++                    raise self.parse_error()
++            else:
++                current += c
++            
++            i += 1
++        
++        if current:
++            yield Key(current.strip(), sep="")
++
+     def _split_table_name(self, name):  # type: (str) -> Generator[Key]
+         in_name = False
+         delim = None
+@@ -437,7 +528,8 @@ class Parser:
+         Parses a bare key.
+         """
+         self.mark()
+-        while self._current.is_bare_key_char() and self.inc():
++        # Parse until we hit something that's not a bare key char or a dot
++        while (self._current.is_bare_key_char() or self._current == ".") and self.inc():
+             pass
+ 
+         key = self.extract()
+diff --git a/tomlkit/toml_char.py b/tomlkit/toml_char.py
+index 8d8d660..fd2c802 100644
+--- a/tomlkit/toml_char.py
++++ b/tomlkit/toml_char.py
+@@ -14,7 +14,7 @@ class TOMLChar(unicode):
+         """
+         Whether the character is a valid bare key name or not.
+         """
+-        return self in string.ascii_letters + string.digits + "-" + "_"
++        return self in string.ascii_letters + string.digits + "-" + "_" + "."
+ 
+     def is_kv_sep(self):  # type: () -> bool
+         """

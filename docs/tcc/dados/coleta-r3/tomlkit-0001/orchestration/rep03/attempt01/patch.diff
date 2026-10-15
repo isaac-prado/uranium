@@ -1,0 +1,16 @@
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index b952b36..a74f195 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -670,7 +670,10 @@ class Parser:
+                     prev_value = True
+                     continue
+                 except UnexpectedCharError:
+-                    pass
++                    # If we started parsing a value and it failed due to an unexpected char,
++                    # we should not silently discard it, especially for malformed inline tables.
++                    # Re-raise the error to fail the parsing.
++                    raise
+ 
+             # consume comma
+             if prev_value and self._current == ",":

@@ -200,6 +200,16 @@ Versão leve: o validador já devolve `covered_criteria`/`missing_criteria`; a m
 
 **Decisão:** ______ (data: ______)
 
+### Decisão 34. Execução acumulada dos blocos de reprodução e "não verificável" ≠ reprovado (pendente)
+
+**Situação.** Na rodada 3 ([18-rodada-3.md](18-rodada-3.md)), 58 dos 221 blocos de reprodução executados pelo validador quebraram com `NameError`/`ImportError` porque cada bloco roda isolado, e 38 das 76 reprovações do revisor tinham um bloco quebrado; sem teto de reprovações, isso consumiu o orçamento de runs cujo código o oráculo aprovaria (peewee-0003: 11 reprovações, 8 reescritas, corte em 120). Rodada 3 fechou em 19/39 contra 23/39 da rodada 2.
+
+**Opções.** (a) Executar os blocos acumulados: o bloco *i* roda precedido dos blocos 1..*i*−1 no mesmo namespace (correção determinística em `src/agents/validator.py::_executar_reproducao`, chave no manifesto); (b) além de (a), regra estrutural: revisão cuja reprovação se apoia só em bloco que não executou não conta como reprovação (o developer recebe o parecer, mas o run não gasta "reprovação"); (c) voltar ao teto 2 da rodada 2 e parar por aí.
+
+**Recomendação.** (a) e manter o teto 2 enquanto o revisor não for recalibrado; (b) exige definir "se apoia só" de forma auditável. Rodada 4 só com aprovação e orçamento (≈ US$ 5,5).
+
+**Decisão:** ______ (data: ______)
+
 ## Bloco 2 — Tratamentos: o desenho do braço `orchestration`
 
 As decisões 4 a 6 **já foram tomadas pelo autor em 28/09/2026** (commits `f4c01a9`, `c2046fd`, `7068a55` na `develop`) e integradas à branch de trabalho em 08/10/2026 ([07-execucao.md](07-execucao.md), seção "Reconciliação"). Aparecem aqui para confirmação e para o texto.
@@ -472,3 +482,5 @@ Hoje conta como "sem corte" pela definição literal, e o JSON reporta `sem_stop
 | 29 (resultado) | rodada 2 fechada 14/10 22:16, 48/48, 0 perdidos: OR 23/39 runs (coleta principal 17/39), SA pareado 23/39; por tarefa 7 × 8, sinal p = 0,69; negações 39 → 3; revisor 59 revisões/37 reprovações; 31 notas de ciclo; tempo até solução pior (245 s × 113 s, p = 0,125) | 14/10/2026 | 17-rodada-2; dados/coleta-r2/analise-sete-metricas.md |
 | 32 | rodada 3 aprovada por escrito: revisor coerente (`REVIEW_STRICT=on`) e sem teto de reprovações (`MAX_SEMANTIC_REJECTIONS=0`), manifesto v11; só o orquestrado roda de novo (39 runs) | 14/10/2026 | 09, Decisão 32; src/agents/validator.py; src/graph.py |
 | 33 (pendente) | decomposição por critério (leve ou com planejador): guardada para rodada 4 / trabalho futuro | | 09, Decisão 33 |
+| 32 (resultado) | rodada 3 fechada 15/10 05:0x, 39/39, 0 perdidos: 19/39 (rodada 2: 23/39), por tarefa 5 × 8; 98 revisões, 76 reprovações, coerção disparou 3×; sem teto, falsos negativos do revisor consumiram orçamento (peewee-0003 11 reprovações); rodada 2 segue como configuração final | 15/10/2026 | 18-rodada-3; dados/coleta-r3 |
+| 34 (pendente) | execução acumulada dos blocos de reprodução e não-verificável ≠ reprovado; voltar ao teto 2 | | 09, Decisão 34; 18-rodada-3 §2 |

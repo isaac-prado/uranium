@@ -1,0 +1,82 @@
+diff --git a/peewee.py b/peewee.py
+index 6a666d5b..09e01cdb 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -2057,9 +2057,13 @@ class OnConflict(Node):
+         self._conflict_constraint = conflict_constraint
+ 
+     def get_conflict_statement(self, ctx, query):
++        if ctx.state is None or not hasattr(ctx.state, 'conflict_statement'):
++            raise InterfaceError('Cannot generate conflict statement, query is not associated with a database.')
+         return ctx.state.conflict_statement(self, query)
+ 
+     def get_conflict_update(self, ctx, query):
++        if ctx.state is None or not hasattr(ctx.state, 'conflict_update'):
++            raise InterfaceError('Cannot generate conflict update, query is not associated with a database.')
+         return ctx.state.conflict_update(self, query)
+ 
+     @Node.copy
+@@ -2652,6 +2656,14 @@ class Select(SelectBase):
+ 
+     @Node.copy
+     def window(self, *windows):
++        # Verificar se há aliases duplicados
++        if windows:
++            aliases = set()
++            for window in windows:
++                alias = getattr(window, '_alias', 'w')
++                if alias in aliases:
++                    raise ValueError('Window with duplicate alias "%s".' % alias)
++                aliases.add(alias)
+         self._windows = windows if windows else None
+ 
+     @Node.copy
+@@ -4037,10 +4049,14 @@ class Database(_callable_context_manager):
+             self.cursor().execute('BEGIN')
+ 
+     def rollback(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot rollback transaction, no connection.')
+         with __exception_wrapper__:
+             self.cursor().execute('ROLLBACK')
+ 
+     def commit(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot commit transaction, no connection.')
+         with __exception_wrapper__:
+             self.cursor().execute('COMMIT')
+ 
+@@ -4382,10 +4398,14 @@ class SqliteDatabase(Database):
+         self.execute_sql(statement)
+ 
+     def commit(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot commit transaction, no connection.')
+         with __exception_wrapper__:
+             return self.execute_sql('COMMIT')
+ 
+     def rollback(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot rollback transaction, no connection.')
+         with __exception_wrapper__:
+             return self.execute_sql('ROLLBACK')
+ 
+@@ -5242,7 +5262,17 @@ class _atomic(object):
+                              'manual commit mode.')
+         else:
+             self._helper = self.db.savepoint()
+-        return self._helper.__enter__()
++        try:
++            return self._helper.__enter__()
++        except:
++            # Se ocorrer um erro, remover a transação da pilha se ela foi adicionada
++            if hasattr(self, '_helper') and self._helper is not None:
++                # Tentar fazer o __exit__ do helper para limpar corretamente
++                try:
++                    self._helper.__exit__(None, None, None)
++                except:
++                    pass
++            raise
+ 
+     def __exit__(self, exc_type, exc_val, exc_tb):
+         return self._helper.__exit__(exc_type, exc_val, exc_tb)

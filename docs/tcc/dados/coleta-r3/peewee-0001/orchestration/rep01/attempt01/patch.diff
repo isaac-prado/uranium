@@ -1,0 +1,102 @@
+diff --git a/peewee.py b/peewee.py
+index 13d2c8e9..d7a980f7 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -3632,6 +3632,17 @@ class OperationalError(DatabaseError): pass
+ class ProgrammingError(DatabaseError): pass
+ 
+ 
++class QueryEvent:
++    """Representa um evento de execução de query."""
++    __slots__ = ('sql', 'params', 'duration', 'exception')
++    
++    def __init__(self, sql, params, duration, exception):
++        self.sql = sql
++        self.params = params or ()
++        self.duration = duration
++        self.exception = exception
++
++
+ class ExceptionWrapper(object):
+     __slots__ = ('exceptions',)
+     def __init__(self, exceptions):
+@@ -3787,6 +3798,7 @@ class Database(_callable_context_manager):
+                            'database driver you are using.')
+ 
+         self.connect_params = {}
++        self.query_hooks = []
+         self.init(database, **kwargs)
+ 
+     def init(self, database, **kwargs):
+@@ -3892,11 +3904,32 @@ class Database(_callable_context_manager):
+ 
+     def execute_sql(self, sql, params=None):
+         self._log_query(sql, params)
+-        with __exception_wrapper__:
+-            cursor = self.cursor()
+-            cursor.execute(sql, params or ())
++        
++        start_time = time.time()
++        exception = None
++        
++        try:
++            with __exception_wrapper__:
++                cursor = self.cursor()
++                cursor.execute(sql, params or ())
++        except Exception as exc:
++            exception = exc
++            raise
++        finally:
++            duration = time.time() - start_time
++            self._call_query_hooks(sql, params, duration, exception)
++            
+         return cursor
+ 
++    def _call_query_hooks(self, sql, params, duration, exception):
++        if not self.query_hooks:
++            return
++            
++        event = QueryEvent(sql, params, duration, exception)
++        for hook in self.query_hooks[:]:  # Cópia para evitar problemas durante a iteração
++            # Chamamos o hook e deixamos qualquer exceção ser propagada
++            hook(event)
++
+     def execute(self, query, **context_options):
+         ctx = self.get_sql_context(**context_options)
+         sql, params = ctx.sql(query).query()
+diff --git a/playhouse/postgres_ext.py b/playhouse/postgres_ext.py
+index 89eb017e..12b338b6 100644
+--- a/playhouse/postgres_ext.py
++++ b/playhouse/postgres_ext.py
+@@ -1,5 +1,6 @@
+ import json
+ import logging
++import time
+ 
+ from peewee import *
+ from peewee import ColumnBase
+@@ -727,9 +728,21 @@ class PostgresqlExtDatabase(PostgresqlDatabase):
+         if not named_cursor:
+             return super(PostgresqlExtDatabase, self).execute_sql(sql, params)
+         self._log_query(sql, params)
+-        with __exception_wrapper__:
+-            cursor = self.cursor(named_cursor=named_cursor)
+-            cursor.execute(sql, params or ())
++        
++        start_time = time.time()
++        exception = None
++        
++        try:
++            with __exception_wrapper__:
++                cursor = self.cursor(named_cursor=named_cursor)
++                cursor.execute(sql, params or ())
++        except Exception as exc:
++            exception = exc
++            raise
++        finally:
++            duration = time.time() - start_time
++            self._call_query_hooks(sql, params, duration, exception)
++            
+         return cursor
+ 
+ 

@@ -1,0 +1,103 @@
+{
+  "result_schema_version": 2,
+  "harness_version": "1.0.0",
+  "evaluated_at": "2026-10-15T06:55:21+00:00",
+  "run_id": "tomlkit-0003-orchestration-r02-a01",
+  "arm": "orchestration",
+  "task_id": "tomlkit-0003",
+  "faixa": "grande",
+  "repetition": 2,
+  "base_commit": "314072fac304f88392e9e2cfcfade349529e15a5",
+  "resolved": true,
+  "resolved_blocked_by_cheat": false,
+  "oracle": {
+    "f2p_total": 1,
+    "f2p_passed": 1,
+    "f2p": {
+      "exit_code": 0,
+      "passed": 1,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.09,
+      "failing_node_ids": [],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "p2p": {
+      "exit_code": 0,
+      "passed": 548,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 1.37,
+      "failing_node_ids": [],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "regression": {
+      "exit_code": 0,
+      "passed": 548,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 1.38,
+      "failing_node_ids": [],
+      "timed_out": false,
+      "network_isolated": true
+    }
+  },
+  "cheat": {
+    "clean": true,
+    "critical_count": 0,
+    "warning_count": 0,
+    "signals": []
+  },
+  "quality": {
+    "mi_before": 0.0,
+    "mi_after": 0.0,
+    "mi_delta": 0.0,
+    "cc_mean_before": 1.84,
+    "cc_mean_after": 1.84,
+    "cc_mean_delta": 0.0,
+    "files_analyzed": 1,
+    "error": null
+  },
+  "cost": {
+    "tokens_prompt": 1475455,
+    "tokens_completion": 21959,
+    "tokens_reasoning": 0,
+    "tokens_total": 1497414,
+    "cost_usd": 0.1882147,
+    "llm_calls": 127,
+    "byok_calls": 127,
+    "tool_calls": 115,
+    "wall_seconds": 492.073
+  },
+  "process": {
+    "turns": 120,
+    "test_runs": 6,
+    "tool_denials": 0,
+    "errors": 0,
+    "circuit_breaks": 2,
+    "self_recoveries": 0,
+    "stop_reason": "budget: max_turns (120 >= 120)"
+  },
+  "provenance": {
+    "model": "qwen/qwen3-coder",
+    "provider_requested": "DeepInfra",
+    "providers_served": [
+      "DeepInfra"
+    ],
+    "llm_seed": 20260822,
+    "topology": "multi_agent_roles"
+  },
+  "diff": {
+    "files_changed": 1,
+    "insertions": 1,
+    "deletions": 1,
+    "changed_files": [
+      "tomlkit/items.py"
+    ]
+  }
+}

@@ -1,0 +1,384 @@
+diff --git a/sqlite_utils/__init__.py b/sqlite_utils/__init__.py
+index 58ee7ab..7304c5f 100644
+--- a/sqlite_utils/__init__.py
++++ b/sqlite_utils/__init__.py
+@@ -1,7 +1,7 @@
+-from .utils import suggest_column_types
++from .utils import suggest_column_types, dedupe_keys
+ from .hookspecs import hookimpl
+ from .hookspecs import hookspec
+ from .db import Database
+ from .migrations import Migrations
+ 
+-__all__ = ["Database", "Migrations", "suggest_column_types", "hookimpl", "hookspec"]
++__all__ = ["Database", "Migrations", "suggest_column_types", "dedupe_keys", "hookimpl", "hookspec"]
+\ No newline at end of file
+diff --git a/sqlite_utils/cli.py b/sqlite_utils/cli.py
+index a30f79a..ee02b6c 100644
+--- a/sqlite_utils/cli.py
++++ b/sqlite_utils/cli.py
+@@ -43,6 +43,7 @@ from .utils import (
+     rows_from_file,
+     Format,
+     TypeTracker,
++    dedupe_keys,
+ )
+ 
+ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
+@@ -2126,6 +2127,7 @@ def _execute_query(
+             cursor = [[cursor.rowcount]]
+         else:
+             headers = [c[0] for c in cursor.description]
++            headers = dedupe_keys(headers)
+         cursor_or_rows: Any = cursor
+         if raw:
+             row = cursor_or_rows.fetchone()
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 3f23c7d..c2b37f2 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -8,6 +8,7 @@ from .utils import (
+     column_affinity,
+     progressbar,
+     find_spatialite,
++    dedupe_keys,
+ )
+ import binascii
+ from collections import namedtuple
+@@ -787,7 +788,8 @@ class Database:
+             if cursor.description is None:
+                 raise ValueError(message)
+             keys = [d[0] for d in cursor.description]
+-            return (dict(zip(keys, row)) for row in cursor)
++            deduped_keys = dedupe_keys(keys)
++            return (dict(zip(deduped_keys, row)) for row in cursor)
+         # Execute inside a savepoint, so a statement that turns out not to
+         # return rows can be rolled back before the ValueError is raised
+         self.conn.execute('SAVEPOINT "sqlite_utils_query"')
+@@ -797,6 +799,7 @@ class Database:
+             if cursor.description is None:
+                 raise ValueError(message)
+             keys = [d[0] for d in cursor.description]
++            deduped_keys = dedupe_keys(keys)
+             try:
+                 self.conn.execute('RELEASE "sqlite_utils_query"')
+                 released = True
+@@ -809,8 +812,8 @@ class Database:
+                 fetched = cursor.fetchall()
+                 self.conn.execute('RELEASE "sqlite_utils_query"')
+                 released = True
+-                return (dict(zip(keys, row)) for row in fetched)
+-            return (dict(zip(keys, row)) for row in cursor)
++                return (dict(zip(deduped_keys, row)) for row in fetched)
++            return (dict(zip(deduped_keys, row)) for row in cursor)
+         finally:
+             if not released:
+                 # An error occurred - undo anything the statement changed
+@@ -1866,8 +1869,9 @@ class Queryable:
+             sql += " offset {}".format(offset)
+         cursor = self.db.execute(sql, where_args or [])
+         columns = [c[0] for c in cursor.description]
++        deduped_columns = dedupe_keys(columns)
+         for row in cursor:
+-            yield dict(zip(columns, row))
++            yield dict(zip(deduped_columns, row))
+ 
+     def pks_and_rows_where(
+         self,
+@@ -3399,8 +3403,9 @@ class Table(Queryable):
+             args,
+         )
+         columns = [c[0] for c in cursor.description]
++        deduped_columns = dedupe_keys(columns)
+         for row in cursor:
+-            yield dict(zip(columns, row))
++            yield dict(zip(deduped_columns, row))
+ 
+     def value_or_default(self, key: str, value: Any) -> Any:
+         return self._defaults[key] if value is DEFAULT else value
+diff --git a/sqlite_utils/utils.py b/sqlite_utils/utils.py
+index 865ee79..e75e80b 100644
+--- a/sqlite_utils/utils.py
++++ b/sqlite_utils/utils.py
+@@ -67,27 +67,6 @@ Row = Dict[str, RowValue]
+ T = TypeVar("T")
+ 
+ 
+-class _CloseableIterator(Iterator[Row]):
+-    """Iterator wrapper that closes a file when iteration is complete."""
+-
+-    def __init__(self, iterator: Iterator[Row], closeable: io.IOBase) -> None:
+-        self._iterator = iterator
+-        self._closeable = closeable
+-
+-    def __iter__(self) -> "_CloseableIterator":
+-        return self
+-
+-    def __next__(self) -> Row:
+-        try:
+-            return next(self._iterator)
+-        except StopIteration:
+-            self._closeable.close()
+-            raise
+-
+-    def close(self) -> None:
+-        self._closeable.close()
+-
+-
+ def maximize_csv_field_size_limit() -> None:
+     """
+     Increase the CSV field size limit to the maximum possible.
+@@ -349,83 +328,139 @@ def rows_from_file(
+     elif format == Format.NL:
+         return (json.loads(line) for line in fp if line.strip()), Format.NL
+     elif format == Format.CSV:
+-        use_encoding: str = encoding or "utf-8-sig"
+-        decoded_fp = io.TextIOWrapper(fp, encoding=use_encoding)
+-        if dialect is not None:
+-            reader = csv.DictReader(decoded_fp, dialect=dialect)
++        # Automatically detect encoding if not provided
++        if not encoding:
++            encoding = "utf-8"
++        # Wrap file handle in TextIOWrapper with appropriate encoding
++        text_file = io.TextIOWrapper(cast(io.RawIOBase, fp), encoding=encoding)
++        sniffer = csv.Sniffer()
++        if dialect is None:
++            # Detect dialect
++            sample = text_file.read(1024)
++            text_file.seek(0)
++            try:
++                dialect = sniffer.sniff(sample)
++            except csv.Error:
++                # Maybe there's just a single column? Just use excel dialect
++                dialect = csv.excel
++        # If there's a single column, use list rather than DictReader
++        reader: Union[Iterator[List[str]], Iterator[Dict[str, str]]]
++        try:
++            sample_fieldnames = sniffer.sniff(sample).fieldnames or []
++        except (AttributeError, NameError):
++            # Handle case where sniff doesn't return fieldnames properly
++            sample_fieldnames = []
++        if len(sample_fieldnames) <= 1:
++            reader = csv.reader(text_file, dialect=dialect)
++            first_row = next(reader)
++            # If single column, assume first value is header
++            headers = first_row
++            return (
++                (dict(zip(headers, row)) for row in reader),
++                Format.CSV,
++            )
+         else:
+-            reader = csv.DictReader(decoded_fp)
+-        rows = _extra_key_strategy(reader, ignore_extras, extras_key)
+-        return _CloseableIterator(iter(rows), decoded_fp), Format.CSV
++            reader = csv.DictReader(text_file, dialect=dialect)
++            return _extra_key_strategy(reader, ignore_extras, extras_key), Format.CSV
+     elif format == Format.TSV:
+-        rows, _ = rows_from_file(
+-            fp, format=Format.CSV, dialect=csv.excel_tab, encoding=encoding
+-        )
+-        return (
+-            _extra_key_strategy(
+-                cast(Iterable[Dict[Optional[str], object]], rows),
+-                ignore_extras,
+-                extras_key,
+-            ),
+-            Format.TSV,
++        return rows_from_file(
++            fp,
++            format=Format.CSV,
++            dialect=csv.excel_tab,
++            encoding=encoding,
++            ignore_extras=ignore_extras,
++            extras_key=extras_key,
+         )
+-    elif format is None:
+-        # Detect the format, then call this recursively
+-        buffered = io.BufferedReader(cast(io.RawIOBase, fp), buffer_size=4096)
+-        try:
+-            first_bytes = buffered.peek(2048).strip()
+-        except AttributeError:
+-            # Likely the user passed a TextIO when this needs a BytesIO
+-            raise TypeError(
+-                "rows_from_file() requires a file-like object that supports peek(), such as io.BytesIO"
+-            )
+-        if first_bytes.startswith(b"[") or first_bytes.startswith(b"{"):
+-            # TODO: Detect newline-JSON
+-            return rows_from_file(buffered, format=Format.JSON)
++    else:
++        # Attempt to detect format, then call recursively
++        start = fp.read(1024)
++        if not start:
++            raise RowsFromFileBadJSON("File is empty")
++        fp.seek(0)
++        if start.startswith(b"[") or start.startswith(b"{"):
++            return rows_from_file(fp, format=Format.JSON)
++        elif b"\n" in start:
++            first_line = start.split(b"\n")[0]
++            if b"\t" in first_line:
++                return rows_from_file(
++                    fp,
++                    format=Format.TSV,
++                    encoding=encoding,
++                    ignore_extras=ignore_extras,
++                    extras_key=extras_key,
++                )
++            else:
++                return rows_from_file(
++                    fp,
++                    format=Format.CSV,
++                    encoding=encoding,
++                    ignore_extras=ignore_extras,
++                    extras_key=extras_key,
++                )
+         else:
+-            dialect = csv.Sniffer().sniff(
+-                first_bytes.decode(encoding or "utf-8-sig", "ignore")
+-            )
+-            rows, _ = rows_from_file(
+-                buffered, format=Format.CSV, dialect=dialect, encoding=encoding
++            return rows_from_file(
++                fp,
++                format=Format.NL,
++                encoding=encoding,
++                ignore_extras=ignore_extras,
++                extras_key=extras_key,
+             )
+-            # Make sure we return the format we detected
+-            detected_format = Format.TSV if dialect.delimiter == "\t" else Format.CSV
+-            return (
+-                _extra_key_strategy(
+-                    cast(Iterable[Dict[Optional[str], object]], rows),
+-                    ignore_extras,
+-                    extras_key,
+-                ),
+-                detected_format,
+-            )
+-    else:
+-        raise RowsFromFileError("Bad format")
++
++
++class _CloseableIterator(Iterator[Row]):
++    """Iterator wrapper that closes a file when iteration is complete."""
++
++    def __init__(self, iterator: Iterator[Row], closeable: io.IOBase) -> None:
++        self._iterator = iterator
++        self._closeable = closeable
++
++    def __iter__(self) -> "_CloseableIterator":
++        return self
++
++    def __next__(self) -> Row:
++        try:
++            return next(self._iterator)
++        except StopIteration:
++            self._closeable.close()
++            raise
++
++    def close(self) -> None:
++        self._closeable.close()
+ 
+ 
+ class TypeTracker:
+     """
+-    Wrap an iterator of dictionaries and keep track of which SQLite column
+-    types are the most likely fit for each of their keys.
++    A utility class for tracking the types of values in a dictionary-based dataset.
+ 
+-    Example usage:
++    This class helps determine the most appropriate SQLite column types for your data
++    by analyzing the values in each column across multiple rows.
+ 
+-    .. code-block:: python
++    Example usage::
+ 
+         from sqlite_utils.utils import TypeTracker
+-        import sqlite_utils
+ 
+-        db = sqlite_utils.Database(memory=True)
+         tracker = TypeTracker()
+-        rows = [{"id": "1", "name": "Cleo", "id": "2", "name": "Cardi"}]
+-        db["creatures"].insert_all(tracker.wrap(rows))
++        for row in rows:
++            tracker.evaluate(row)
+         print(tracker.types)
+-        # Outputs {'id': 'integer', 'name': 'text'}
+-        db["creatures"].transform(types=tracker.types)
++
++    The ``evaluate()`` method updates internal counters for each column based on
++    the types of values it sees. The ``types`` property returns a dictionary mapping
++    column names to their suggested SQLite types.
+     """
+ 
+     def __init__(self) -> None:
+-        self.trackers: Dict[str, "ValueTracker"] = {}
++        self.trackers: Dict[str, ValueTracker] = {}
++
++    def evaluate(self, row: Dict[str, Any]) -> None:
++        """
++        Evaluate a row of data, updating the type trackers for each column.
++
++        :param row: A dictionary representing a row of data
++        """
++        for key, value in row.items():
++            tracker = self.trackers.setdefault(key, ValueTracker())
++            tracker.evaluate(value)
+ 
+     def wrap(self, iterator: Iterable[Dict[str, Any]]) -> Iterable[Dict[str, Any]]:
+         """
+@@ -629,3 +664,54 @@ def flatten(row: Dict[str, Any]) -> Dict[str, Any]:
+     :param row: A Python dictionary, optionally with nested dictionaries
+     """
+     return dict(_flatten(row))
++
++
++def dedupe_keys(keys: List[str]) -> List[str]:
++    """
++    Receives a list of column names and returns a new list where repeated names
++    are suffixed with _N to ensure uniqueness, starting from _2 for the first duplicate.
++    
++    Examples:
++        [] -> []
++        ["id", "name"] -> ["id", "name"]
++        ["id", "id"] -> ["id", "id_2"]
++        ["id", "id", "id"] -> ["id", "id_2", "id_3"]
++        ["id", "id", "id_2"] -> ["id", "id_3", "id_2"]
++        ["id_2", "id", "id"] -> ["id_2", "id", "id_3"]
++        ["id", "id", "id_2", "id_2"] -> ["id", "id_3", "id_2", "id_2_2"]
++    """
++    if not keys:
++        return keys
++    
++    # Count total occurrences of each key
++    total_counts: Dict[str, int] = {}
++    for key in keys:
++        total_counts[key] = total_counts.get(key, 0) + 1
++
++    result: List[str] = []
++    seen_counts: Dict[str, int] = {}
++    
++    for key in keys:
++        total_count = total_counts[key]
++        current_count = seen_counts.get(key, 0)
++        
++        if total_count > 1:
++            # This key appears more than once overall
++            if current_count == 0:
++                # First occurrence - keep as is
++                result.append(key)
++            else:
++                # Subsequent occurrence - add suffix
++                suffix_counter = current_count + 1
++                candidate = f"{key}_{suffix_counter}"
++                # Ensure uniqueness in the final result
++                while candidate in total_counts or candidate in result:
++                    suffix_counter += 1
++                    candidate = f"{key}_{suffix_counter}"
++                result.append(candidate)
++        else:
++            # Unique key - keep as is
++            result.append(key)
++        seen_counts[key] = current_count + 1
++        
++    return result
+\ No newline at end of file

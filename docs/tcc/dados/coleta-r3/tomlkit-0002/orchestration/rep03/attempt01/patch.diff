@@ -1,0 +1,135 @@
+diff --git a/tomlkit/api.py b/tomlkit/api.py
+index fd4b2f3..5ce8b50 100644
+--- a/tomlkit/api.py
++++ b/tomlkit/api.py
+@@ -2,7 +2,9 @@ import datetime as _datetime
+ 
+ from collections.abc import Mapping
+ from typing import IO
++from typing import List
+ from typing import Tuple
++from typing import Union
+ 
+ from ._utils import parse_rfc3339
+ from .container import Container
+@@ -12,6 +14,7 @@ from .items import Bool
+ from .items import Comment
+ from .items import Date
+ from .items import DateTime
++from .items import DottedKey
+ from .items import Float
+ from .items import InlineTable
+ from .items import Integer
+@@ -141,8 +144,13 @@ def aot() -> AoT:
+     return AoT([])
+ 
+ 
+-def key(k: str) -> Key:
+-    return SingleKey(k)
++def key(k: Union[str, List[str]]) -> Key:
++    if isinstance(k, str):
++        return SingleKey(k)
++    elif isinstance(k, list):
++        return DottedKey([SingleKey(part) for part in k], sep=" = ")
++    else:
++        raise TypeError("key() argument must be a string or a list of strings")
+ 
+ 
+ def value(raw: str) -> _Item:
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index dc6da89..b9f1b58 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -15,11 +15,13 @@ from .exceptions import NonExistentKey
+ from .exceptions import TOMLKitError
+ from .items import AoT
+ from .items import Comment
++from .items import DottedKey
+ from .items import Item
+ from .items import Key
+ from .items import Null
+ from .items import SingleKey
+ from .items import Table
++from .items import Trivia
+ from .items import Whitespace
+ from .items import _CustomDict
+ from .items import item as _item
+@@ -96,6 +98,10 @@ class Container(_CustomDict):
+         if not isinstance(item, Item):
+             item = _item(item)
+ 
++        # Handle dotted keys
++        if isinstance(key, DottedKey):
++            return self._handle_dotted_key(key, item)
++
+         if isinstance(item, (AoT, Table)) and item.name is None:
+             item.name = key.key
+ 
+@@ -696,6 +702,67 @@ class Container(_CustomDict):
+         prev = self._previous_item_with_index(idx, ignore)
+         return prev[-1] if prev else None
+ 
++    def _handle_dotted_key(self, key: Key, value: Item) -> "Container":
++        names = tuple(iter(key))
++        name = names[0]
++        name._dotted = True
++        
++        # Se o nome já existe no container, precisamos integrar com a tabela existente
++        if name in self:
++            existing = self[name]
++            # Se for uma tabela, adicionamos a chave pontilhada dentro dela
++            if isinstance(existing, Table):
++                # Criar a estrutura aninhada para as partes restantes
++                table = existing
++                for i, _name in enumerate(names[1:]):
++                    if i == len(names) - 2:  # Último elemento
++                        _name.sep = key.sep
++                        table.append(_name, value)
++                    else:
++                        _name._dotted = True
++                        # Se não existe, criar nova tabela
++                        if _name not in table:
++                            new_table = Table(
++                                Container(True),
++                                Trivia(),
++                                False,
++                                is_super_table=True,
++                            )
++                            table.append(_name, new_table)
++                        table = table[_name]
++                return self
++            else:
++                # Se não é uma tabela, tratamos como conflito de chave
++                # Esta é a mesma lógica do parser
++                pass
++                
++        # Se não existe ou não é uma tabela, seguir a lógica original do parser
++        table = Table(Container(True), Trivia(), False, is_super_table=True)
++        if hasattr(self, '_is_table') and self._is_table:
++            self.raw_append(name, table)
++        else:
++            self.append(name, table)
++
++        for i, _name in enumerate(names[1:]):
++            if i == len(names) - 2:
++                _name.sep = key.sep
++                table.append(_name, value)
++            else:
++                _name._dotted = True
++                if _name in table.value:
++                    table = table.value[_name]
++                else:
++                    new_table = Table(
++                        Container(True),
++                        Trivia(),
++                        False,
++                        is_super_table=i < len(names) - 2,
++                    )
++                    table.append(_name, new_table)
++                    table = table[_name]
++
++        return self
++
+ 
+ class OutOfOrderTableProxy(_CustomDict):
+     def __init__(self, container: Container, indices: Tuple[int]) -> None:

@@ -1,0 +1,104 @@
+{
+  "result_schema_version": 2,
+  "harness_version": "1.0.0",
+  "evaluated_at": "2026-10-15T07:15:51+00:00",
+  "run_id": "peewee-0001-orchestration-r03-a01",
+  "arm": "orchestration",
+  "task_id": "peewee-0001",
+  "faixa": "media",
+  "repetition": 3,
+  "base_commit": "39c0f8bdb60bc0197cd18d00a377a8cc14deecf9",
+  "resolved": true,
+  "resolved_blocked_by_cheat": false,
+  "oracle": {
+    "f2p_total": 4,
+    "f2p_passed": 4,
+    "f2p": {
+      "exit_code": 0,
+      "passed": 4,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.33,
+      "failing_node_ids": [],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "p2p": {
+      "exit_code": 0,
+      "passed": 1415,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 164,
+      "duration_s": 4.2,
+      "failing_node_ids": [],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "regression": {
+      "exit_code": 0,
+      "passed": 1415,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 164,
+      "duration_s": 4.27,
+      "failing_node_ids": [],
+      "timed_out": false,
+      "network_isolated": true
+    }
+  },
+  "cheat": {
+    "clean": true,
+    "critical_count": 0,
+    "warning_count": 0,
+    "signals": []
+  },
+  "quality": {
+    "mi_before": 0.0,
+    "mi_after": 0.0,
+    "mi_delta": 0.0,
+    "cc_mean_before": 2.564,
+    "cc_mean_after": 2.565,
+    "cc_mean_delta": 0.001,
+    "files_analyzed": 1,
+    "error": null
+  },
+  "cost": {
+    "tokens_prompt": 329451,
+    "tokens_completion": 5132,
+    "tokens_reasoning": 0,
+    "tokens_total": 334583,
+    "cost_usd": 0.0420921,
+    "llm_calls": 32,
+    "byok_calls": 32,
+    "tool_calls": 28,
+    "wall_seconds": 202.17
+  },
+  "process": {
+    "turns": 29,
+    "test_runs": 1,
+    "tool_denials": 0,
+    "errors": 0,
+    "circuit_breaks": 0,
+    "self_recoveries": 0,
+    "stop_reason": "concluiu"
+  },
+  "provenance": {
+    "model": "qwen/qwen3-coder",
+    "provider_requested": "DeepInfra",
+    "providers_served": [
+      "DeepInfra"
+    ],
+    "llm_seed": 20260823,
+    "topology": "multi_agent_roles"
+  },
+  "diff": {
+    "files_changed": 1,
+    "insertions": 27,
+    "deletions": 3,
+    "changed_files": [
+      "peewee.py",
+      "peewee_test.db-shm"
+    ]
+  }
+}

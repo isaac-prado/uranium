@@ -1,0 +1,35 @@
+{
+  "run_id": "sqlite-utils-0001-orchestration-r01-a01",
+  "arm": "orchestration",
+  "task_id": "sqlite-utils-0001",
+  "repetition": 1,
+  "attempt": 1,
+  "llm_seed": 20260821,
+  "topology": "multi_agent_roles",
+  "stop_reason": "concluiu",
+  "lost": false,
+  "is_valid": true,
+  "changed_files": [
+    "check_destructive_fks.py",
+    "method_addition.py",
+    "sqlite_utils/db.py"
+  ],
+  "diff_stat": {
+    "files_changed": 1,
+    "insertions": 51,
+    "deletions": 4
+  },
+  "turns": 64,
+  "totals": {
+    "tokens_prompt": 649632,
+    "tokens_completion": 11115,
+    "tokens_reasoning": 0,
+    "tokens_total": 660747,
+    "cost_usd": 0.0851566,
+    "llm_calls": 67,
+    "tool_calls": 62,
+    "test_runs": 2,
+    "errors": 0
+  },
+  "out_dir": "runs/coleta-r3/sqlite-utils-0001/orchestration/rep01/attempt01"
+}

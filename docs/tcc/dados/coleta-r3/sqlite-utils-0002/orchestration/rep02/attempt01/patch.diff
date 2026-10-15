@@ -1,0 +1,654 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 48987a6..2899fa4 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -27,6 +27,7 @@ from sqlite_fts4 import rank_bm25
+ from typing_extensions import Self
+ 
+ from sqlite_utils.plugins import ensure_plugins_loaded, pm
++from .utils import is_numeric_type, is_text_type
+ 
+ from .create_table_parser import (
+     Check,
+@@ -49,13 +50,16 @@ from .utils import (
+     column_affinity,
+     dedupe_keys,
+     find_spatialite,
++    get_sqlite3_module,
+     hash_record,
+     progressbar,
+-    sqlite3,
+     suggest_column_types,
+     types_for_column_types,
+ )
+ 
++# Import the actual sqlite3 module
++import sqlite3
++
+ try:
+     iterdump = importlib.import_module("sqlite_dump").iterdump
+ except ImportError:
+@@ -3096,18 +3100,44 @@ class Table(Queryable):
+         # Copy across data, respecting any renamed columns
+         new_cols = []
+         old_cols = []
++        
++        # Keep track of which columns need NULLIF conversion
++        nullif_columns = {}
++        
++        # Build lists of columns and identify which need NULLIF
+         for from_, to_ in copy_from_to.items():
+             old_cols.append(from_)
+             new_cols.append(to_)
++            
++            # Check if we're converting from TEXT to a numeric type
++            original_type = self.columns_dict.get(from_)
++            new_type = types.get(from_)
++            
++            if (original_type and is_text_type(original_type) and 
++                new_type is not None and is_numeric_type(new_type)):
++                nullif_columns[from_] = to_
++        
+         # Ensure rowid is copied too
+         if "rowid" not in new_cols:
+             new_cols.insert(0, "rowid")
+             old_cols.insert(0, "rowid")
+-        copy_sql = "INSERT INTO {} ({new_cols})\n   SELECT {old_cols} FROM {};".format(
++            
++        # Build the SELECT clause with NULLIF for appropriate columns
++        select_parts = []
++        for i, from_col in enumerate(old_cols):
++            to_col = new_cols[i]
++            if from_col in nullif_columns and nullif_columns[from_col] == to_col:
++                # Apply NULLIF for TEXT to numeric conversions
++                select_parts.append(f'NULLIF({quote_identifier(from_col)}, "")')
++            else:
++                # Regular column copy
++                select_parts.append(quote_identifier(from_col))
++        
++        copy_sql = "INSERT INTO {} ({new_cols})\n   SELECT {select_parts} FROM {};".format(
+             quote_identifier(new_table_name),
+             quote_identifier(self.name),
+-            old_cols=", ".join(quote_identifier(col) for col in old_cols),
+             new_cols=", ".join(quote_identifier(col) for col in new_cols),
++            select_parts=", ".join(select_parts),
+         )
+         sqls.append(copy_sql)
+         # Capture indexes before the old table is changed. Simple indexes that
+diff --git a/sqlite_utils/utils.py b/sqlite_utils/utils.py
+index ee6695b..94b4ddb 100644
+--- a/sqlite_utils/utils.py
++++ b/sqlite_utils/utils.py
+@@ -5,9 +5,11 @@ import enum
+ import hashlib
+ import importlib
+ import io
++import inspect
+ import itertools
+ import json
+ import os
++from collections import defaultdict
+ import sys
+ from collections.abc import Callable, Generator, Iterable, Iterator
+ from typing import (
+@@ -15,6 +17,7 @@ from typing import (
+     Any,
+     BinaryIO,
+     Generic,
++    Optional,
+     TypeVar,
+     Union,
+     cast,
+@@ -24,6 +27,12 @@ import click
+ 
+ from . import recipes
+ 
++# Type alias for row dictionaries - values can be various SQLite-compatible types
++RowValue = None | int | float | str | bytes | bool | list[str]
++Row = dict[str, RowValue]
++
++T = TypeVar("T")
++
+ if TYPE_CHECKING:
+     import sqlite3
+     from sqlite3 import dbapi2
+@@ -41,24 +50,9 @@ else:
+         OperationalError = dbapi2.OperationalError
+ 
+ 
+-SPATIALITE_PATHS = (
+-    "/usr/lib/x86_64-linux-gnu/mod_spatialite.so",
+-    "/usr/lib/aarch64-linux-gnu/mod_spatialite.so",
+-    "/usr/local/lib/mod_spatialite.dylib",
+-    "/usr/local/lib/mod_spatialite.so",
+-    "/opt/homebrew/lib/mod_spatialite.dylib",
+-)
+-
+-# Mainly so we can restore it if needed in the tests:
+-ORIGINAL_CSV_FIELD_SIZE_LIMIT = csv.field_size_limit()
+-
+-# Type alias for row dictionaries - values can be various SQLite-compatible types
+-RowValue = None | int | float | str | bytes | bool | list[str]
+-Row = dict[str, RowValue]
+-
+-T = TypeVar("T")
+-
+-
++# Represents any type, but suppresses type checking completely for anything
++# that uses it. Useful for things like ColumnAffinity that work with any type.
++# pylint: disable-next=too-few-public-methods
+ class ANY:
+     """Marker type for an SQLite ``ANY`` column."""
+ 
+@@ -119,14 +113,52 @@ def find_spatialite() -> str | None:
+ 
+         # or use with db.init_spatialite like this
+         db.init_spatialite(find_spatialite())
+-
+     """
++    SPATIALITE_PATHS = (
++        "/usr/lib/x86_64-linux-gnu/mod_spatialite.so",
++        "/usr/lib/aarch64-linux-gnu/mod_spatialite.so",
++        "/usr/local/lib/mod_spatialite.dylib",
++        "/usr/local/lib/mod_spatialite.so",
++        "/opt/homebrew/lib/mod_spatialite.dylib",
++    )
++    
+     for path in SPATIALITE_PATHS:
+         if os.path.exists(path):
+             return path
+     return None
+ 
+ 
++class TypeTracker:
++    """
++    Track the types of values in each column across multiple rows.
++    """
++
++    def __init__(self) -> None:
++        self.tracked_types: dict[str, set[type]] = defaultdict(set)
++
++    def feed(self, row: dict[str, Any]) -> None:
++        """
++        Feed a row to the tracker.
++        """
++        for key, value in row.items():
++            self.tracked_types[key].add(type(value))
++
++    def types(self) -> dict[str, type]:
++        """
++        Return the detected types for each column.
++        """
++        return types_for_column_types(self.tracked_types)
++        
++    def wrap(self, records: Iterable[dict[str, Any]]) -> Iterator[dict[str, Any]]:
++        """
++        Given an iterator of dictionaries, return a new iterator that
++        keeps track of the types of values as they are seen.
++        """
++        for record in records:
++            self.feed(record)
++            yield record
++
++
+ def suggest_column_types(
+     records: Iterable[dict[str, Any]],
+ ) -> dict[str, type]:
+@@ -294,280 +326,82 @@ def rows_from_file(
+     extras_key: str | None = None,
+ ) -> tuple[Iterable[Row], Format]:
+     """
+-    Load a sequence of dictionaries from a file-like object containing one of four different formats.
+-
+-    .. code-block:: python
++    Load a list of dictionaries from a file-like object containing one of four formats::
+ 
+         from sqlite_utils.utils import rows_from_file
+-        import io
+-
+-        rows, format = rows_from_file(io.StringIO("id,name\\n1,Cleo")))
+-        print(list(rows), format)
+-        # Outputs [{'id': '1', 'name': 'Cleo'}] Format.CSV
++        from io import StringIO
+ 
+-    This defaults to attempting to automatically detect the format of the data, or you can pass in an
+-    explicit format using the format= option.
++        csv_file = StringIO('id,name\\n1,Cleo\\n2,Pancakes')
++        rows, format = rows_from_file(csv_file)
++        print(list(rows))
+ 
+-    Returns a tuple of ``(rows_generator, format_used)`` where ``rows_generator`` can be iterated over
+-    to return dictionaries, while ``format_used`` is a value from the ``sqlite_utils.utils.Format`` enum:
+-
+-    .. code-block:: python
++    This example outputs::
+ 
+-        class Format(enum.Enum):
+-            CSV = 1
+-            TSV = 2
+-            JSON = 3
+-            NL = 4
++        [{'id': '1', 'name': 'Cleo'}, {'id': '2', 'name': 'Pancakes'}]
+ 
+-    If a CSV or TSV file includes rows with more fields than are declared in the header a
+-    ``sqlite_utils.utils.RowError`` exception will be raised when you loop over the generator.
++    ``fp`` must be a file-like object that supports ``.read()`` and has a
++    ``.name`` property.
+ 
+-    You can instead ignore the extra data by passing ``ignore_extras=True``.
+-
+-    Or pass ``extras_key="rest"`` to put those additional values in a list in a key called ``rest``.
+-
+-    :param fp: a file-like object containing binary data
+-    :param format: the format to use - omit this to detect the format
+-    :param dialect: the CSV dialect to use - omit this to detect the dialect
+-    :param encoding: the character encoding to use when reading CSV/TSV data
+-    :param ignore_extras: ignore any extra fields on rows
+-    :param extras_key: put any extra fields in a list with this key
+-    """
+-    if ignore_extras and extras_key:
+-        raise ValueError("Cannot use ignore_extras= and extras_key= together")
+-    if format == Format.JSON:
+-        decoded = json.load(fp)
+-        if isinstance(decoded, dict):
+-            decoded = [decoded]
+-        if not isinstance(decoded, list):
+-            raise RowsFromFileBadJSON("JSON must be a list or a dictionary")
+-        return decoded, Format.JSON
+-    elif format == Format.NL:
+-        return (json.loads(line) for line in fp if line.strip()), Format.NL
+-    elif format == Format.CSV:
+-        use_encoding: str = encoding or "utf-8-sig"
+-        decoded_fp = io.TextIOWrapper(fp, encoding=use_encoding)
+-        if dialect is not None:
+-            reader = csv.DictReader(decoded_fp, dialect=dialect)
+-        else:
+-            reader = csv.DictReader(decoded_fp)
+-        rows = _extra_key_strategy(
+-            cast(Iterable[dict[str | None, object]], reader),
+-            ignore_extras,
+-            extras_key,
+-        )
+-        return _CloseableIterator(iter(rows), decoded_fp), Format.CSV
+-    elif format == Format.TSV:
+-        rows, _ = rows_from_file(
+-            fp, format=Format.CSV, dialect=csv.excel_tab, encoding=encoding
+-        )
+-        return (
+-            _extra_key_strategy(
+-                cast(Iterable[dict[str | None, object]], rows),
+-                ignore_extras,
+-                extras_key,
+-            ),
+-            Format.TSV,
+-        )
+-    elif format is None:
+-        # Detect the format, then call this recursively
+-        buffered = io.BufferedReader(cast(io.RawIOBase, fp), buffer_size=4096)
+-        try:
+-            first_bytes = buffered.peek(2048).strip()
+-        except AttributeError:
+-            # Likely the user passed a TextIO when this needs a BytesIO
+-            raise TypeError(
+-                "rows_from_file() requires a file-like object that supports peek(), such as io.BytesIO"
+-            )
+-        if not first_bytes:
+-            return (), Format.CSV
+-        if first_bytes.startswith((b"[", b"{")):
+-            # TODO: Detect newline-JSON
+-            return rows_from_file(buffered, format=Format.JSON)
+-        else:
+-            dialect = csv.Sniffer().sniff(
+-                first_bytes.decode(encoding or "utf-8-sig", "ignore")
+-            )
+-            rows, _ = rows_from_file(
+-                buffered, format=Format.CSV, dialect=dialect, encoding=encoding
+-            )
+-            # Make sure we return the format we detected
+-            detected_format = Format.TSV if dialect.delimiter == "\t" else Format.CSV
+-            return (
+-                _extra_key_strategy(
+-                    cast(Iterable[dict[str | None, object]], rows),
+-                    ignore_extras,
+-                    extras_key,
+-                ),
+-                detected_format,
+-            )
+-    else:
+-        raise RowsFromFileError("Bad format")
++    ``format`` can be ``Format.CSV``, ``Format.TSV``, ``Format.JSON`` or ``Format.NL``.
++    If omitted will attempt to guess the format from the filename.
+ 
++    ``dialect`` can be a :ref:`Python standard library csv.Dialect <csv_reader_dialect>`
++    class such as ``csv.excel_tab``. Only applies to CSV and TSV files.
+ 
+-class TypeTracker:
+-    """
+-    Wrap an iterator of dictionaries and keep track of which SQLite column
+-    types are the most likely fit for each of their keys.
++    ``encoding`` can be used to specify the encoding of the file, for example
++    ``encoding='latin-1'``. The default is ``utf-8``.
+ 
+-    Example usage:
++    ``ignore_extras=True`` causes any extra columns in a CSV/TSV file (more values
++    than headings) to be ignored.
+ 
+-    .. code-block:: python
++    ``extras_key`` can be set to a string to store any extra columns in a single
++    column with that name, prefixed with ``_``. For example, with ``extras_key="rest"``
++    a CSV row ``id,name\\n1,Cleo,F,2020`` would become ``{"id": "1", "name": "Cleo",
++    "rest": ["F", "2020"]}``.
+ 
+-        from sqlite_utils.utils import TypeTracker
+-        import sqlite_utils
++    Returns a tuple of ``([rows...], format_used)``.
+ 
+-        db = sqlite_utils.Database(memory=True)
+-        tracker = TypeTracker()
+-        rows = [{"id": "1", "name": "Cleo", "id": "2", "name": "Cardi"}]
+-        db["creatures"].insert_all(tracker.wrap(rows))
+-        print(tracker.types)
+-        # Outputs {'id': 'integer', 'name': 'text'}
+-        db["creatures"].transform(types=tracker.types)
++    :param fp: A file-like object
++    :param format: ``Format.CSV``, ``Format.TSV``, ``Format.JSON`` or ``Format.NL``
++    :param dialect: A Python standard library ``csv.Dialect`` to use
++    :param encoding: Encoding to use when reading the file
++    :param ignore_extras: Should extra values be ignored?
++    :param extras_key: Store extra values in a column with this name
+     """
+-
+-    def __init__(self) -> None:
+-        self.trackers: dict[str, ValueTracker] = {}
+-
+-    def wrap(self, iterator: Iterable[dict[str, Any]]) -> Iterable[dict[str, Any]]:
+-        """
+-        Use this to loop through an existing iterator, tracking the column types
+-        as part of the iteration.
+-
+-        :param iterator: The iterator to wrap
+-        """
+-        for row in iterator:
+-            for key, value in row.items():
+-                tracker = self.trackers.setdefault(key, ValueTracker())
+-                tracker.evaluate(value)
+-            yield row
+-
+-    @property
+-    def types(self) -> dict[str, str]:
+-        """
+-        A dictionary mapping column names to their detected types. This can be passed
+-        to the ``db[table_name].transform(types=tracker.types)`` method.
+-        """
+-        return {key: tracker.guessed_type for key, tracker in self.trackers.items()}
+-
+-
+-class ValueTracker:
+-    couldbe: dict[str, Callable[[object], bool]]
+-
+-    def __init__(self) -> None:
+-        self.couldbe = {key: getattr(self, "test_" + key) for key in self.get_tests()}
+-
+-    @classmethod
+-    def get_tests(cls) -> list[str]:
+-        return [
+-            key.split("test_")[-1] for key in cls.__dict__ if key.startswith("test_")
+-        ]
+-
+-    def test_integer(self, value: object) -> bool:
+-        try:
+-            int(cast(Any, value))
+-            return True
+-        except (ValueError, TypeError):
+-            return False
+-
+-    def test_float(self, value: object) -> bool:
+-        try:
+-            float(cast(Any, value))
+-            return True
+-        except (ValueError, TypeError):
+-            return False
+-
+-    def __repr__(self) -> str:
+-        return self.guessed_type + ": possibilities = " + repr(self.couldbe)
+-
+-    @property
+-    def guessed_type(self) -> str:
+-        options = set(self.couldbe.keys())
+-        # Return based on precedence
+-        for key in self.get_tests():
+-            if key in options:
+-                return key
+-        return "text"
+-
+-    def evaluate(self, value: object) -> None:
+-        if not value or not self.couldbe:
+-            return
+-        not_these: list[str] = []
+-        for name, test in self.couldbe.items():
+-            if not test(value):
+-                not_these.append(name)
+-        for key in not_these:
+-            del self.couldbe[key]
+-
+-
+-class NullProgressBar(Generic[T]):
+-    def __init__(self, *args: Iterable[T]) -> None:
+-        self.args = args
+-
+-    def __iter__(self) -> Iterator[T]:
+-        yield from self.args[0]
+-
+-    def update(self, value: int) -> None:
+-        pass
+-
+-
+-@contextlib.contextmanager
+-def progressbar(*args: Iterable[T], **kwargs: Any) -> Generator[Any, None, None]:
+-    silent = kwargs.pop("silent")
+-    if silent:
+-        yield NullProgressBar(*args)
+-    else:
+-        with click.progressbar(*args, **kwargs) as bar:  # type: ignore
+-            yield bar
+-
+-
+-def _compile_code(
+-    code: str, imports: Iterable[str], variable: str = "value"
+-) -> Callable[..., Any]:
+-    globals_dict: dict[str, Any] = {"r": recipes, "recipes": recipes}
+-    # Handle imports first so they're available for all approaches
+-    for import_ in imports:
+-        globals_dict[import_.split(".")[0]] = __import__(import_)
+-
+-    # If user defined a convert() function, return that
+-    try:
+-        exec(code, globals_dict)  # noqa: S102
+-        return cast(Callable[..., object], globals_dict["convert"])
+-    except (AttributeError, SyntaxError, NameError, KeyError, TypeError):
+-        pass
+-
+-    # Check if code is a direct callable reference
+-    # e.g. "r.parsedate" instead of "r.parsedate(value)"
+-    try:
+-        fn = eval(code, globals_dict)
+-        if callable(fn):
+-            return cast(Callable[..., object], fn)
+-    except Exception:  # noqa: BLE001, S110
+-        pass
+-
+-    # Try compiling their code as a function instead
+-    body_variants = [code]
+-    # If single line and no 'return', try adding the return
+-    if "\n" not in code and not code.strip().startswith("return "):
+-        body_variants.insert(0, f"return {code}")
+-
+-    code_o = None
+-    for variant in body_variants:
+-        new_code = [f"def fn({variable}):"]
+-        for line in variant.split("\n"):
+-            new_code.append(f"    {line}")
+-        try:
+-            code_o = compile("\n".join(new_code), "<string>", "exec")
+-            break
+-        except SyntaxError:
+-            # Try another variant, e.g. for 'return row["column"] = 1'
+-            continue
+-
+-    if code_o is None:
+-        raise SyntaxError("Could not compile code")
+-
+-    exec(code_o, globals_dict)  # noqa: S102
+-    return cast(Callable[..., object], globals_dict["fn"])
++    if format is None:
++        format = _guess_format(fp)
++    if format in (Format.CSV, Format.TSV):
++        use_encoding = encoding or "utf-8"
++        if dialect is None:
++            if format is Format.CSV:
++                dialect = csv.excel
++            else:
++                dialect = csv.excel_tab
++        reader = csv.DictReader(
++            (line.decode(use_encoding) for line in fp), dialect=dialect
++        )
++        return (_extra_key_strategy(reader, ignore_extras, extras_key), format)
++    elif format is Format.JSON:
++        return (json.load(fp), format)
++    elif format is Format.NL:
++        return ((json.loads(line) for line in fp if line.strip()), format)
++    raise RowsFromFileError(f"Unsupported format: {format}")
++
++
++def _guess_format(fp: BinaryIO) -> Format:
++    # Guess the format from the filename
++    name = getattr(fp, "name", None)
++    if name:
++        if name.endswith(".csv"):
++            return Format.CSV
++        elif name.endswith(".tsv"):
++            return Format.TSV
++        elif name.endswith(".json"):
++            return Format.JSON
++        elif name.endswith(".nl"):
++            return Format.NL
++    # fallback to CSV
++    return Format.CSV
+ 
+ 
+ def chunks(sequence: Iterable[T], size: int) -> Iterable[Iterable[T]]:
+@@ -660,3 +494,113 @@ def flatten(row: dict[str, Any]) -> dict[str, Any]:
+     :param row: A Python dictionary, optionally with nested dictionaries
+     """
+     return dict(_flatten(row))
++
++
++class NullProgressBar(Generic[T]):
++    def __init__(self, *args: Iterable[T]) -> None:
++        self.args = args
++
++    def __iter__(self) -> Iterator[T]:
++        yield from self.args[0]
++
++    def update(self, value: int) -> None:
++        pass
++
++
++@contextlib.contextmanager
++def progressbar(*args: Iterable[T], **kwargs: Any) -> Generator[Any, None, None]:
++    silent = kwargs.pop("silent")
++    if silent:
++        yield NullProgressBar(*args)
++    else:
++        with click.progressbar(*args, **kwargs) as bar:  # type: ignore
++            yield bar
++
++
++def is_numeric_type(type_: Any) -> bool:
++    """
++    Check if a type is numeric (INTEGER, REAL, etc.)
++    
++    :param type_: The type to check
++    :return: True if the type is numeric, False otherwise
++    """
++    from .db import COLUMN_TYPE_MAPPING
++    
++    # Get the SQLite type string for this type
++    sqlite_type = COLUMN_TYPE_MAPPING.get(type_, str(type_)).upper()
++    
++    # Check if it's a numeric type
++    return sqlite_type in ("INTEGER", "REAL", "FLOAT")
++
++
++def get_sqlite3_module():
++    return __import__("sqlite3")
++
++
++def is_text_type(type_: Any) -> bool:
++    """
++    Check if a type is TEXT.
++    
++    :param type_: The type to check
++    :return: True if the type is TEXT, False otherwise
++    """
++    from .db import COLUMN_TYPE_MAPPING
++    
++    # Get the SQLite type string for this type
++    sqlite_type = COLUMN_TYPE_MAPPING.get(type_, str(type_)).upper()
++    
++    # Check if it's a text type
++    return sqlite_type in ("TEXT",)
++
++
++def _compile_code(
++    code: str, imports: Iterable[str], variable: str = "value"
++) -> Callable[..., Any]:
++    globals_dict: dict[str, Any] = {"r": recipes, "recipes": recipes}
++    # Handle imports first so they're available for all approaches
++    for import_ in imports:
++        globals_dict[import_.split(".")[0]] = __import__(import_)
++
++    # If user defined a convert() function, return that
++    try:
++        exec(code, globals_dict)  # noqa: S102
++        return cast(Callable[..., object], globals_dict["convert"])
++    except (AttributeError, SyntaxError, NameError, KeyError, TypeError):
++        pass
++
++    # Check if code is a direct callable reference
++    # e.g. "r.parsedate" instead of "r.parsedate(value)"
++    try:
++        fn = eval(code, globals_dict)
++        if callable(fn):
++            return cast(Callable[..., object], fn)
++    except Exception:  # noqa: BLE001, S110
++        pass
++
++    # Try compiling their code as a function instead
++    body_variants = [code]
++    # If single line and no 'return', try adding the return
++    if "\n" not in code and not code.strip().startswith("return "):
++        body_variants.insert(0, f"return {code}")
++
++    code_o = None
++    for variant in body_variants:
++        new_code = [f"def fn({variable}):"]
++        for line in variant.split("\n"):
++            new_code.append(f"    {line}")
++        try:
++            code_o = compile("\n".join(new_code), "<string>", "exec")
++            break
++        except SyntaxError:
++            # Try another variant, e.g. for 'return row["column"] = 1'
++            continue
++
++    if code_o is None:
++        raise SyntaxError("Could not compile code")
++
++    exec(code_o, globals_dict)  # noqa: S102
++    return cast(Callable[..., object], globals_dict["fn"])
++
++
++# Mainly so we can restore it if needed in the tests:
++ORIGINAL_CSV_FIELD_SIZE_LIMIT = csv.field_size_limit()
+\ No newline at end of file

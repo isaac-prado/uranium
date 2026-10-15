@@ -1,0 +1,70 @@
+diff --git a/tomlkit/_types.py b/tomlkit/_types.py
+index 3585d56..fe33478 100644
+--- a/tomlkit/_types.py
++++ b/tomlkit/_types.py
+@@ -71,11 +71,11 @@ else:
+             self.update(other)
+             return self
+ 
+-    class _CustomInt(Integral, int):
+-        """Adds Integral mixin while pretending to be a builtin int"""
++    class _CustomInt(int):
++        """Pretends to be a builtin int"""
+ 
+-    class _CustomFloat(Real, float):
+-        """Adds Real mixin while pretending to be a builtin float"""
++    class _CustomFloat(float):
++        """Pretends to be a builtin float"""
+ 
+ 
+ def wrap_method(
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 4a24fc0..c3fba80 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -540,15 +540,6 @@ class Item:
+     def __reduce_ex__(self, protocol: int) -> tuple[type, tuple[object, ...]]:  # type: ignore[override]
+         return self.__class__, self._getstate(protocol)
+ 
+-    def __getitem__(self, key: Key | str | int) -> Any:
+-        raise TypeError(f"{type(self).__name__} does not support item access")
+-
+-    def __setitem__(self, key: Key | str | int, value: Any) -> None:
+-        raise TypeError(f"{type(self).__name__} does not support item assignment")
+-
+-    def __delitem__(self, key: Key | str | int) -> None:
+-        raise TypeError(f"{type(self).__name__} does not support item deletion")
+-
+ 
+ class Whitespace(Item):
+     """
+@@ -645,6 +636,9 @@ class Integer(Item, _CustomInt):
+     def as_string(self) -> str:
+         return self._raw
+ 
++    def __getitem__(self, key):
++        raise AttributeError(f"'{type(self).__name__}' object has no attribute '__getitem__'")
++
+     def _new(self, result: int) -> Integer:
+         raw = str(result)
+         if self._sign and result >= 0:
+@@ -868,6 +862,9 @@ class Float(Item, _CustomFloat):
+     def as_string(self) -> str:
+         return self._raw
+ 
++    def __getitem__(self, key):
++        raise AttributeError(f"'{type(self).__name__}' object has no attribute '__getitem__'")
++
+     def _new(self, result: float) -> Float:
+         raw = str(result)
+ 
+@@ -1223,6 +1220,9 @@ class Date(Item, date):
+         (year, month, day, _, _) = self._getstate()
+         return date(year, month, day)
+ 
++    def __getitem__(self, key):
++        raise AttributeError(f"'{type(self).__name__}' object has no attribute '__getitem__'")
++
+     @property
+     def discriminant(self) -> int:
+         return 6

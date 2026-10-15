@@ -1,0 +1,164 @@
+diff --git a/sqlite_utils/cli.py b/sqlite_utils/cli.py
+index a30f79a..2d70e18 100644
+--- a/sqlite_utils/cli.py
++++ b/sqlite_utils/cli.py
+@@ -2125,7 +2125,9 @@ def _execute_query(
+             headers = ["rows_affected"]
+             cursor = [[cursor.rowcount]]
+         else:
++            from .utils import dedupe_keys
+             headers = [c[0] for c in cursor.description]
++            headers = dedupe_keys(headers)
+         cursor_or_rows: Any = cursor
+         if raw:
+             row = cursor_or_rows.fetchone()
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 3f23c7d..f2709c1 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -763,6 +763,8 @@ class Database:
+           :meth:`execute` for those statements instead. The rejected statement
+           is rolled back, so it has no effect on the database
+         """
++        from .utils import dedupe_keys
++        
+         message = (
+             "query() can only be used with SQL that returns rows - "
+             "use execute() for other statements"
+@@ -787,7 +789,8 @@ class Database:
+             if cursor.description is None:
+                 raise ValueError(message)
+             keys = [d[0] for d in cursor.description]
+-            return (dict(zip(keys, row)) for row in cursor)
++            deduped_keys = dedupe_keys(keys)
++            return (dict(zip(deduped_keys, row)) for row in cursor)
+         # Execute inside a savepoint, so a statement that turns out not to
+         # return rows can be rolled back before the ValueError is raised
+         self.conn.execute('SAVEPOINT "sqlite_utils_query"')
+@@ -797,6 +800,7 @@ class Database:
+             if cursor.description is None:
+                 raise ValueError(message)
+             keys = [d[0] for d in cursor.description]
++            deduped_keys = dedupe_keys(keys)
+             try:
+                 self.conn.execute('RELEASE "sqlite_utils_query"')
+                 released = True
+@@ -809,8 +813,8 @@ class Database:
+                 fetched = cursor.fetchall()
+                 self.conn.execute('RELEASE "sqlite_utils_query"')
+                 released = True
+-                return (dict(zip(keys, row)) for row in fetched)
+-            return (dict(zip(keys, row)) for row in cursor)
++                return (dict(zip(deduped_keys, row)) for row in fetched)
++            return (dict(zip(deduped_keys, row)) for row in cursor)
+         finally:
+             if not released:
+                 # An error occurred - undo anything the statement changed
+@@ -1853,6 +1857,8 @@ class Queryable:
+         :param limit: Integer number of rows to limit to
+         :param offset: Integer for SQL offset
+         """
++        from .utils import dedupe_keys
++        
+         if not self.exists():
+             return
+         sql = "select {} from {}".format(select, quote_identifier(self.name))
+@@ -1866,8 +1872,9 @@ class Queryable:
+             sql += " offset {}".format(offset)
+         cursor = self.db.execute(sql, where_args or [])
+         columns = [c[0] for c in cursor.description]
++        deduped_columns = dedupe_keys(columns)
+         for row in cursor:
+-            yield dict(zip(columns, row))
++            yield dict(zip(deduped_columns, row))
+ 
+     def pks_and_rows_where(
+         self,
+@@ -3379,6 +3386,8 @@ class Table(Queryable):
+ 
+         See :ref:`python_api_fts_search`.
+         """
++        from .utils import dedupe_keys
++        
+         args = {"query": self.db.quote_fts(q) if quote else q}
+         if where_args and "query" in where_args:
+             raise ValueError(
+@@ -3399,8 +3408,9 @@ class Table(Queryable):
+             args,
+         )
+         columns = [c[0] for c in cursor.description]
++        deduped_columns = dedupe_keys(columns)
+         for row in cursor:
+-            yield dict(zip(columns, row))
++            yield dict(zip(deduped_columns, row))
+ 
+     def value_or_default(self, key: str, value: Any) -> Any:
+         return self._defaults[key] if value is DEFAULT else value
+diff --git a/sqlite_utils/utils.py b/sqlite_utils/utils.py
+index 865ee79..6c1a445 100644
+--- a/sqlite_utils/utils.py
++++ b/sqlite_utils/utils.py
+@@ -67,6 +67,56 @@ Row = Dict[str, RowValue]
+ T = TypeVar("T")
+ 
+ 
++def dedupe_keys(keys: List[str]) -> List[str]:
++    """
++    Remove duplicate keys by appending numeric suffixes starting from 2.
++    
++    Each subsequent occurrence gets a suffix _N where N starts at 2 and increases
++    until a unique name is found that doesn't conflict with any existing key
++    or any previously assigned renamed key.
++    
++    Examples:
++        [] -> []
++        ["id", "name"] -> ["id", "name"]
++        ["id", "id"] -> ["id", "id_2"]
++        ["id", "id", "id"] -> ["id", "id_2", "id_3"]
++        ["id", "id", "id_2"] -> ["id", "id_3", "id_2"]
++        ["id_2", "id", "id"] -> ["id_2", "id", "id_3"]
++        ["id", "id", "id_2", "id_2"] -> ["id", "id_3", "id_2", "id_2_2"]
++    """
++    if not keys:
++        return []
++    
++    # Convert to set for faster lookup of original keys
++    original_keys_set = set(keys)
++    
++    # Track what names we've already used in the result
++    used_names: Set[str] = set()
++    result: List[str] = []
++    
++    for key in keys:
++        if key not in used_names:
++            # First occurrence - keep as is
++            result.append(key)
++            used_names.add(key)
++        else:
++            # Duplicate - need to rename
++            counter = 2
++            new_key = f"{key}_{counter}"
++            # Keep incrementing until we find a name that doesn't conflict
++            # with either original keys or already renamed keys
++            while new_key in original_keys_set or new_key in used_names:
++                counter += 1
++                new_key = f"{key}_{counter}"
++            result.append(new_key)
++            used_names.add(new_key)
++            
++            # Also add to original_keys_set to prevent future conflicts
++            original_keys_set.add(new_key)
++    
++    return result
++
++
+ class _CloseableIterator(Iterator[Row]):
+     """Iterator wrapper that closes a file when iteration is complete."""
+ 
+@@ -628,4 +678,4 @@ def flatten(row: Dict[str, Any]) -> Dict[str, Any]:
+ 
+     :param row: A Python dictionary, optionally with nested dictionaries
+     """
+-    return dict(_flatten(row))
++    return dict(_flatten(row))
+\ No newline at end of file

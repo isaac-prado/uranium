@@ -1,0 +1,118 @@
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index 777d96a..cc6d8e8 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -77,6 +77,46 @@ class Container(dict):
+         if not isinstance(item, Item):
+             item = _item(item)
+ 
++        # Handle dotted keys by creating nested structure
++        # Only for bare keys (not quoted keys)
++        if key is not None and "." in key.key and not key.is_quoted():
++            parts = key.key.split(".")
++            if len(parts) > 1:
++                # This is a dotted key, create nested structure
++                root_key = parts[0]
++                remaining_parts = parts[1:]
++                
++                # Check if root table exists
++                if root_key not in self:
++                    # Create root table
++                    root_table = Table(Container(), Trivia("", "", "", ""), False)
++                    super(Container, self).__setitem__(root_key, root_table.value)
++                    self._map[Key(root_key)] = len(self._body)
++                    self._body.append((Key(root_key), root_table))
++                
++                # Navigate to the target container
++                current_container = self[root_key]
++                if not isinstance(current_container, Container):
++                    # Convert existing item to table if needed
++                    if hasattr(current_container, '_value'):
++                        existing_value = current_container._value
++                        new_table = Table(Container(), Trivia("", "", "", ""), False)
++                        new_table.value = existing_value
++                        self._replace(Key(root_key), Key(root_key), new_table)
++                        current_container = new_table
++                
++                # Traverse/create intermediate tables
++                for i, part in enumerate(remaining_parts[:-1]):
++                    if part not in current_container:
++                        new_table = Table(Container(), Trivia("", "", "", ""), False)
++                        current_container[part] = new_table
++                    current_container = current_container[part]
++                
++                # Set the final value
++                final_key = remaining_parts[-1]
++                current_container[final_key] = item
++                return
++
+         if isinstance(item, (AoT, Table)) and item.name is None:
+             item.name = key.key
+ 
+@@ -241,6 +281,18 @@ class Container(dict):
+         if not isinstance(key, Key):
+             key = Key(key)
+ 
++        # Handle dotted key access
++        # Only for bare keys (not quoted keys)
++        if "." in key.key and not key.is_quoted():
++            parts = key.key.split(".")
++            current = self
++            for part in parts:
++                if isinstance(current, dict) and part in current:
++                    current = current[part]
++                else:
++                    raise NonExistentKey(key)
++            return current
++
+         idx = self._map.get(key, None)
+         if idx is None:
+             raise NonExistentKey(key)
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index c88637a..511d4d4 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -103,6 +103,9 @@ class Key:
+     def __repr__(self):  # type: () -> str
+         return "<Key {}>".format(self.as_string())
+ 
++    def is_quoted(self):  # type: () -> bool
++        return self.t in (KeyType.Basic, KeyType.Literal)
++
+ 
+ class Item(object):
+     """
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..6f70d09 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -405,7 +405,7 @@ class Parser:
+         if self._current in "\"'":
+             return self._parse_quoted_key()
+         else:
+-            return self._parse_bare_key()
++            return self._parse_dotted_key()
+ 
+     def _parse_quoted_key(self):  # type: () -> Key
+         """
+@@ -444,6 +444,20 @@ class Parser:
+ 
+         return Key(key, sep="")
+ 
++    def _parse_dotted_key(self):  # type: () -> Key
++        """
++        Parses a dotted key.
++        """
++        self.mark()
++        
++        # Parse the entire key including dots
++        while (self._current.is_bare_key_char() or self._current == '.') and self.inc():
++            pass
++            
++        key = self.extract()
++            
++        return Key(key, sep="")
++
+     def _parse_value(self):  # type: () -> Item
+         """
+         Attempts to parse a value at the current position.

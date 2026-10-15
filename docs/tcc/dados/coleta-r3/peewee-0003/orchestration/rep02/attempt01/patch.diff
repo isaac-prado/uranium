@@ -1,0 +1,27 @@
+diff --git a/playhouse/fields.py b/playhouse/fields.py
+index 5eefd0a6..1063b943 100644
+--- a/playhouse/fields.py
++++ b/playhouse/fields.py
+@@ -86,6 +86,22 @@ class EnumFieldMixin(object):
+ 
+ class EnumField(EnumFieldMixin, CharField):
+     enum_value_type = str
++    
++    def __init__(self, enum_class, *args, **kwargs):
++        # Armazena o enum_class para uso posterior
++        self._enum_class = enum_class
++        # Se 'choices' não foi fornecido, gere-o automaticamente a partir do enum
++        if 'choices' not in kwargs:
++            kwargs['choices'] = [(member.value, member.name) for member in enum_class]
++        super(EnumField, self).__init__(enum_class, *args, **kwargs)
+ 
+ class IntEnumField(EnumFieldMixin, IntegerField):
+     enum_value_type = int
++    
++    def __init__(self, enum_class, *args, **kwargs):
++        # Armazena o enum_class para uso posterior
++        self._enum_class = enum_class
++        # Se 'choices' não foi fornecido, gere-o automaticamente a partir do enum
++        if 'choices' not in kwargs:
++            kwargs['choices'] = [(int(member.value), member.name) for member in enum_class]
++        super(IntEnumField, self).__init__(enum_class, *args, **kwargs)

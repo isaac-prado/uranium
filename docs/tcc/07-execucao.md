@@ -310,3 +310,13 @@ Relatório em [07-e4-fumaca.md](07-e4-fumaca.md): 4 células (`tomlkit-0002` gra
 **Execução.** `INTENT_REFINER=v2 REVIEW_EXECUTION=on CYCLE_NOTE=on REVIEW_STRICT=on MAX_SEMANTIC_REJECTIONS=0 scripts/run_collection.py --arms orchestration --repetitions 3 --out runs/coleta-r3 --workers 1 --retry-delay 300 --max-attempts 5`, sementes da coleta principal. Single-agent de comparação: o mesmo pareado da rodada 2 (`runs/coleta-r2-analise/*/single-agent`).
 
 **Impacto em docs.** Decisões 32 e 33 em [09-decisoes-do-autor.md](09-decisoes-do-autor.md); resultados em 18-rodada-3 (a escrever).
+
+---
+
+## Rodada 3: fechamento (15/10/2026, decisão 32)
+
+**Execução.** 14/10 23:3x a 15/10 05:0x, 39 células, 0 perdidas, 0 erros do harness. Custo US$ 5,58, 41,1 M tokens (`dados/coleta-r3`). Raiz pareada `runs/coleta-r3-analise/` (orquestrado r3 + mesmo single-agent da rodada 2).
+
+**Resultados.** [18-rodada-3.md](18-rodada-3.md): 19/39 (rodada 2: 23/39); 98 revisões, 76 reprovações, 58 de 221 blocos de reprodução quebrados por execução isolada; 7 aprovações com oráculo vermelho. Análises em `dados/coleta-r3/analise-sete-metricas.{md,json}` e `apendice-metricas.md`.
+
+**Impacto em docs.** Resultados (três rodadas lado a lado, rodada 2 como configuração final), Discussão (revisor como gargalo nos dois sentidos; teto de reprovações como proteção contra falso negativo), decisão 34 pendente em [09-decisoes-do-autor.md](09-decisoes-do-autor.md).

@@ -1,0 +1,26 @@
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index b952b36..96b80b6 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -665,12 +665,20 @@ class Parser:
+             # exception eagerly computes a line/column, which scans the whole
+             # source. On a large file with many arrays this is a big, pure waste.
+             if not prev_value and self._current != "]":
++                mark_idx = self._idx
+                 try:
+                     elems.append(self._parse_value())
+                     prev_value = True
+                     continue
+                 except UnexpectedCharError:
+-                    pass
++                    # Only ignore UnexpectedCharError if we're at a position where
++                    # we might be looking at an empty array or trailing comma.
++                    # Check if we haven't advanced from our initial position,
++                    # which would indicate we're trying to parse nothing.
++                    if self._idx == mark_idx and (self._current == "," or self._current == "]"):
++                        pass
++                    else:
++                        raise
+ 
+             # consume comma
+             if prev_value and self._current == ",":

@@ -1,0 +1,141 @@
+diff --git a/tomlkit/api.py b/tomlkit/api.py
+index fd4b2f3..756c6f8 100644
+--- a/tomlkit/api.py
++++ b/tomlkit/api.py
+@@ -1,4 +1,5 @@
+ import datetime as _datetime
++from typing import Union
+ 
+ from collections.abc import Mapping
+ from typing import IO
+@@ -18,6 +19,7 @@ from .items import Integer
+ from .items import Item as _Item
+ from .items import Key
+ from .items import SingleKey
++from .items import DottedKey
+ from .items import String
+ from .items import Table
+ from .items import Time
+@@ -141,7 +143,9 @@ def aot() -> AoT:
+     return AoT([])
+ 
+ 
+-def key(k: str) -> Key:
++def key(k: Union[str, list]) -> Key:
++    if isinstance(k, list):
++        return DottedKey([SingleKey(part) for part in k])
+     return SingleKey(k)
+ 
+ 
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index dc6da89..14781b2 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -19,10 +19,12 @@ from .items import Item
+ from .items import Key
+ from .items import Null
+ from .items import SingleKey
++from .items import DottedKey
+ from .items import Table
+ from .items import Whitespace
+ from .items import _CustomDict
+ from .items import item as _item
++from .items import Trivia
+ 
+ 
+ _NOT_SET = object()
+@@ -93,6 +95,81 @@ class Container(_CustomDict):
+         if not isinstance(key, Key) and key is not None:
+             key = SingleKey(key)
+ 
++        # Handle dotted keys by creating the appropriate table structure
++        if isinstance(key, DottedKey):
++            # Reuse the same logic as the parser
++            names = tuple(iter(key))
++            name = names[0]
++            name._dotted = True
++            
++            if name in self:
++                if not isinstance(self[name], Table):
++                    # Convert existing non-table item to a super table to hold nested structure
++                    table = Table(Container(True), Trivia(), False, is_super_table=True)
++                    _table = table
++                    for i, _name in enumerate(names[1:]):
++                        if i == len(names) - 2:
++                            _name.sep = key.sep
++                            _table.append(_name, item)
++                        else:
++                            _name._dotted = True
++                            _table.append(
++                                _name,
++                                Table(
++                                    Container(True),
++                                    Trivia(),
++                                    False,
++                                    is_super_table=i < len(names) - 2,
++                                ),
++                            )
++                            _table = _table[_name]
++                    
++                    # Replace the existing item with our new table structure
++                    if isinstance(self, Table):
++                        self.raw_append(name, table)
++                    else:
++                        self.append(name, table)
++                    return self
++                else:
++                    # Existing item is already a table, navigate through it
++                    table = self[name]
++                    for i, _name in enumerate(names[1:]):
++                        if i == len(names) - 2:
++                            # Last part - set the actual value
++                            _name.sep = key.sep
++                            table.append(_name, item)
++                            return self
++                        else:
++                            # Intermediate parts
++                            _name._dotted = True
++                            if _name not in table:
++                                new_table = Table(Container(True), Trivia(), False, is_super_table=True)
++                                table.append(_name, new_table)
++                            table = table[_name]
++                    return self
++                    
++            # First part doesn't exist, create the full structure from scratch
++            table = Table(Container(True), Trivia(), False, is_super_table=True)
++            if isinstance(self, Table):
++                self.raw_append(name, table)
++            else:
++                self.append(name, table)
++            
++            # Navigate/create the nested structure
++            for i, _name in enumerate(names[1:]):
++                if i == len(names) - 2:
++                    # Last part - set the actual value
++                    _name.sep = key.sep
++                    table.append(_name, item)
++                    return self
++                else:
++                    # Intermediate parts
++                    _name._dotted = True
++                    new_table = Table(Container(True), Trivia(), False, is_super_table=True)
++                    table.append(_name, new_table)
++                    table = table[_name]
++            return self
++
+         if not isinstance(item, Item):
+             item = _item(item)
+ 
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index f325029..929d559 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -329,7 +329,7 @@ class DottedKey(Key):
+         if original is None:
+             original = ".".join(k.as_string() for k in self._keys)
+ 
+-        self.sep = "=" if sep is None else sep
++        self.sep = " = " if sep is None else sep
+         self._original = original
+         self._dotted = True
+         self.key = ".".join(k.key for k in self._keys)

@@ -1,0 +1,128 @@
+{
+  "result_schema_version": 2,
+  "harness_version": "1.0.0",
+  "evaluated_at": "2026-10-15T04:35:46+00:00",
+  "run_id": "tomlkit-0004-orchestration-r01-a01",
+  "arm": "orchestration",
+  "task_id": "tomlkit-0004",
+  "faixa": "grande",
+  "repetition": 1,
+  "base_commit": "9cd5414b169812bb04106f4dbb305cdf9ad239a0",
+  "resolved": false,
+  "resolved_blocked_by_cheat": false,
+  "oracle": {
+    "f2p_total": 7,
+    "f2p_passed": 0,
+    "f2p": {
+      "exit_code": 1,
+      "passed": 0,
+      "failed": 7,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.19,
+      "failing_node_ids": [
+        "tests/test_api.py::test_original_string_and_dumped_string_are_equal[0.5.0]",
+        "tests/test_api.py::test_parse_can_parse_valid_toml_files[0.5.0]",
+        "tests/test_api.py::test_parsed_document_are_properly_json_representable[0.5.0]",
+        "tests/test_items.py::test_hex_octal_and_bin_integers_are_supported",
+        "tests/test_items.py::test_inf_and_nan_are_supported",
+        "tests/test_items.py::test_items_can_be_appended_to_and_removed_from_a_table",
+        "tests/test_toml_document.py::test_toml_document_with_dotted_keys"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "p2p": {
+      "exit_code": 1,
+      "passed": 158,
+      "failed": 7,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.29,
+      "failing_node_ids": [
+        "tests/test_api.py::test_original_string_and_dumped_string_are_equal[0.5.0]",
+        "tests/test_api.py::test_parse_can_parse_valid_toml_files[0.5.0]",
+        "tests/test_api.py::test_parsed_document_are_properly_json_representable[0.5.0]",
+        "tests/test_items.py::test_hex_octal_and_bin_integers_are_supported",
+        "tests/test_items.py::test_inf_and_nan_are_supported",
+        "tests/test_items.py::test_items_can_be_appended_to_and_removed_from_a_table",
+        "tests/test_toml_document.py::test_toml_document_with_dotted_keys"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "regression": {
+      "exit_code": 1,
+      "passed": 158,
+      "failed": 7,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.29,
+      "failing_node_ids": [
+        "tests/test_api.py::test_original_string_and_dumped_string_are_equal[0.5.0]",
+        "tests/test_api.py::test_parse_can_parse_valid_toml_files[0.5.0]",
+        "tests/test_api.py::test_parsed_document_are_properly_json_representable[0.5.0]",
+        "tests/test_items.py::test_hex_octal_and_bin_integers_are_supported",
+        "tests/test_items.py::test_inf_and_nan_are_supported",
+        "tests/test_items.py::test_items_can_be_appended_to_and_removed_from_a_table",
+        "tests/test_toml_document.py::test_toml_document_with_dotted_keys"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    }
+  },
+  "cheat": {
+    "clean": true,
+    "critical_count": 0,
+    "warning_count": 0,
+    "signals": []
+  },
+  "quality": {
+    "mi_before": 39.337,
+    "mi_after": 37.532,
+    "mi_delta": -1.805,
+    "cc_mean_before": 4.576,
+    "cc_mean_after": 4.67,
+    "cc_mean_delta": 0.094,
+    "files_analyzed": 2,
+    "error": null
+  },
+  "cost": {
+    "tokens_prompt": 1700178,
+    "tokens_completion": 15064,
+    "tokens_reasoning": 0,
+    "tokens_total": 1715242,
+    "cost_usd": 0.224551,
+    "llm_calls": 123,
+    "byok_calls": 123,
+    "tool_calls": 118,
+    "wall_seconds": 379.353
+  },
+  "process": {
+    "turns": 120,
+    "test_runs": 3,
+    "tool_denials": 0,
+    "errors": 0,
+    "circuit_breaks": 2,
+    "self_recoveries": 1,
+    "stop_reason": "budget: max_turns (120 >= 120)"
+  },
+  "provenance": {
+    "model": "qwen/qwen3-coder",
+    "provider_requested": "DeepInfra",
+    "providers_served": [
+      "DeepInfra"
+    ],
+    "llm_seed": 20260821,
+    "topology": "multi_agent_roles"
+  },
+  "diff": {
+    "files_changed": 2,
+    "insertions": 96,
+    "deletions": 4,
+    "changed_files": [
+      "tomlkit/parser.py",
+      "tomlkit/toml_char.py"
+    ]
+  }
+}

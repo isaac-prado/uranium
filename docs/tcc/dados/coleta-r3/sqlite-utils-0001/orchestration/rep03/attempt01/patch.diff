@@ -1,0 +1,102 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index d709fb9..60cbfbe 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -2500,6 +2500,76 @@ class Table(Queryable):
+             self.db.execute(sql)
+         return self.db.table(new_name)
+ 
++    def _check_destructive_foreign_keys(self):
++        """
++        Check if there are any destructive foreign keys (CASCADE, SET NULL, SET DEFAULT)
++        pointing to this table. Raise TransactionError if found during active transaction.
++        """
++        # First check if foreign keys are enabled
++        pragma_foreign_keys_enabled = bool(
++            self.db.execute("PRAGMA foreign_keys").fetchone()[0]
++        )
++        if not pragma_foreign_keys_enabled:
++            # If foreign keys are disabled, no need to check
++            return
++            
++        # Get all tables that reference this table with foreign keys
++        referencing_tables = []
++        
++        # Query all tables to find ones that have foreign keys pointing to this table
++        all_tables = self.db.execute(
++            "SELECT name FROM sqlite_master WHERE type='table'"
++        ).fetchall()
++        
++        destructive_actions = {"CASCADE", "SET NULL", "SET DEFAULT"}
++        
++        for (table_name,) in all_tables:
++            if table_name == self.name:
++                continue
++                
++            # Get foreign key info for this table
++            fk_info = self.db.execute(
++                "PRAGMA foreign_key_list({})".format(quote_identifier(table_name))
++            ).fetchall()
++            
++            # Group by foreign key ID to handle compound keys
++            fk_groups = {}
++            for row in fk_info:
++                id, seq, ref_table, from_col, to_col, on_update, on_delete, match = row
++                if ref_table == self.name:
++                    if id not in fk_groups:
++                        fk_groups[id] = []
++                    fk_groups[id].append({
++                        'from_col': from_col,
++                        'to_col': to_col,
++                        'on_update': on_update,
++                        'on_delete': on_delete
++                    })
++            
++            # Check if any of these foreign keys have destructive actions
++            for fk_id, fk_columns in fk_groups.items():
++                on_delete = fk_columns[0]['on_delete']
++                on_update = fk_columns[0]['on_update']
++                
++                if on_delete in destructive_actions or on_update in destructive_actions:
++                    # Found a destructive foreign key
++                    action = on_delete if on_delete in destructive_actions else on_update
++                    referencing_tables.append((table_name, action))
++        
++        if referencing_tables:
++            details = []
++            for table_name, action in referencing_tables:
++                details.append("{} ON DELETE {}".format(table_name.upper(), action.upper()))
++            
++            details_str = ", ".join(details)
++            raise TransactionError(
++                "Cannot transform table '{}' because it is referenced by tables "
++                "with destructive foreign key actions: {}. "
++                "Use PRAGMA foreign_keys=OFF or perform this transformation outside of a transaction.".format(
++                    self.name.upper(), details_str
++                )
++            )
++
+     def transform(
+         self,
+         *,
+@@ -2542,6 +2612,12 @@ class Table(Queryable):
+         """
+         if not self.exists():
+             raise ValueError("Cannot transform a table that doesn't exist yet")
++            
++        # Check for destructive foreign keys if we're in an active transaction
++        already_in_transaction = self.db.conn.in_transaction
++        if already_in_transaction:
++            self._check_destructive_foreign_keys()
++            
+         sqls = self.transform_sql(
+             types=types,
+             rename=rename,
+@@ -2559,7 +2635,6 @@ class Table(Queryable):
+         pragma_foreign_keys_was_on = bool(
+             self.db.execute("PRAGMA foreign_keys").fetchone()[0]
+         )
+-        already_in_transaction = self.db.conn.in_transaction
+         should_disable_foreign_keys = (
+             pragma_foreign_keys_was_on and not already_in_transaction
+         )

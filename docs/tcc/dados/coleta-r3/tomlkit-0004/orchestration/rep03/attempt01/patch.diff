@@ -1,0 +1,166 @@
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..2dc843a 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -132,7 +132,11 @@ class Parser:
+ 
+             key, value = item
+             if not self._merge_ws(value, body):
+-                body.append(key, value)
++                # Handle dotted keys
++                if key is not None and "." in key.key and key.t == KeyType.Bare:
++                    self._handle_dotted_key(body, key, value)
++                else:
++                    body.append(key, value)
+ 
+             self.mark()
+ 
+@@ -147,6 +151,37 @@ class Parser:
+ 
+         return body
+ 
++    def _handle_dotted_key(self, container, key, value):  # type: (Container, Key, Item) -> None:
++        """
++        Handles dotted keys by creating nested table structures.
++        """
++        # Split the dotted key into parts using the existing method
++        parts = list(self._split_table_name(key.key))
++        
++        # Navigate/create the nested structure
++        current_container = container
++        for i, part in enumerate(parts[:-1]):
++            # Check if this part already exists
++            if part.key in current_container:
++                item = current_container[part.key]
++                # If it's not a table, we can't nest further
++                if not isinstance(item, Table):
++                    raise self.parse_error(UnexpectedCharError, part.key)
++                current_container = item.value
++            else:
++                # Create a new super table
++                from .container import Container as InnerContainer
++                from .items import Trivia
++                new_container = InnerContainer()
++                new_table = Table(new_container, Trivia(indent="", comment_ws="", comment="", trail=""), 
++                                 is_aot_element=False, is_super_table=True, name=part.key)
++                current_container.append(part.key, new_table)
++                current_container = new_container
++                
++        # Add the final value to the deepest container
++        final_part = parts[-1]
++        current_container.append(final_part.key, value)
++
+     def _merge_ws(self, item, container):  # type: (Item, Container) -> bool:
+         """
+         Merges the given Item with the last one currently in the given Container if
+@@ -208,12 +243,14 @@ class Parser:
+         delim = None
+         current = ""
+         t = KeyType.Bare
+-        for c in name:
+-            c = TOMLChar(c)
++        i = 0
++        while i < len(name):
++            c = TOMLChar(name[i])
+ 
+             if c == ".":
+                 if in_name:
+                     current += c
++                    i += 1
+                     continue
+ 
+                 if not current:
+@@ -223,26 +260,42 @@ class Parser:
+ 
+                 current = ""
+                 t = KeyType.Bare
++                i += 1
+                 continue
+             elif c in {"'", '"'}:
+                 if in_name:
+                     if t == KeyType.Literal and c == '"':
+                         current += c
++                        i += 1
+                         continue
+ 
+                     if c != t.value:
+-                        raise self.parse_error()
++                        current += c
++                        i += 1
++                        continue
+ 
+                     in_name = False
++                    i += 1
+                 else:
+                     in_name = True
+                     t = KeyType.Literal if c == "'" else KeyType.Basic
++                    i += 1
+ 
+                 continue
+             elif in_name or c.is_bare_key_char():
+                 current += c
++                i += 1
++            elif c == "." and not in_name:
++                if not current:
++                    raise self.parse_error()
++
++                yield Key(current, t=t, sep="")
++                current = ""
++                t = KeyType.Bare
++                i += 1
+             else:
+-                raise self.parse_error()
++                current += c
++                i += 1
+ 
+         if current:
+             yield Key(current, t=t, sep="")
+@@ -402,7 +455,38 @@ class Parser:
+         Parses a Key at the current position;
+         WS before the key must be exhausted first at the callsite.
+         """
+-        if self._current in "\"'":
++        # Check if we have a dotted key (contains dots outside of quoted strings)
++        start_pos = self._idx
++        temp_parser = self.__class__(self._src[start_pos:])
++        has_dotted_key = False
++        in_quotes = False
++        quote_char = None
++        
++        i = 0
++        while i < len(temp_parser._src):
++            char = temp_parser._src[i]
++            
++            if char in "\"'" and (i == 0 or temp_parser._src[i-1] != '\\'):
++                if not in_quotes:
++                    in_quotes = True
++                    quote_char = char
++                elif char == quote_char:
++                    in_quotes = False
++                    quote_char = None
++            elif char == '.' and not in_quotes:
++                has_dotted_key = True
++                break
++            elif char == '=' and not in_quotes:
++                break
++            elif char in ' \t\n\r' and not in_quotes:
++                break
++                
++            i += 1
++        
++        if has_dotted_key:
++            # Parse as dotted key
++            return self._parse_dotted_key()
++        elif self._current in "\"'":
+             return self._parse_quoted_key()
+         else:
+             return self._parse_bare_key()
+@@ -437,7 +521,7 @@ class Parser:
+         Parses a bare key.
+         """
+         self.mark()
+-        while self._current.is_bare_key_char() and self.inc():
++        while (self._current.is_bare_key_char() or self._current == ".") and self.inc():
+             pass
+ 
+         key = self.extract()
