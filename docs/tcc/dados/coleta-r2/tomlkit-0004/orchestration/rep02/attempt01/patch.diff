@@ -1,0 +1,177 @@
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index 777d96a..03530f2 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -17,6 +17,7 @@ from .items import Null
+ from .items import Table
+ from .items import Trivia
+ from .items import Whitespace
++from .items import KeyType
+ 
+ 
+ class Container(dict):
+@@ -77,6 +78,12 @@ class Container(dict):
+         if not isinstance(item, Item):
+             item = _item(item)
+ 
++        # Handle dotted keys by creating nested tables
++        # Only treat as dotted key if it's a bare key with dots (not quoted)
++        if (key is not None and "." in key.key and not isinstance(item, (Table, AoT)) 
++            and key.t == KeyType.Bare):
++            return self._insert_dotted_key(key, item)
++
+         if isinstance(item, (AoT, Table)) and item.name is None:
+             item.name = key.key
+ 
+@@ -125,6 +132,44 @@ class Container(dict):
+ 
+         return item
+ 
++    def _insert_dotted_key(self, key, item):  # type: (Key, Item) -> None
++        """
++        Insert an item with a dotted key by creating nested tables.
++        """
++        from .api import item as _item
++        from .items import Table
++        from .items import Trivia
++        from .parser import Parser
++        
++        # Use the same splitting logic as table names
++        parser = Parser("")
++        parts = list(parser._split_table_name(key.key))
++        current_container = self
++        
++        # Navigate/create nested tables
++        for i, part_key in enumerate(parts[:-1]):
++            part = part_key.key
++            if part not in current_container:
++                # Create new table
++                new_table = Table(Container(), Trivia(), False)
++                new_table.name = part
++                current_container.append(part, new_table)
++            
++            current_container = current_container[part]
++            if not isinstance(current_container, Container):
++                # Convert existing item to table
++                existing_item = current_container
++                new_table = Table(Container(), Trivia(), False)
++                new_table.name = part
++                # We need to replace the existing item with a table
++                # This is complex, so for now we'll raise an error
++                raise ValueError("Cannot convert existing non-table item to table for dotted key")
++        
++        # Insert the final item
++        final_part_key = parts[-1]
++        final_part = final_part_key.key
++        current_container[final_part] = item
++
+     def remove(self, key):  # type: (Key) -> None
+         if not isinstance(key, Key):
+             key = Key(key)
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..5af275d 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -402,6 +402,40 @@ class Parser:
+         Parses a Key at the current position;
+         WS before the key must be exhausted first at the callsite.
+         """
++        # Check if this might be a dotted key by looking ahead
++        if self._current.is_bare_key_char() or self._current in "\"'":
++            # Look ahead to see if there's a dot that indicates a dotted key
++            saved_idx = self._save_idx()
++            has_dot = False
++            
++            pos = self._idx
++            while pos < len(self._src):
++                char = TOMLChar(self._src[pos])
++                if char == '.':
++                    # Check if there's a valid key part after the dot
++                    pos += 1
++                    if pos < len(self._src):
++                        next_char = TOMLChar(self._src[pos])
++                        if next_char.is_bare_key_char() or next_char in "\"'":
++                            has_dot = True
++                            break
++                elif not (char.is_bare_key_char() or char in "\"'"):
++                    break
++                pos += 1
++            
++            # Restore position
++            self._restore_idx(*saved_idx)
++            
++            if has_dot:
++                # This is a dotted key, parse it specially
++                self.mark()
++                # Parse until we hit something that's not part of a key
++                while not self._current.is_kv_sep() and self._current != '[' and self._current != '\n' and not self.end():
++                    self.inc()
++                
++                key_str = self.extract()
++                return Key(key_str, t=KeyType.Bare, sep="")
++        
+         if self._current in "\"'":
+             return self._parse_quoted_key()
+         else:
+@@ -443,6 +477,28 @@ class Parser:
+         key = self.extract()
+ 
+         return Key(key, sep="")
++    
++    def _parse_dotted_key(self):  # type: () -> Key
++        """
++        Parses a dotted key.
++        """
++        # For dotted keys, we need to handle them specially in the container
++        # For now, let's just parse them as regular keys but mark them for special handling
++        self.mark()
++        
++        # Parse until we hit something that's not part of a key (like = or [ or newline)
++        while not self._current.is_kv_sep() and self._current != '[' and self._current != '\n' and not self.end():
++            if self._current == '.':
++                # Check what comes after the dot
++                saved_idx = self._save_idx()
++                self.inc()  # Skip the dot
++                if self._current.is_ws() or self._current == '=' or self._current == '\0' or self._current == '[':
++                    self._restore_idx(*saved_idx)
++                    break
++            self.inc()
++        
++        key_str = self.extract()
++        return Key(key_str, t=KeyType.Bare, sep="")
+ 
+     def _parse_value(self):  # type: () -> Item
+         """
+@@ -809,6 +865,14 @@ class Parser:
+ 
+         result = Null()
+ 
++        # For table headers, the trailing newline should belong to the header, not the table content
++        if trail.endswith('\n'):
++            # Move the trailing newline from trail to be consumed as part of header processing
++            header_trail = trail
++            trail = ''
++        else:
++            header_trail = ''
++
+         if len(name_parts) > 1:
+             if missing_table:
+                 # Missing super table
+@@ -835,7 +899,7 @@ class Parser:
+                     else:
+                         child = Table(
+                             Container(),
+-                            Trivia(indent, cws, comment, trail),
++                            Trivia(indent, cws, comment, '' if i < len(name_parts[1:]) - 1 else header_trail),
+                             is_aot and i == len(name_parts[1:]) - 1,
+                             is_super_table=i < len(name_parts[1:]) - 1,
+                             name=_name.key,
+@@ -908,7 +972,7 @@ class Parser:
+         if isinstance(result, Null):
+             result = Table(
+                 values,
+-                Trivia(indent, cws, comment, trail),
++                Trivia(indent, cws, comment, header_trail),
+                 is_aot,
+                 name=name,
+                 display_name=name,

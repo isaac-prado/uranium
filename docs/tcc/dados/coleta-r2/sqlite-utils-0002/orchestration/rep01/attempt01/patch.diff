@@ -1,0 +1,45 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 48987a6..34488ea 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -3096,9 +3096,30 @@ class Table(Queryable):
+         # Copy across data, respecting any renamed columns
+         new_cols = []
+         old_cols = []
++        # Get current column types for checking transformations
++        current_column_types = self.columns_dict
+         for from_, to_ in copy_from_to.items():
+-            old_cols.append(from_)
+             new_cols.append(to_)
++            # Check if this column is being transformed from TEXT to a numeric type
++            if from_ in types and from_ in current_column_types:
++                current_type = current_column_types[from_]
++                target_type = types[from_]
++                # Normalize types to strings for comparison using COLUMN_TYPE_MAPPING
++                normalized_current = COLUMN_TYPE_MAPPING.get(current_type, str(current_type)).upper()
++                normalized_target = COLUMN_TYPE_MAPPING.get(target_type, str(target_type)).upper()
++                
++                # Check if converting from TEXT to a numeric type
++                is_converting_from_text = normalized_current == "TEXT"
++                is_converting_to_numeric = normalized_target in ("INTEGER", "REAL", "FLOAT")
++                
++                if is_converting_from_text and is_converting_to_numeric:
++                    # Apply NULLIF to convert empty strings to NULL
++                    old_cols.append(f"NULLIF({quote_identifier(from_)}, '')")
++                    continue
++            
++            # Default behavior: copy column as-is
++            old_cols.append(from_)
++            
+         # Ensure rowid is copied too
+         if "rowid" not in new_cols:
+             new_cols.insert(0, "rowid")
+@@ -3106,7 +3127,7 @@ class Table(Queryable):
+         copy_sql = "INSERT INTO {} ({new_cols})\n   SELECT {old_cols} FROM {};".format(
+             quote_identifier(new_table_name),
+             quote_identifier(self.name),
+-            old_cols=", ".join(quote_identifier(col) for col in old_cols),
++            old_cols=", ".join(col if "(" in col else quote_identifier(col) for col in old_cols),
+             new_cols=", ".join(quote_identifier(col) for col in new_cols),
+         )
+         sqls.append(copy_sql)

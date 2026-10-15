@@ -1,0 +1,150 @@
+{
+  "tasks": 3,
+  "observations": 48,
+  "lost_cells": [],
+  "lost_attempts": 0,
+  "by_arm": {
+    "single-agent": {
+      "lost_attempts": 0,
+      "lost_cells": 0,
+      "censored": 5,
+      "paired_observations": 9
+    },
+    "orchestration": {
+      "lost_attempts": 0,
+      "lost_cells": 0,
+      "censored": 4,
+      "paired_observations": 9
+    }
+  },
+  "per_task": [
+    {
+      "task_id": "pygments-0001",
+      "pairs": 3,
+      "single-agent": {
+        "resolve_rate": 0.6666666666666666,
+        "blocked_by_cheat": 0,
+        "censored": 1,
+        "cost_usd": 0.34510436666666666,
+        "tokens_total": 2875780.6666666665,
+        "turns": 62.333333333333336,
+        "wall_seconds": 530.5226666666666
+      },
+      "orchestration": {
+        "resolve_rate": 0.3333333333333333,
+        "blocked_by_cheat": 0,
+        "censored": 1,
+        "cost_usd": 0.18790026666666668,
+        "tokens_total": 1299013.3333333333,
+        "turns": 61.333333333333336,
+        "wall_seconds": 534.0293333333333
+      },
+      "diff_resolve_rate": -0.3333333333333333
+    },
+    {
+      "task_id": "sqlite-utils-0002",
+      "pairs": 3,
+      "single-agent": {
+        "resolve_rate": 0.0,
+        "blocked_by_cheat": 0,
+        "censored": 1,
+        "cost_usd": 0.4221502,
+        "tokens_total": 3117184.3333333335,
+        "turns": 63.333333333333336,
+        "wall_seconds": 535.8126666666667
+      },
+      "orchestration": {
+        "resolve_rate": 1.0,
+        "blocked_by_cheat": 0,
+        "censored": 0,
+        "cost_usd": 0.04055756666666667,
+        "tokens_total": 299082.3333333333,
+        "turns": 23.0,
+        "wall_seconds": 139.03966666666668
+      },
+      "diff_resolve_rate": 1.0
+    },
+    {
+      "task_id": "tomlkit-0004",
+      "pairs": 3,
+      "single-agent": {
+        "resolve_rate": 0.0,
+        "blocked_by_cheat": 0,
+        "censored": 3,
+        "cost_usd": 0.5016561,
+        "tokens_total": 4597968.0,
+        "turns": 120.0,
+        "wall_seconds": 423.29333333333335
+      },
+      "orchestration": {
+        "resolve_rate": 0.0,
+        "blocked_by_cheat": 0,
+        "censored": 3,
+        "cost_usd": 0.281943,
+        "tokens_total": 2160759.6666666665,
+        "turns": 120.0,
+        "wall_seconds": 710.1836666666667
+      },
+      "diff_resolve_rate": 0.0
+    }
+  ],
+  "primary": {
+    "outcome": "resolve_rate (orchestration − single-agent), por tarefa",
+    "hypothesis": "H1: orchestration > single-agent (unicaudal)",
+    "sign_test": {
+      "n": 2,
+      "positive": 1,
+      "negative": 1,
+      "p_one_sided": 0.75,
+      "p_two_sided": 1.0
+    },
+    "wilcoxon": {
+      "n": 2,
+      "w_plus": 2.0,
+      "p_one_sided": 0.5,
+      "p_two_sided": 1.0
+    }
+  },
+  "secondary": {
+    "cost_usd": {
+      "median_single_agent": 0.4221502,
+      "median_orchestration": 0.18790026666666668,
+      "wilcoxon": {
+        "n": 3,
+        "w_plus": 0,
+        "p_one_sided": 1.0,
+        "p_two_sided": 0.25
+      }
+    },
+    "tokens_total": {
+      "median_single_agent": 3117184.3333333335,
+      "median_orchestration": 1299013.3333333333,
+      "wilcoxon": {
+        "n": 3,
+        "w_plus": 0,
+        "p_one_sided": 1.0,
+        "p_two_sided": 0.25
+      }
+    },
+    "turns": {
+      "median_single_agent": 63.333333333333336,
+      "median_orchestration": 61.333333333333336,
+      "wilcoxon": {
+        "n": 2,
+        "w_plus": 0,
+        "p_one_sided": 1.0,
+        "p_two_sided": 0.5
+      }
+    },
+    "wall_seconds": {
+      "median_single_agent": 530.5226666666666,
+      "median_orchestration": 534.0293333333333,
+      "wilcoxon": {
+        "n": 3,
+        "w_plus": 3.0,
+        "p_one_sided": 0.625,
+        "p_two_sided": 1.0
+      }
+    }
+  }
+}

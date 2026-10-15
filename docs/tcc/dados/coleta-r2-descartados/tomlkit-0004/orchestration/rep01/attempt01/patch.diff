@@ -1,0 +1,64 @@
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index c88637a..ba521ba 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -70,8 +70,9 @@ class Key:
+ 
+     def __init__(self, k, t=None, sep=None):  # type: (str) -> None
+         if t is None:
++            # Allow dots in bare keys for dotted key support
+             if any(
+-                [c not in string.ascii_letters + string.digits + "-" + "_" for c in k]
++                [c not in string.ascii_letters + string.digits + "-" + "_" + "." for c in k]
+             ):
+                 t = KeyType.Basic
+             else:
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..c171281 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -395,6 +395,27 @@ class Parser:
+ 
+         val.trivia.indent = indent
+ 
++        # Handle dotted keys by creating nested structure
++        # Only bare keys with dots are dotted keys, quoted keys are regular keys even with dots
++        if key.t == KeyType.Bare and "." in key.key:
++            # This is a dotted key, split it into parts
++            parts = key.key.split(".")
++            if len(parts) > 1:
++                # Create nested structure from right to left
++                original_val = val
++                for part in reversed(parts[1:]):
++                    # Create a new table for each level
++                    from .container import Container
++                    from .items import Table, Trivia
++                    container = Container()
++                    container.append(Key(part), original_val)
++                    table = Table(container, Trivia(trail=original_val.trivia.trail), False)
++                    original_val = table
++                
++                # Return the top-level key and the nested structure
++                top_key = Key(parts[0])
++                return top_key, original_val
++
+         return key, val
+ 
+     def _parse_key(self):  # type: () -> Key
+@@ -437,13 +458,15 @@ class Parser:
+         Parses a bare key.
+         """
+         self.mark()
+-        while self._current.is_bare_key_char() and self.inc():
++        while (self._current.is_bare_key_char() or self._current == ".") and self.inc():
+             pass
+ 
+         key = self.extract()
+ 
+         return Key(key, sep="")
+ 
++
++
+     def _parse_value(self):  # type: () -> Item
+         """
+         Attempts to parse a value at the current position.

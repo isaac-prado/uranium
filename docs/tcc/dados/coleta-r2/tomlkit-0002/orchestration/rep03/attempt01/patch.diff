@@ -1,0 +1,244 @@
+diff --git a/tomlkit/api.py b/tomlkit/api.py
+index fd4b2f3..0253bb3 100644
+--- a/tomlkit/api.py
++++ b/tomlkit/api.py
+@@ -1,165 +1,126 @@
+-import datetime as _datetime
+-
+-from collections.abc import Mapping
+-from typing import IO
+-from typing import Tuple
+-
+-from ._utils import parse_rfc3339
+-from .container import Container
+-from .items import AoT
+-from .items import Array
+-from .items import Bool
+-from .items import Comment
+-from .items import Date
+-from .items import DateTime
+-from .items import Float
+-from .items import InlineTable
+-from .items import Integer
+-from .items import Item as _Item
+-from .items import Key
+-from .items import SingleKey
+-from .items import String
+-from .items import Table
+-from .items import Time
+-from .items import Trivia
+-from .items import Whitespace
+-from .items import item
+-from .parser import Parser
++from typing import Union, List, Any
++from .items import AoT, SingleKey, DottedKey, Key, Array, String, Integer, Float, Bool, DateTime, Date, Time, Item
+ from .toml_document import TOMLDocument
++from .container import Container
+ 
+ 
+-def loads(string: str) -> TOMLDocument:
+-    """
+-    Parses a string into a TOMLDocument.
++def aot() -> AoT:
++    return AoT([])
+ 
+-    Alias for parse().
+-    """
+-    return parse(string)
+ 
++def array(raw: str) -> Array:
++    from .parser import Parser
++    return Parser(raw)._parse_array()
+ 
+-def dumps(data: Mapping, sort_keys: bool = False) -> str:
+-    """
+-    Dumps a TOMLDocument into a string.
+-    """
+-    if not isinstance(data, Container) and isinstance(data, Mapping):
+-        data = item(dict(data), _sort_keys=sort_keys)
+ 
+-    try:
+-        # data should be a `Container` (and therefore implement `as_string`)
+-        # for all type safe invocations of this function
+-        return data.as_string()  # type: ignore[attr-defined]
+-    except AttributeError as ex:
+-        msg = f"Expecting Mapping or TOML Container, {type(data)} given"
+-        raise TypeError(msg) from ex
++def boolean(raw: str) -> Bool:
++    from .parser import Parser
++    from .items import BoolType
++    style = BoolType.TRUE if raw == "true" else BoolType.FALSE
++    return Parser(raw)._parse_bool(style)
+ 
+ 
+-def load(fp: IO) -> TOMLDocument:
+-    """
+-    Load toml document from a file-like object.
+-    """
+-    return parse(fp.read())
++def comment(raw: str) -> str:
++    from .parser import Parser
++    return Parser(raw)._parse_comment_trail()[0]
+ 
+ 
+-def dump(data: Mapping, fp: IO[str], *, sort_keys: bool = False) -> None:
+-    """
+-    Dump a TOMLDocument into a writable file stream.
+-    """
+-    fp.write(dumps(data, sort_keys=sort_keys))
++def date(raw: str) -> Date:
++    from .parser import Parser
++    return Parser(raw)._parse_value()
+ 
+ 
+-def parse(string: str) -> TOMLDocument:
+-    """
+-    Parses a string into a TOMLDocument.
+-    """
+-    return Parser(string).parse()
++def datetime(raw: str) -> DateTime:
++    from .parser import Parser
++    return Parser(raw)._parse_value()
+ 
+ 
+ def document() -> TOMLDocument:
+-    """
+-    Returns a new TOMLDocument instance.
+-    """
+     return TOMLDocument()
+ 
+ 
+-# Items
+-def integer(raw: str) -> Integer:
+-    return item(int(raw))
++def dump(data: dict, fp: Any, sort_keys: bool = False) -> None:
++    fp.write(dumps(data, sort_keys=sort_keys))
+ 
+ 
+-def float_(raw: str) -> Float:
+-    return item(float(raw))
++def dumps(data: dict, sort_keys: bool = False) -> str:
++    from .items import item
++    from collections.abc import Mapping
++    
++    if not isinstance(data, Mapping):
++        raise TypeError("Expected Mapping, got {}".format(type(data)))
++    
++    container = item(dict(data), _sort_keys=sort_keys)
++    return container.as_string()
+ 
+ 
+-def boolean(raw: str) -> Bool:
+-    return item(raw == "true")
++def float_(raw: str) -> Float:
++    from .parser import Parser
++    return Parser(raw)._parse_number(raw, None)
+ 
+ 
+-def string(raw: str) -> String:
+-    return item(raw)
++def inline_table() -> Container:
++    from .container import Container
++    return Container(True)
+ 
+ 
+-def date(raw: str) -> Date:
+-    value = parse_rfc3339(raw)
+-    if not isinstance(value, _datetime.date):
+-        raise ValueError("date() only accepts date strings.")
++def integer(raw: str) -> Integer:
++    from .parser import Parser
++    return Parser(raw)._parse_number(raw, None)
+ 
+-    return item(value)
+ 
++def item(value: Any, _parent: Any = None, _sort_keys: bool = False) -> Item:
++    from .items import item as _item
++    return _item(value, _parent, _sort_keys)
+ 
+-def time(raw: str) -> Time:
+-    value = parse_rfc3339(raw)
+-    if not isinstance(value, _datetime.time):
+-        raise ValueError("time() only accepts time strings.")
+ 
+-    return item(value)
++def key(k: Union[str, List[str]]) -> Key:
++    if isinstance(k, list):
++        return DottedKey([SingleKey(_k) for _k in k])
++    return SingleKey(k)
+ 
+ 
+-def datetime(raw: str) -> DateTime:
+-    value = parse_rfc3339(raw)
+-    if not isinstance(value, _datetime.datetime):
+-        raise ValueError("datetime() only accepts datetime strings.")
++def key_value(src: str) -> tuple:
++    from .parser import Parser
++    return Parser(src)._parse_key_value()
+ 
+-    return item(value)
+ 
++def load(fp: Any, _dict: Any = None) -> TOMLDocument:
++    return parse(fp.read())
+ 
+-def array(raw: str = None) -> Array:
+-    if raw is None:
+-        raw = "[]"
+ 
+-    return value(raw)
++def loads(s: str, _dict: Any = None) -> TOMLDocument:
++    return parse(s)
+ 
+ 
+-def table(is_super_table: bool = False) -> Table:
+-    return Table(Container(), Trivia(), False, is_super_table)
++def nl() -> str:
++    return "\n"
+ 
+ 
+-def inline_table() -> InlineTable:
+-    return InlineTable(Container(), Trivia(), new=True)
++def parse(raw: str) -> TOMLDocument:
++    from .parser import Parser
++    return Parser(raw).parse()
+ 
+ 
+-def aot() -> AoT:
+-    return AoT([])
++def string(raw: str) -> String:
++    from .parser import Parser
++    return Parser(raw)._parse_string()
+ 
+ 
+-def key(k: str) -> Key:
+-    return SingleKey(k)
++def table() -> Container:
++    from .container import Container
++    return Container()
+ 
+ 
+-def value(raw: str) -> _Item:
++def time(raw: str) -> Time:
++    from .parser import Parser
+     return Parser(raw)._parse_value()
+ 
+ 
+-def key_value(src: str) -> Tuple[Key, _Item]:
+-    return Parser(src)._parse_key_value()
+-
+-
+-def ws(src: str) -> Whitespace:
+-    return Whitespace(src, fixed=True)
+-
+-
+-def nl() -> Whitespace:
+-    return ws("\n")
++def value(raw: str):
++    from .parser import Parser
++    return Parser(raw)._parse_value()
+ 
+ 
+-def comment(string: str) -> Comment:
+-    return Comment(Trivia(comment_ws="  ", comment="# " + string))
++def ws(src: str) -> str:
++    return src

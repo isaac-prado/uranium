@@ -1,0 +1,126 @@
+{
+  "result_schema_version": 2,
+  "harness_version": "1.0.0",
+  "evaluated_at": "2026-10-14T23:48:49+00:00",
+  "run_id": "tomlkit-0004-orchestration-r03-a01",
+  "arm": "orchestration",
+  "task_id": "tomlkit-0004",
+  "faixa": "grande",
+  "repetition": 3,
+  "base_commit": "9cd5414b169812bb04106f4dbb305cdf9ad239a0",
+  "resolved": false,
+  "resolved_blocked_by_cheat": false,
+  "oracle": {
+    "f2p_total": 7,
+    "f2p_passed": 5,
+    "f2p": {
+      "exit_code": 1,
+      "passed": 5,
+      "failed": 2,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.1,
+      "failing_node_ids": [
+        "tests/test_api.py::test_original_string_and_dumped_string_are_equal[0.5.0]",
+        "tests/test_items.py::test_items_can_be_appended_to_and_removed_from_a_table"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "p2p": {
+      "exit_code": 1,
+      "passed": 156,
+      "failed": 9,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.21,
+      "failing_node_ids": [
+        "tests/test_api.py::test_original_string_and_dumped_string_are_equal[0.5.0]",
+        "tests/test_items.py::test_items_can_be_appended_to_and_removed_from_a_table",
+        "tests/test_toml_tests.py::test_invalid_decode[empty-implicit-table]",
+        "tests/test_toml_tests.py::test_invalid_decode[key-open-bracket]",
+        "tests/test_toml_tests.py::test_invalid_decode[key-start-bracket]",
+        "tests/test_toml_tests.py::test_invalid_decode[table-nested-brackets-open]",
+        "tests/test_toml_tests.py::test_invalid_decode[table-whitespace]",
+        "tests/test_toml_tests.py::test_invalid_decode[table-with-pound]",
+        "tests/test_toml_tests.py::test_valid_decode[keys-with-dots]"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "regression": {
+      "exit_code": 1,
+      "passed": 156,
+      "failed": 9,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.21,
+      "failing_node_ids": [
+        "tests/test_api.py::test_original_string_and_dumped_string_are_equal[0.5.0]",
+        "tests/test_items.py::test_items_can_be_appended_to_and_removed_from_a_table",
+        "tests/test_toml_tests.py::test_invalid_decode[empty-implicit-table]",
+        "tests/test_toml_tests.py::test_invalid_decode[key-open-bracket]",
+        "tests/test_toml_tests.py::test_invalid_decode[key-start-bracket]",
+        "tests/test_toml_tests.py::test_invalid_decode[table-nested-brackets-open]",
+        "tests/test_toml_tests.py::test_invalid_decode[table-whitespace]",
+        "tests/test_toml_tests.py::test_invalid_decode[table-with-pound]",
+        "tests/test_toml_tests.py::test_valid_decode[keys-with-dots]"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    }
+  },
+  "cheat": {
+    "clean": true,
+    "critical_count": 0,
+    "warning_count": 0,
+    "signals": []
+  },
+  "quality": {
+    "mi_before": 5.642,
+    "mi_after": 0.303,
+    "mi_delta": -5.339,
+    "cc_mean_before": 7.903,
+    "cc_mean_after": 8.485,
+    "cc_mean_delta": 0.582,
+    "files_analyzed": 1,
+    "error": null
+  },
+  "cost": {
+    "tokens_prompt": 2358221,
+    "tokens_completion": 28180,
+    "tokens_reasoning": 0,
+    "tokens_total": 2386401,
+    "cost_usd": 0.2987727,
+    "llm_calls": 122,
+    "byok_calls": 122,
+    "tool_calls": 118,
+    "wall_seconds": 680.756
+  },
+  "process": {
+    "turns": 120,
+    "test_runs": 3,
+    "tool_denials": 0,
+    "errors": 0,
+    "circuit_breaks": 2,
+    "self_recoveries": 0,
+    "stop_reason": "budget: max_turns (120 >= 120)"
+  },
+  "provenance": {
+    "model": "qwen/qwen3-coder",
+    "provider_requested": "DeepInfra",
+    "providers_served": [
+      "DeepInfra"
+    ],
+    "llm_seed": 20260823,
+    "topology": "multi_agent_roles"
+  },
+  "diff": {
+    "files_changed": 1,
+    "insertions": 184,
+    "deletions": 40,
+    "changed_files": [
+      "tomlkit/parser.py"
+    ]
+  }
+}

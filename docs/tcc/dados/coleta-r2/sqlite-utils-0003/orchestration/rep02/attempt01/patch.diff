@@ -1,0 +1,225 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 3f23c7d..3b2af7c 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -786,7 +786,8 @@ class Database:
+                     cursor = self.conn.execute(sql, *args)
+             if cursor.description is None:
+                 raise ValueError(message)
+-            keys = [d[0] for d in cursor.description]
++            from .utils import dedupe_keys
++            keys = dedupe_keys([d[0] for d in cursor.description])
+             return (dict(zip(keys, row)) for row in cursor)
+         # Execute inside a savepoint, so a statement that turns out not to
+         # return rows can be rolled back before the ValueError is raised
+@@ -809,7 +810,11 @@ class Database:
+                 fetched = cursor.fetchall()
+                 self.conn.execute('RELEASE "sqlite_utils_query"')
+                 released = True
++                from .utils import dedupe_keys
++                keys = dedupe_keys(keys)
+                 return (dict(zip(keys, row)) for row in fetched)
++            from .utils import dedupe_keys
++            keys = dedupe_keys(keys)
+             return (dict(zip(keys, row)) for row in cursor)
+         finally:
+             if not released:
+@@ -1864,8 +1869,9 @@ class Queryable:
+             sql += " limit {}".format(limit)
+         if offset is not None:
+             sql += " offset {}".format(offset)
++        from .utils import dedupe_keys
+         cursor = self.db.execute(sql, where_args or [])
+-        columns = [c[0] for c in cursor.description]
++        columns = dedupe_keys([c[0] for c in cursor.description])
+         for row in cursor:
+             yield dict(zip(columns, row))
+ 
+@@ -3387,6 +3393,7 @@ class Table(Queryable):
+         if where_args:
+             args.update(where_args)
+ 
++        from .utils import dedupe_keys
+         cursor = self.db.execute(
+             self.search_sql(
+                 order_by=order_by,
+@@ -3398,7 +3405,7 @@ class Table(Queryable):
+             ),
+             args,
+         )
+-        columns = [c[0] for c in cursor.description]
++        columns = dedupe_keys([c[0] for c in cursor.description])
+         for row in cursor:
+             yield dict(zip(columns, row))
+ 
+diff --git a/sqlite_utils/utils.py b/sqlite_utils/utils.py
+index 865ee79..9fcbc6a 100644
+--- a/sqlite_utils/utils.py
++++ b/sqlite_utils/utils.py
+@@ -1,5 +1,4 @@
+ import base64
+-import contextlib
+ import csv
+ import enum
+ import hashlib
+@@ -9,6 +8,8 @@ import itertools
+ import json
+ import os
+ import sys
++import contextlib
++import typing
+ from typing import (
+     Any,
+     BinaryIO,
+@@ -18,11 +19,12 @@ from typing import (
+     Iterable,
+     Iterator,
+     List,
++    NamedTuple,
+     Optional,
++    Sequence,
+     Set,
+     Tuple,
+     Type,
+-    TYPE_CHECKING,
+     TypeVar,
+     Union,
+     cast,
+@@ -32,7 +34,7 @@ import click
+ 
+ from . import recipes
+ 
+-if TYPE_CHECKING:
++if typing.TYPE_CHECKING:
+     import sqlite3  # noqa: F401
+     from sqlite3 import dbapi2  # noqa: F401
+ 
+@@ -416,44 +418,43 @@ class TypeTracker:
+         import sqlite_utils
+ 
+         db = sqlite_utils.Database(memory=True)
++
+         tracker = TypeTracker()
+-        rows = [{"id": "1", "name": "Cleo", "id": "2", "name": "Cardi"}]
+-        db["creatures"].insert_all(tracker.wrap(rows))
++        db["example"].insert_all(tracker.wrap([
++            {"name": "Cleo", "age": 5, "weight": 12.3},
++            {"name": "Pancakes", "age": 4, "weight": 15.2}
++        ]))
+         print(tracker.types)
+-        # Outputs {'id': 'integer', 'name': 'text'}
+-        db["creatures"].transform(types=tracker.types)
++        # Outputs: {'name': 'text', 'age': 'integer', 'weight': 'float'}
++
++    :param records: An iterator of dictionaries
+     """
+ 
+     def __init__(self) -> None:
+-        self.trackers: Dict[str, "ValueTracker"] = {}
+-
+-    def wrap(self, iterator: Iterable[Dict[str, Any]]) -> Iterable[Dict[str, Any]]:
+-        """
+-        Use this to loop through an existing iterator, tracking the column types
+-        as part of the iteration.
+-
+-        :param iterator: The iterator to wrap
+-        """
+-        for row in iterator:
+-            for key, value in row.items():
+-                tracker = self.trackers.setdefault(key, ValueTracker())
+-                tracker.evaluate(value)
+-            yield row
+-
+-    @property
+-    def types(self) -> Dict[str, str]:
+-        """
+-        A dictionary mapping column names to their detected types. This can be passed
+-        to the ``db[table_name].transform(types=tracker.types)`` method.
+-        """
+-        return {key: tracker.guessed_type for key, tracker in self.trackers.items()}
+-
+-
+-class ValueTracker:
+-    couldbe: Dict[str, Callable[[object], bool]]
+-
++        self.types: Dict[str, str] = {}
++        self.tracked_columns: Dict[str, "_TestTrie"] = {}
++
++    def wrap(
++        self, records: Iterable[Dict[str, Any]]
++    ) -> Generator[Dict[str, Any], None, None]:
++        for record in records:
++            for key, value in record.items():
++                if key not in self.tracked_columns:
++                    self.tracked_columns[key] = _TestTrie()
++                self.tracked_columns[key].evaluate(value)
++            yield record
++        self.types = {
++            key: trie.guessed_type for key, trie in self.tracked_columns.items()
++        }
++
++
++class _TestTrie:
+     def __init__(self) -> None:
+-        self.couldbe = {key: getattr(self, "test_" + key) for key in self.get_tests()}
++        self.couldbe = {
++            key: getattr(self, key)
++            for key in self.__class__.__dict__.keys()
++            if key.startswith("test_")
++        }
+ 
+     @classmethod
+     def get_tests(cls) -> List[str]:
+@@ -484,8 +485,9 @@ class ValueTracker:
+     def guessed_type(self) -> str:
+         options = set(self.couldbe.keys())
+         # Return based on precedence
+-        for key in self.get_tests():
+-            if key in options:
++        for full_key in options:
++            key = full_key.split("test_")[-1]
++            if full_key in self.couldbe:
+                 return key
+         return "text"
+ 
+@@ -629,3 +631,39 @@ def flatten(row: Dict[str, Any]) -> Dict[str, Any]:
+     :param row: A Python dictionary, optionally with nested dictionaries
+     """
+     return dict(_flatten(row))
++
++
++def dedupe_keys(keys: List[str]) -> List[str]:
++    """
++    Renomeia chaves duplicadas adicionando sufixos numéricos (_2, _3 etc.)
++    para garantir unicidade, seguindo a regra de sempre verificar se o 
++    nome gerado já existe antes de incrementar.
++    
++    Exemplos:
++    [] -> []
++    ["id", "name"] -> ["id", "name"]
++    ["id", "id"] -> ["id", "id_2"]
++    ["id", "id", "id"] -> ["id", "id_2", "id_3"]
++    ["id", "id", "id_2"] -> ["id", "id_3", "id_2"]
++    ["id_2", "id", "id"] -> ["id_2", "id", "id_3"]
++    ["id", "id", "id_2", "id_2"] -> ["id", "id_3", "id_2", "id_2_2"]
++    """
++    if not keys:
++        return []
++        
++    result: List[str] = []
++    
++    for i, key in enumerate(keys):
++        if key not in result:
++            # Primeira ocorrência, mantém o nome original
++            result.append(key)
++        else:
++            # Encontra o menor sufixo que não colide com nenhum nome existente
++            counter = 2
++            new_key = f"{key}_{counter}"
++            while new_key in result or new_key in keys:
++                counter += 1
++                new_key = f"{key}_{counter}"
++            result.append(new_key)
++            
++    return result
+\ No newline at end of file

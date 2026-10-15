@@ -1,0 +1,17 @@
+tarefas   3  ×  1 braço(s) ['single-agent']  ×  3 repetição(ões)  =  9 células
+estado    0 concluídas, 9 pendentes  →  runs/coleta-r2
+modelo    qwen/qwen3-coder via DeepInfra
+orçamento {'max_tokens': 8000000, 'max_wall_seconds': 3600, 'max_turns': 120}
+workers   1   tentativas por célula 5
+
+  done    pygments-0001        single-agent   rep01  não resolveu  budget: max_turns (120 >= 120)
+  done    sqlite-utils-0002    single-agent   rep01  não resolveu  tests_pass
+  done    tomlkit-0004         single-agent   rep01  não resolveu  budget: max_turns (120 >= 120)
+  done    pygments-0001        single-agent   rep02  resolveu      tests_pass
+  done    sqlite-utils-0002    single-agent   rep02  não resolveu  budget: max_tokens (8077370 >= 8000000)
+  done    tomlkit-0004         single-agent   rep02  não resolveu  budget: max_turns (120 >= 120)
+  done    pygments-0001        single-agent   rep03  resolveu      tests_pass
+  done    sqlite-utils-0002    single-agent   rep03  não resolveu  tests_pass
+  done    tomlkit-0004         single-agent   rep03  não resolveu  budget: max_turns (120 >= 120)
+
+  9 concluídas, 0 perdidas  →  runs/coleta-r2/collection.json

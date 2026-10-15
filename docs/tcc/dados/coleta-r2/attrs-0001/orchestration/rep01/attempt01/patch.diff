@@ -1,0 +1,43 @@
+diff --git a/src/attr/_funcs.py b/src/attr/_funcs.py
+index 518be16e..ac23b01c 100644
+--- a/src/attr/_funcs.py
++++ b/src/attr/_funcs.py
+@@ -296,7 +296,12 @@ def has(cls):
+ 
+     :rtype: bool
+     """
+-    return getattr(cls, "__attrs_attrs__", None) is not None
++    if getattr(cls, "__attrs_attrs__", None) is not None:
++        return True
++    # Handle generic specializations (e.g., MyClass[str])
++    if hasattr(cls, '__origin__'):
++        return getattr(cls.__origin__, "__attrs_attrs__", None) is not None
++    return False
+ 
+ 
+ def assoc(inst, **changes):
+diff --git a/src/attr/_make.py b/src/attr/_make.py
+index 014b7bc2..569732d2 100644
+--- a/src/attr/_make.py
++++ b/src/attr/_make.py
+@@ -1919,10 +1919,19 @@ def fields(cls):
+     .. versionchanged:: 16.2.0 Returned tuple allows accessing the fields
+        by name.
+     """
+-    if not isinstance(cls, type):
++    # Allow generic specializations (e.g., MyClass[str]) which are _GenericAlias instances
++    if not (isinstance(cls, type) or hasattr(cls, '__origin__')):
+         raise TypeError("Passed object must be a class.")
+     attrs = getattr(cls, "__attrs_attrs__", None)
+     if attrs is None:
++        # If it's a generic specialization, check the origin class
++        if hasattr(cls, '__origin__'):
++            origin_attrs = getattr(cls.__origin__, "__attrs_attrs__", None)
++            if origin_attrs is not None:
++                return origin_attrs
++            else:
++                # Origin exists but is not an attrs class
++                raise NotAnAttrsClassError(f"{cls!r} is not an attrs-decorated class.")
+         raise NotAnAttrsClassError(f"{cls!r} is not an attrs-decorated class.")
+     return attrs
+ 

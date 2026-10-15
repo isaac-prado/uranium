@@ -1,0 +1,112 @@
+{
+  "result_schema_version": 2,
+  "harness_version": "1.0.0",
+  "evaluated_at": "2026-10-14T17:48:31+00:00",
+  "run_id": "peewee-0002-orchestration-r01-a01",
+  "arm": "orchestration",
+  "task_id": "peewee-0002",
+  "faixa": "media",
+  "repetition": 1,
+  "base_commit": "fc1811ecc1c55be8b1c4fd116c5d05c4ff7cf794",
+  "resolved": false,
+  "resolved_blocked_by_cheat": false,
+  "oracle": {
+    "f2p_total": 6,
+    "f2p_passed": 5,
+    "f2p": {
+      "exit_code": 1,
+      "passed": 5,
+      "failed": 1,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.36,
+      "failing_node_ids": [
+        "tests/transactions.py::TestTransaction::test_mixing_manual_db_context"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "p2p": {
+      "exit_code": 1,
+      "passed": 1403,
+      "failed": 1,
+      "errors": 0,
+      "skipped": 144,
+      "duration_s": 4.38,
+      "failing_node_ids": [
+        "tests/transactions.py::TestTransaction::test_mixing_manual_db_context"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "regression": {
+      "exit_code": 1,
+      "passed": 1403,
+      "failed": 1,
+      "errors": 0,
+      "skipped": 144,
+      "duration_s": 4.39,
+      "failing_node_ids": [
+        "tests/transactions.py::TestTransaction::test_mixing_manual_db_context"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    }
+  },
+  "cheat": {
+    "clean": true,
+    "critical_count": 0,
+    "warning_count": 0,
+    "signals": []
+  },
+  "quality": {
+    "mi_before": 6.419,
+    "mi_after": 6.378,
+    "mi_delta": -0.041,
+    "cc_mean_before": 3.152,
+    "cc_mean_after": 3.154,
+    "cc_mean_delta": 0.002,
+    "files_analyzed": 3,
+    "error": null
+  },
+  "cost": {
+    "tokens_prompt": 938373,
+    "tokens_completion": 13321,
+    "tokens_reasoning": 0,
+    "tokens_total": 951694,
+    "cost_usd": 0.1463593,
+    "llm_calls": 106,
+    "byok_calls": 106,
+    "tool_calls": 98,
+    "wall_seconds": 920.968
+  },
+  "process": {
+    "turns": 101,
+    "test_runs": 3,
+    "tool_denials": 0,
+    "errors": 0,
+    "circuit_breaks": 0,
+    "self_recoveries": 0,
+    "stop_reason": "concluiu"
+  },
+  "provenance": {
+    "model": "qwen/qwen3-coder",
+    "provider_requested": "DeepInfra",
+    "providers_served": [
+      "DeepInfra"
+    ],
+    "llm_seed": 20260821,
+    "topology": "multi_agent_roles"
+  },
+  "diff": {
+    "files_changed": 3,
+    "insertions": 46,
+    "deletions": 5,
+    "changed_files": [
+      "peewee.py",
+      "peewee_test.db-shm",
+      "playhouse/migrate.py",
+      "playhouse/reflection.py"
+    ]
+  }
+}

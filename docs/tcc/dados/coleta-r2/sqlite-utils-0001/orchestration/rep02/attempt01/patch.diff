@@ -1,0 +1,43 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index d709fb9..a92fee1 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -2542,6 +2542,38 @@ class Table(Queryable):
+         """
+         if not self.exists():
+             raise ValueError("Cannot transform a table that doesn't exist yet")
++        
++        # Check for destructive foreign key references when in a transaction
++        pragma_foreign_keys_was_on = bool(
++            self.db.execute("PRAGMA foreign_keys").fetchone()[0]
++        )
++        already_in_transaction = self.db.conn.in_transaction
++        if pragma_foreign_keys_was_on and already_in_transaction:
++            # Check if any tables reference this one with destructive ON DELETE actions
++            destructive_references = []
++            for table_name in self.db.table_names():
++                table_obj = self.db[table_name]
++                for fk in table_obj.foreign_keys:
++                    # Check if this foreign key references the table being transformed
++                    if fk.other_table == self.name:
++                        # Check if the ON DELETE action is destructive
++                        destructive_actions = {"CASCADE", "SET NULL", "SET DEFAULT"}
++                        if fk.on_delete.upper() in destructive_actions:
++                            # Handle self-referencing tables specially
++                            ref_name = "itself" if table_name == self.name else table_name
++                            destructive_references.append((ref_name, fk.on_delete.upper()))
++            
++            if destructive_references:
++                # Build error message with all referencing tables and their actions
++                refs_info = ", ".join(
++                    f"'{table}' with ON DELETE {action}" 
++                    for table, action in destructive_references
++                )
++                raise TransactionError(
++                    f"Cannot transform table '{self.name}' while in a transaction "
++                    f"because it is referenced by table {refs_info}"
++                )
++        
+         sqls = self.transform_sql(
+             types=types,
+             rename=rename,

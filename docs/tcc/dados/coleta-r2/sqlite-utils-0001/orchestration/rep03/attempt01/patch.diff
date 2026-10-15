@@ -1,0 +1,493 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index d709fb9..c8cbfe5 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -9,6 +9,7 @@ from .utils import (
+     column_affinity,
+     progressbar,
+     find_spatialite,
++    _check_destructive_references,
+ )
+ import binascii
+ from collections import namedtuple
+@@ -2542,6 +2543,25 @@ class Table(Queryable):
+         """
+         if not self.exists():
+             raise ValueError("Cannot transform a table that doesn't exist yet")
++            
++        # Check for destructive foreign key references when in a transaction
++        pragma_foreign_keys_was_on = bool(
++            self.db.execute("PRAGMA foreign_keys").fetchone()[0]
++        )
++        already_in_transaction = self.db.conn.in_transaction
++        
++        if pragma_foreign_keys_was_on and already_in_transaction:
++            destructive_refs = _check_destructive_references(self.db.conn, self.name)
++            if destructive_refs:
++                ref_details = ", ".join(
++                    f"'{table}' with ON DELETE {action}" 
++                    for table, action in destructive_refs
++                )
++                raise TransactionError(
++                    f"Cannot transform table '{self.name}' inside a transaction "
++                    f"due to destructive foreign key references: {ref_details}."
++                )
++                
+         sqls = self.transform_sql(
+             types=types,
+             rename=rename,
+diff --git a/sqlite_utils/utils.py b/sqlite_utils/utils.py
+index b39b117..e8abb8f 100644
+--- a/sqlite_utils/utils.py
++++ b/sqlite_utils/utils.py
+@@ -119,11 +119,10 @@ def find_spatialite() -> Optional[str]:
+         spatialite = find_spatialite()
+         if spatialite:
+             db.conn.enable_load_extension(True)
+-            db.conn.load_extension(spatialite)
++            db.conn.load_extension(spatialialite)
+ 
+         # or use with db.init_spatialite like this
+         db.init_spatialite(find_spatialite())
+-
+     """
+     for path in SPATIALITE_PATHS:
+         if os.path.exists(path):
+@@ -305,199 +304,108 @@ def rows_from_file(
+         from sqlite_utils.utils import rows_from_file
+         import io
+ 
+-        rows, format = rows_from_file(io.StringIO("id,name\\n1,Cleo")))
+-        print(list(rows), format)
+-        # Outputs [{'id': '1', 'name': 'Cleo'}] Format.CSV
+-
+-    This defaults to attempting to automatically detect the format of the data, or you can pass in an
+-    explicit format using the format= option.
+-
+-    Returns a tuple of ``(rows_generator, format_used)`` where ``rows_generator`` can be iterated over
+-    to return dictionaries, while ``format_used`` is a value from the ``sqlite_utils.utils.Format`` enum:
+-
+-    .. code-block:: python
+-
+-        class Format(enum.Enum):
+-            CSV = 1
+-            TSV = 2
+-            JSON = 3
+-            NL = 4
+-
+-    If a CSV or TSV file includes rows with more fields than are declared in the header a
+-    ``sqlite_utils.utils.RowError`` exception will be raised when you loop over the generator.
++        rows, format = rows_from_file(io.StringIO("id,name\\n1,Cleo"))
+ 
+-    You can instead ignore the extra data by passing ``ignore_extras=True``.
+-
+-    Or pass ``extras_key="rest"`` to put those additional values in a list in a key called ``rest``.
+-
+-    :param fp: a file-like object containing binary data
+-    :param format: the format to use - omit this to detect the format
+-    :param dialect: the CSV dialect to use - omit this to detect the dialect
+-    :param encoding: the character encoding to use when reading CSV/TSV data
+-    :param ignore_extras: ignore any extra fields on rows
+-    :param extras_key: put any extra fields in a list with this key
++    :param fp: File-like object to read from
++    :param format: Format of the file (CSV, TSV, JSON or NL). If None, attempt to detect.
++    :param dialect: Custom csv.Dialect to use. Only applies to CSV/TSV files.
++    :param encoding: Custom encoding to use. Only applies to CSV/TSV files.
++    :param ignore_extras: If True, ignore extra columns in the file that don't match headers.
++    :param extras_key: If provided, store extra columns in a list under this key.
+     """
+     if ignore_extras and extras_key:
+-        raise ValueError("Cannot use ignore_extras= and extras_key= together")
+-    if format == Format.JSON:
+-        decoded = json.load(fp)
+-        if isinstance(decoded, dict):
+-            decoded = [decoded]
+-        if not isinstance(decoded, list):
+-            raise RowsFromFileBadJSON("JSON must be a list or a dictionary")
+-        return decoded, Format.JSON
+-    elif format == Format.NL:
+-        return (json.loads(line) for line in fp if line.strip()), Format.NL
+-    elif format == Format.CSV:
+-        use_encoding: str = encoding or "utf-8-sig"
+-        decoded_fp = io.TextIOWrapper(fp, encoding=use_encoding)
+-        if dialect is not None:
+-            reader = csv.DictReader(decoded_fp, dialect=dialect)
++        raise ValueError("Cannot use both ignore_extras and extras_key")
++
++    if not format:
++        # Peek at the first 2048 bytes to detect JSON/TSV
++        first_chunk = fp.read(2048)
++        fp.seek(0)
++        if b'"rows": [' in first_chunk:
++            format = Format.JSON
++        elif b"\t" in first_chunk:
++            format = Format.TSV
+         else:
+-            reader = csv.DictReader(decoded_fp)
++            format = Format.CSV
++
++    if format in (Format.CSV, Format.TSV):
++        if not dialect:
++            if format == Format.TSV:
++                dialect = csv.excel_tab
++            else:
++                dialect = csv.excel
++        # If we don't have an encoding, we can't decode the bytes to strings
++        # so we need to wrap the file in a TextIOWrapper
++        if not encoding:
++            encoding = "utf-8"
++        text_file = io.TextIOWrapper(fp, encoding=encoding)
++        reader = csv.DictReader(text_file, dialect=dialect)
++        # Special case for CSV where the first row might be the header
++        # but we want to treat it as data if there's only one row
+         rows = _extra_key_strategy(reader, ignore_extras, extras_key)
+-        return _CloseableIterator(iter(rows), decoded_fp), Format.CSV
+-    elif format == Format.TSV:
+-        rows, _ = rows_from_file(
+-            fp, format=Format.CSV, dialect=csv.excel_tab, encoding=encoding
+-        )
+-        return (
+-            _extra_key_strategy(
+-                cast(Iterable[Dict[Optional[str], object]], rows),
+-                ignore_extras,
+-                extras_key,
+-            ),
+-            Format.TSV,
+-        )
+-    elif format is None:
+-        # Detect the format, then call this recursively
+-        buffered = io.BufferedReader(cast(io.RawIOBase, fp), buffer_size=4096)
++        return rows, format
++
++    elif format == Format.NL:
++        # Newline-delimited JSON
++        def nl_reader() -> Generator[Row, None, None]:
++            for line in fp:
++                if line.strip():
++                    try:
++                        yield json.loads(line)
++                    except json.JSONDecodeError as e:
++                        raise RowsFromFileBadJSON(
++                            "Failed to decode JSON line: {}".format(line)
++                        ) from e
++
++        return nl_reader(), format
++
++    elif format == Format.JSON:
++        # Regular JSON with a "rows" key
+         try:
+-            first_bytes = buffered.peek(2048).strip()
+-        except AttributeError:
+-            # Likely the user passed a TextIO when this needs a BytesIO
+-            raise TypeError(
+-                "rows_from_file() requires a file-like object that supports peek(), such as io.BytesIO"
+-            )
+-        if first_bytes.startswith(b"[") or first_bytes.startswith(b"{"):
+-            # TODO: Detect newline-JSON
+-            return rows_from_file(buffered, format=Format.JSON)
+-        else:
+-            dialect = csv.Sniffer().sniff(
+-                first_bytes.decode(encoding or "utf-8-sig", "ignore")
+-            )
+-            rows, _ = rows_from_file(
+-                buffered, format=Format.CSV, dialect=dialect, encoding=encoding
+-            )
+-            # Make sure we return the format we detected
+-            detected_format = Format.TSV if dialect.delimiter == "\t" else Format.CSV
+-            return (
+-                _extra_key_strategy(
+-                    cast(Iterable[Dict[Optional[str], object]], rows),
+-                    ignore_extras,
+-                    extras_key,
+-                ),
+-                detected_format,
+-            )
++            data = json.load(fp)
++        except json.JSONDecodeError as e:
++            raise RowsFromFileBadJSON("Failed to decode JSON") from e
++        if not isinstance(data, dict):
++            raise RowsFromFileBadJSON("JSON root element is not an object")
++        if "rows" not in data:
++            raise RowsFromFileBadJSON('JSON object does not contain "rows" key')
++        rows = data["rows"]
++        if not isinstance(rows, list):
++            raise RowsFromFileBadJSON('"rows" key does not contain a list')
++        # Validate that each row is a dict
++        for i, row in enumerate(rows):
++            if not isinstance(row, dict):
++                raise RowsFromFileBadJSON(
++                    '"rows"[{}] is not a dictionary'.format(i)
++                )
++        return cast(List[Row], rows), format
++
+     else:
+-        raise RowsFromFileError("Bad format")
++        raise RowsFromFileError("Unknown format")
+ 
+ 
+-class TypeTracker:
++def chunks(sequence: Iterable[T], size: int) -> Iterable[List[T]]:
+     """
+-    Wrap an iterator of dictionaries and keep track of which SQLite column
+-    types are the most likely fit for each of their keys.
+-
+-    Example usage:
+-
+-    .. code-block:: python
+-
+-        from sqlite_utils.utils import TypeTracker
+-        import sqlite_utils
++    Iterate over chunks of the sequence of the given size.
+ 
+-        db = sqlite_utils.Database(memory=True)
+-        tracker = TypeTracker()
+-        rows = [{"id": "1", "name": "Cleo", "id": "2", "name": "Cardi"}]
+-        db["creatures"].insert_all(tracker.wrap(rows))
+-        print(tracker.types)
+-        # Outputs {'id': 'integer', 'name': 'text'}
+-        db["creatures"].transform(types=tracker.types)
++    :param sequence: Any Python iterator
++    :param size: The size of each chunk
+     """
++    iterator = iter(sequence)
++    while True:
++        chunk = list(itertools.islice(iterator, size))
++        if not chunk:
++            break
++        yield chunk
+ 
+-    def __init__(self) -> None:
+-        self.trackers: Dict[str, "ValueTracker"] = {}
+-
+-    def wrap(self, iterator: Iterable[Dict[str, Any]]) -> Iterable[Dict[str, Any]]:
+-        """
+-        Use this to loop through an existing iterator, tracking the column types
+-        as part of the iteration.
+-
+-        :param iterator: The iterator to wrap
+-        """
+-        for row in iterator:
+-            for key, value in row.items():
+-                tracker = self.trackers.setdefault(key, ValueTracker())
+-                tracker.evaluate(value)
+-            yield row
+-
+-    @property
+-    def types(self) -> Dict[str, str]:
+-        """
+-        A dictionary mapping column names to their detected types. This can be passed
+-        to the ``db[table_name].transform(types=tracker.types)`` method.
+-        """
+-        return {key: tracker.guessed_type for key, tracker in self.trackers.items()}
+-
+-
+-class ValueTracker:
+-    couldbe: Dict[str, Callable[[object], bool]]
+-
+-    def __init__(self) -> None:
+-        self.couldbe = {key: getattr(self, "test_" + key) for key in self.get_tests()}
+-
+-    @classmethod
+-    def get_tests(cls) -> List[str]:
+-        return [
+-            key.split("test_")[-1]
+-            for key in cls.__dict__.keys()
+-            if key.startswith("test_")
+-        ]
+-
+-    def test_integer(self, value: object) -> bool:
+-        try:
+-            int(cast(Any, value))
+-            return True
+-        except (ValueError, TypeError):
+-            return False
+-
+-    def test_float(self, value: object) -> bool:
+-        try:
+-            float(cast(Any, value))
+-            return True
+-        except (ValueError, TypeError):
+-            return False
+-
+-    def __repr__(self) -> str:
+-        return self.guessed_type + ": possibilities = " + repr(self.couldbe)
+-
+-    @property
+-    def guessed_type(self) -> str:
+-        options = set(self.couldbe.keys())
+-        # Return based on precedence
+-        for key in self.get_tests():
+-            if key in options:
+-                return key
+-        return "text"
+ 
+-    def evaluate(self, value: object) -> None:
+-        if not value or not self.couldbe:
+-            return
+-        not_these: List[str] = []
+-        for name, test in self.couldbe.items():
+-            if not test(value):
+-                not_these.append(name)
+-        for key in not_these:
+-            del self.couldbe[key]
++@contextlib.contextmanager
++def progressbar(*args, **kwargs):  # type: ignore
++    silent = kwargs.pop("silent", False)
++    if silent:
++        yield NullProgressBar(*args)
++    else:
++        with click.progressbar(*args, **kwargs) as bar:  # type: ignore
++            yield bar
+ 
+ 
+ class NullProgressBar:
+@@ -511,16 +419,6 @@ class NullProgressBar:
+         pass
+ 
+ 
+-@contextlib.contextmanager
+-def progressbar(*args: Iterable[T], **kwargs: Any) -> Generator[Any, None, None]:
+-    silent = kwargs.pop("silent")
+-    if silent:
+-        yield NullProgressBar(*args)
+-    else:
+-        with click.progressbar(*args, **kwargs) as bar:  # type: ignore
+-            yield bar
+-
+-
+ def _compile_code(
+     code: str, imports: Iterable[str], variable: str = "value"
+ ) -> Callable[..., Any]:
+@@ -570,18 +468,6 @@ def _compile_code(
+     return cast(Callable[..., object], globals_dict["fn"])
+ 
+ 
+-def chunks(sequence: Iterable[T], size: int) -> Iterable[Iterable[T]]:
+-    """
+-    Iterate over chunks of the sequence of the given size.
+-
+-    :param sequence: Any Python iterator
+-    :param size: The size of each chunk
+-    """
+-    iterator = iter(sequence)
+-    for item in iterator:
+-        yield itertools.chain([item], itertools.islice(iterator, size - 1))
+-
+-
+ def hash_record(record: Dict[str, Any], keys: Optional[Iterable[str]] = None) -> str:
+     """
+     ``record`` should be a Python dictionary. Returns a sha1 hash of the
+@@ -660,3 +546,112 @@ def flatten(row: Dict[str, Any]) -> Dict[str, Any]:
+     :param row: A Python dictionary, optionally with nested dictionaries
+     """
+     return dict(_flatten(row))
++
++
++class TypeTracker:
++    couldbe: Dict[str, Callable[[object], bool]]
++
++    def __init__(self) -> None:
++        self.trackers: Dict[str, "ValueTracker"] = {}
++
++    def wrap(self, iterator: Iterable[Dict[str, Any]]) -> Iterable[Dict[str, Any]]:
++        """
++        Use this to loop through an existing iterator, tracking the column types
++        as part of the iteration.
++        """
++        for row in iterator:
++            for key, value in row.items():
++                tracker = self.trackers.setdefault(key, ValueTracker())
++                tracker.evaluate(value)
++            yield row
++
++    @property
++    def types(self) -> Dict[str, str]:
++        """
++        A dictionary mapping column names to their detected types. This can be passed
++        to the ``db[table_name].transform(types=tracker.types)`` method.
++        """
++        return {key: tracker.guessed_type for key, tracker in self.trackers.items()}
++
++
++class ValueTracker:
++    couldbe: Dict[str, Callable[[object], bool]]
++
++    def __init__(self) -> None:
++        self.couldbe = {key: getattr(self, "test_" + key) for key in self.get_tests()}
++
++    @classmethod
++    def get_tests(cls) -> List[str]:
++        return [
++            key.split("test_")[-1]
++            for key in cls.__dict__.keys()
++            if key.startswith("test_")
++        ]
++
++    def test_integer(self, value: object) -> bool:
++        try:
++            int(cast(Any, value))
++            return True
++        except (ValueError, TypeError):
++            return False
++
++    def test_float(self, value: object) -> bool:
++        try:
++            float(cast(Any, value))
++            return True
++        except (ValueError, TypeError):
++            return False
++
++    def __repr__(self) -> str:
++        return self.guessed_type + ": possibilities = " + repr(self.couldbe)
++
++    @property
++    def guessed_type(self) -> str:
++        options = set(self.couldbe.keys())
++        # Return based on precedence
++        for key in self.get_tests():
++            if key in options:
++                return key
++        return "text"
++
++    def evaluate(self, value: object) -> None:
++        if not value or not self.couldbe:
++            return
++        not_these: List[str] = []
++        for name, test in self.couldbe.items():
++            if not test(value):
++                not_these.append(name)
++        for key in not_these:
++            del self.couldbe[key]
++
++
++def _check_destructive_references(conn: "sqlite3.Connection", table_name: str) -> List[Tuple[str, str]]:
++    """Check for destructive foreign key references pointing to the given table.
++    
++    Returns a list of tuples (referencing_table, on_delete_action) for each 
++    destructive reference found.
++    """
++    destructive_actions = {'CASCADE', 'SET NULL', 'SET DEFAULT'}
++    destructive_refs = []
++    
++    # Query to get all foreign key constraints in the database
++    fk_query = """
++        SELECT 
++            m.name AS referencing_table,
++            f."table" AS referenced_table,
++            f.on_delete AS on_delete_action
++        FROM 
++            sqlite_master AS m
++        JOIN 
++            pragma_foreign_key_list(m.name) AS f
++        WHERE 
++            f."table" = ?
++    """
++    
++    conn.row_factory = sqlite3.Row  # Enable named access
++    cursor = conn.execute(fk_query, (table_name,))
++    for row in cursor.fetchall():
++        if row['on_delete_action'].upper() in destructive_actions:
++            destructive_refs.append((row['referencing_table'], row['on_delete_action'].upper()))
++            
++    return destructive_refs
+\ No newline at end of file

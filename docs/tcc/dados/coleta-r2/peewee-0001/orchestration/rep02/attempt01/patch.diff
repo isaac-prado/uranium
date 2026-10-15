@@ -1,0 +1,93 @@
+diff --git a/peewee.py b/peewee.py
+index 13d2c8e9..f0024dbf 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -27,6 +27,14 @@ import types
+ import uuid
+ import warnings
+ 
++# Classe para representar eventos de query para os hooks
++class QueryEvent:
++    def __init__(self, sql, params, duration, exception=None):
++        self.sql = sql
++        self.params = params or []
++        self.duration = duration
++        self.exception = exception
++
+ try:
+     from pysqlite3 import dbapi2 as pysq3
+ except ImportError:
+@@ -3770,6 +3778,9 @@ class Database(_callable_context_manager):
+             self._state = _ConnectionState()
+             self._lock = _NoopLock()
+ 
++        # Inicializar query_hooks para esta instância
++        self.query_hooks = []
++
+         if autorollback:
+             __deprecated__('Peewee no longer uses the "autorollback" option, '
+                            'as we always run in autocommit-mode now. This '
+@@ -3892,9 +3903,26 @@ class Database(_callable_context_manager):
+ 
+     def execute_sql(self, sql, params=None):
+         self._log_query(sql, params)
+-        with __exception_wrapper__:
+-            cursor = self.cursor()
+-            cursor.execute(sql, params or ())
++        
++        start_time = time.time()
++        exception = None
++        
++        try:
++            with __exception_wrapper__:
++                cursor = self.cursor()
++                cursor.execute(sql, params or ())
++        except Exception as exc:
++            exception = exc
++            raise
++        finally:
++            duration = time.time() - start_time
++            
++            # Chamar hooks se houver algum registrado
++            if self.query_hooks:
++                event = QueryEvent(sql, params, duration, exception)
++                for hook in self.query_hooks:
++                    hook(event)
++                    
+         return cursor
+ 
+     def execute(self, query, **context_options):
+diff --git a/playhouse/postgres_ext.py b/playhouse/postgres_ext.py
+index 89eb017e..52bef92b 100644
+--- a/playhouse/postgres_ext.py
++++ b/playhouse/postgres_ext.py
+@@ -727,9 +727,26 @@ class PostgresqlExtDatabase(PostgresqlDatabase):
+         if not named_cursor:
+             return super(PostgresqlExtDatabase, self).execute_sql(sql, params)
+         self._log_query(sql, params)
+-        with __exception_wrapper__:
+-            cursor = self.cursor(named_cursor=named_cursor)
+-            cursor.execute(sql, params or ())
++        
++        start_time = time.time()
++        exception = None
++        
++        try:
++            with __exception_wrapper__:
++                cursor = self.cursor(named_cursor=named_cursor)
++                cursor.execute(sql, params or ())
++        except Exception as exc:
++            exception = exc
++            raise
++        finally:
++            duration = time.time() - start_time
++            
++            # Chamar hooks se houver algum registrado
++            if self.query_hooks:
++                event = QueryEvent(sql, params, duration, exception)
++                for hook in self.query_hooks:
++                    hook(event)
++                    
+         return cursor
+ 
+ 

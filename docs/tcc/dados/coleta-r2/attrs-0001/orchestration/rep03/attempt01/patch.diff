@@ -1,0 +1,39 @@
+diff --git a/src/attr/_funcs.py b/src/attr/_funcs.py
+index 518be16e..80a7bd25 100644
+--- a/src/attr/_funcs.py
++++ b/src/attr/_funcs.py
+@@ -296,6 +296,10 @@ def has(cls):
+ 
+     :rtype: bool
+     """
++    # Generic specializations should return False
++    if hasattr(cls, "__origin__"):
++        return False
++    
+     return getattr(cls, "__attrs_attrs__", None) is not None
+ 
+ 
+diff --git a/src/attr/_make.py b/src/attr/_make.py
+index 014b7bc2..0682cfe1 100644
+--- a/src/attr/_make.py
++++ b/src/attr/_make.py
+@@ -1919,11 +1919,17 @@ def fields(cls):
+     .. versionchanged:: 16.2.0 Returned tuple allows accessing the fields
+        by name.
+     """
++    original_cls = cls
++    # Handle generic specializations
+     if not isinstance(cls, type):
+-        raise TypeError("Passed object must be a class.")
++        if hasattr(cls, "__origin__"):
++            cls = cls.__origin__
++        else:
++            raise TypeError("Passed object must be a class.")
++    
+     attrs = getattr(cls, "__attrs_attrs__", None)
+     if attrs is None:
+-        raise NotAnAttrsClassError(f"{cls!r} is not an attrs-decorated class.")
++        raise NotAnAttrsClassError(f"{original_cls!r} is not an attrs-decorated class.")
+     return attrs
+ 
+ 

@@ -1,0 +1,60 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 48987a6..1fc8cf4 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -141,6 +141,15 @@ def _column_definition_with_comments(
+     return definition
+ 
+ 
++def _is_numeric_type(type_):
++    """Check if a type is numeric (int, float, or their string equivalents)."""
++    if type_ in (int, float):
++        return True
++    if isinstance(type_, str):
++        return type_.lower() in ('integer', 'int', 'float', 'real')
++    return False
++
++
+ _IDENTIFIER_CASEFOLD = str.maketrans(
+     "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"
+ )
+@@ -3096,17 +3105,36 @@ class Table(Queryable):
+         # Copy across data, respecting any renamed columns
+         new_cols = []
+         old_cols = []
++        
++        # Identify columns being converted from TEXT to numeric types
++        text_to_numeric_conversions = {}
++        # Get actual column types from database schema
++        for column in self.columns:
++            name = column.name
++            original_type = column.type
++            if name in types and name not in drop:
++                target_type = types[name]
++                # Check if original column is TEXT and target type is numeric
++                if (isinstance(original_type, str) and 
++                    original_type.upper() == "TEXT" and 
++                    _is_numeric_type(target_type)):
++                    text_to_numeric_conversions[name] = target_type
++        
+         for from_, to_ in copy_from_to.items():
+-            old_cols.append(from_)
++            # Apply NULLIF for columns converting from TEXT to numeric types
++            if from_ in text_to_numeric_conversions:
++                old_cols.append(f'NULLIF({quote_identifier(from_)}, "")')
++            else:
++                old_cols.append(quote_identifier(from_))
+             new_cols.append(to_)
+         # Ensure rowid is copied too
+         if "rowid" not in new_cols:
+             new_cols.insert(0, "rowid")
+-            old_cols.insert(0, "rowid")
++            old_cols.insert(0, quote_identifier("rowid"))
+         copy_sql = "INSERT INTO {} ({new_cols})\n   SELECT {old_cols} FROM {};".format(
+             quote_identifier(new_table_name),
+             quote_identifier(self.name),
+-            old_cols=", ".join(quote_identifier(col) for col in old_cols),
++            old_cols=", ".join(old_cols),  # Note: don't quote identifiers here as they might contain expressions
+             new_cols=", ".join(quote_identifier(col) for col in new_cols),
+         )
+         sqls.append(copy_sql)

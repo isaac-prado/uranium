@@ -1,0 +1,226 @@
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index 777d96a..7420546 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -70,10 +70,94 @@ class Container(dict):
+ 
+     def append(self, key, item):  # type: (Key, Item) -> None
+         from .api import item as _item
++        from .items import Table
++        from .items import Trivia
+ 
+         if not isinstance(key, Key) and key is not None:
+             key = Key(key)
+ 
++        # Handle dotted keys
++        if key is not None and hasattr(key, '_keys') and len(key._keys) > 1:
++            # This is a dotted key, we need to create nested structure
++            keys = key._keys
++            root_key = keys[0]
++            intermediate_keys = keys[1:-1]
++            final_key = keys[-1]
++            
++            # Get or create the root table
++            if root_key.key not in self:
++                from .container import Container as ContainerClass
++                root_table = Table(
++                    ContainerClass(),
++                    Trivia("", "", "", ""),
++                    False,
++                    is_super_table=True,
++                    name=root_key.key,
++                )
++                super(Container, self).__setitem__(root_key.key, root_table.value)
++                self._map[Key(root_key.key)] = len(self._body)
++                self._body.append((Key(root_key.key), root_table))
++            else:
++                # Check if the existing item is compatible
++                existing_key = Key(root_key.key)
++                if existing_key in self._map:
++                    existing_item = self._body[self._map[existing_key]][1]
++                    if not isinstance(existing_item, Table):
++                        raise KeyAlreadyPresent(root_key.key)
++            
++            # Navigate/create intermediate tables
++            current_container = self
++            for inter_key in intermediate_keys:
++                if inter_key.key not in current_container:
++                    from .container import Container as ContainerClass
++                    new_table = Table(
++                        ContainerClass(),
++                        Trivia("", "", "", ""),
++                        False,
++                        is_super_table=True,
++                        name=inter_key.key,
++                    )
++                    current_container[inter_key.key] = new_table
++                
++                # Get the actual Table item from the container's body, not its value
++                table_key = Key(inter_key.key)
++                if table_key in current_container._map:
++                    idx = current_container._map[table_key]
++                    table_item = current_container._body[idx][1]  # This is the actual Table object
++                    current_container = table_item
++                else:
++                    raise KeyAlreadyPresent('.'.join([k.key for k in keys[:keys.index(inter_key)+1]]))
++                    
++                if not hasattr(current_container, 'value') or not hasattr(current_container.value, '__setitem__'):
++                    raise KeyAlreadyPresent('.'.join([k.key for k in keys[:keys.index(inter_key)+1]]))
++            
++            # Add the final item to the deepest container
++            # At this point, current_container should be the 'a' table
++            # We need to add 'b' to the 'a' table's internal container
++
++            
++            if hasattr(current_container, 'value') and hasattr(current_container.value, 'append'):
++                # This is a table, add to its internal container using append
++                # print("DEBUG: Using table.value.append branch")
++                current_container.value.append(final_key, item)
++            else:
++                # For containers, use append directly
++                # print("DEBUG: Checking container append branch")
++                if hasattr(current_container, 'append'):
++                    # print("DEBUG: Using container.append branch")
++                    current_container.append(final_key, item)
++                else:
++                    # Fallback - this shouldn't happen
++                    # print("DEBUG: Using fallback branch")
++                    current_container[final_key.key] = item
++            
++            # Track the full dotted key in our body for serialization purposes
++            # But don't add it to the dict to avoid duplication
++            self._map[key] = len(self._body)
++            self._body.append((key, item))
++            
++            return item
++
+         if not isinstance(item, Item):
+             item = _item(item)
+ 
+@@ -116,12 +200,21 @@ class Container(dict):
+             else:
+                 raise KeyAlreadyPresent(key)
+ 
+-        if key is not None:
++        # For dotted keys, we've already handled adding to the structure above
++        # Only add non-dotted keys normally
++        if key is not None and not (hasattr(key, '_keys') and len(key._keys) > 1):
+             super(Container, self).__setitem__(key.key, item.value)
+-
+-        self._map[key] = len(self._body)
+-
+-        self._body.append((key, item))
++            self._map[key] = len(self._body)
++            self._body.append((key, item))
++        elif key is not None and (hasattr(key, '_keys') and len(key._keys) > 1):
++            # For dotted keys, we already added to body and map above, so do nothing
++            pass
++        else:
++            # key is None (comment/whitespace) or item doesn't have value attribute
++            if hasattr(item, 'value'):
++                super(Container, self).__setitem__(key.key if key else None, item.value)
++            self._map[key] = len(self._body)
++            self._body.append((key, item))
+ 
+         return item
+ 
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..830bb0f 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -362,8 +362,8 @@ class Parser:
+ 
+         indent = self.extract()
+ 
+-        # Key
+-        key = self._parse_key()
++        # Key - handle dotted keys
++        key = self._parse_dotted_key()
+         if not key.key.strip():
+             raise self.parse_error(EmptyKeyError)
+ 
+@@ -397,6 +397,60 @@ class Parser:
+ 
+         return key, val
+ 
++    def _parse_dotted_key(self):  # type: () -> Key
++        """
++        Parses a dotted key, which may contain bare keys and quoted keys.
++        """
++        keys = []
++        
++        # Parse first key part
++        if self._current in "\"'":
++            first_key = self._parse_quoted_key()
++        else:
++            self.mark()
++            while self._current.is_bare_key_char() and self.inc():
++                pass
++            key_str = self.extract()
++            first_key = Key(key_str, sep="")
++        keys.append(first_key)
++        
++        # Look for additional dotted parts
++        while True:
++            # Skip whitespace
++            while self._current.is_spaces() and self.inc():
++                pass
++            
++            # Check for dot
++            if self._current == ".":
++                self.inc()  # consume the dot
++                
++                # Skip whitespace after dot
++                while self._current.is_spaces() and self.inc():
++                    pass
++                
++                # Parse next key part
++                if self._current in "\"'":
++                    next_key = self._parse_quoted_key()
++                else:
++                    self.mark()
++                    while self._current.is_bare_key_char() and self.inc():
++                        pass
++                    key_str = self.extract()
++                    next_key = Key(key_str, sep="")
++                keys.append(next_key)
++            else:
++                break
++        
++        # If we have multiple keys, create a composite key
++        if len(keys) > 1:
++            # Create a composite key that represents the full dotted path
++            key_parts = [k.key for k in keys]
++            composite_key = Key(".".join(key_parts), sep="")
++            composite_key._keys = keys  # Store individual keys for processing
++            return composite_key
++        else:
++            return keys[0]
++
+     def _parse_key(self):  # type: () -> Key
+         """
+         Parses a Key at the current position;
+@@ -434,11 +488,20 @@ class Parser:
+ 
+     def _parse_bare_key(self):  # type: () -> Key
+         """
+-        Parses a bare key.
++        Parses a bare key, potentially including dotted keys.
+         """
+         self.mark()
+-        while self._current.is_bare_key_char() and self.inc():
+-            pass
++        while (self._current.is_bare_key_char() or self._current == ".") and self.inc():
++            # If we encounter a dot, continue parsing
++            if self._current == ".":
++                self.inc()  # consume the dot
++                # After a dot, we expect another bare key char or the end
++                if not (self._current.is_bare_key_char() or self._current in "\"'"):
++                    # Put back the dot if it's not followed by a valid key char
++                    self._idx -= 1
++                    break
++                # Go back one character to continue the loop
++                continue
+ 
+         key = self.extract()
+ 

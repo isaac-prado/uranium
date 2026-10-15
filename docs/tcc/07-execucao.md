@@ -288,3 +288,13 @@ Relatório em [07-e4-fumaca.md](07-e4-fumaca.md): 4 células (`tomlkit-0002` gra
 **Dados.** Rodada 2 interrompida às 16:45 com 19 células; pygments-0001 (rep01, rep02), sqlite-utils-0002 (rep01, rep02 em andamento) e tomlkit-0004 (rep01) movidas para `runs/coleta-r2-descartados/` (README), mais tomlkit-0003 rep01 (`error: StructuredOutputError`, 0 turnos). Fila retomada às 17:00. Ablação e v2 versionados em `dados/ablacao-refinador/` e `dados/refinador-v2/`.
 
 **Impacto em docs.** [16-ablacao-e-v2.md](16-ablacao-e-v2.md) (novo); decisões 7, 16, 28 (resultado), 30 e 31 em [09-decisoes-do-autor.md](09-decisoes-do-autor.md); `CLAUDE.md` (rootdir no quinto portão).
+
+---
+
+## Rodada 2: execução e fechamento (14/10/2026, decisões 27 e 29)
+
+**Execução.** Orquestrado: `INTENT_REFINER=v2 REVIEW_EXECUTION=on CYCLE_NOTE=on DEVELOPER_INPUT=intent scripts/run_collection.py --arms orchestration --repetitions 3 --out runs/coleta-r2 --workers 1 --retry-delay 300 --max-attempts 5`, 14/10 14:23 a 16:45 (19 células) e, após a correção do rootdir (decisão 30), 16:50 a 21:00 (25 células, 5 refeitas). Single-agent nas três reconstruídas (`--arms single-agent --tasks tasks/pygments-0001 tasks/sqlite-utils-0002 tasks/tomlkit-0004`), 21:00 a 22:16. 48 células, 0 perdidas, 0 erros do harness depois da correção. `collection.json` mesclado das duas chamadas (`collection-orchestration.json` + `collection-single-agent.json`), sem chamada paga. Custo: OR US$ 4,72 (39 runs), SA US$ 3,81 (9 runs).
+
+**Resultados.** [17-rodada-2.md](17-rodada-2.md). Análises em `dados/coleta-r2/analise-sete-metricas.{md,json}`, `apendice-metricas.md`, `analise-operacional.md`; raiz pareada `runs/coleta-r2-analise/` (OR da rodada 2 + SA da rodada 2 nas três reconstruídas e da coleta principal nas outras dez). Resumo: OR 23/39 runs (antes 17/39), SA pareado 23/39; por tarefa 7 × 8 (p = 0,69); negações 39 → 3; tempo até a solução pior para o OR (p = 0,125).
+
+**Impacto em docs.** Resultados (rodada 2 ao lado da coleta principal), Discussão (sqlite-utils-0002: suíte verde cedo demais no single-agent; custo de parede do revisor que executa; faixa média), Ameaças à validade (single-agent pareado híbrido; 14 runs anteriores ao rootdir; oráculo do pygments mais estrito que o enunciado). Decisões 27 e 29 com resultado em [09-decisoes-do-autor.md](09-decisoes-do-autor.md).

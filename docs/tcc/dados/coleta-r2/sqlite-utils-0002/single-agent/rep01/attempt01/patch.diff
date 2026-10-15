@@ -1,0 +1,50 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 48987a6..14b1ad6 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -3096,18 +3096,42 @@ class Table(Queryable):
+         # Copy across data, respecting any renamed columns
+         new_cols = []
+         old_cols = []
++        select_cols = []  # Columns for SELECT clause, may include NULLIF expressions
++        
++        # Get current column types from the existing table schema
++        current_column_types = {col.name: col.type for col in self.columns}
++        
+         for from_, to_ in copy_from_to.items():
+             old_cols.append(from_)
+             new_cols.append(to_)
++            
++            # Check if we're converting from TEXT to a numeric type
++            current_type = current_column_types.get(from_, "").upper()
++            target_type = types.get(from_) if types and from_ in types else None
++            
++            # Map target type to SQLite type
++            target_sqlite_type = None
++            if target_type is not None:
++                target_sqlite_type = COLUMN_TYPE_MAPPING.get(target_type, "").upper()
++            
++            # If converting from TEXT to numeric type, use NULLIF to convert empty strings to NULL
++            if (current_type == "TEXT" and 
++                target_sqlite_type in ("INTEGER", "REAL", "FLOAT")):
++                select_cols.append(f'NULLIF({quote_identifier(from_)}, "")')
++            else:
++                select_cols.append(quote_identifier(from_))
++                
+         # Ensure rowid is copied too
+         if "rowid" not in new_cols:
+             new_cols.insert(0, "rowid")
+             old_cols.insert(0, "rowid")
+-        copy_sql = "INSERT INTO {} ({new_cols})\n   SELECT {old_cols} FROM {};".format(
++            select_cols.insert(0, '"rowid"')
++            
++        copy_sql = "INSERT INTO {} ({})\n   SELECT {} FROM {};".format(
+             quote_identifier(new_table_name),
++            ", ".join(quote_identifier(col) for col in new_cols),
++            ", ".join(select_cols),
+             quote_identifier(self.name),
+-            old_cols=", ".join(quote_identifier(col) for col in old_cols),
+-            new_cols=", ".join(quote_identifier(col) for col in new_cols),
+         )
+         sqls.append(copy_sql)
+         # Capture indexes before the old table is changed. Simple indexes that

@@ -1,0 +1,105 @@
+{
+  "result_schema_version": 2,
+  "harness_version": "1.0.0",
+  "evaluated_at": "2026-10-14T18:36:45+00:00",
+  "run_id": "tomlkit-0003-orchestration-r01-a01",
+  "arm": "orchestration",
+  "task_id": "tomlkit-0003",
+  "faixa": "grande",
+  "repetition": 1,
+  "base_commit": "314072fac304f88392e9e2cfcfade349529e15a5",
+  "resolved": false,
+  "resolved_blocked_by_cheat": false,
+  "oracle": {
+    "f2p_total": 1,
+    "f2p_passed": 0,
+    "f2p": {
+      "exit_code": 1,
+      "passed": 0,
+      "failed": 1,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.11,
+      "failing_node_ids": [
+        "tests/test_toml_document.py::test_repr"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "p2p": {
+      "exit_code": 1,
+      "passed": 547,
+      "failed": 1,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 1.39,
+      "failing_node_ids": [
+        "tests/test_toml_document.py::test_repr"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "regression": {
+      "exit_code": 1,
+      "passed": 547,
+      "failed": 1,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 1.42,
+      "failing_node_ids": [
+        "tests/test_toml_document.py::test_repr"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    }
+  },
+  "cheat": {
+    "clean": true,
+    "critical_count": 0,
+    "warning_count": 0,
+    "signals": []
+  },
+  "quality": {
+    "mi_before": null,
+    "mi_after": null,
+    "mi_delta": null,
+    "cc_mean_before": null,
+    "cc_mean_after": null,
+    "cc_mean_delta": null,
+    "files_analyzed": 0,
+    "error": null
+  },
+  "cost": {
+    "tokens_prompt": 0,
+    "tokens_completion": 0,
+    "tokens_reasoning": 0,
+    "tokens_total": 0,
+    "cost_usd": 0.0,
+    "llm_calls": 0,
+    "byok_calls": 0,
+    "tool_calls": 0,
+    "wall_seconds": 42.203
+  },
+  "process": {
+    "turns": 0,
+    "test_runs": 0,
+    "tool_denials": 0,
+    "errors": 2,
+    "circuit_breaks": 0,
+    "self_recoveries": 0,
+    "stop_reason": "error: StructuredOutputError"
+  },
+  "provenance": {
+    "model": "qwen/qwen3-coder",
+    "provider_requested": "DeepInfra",
+    "providers_served": [],
+    "llm_seed": 20260821,
+    "topology": "multi_agent_roles"
+  },
+  "diff": {
+    "files_changed": 0,
+    "insertions": 0,
+    "deletions": 0,
+    "changed_files": []
+  }
+}

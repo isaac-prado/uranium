@@ -1,0 +1,132 @@
+{
+  "result_schema_version": 2,
+  "harness_version": "1.0.0",
+  "evaluated_at": "2026-10-15T00:47:59+00:00",
+  "run_id": "sqlite-utils-0002-single-agent-r02-a01",
+  "arm": "single-agent",
+  "task_id": "sqlite-utils-0002",
+  "faixa": "pequena",
+  "repetition": 2,
+  "base_commit": "75ba58846206b2c1beb39836134e763bf34177aa",
+  "resolved": false,
+  "resolved_blocked_by_cheat": false,
+  "oracle": {
+    "f2p_total": 11,
+    "f2p_passed": 5,
+    "f2p": {
+      "exit_code": 1,
+      "passed": 5,
+      "failed": 6,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.27,
+      "failing_node_ids": [
+        "tests/test_transform.py::test_transform_sql_table_with_no_primary_key[False-params1-expected_sql1]",
+        "tests/test_transform.py::test_transform_sql_table_with_no_primary_key[True-params1-expected_sql1]",
+        "tests/test_transform.py::test_transform_sql_table_with_primary_key[False-params1-expected_sql1]",
+        "tests/test_transform.py::test_transform_sql_table_with_primary_key[False-params4-expected_sql4]",
+        "tests/test_transform.py::test_transform_sql_table_with_primary_key[True-params1-expected_sql1]",
+        "tests/test_transform.py::test_transform_sql_table_with_primary_key[True-params4-expected_sql4]"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "p2p": {
+      "exit_code": 1,
+      "passed": 1478,
+      "failed": 10,
+      "errors": 0,
+      "skipped": 16,
+      "duration_s": 7.53,
+      "failing_node_ids": [
+        "tests/test_transform.py::test_transform_sql_table_with_no_primary_key[False-params1-expected_sql1]",
+        "tests/test_transform.py::test_transform_sql_table_with_no_primary_key[False-params2-expected_sql2]",
+        "tests/test_transform.py::test_transform_sql_table_with_no_primary_key[True-params1-expected_sql1]",
+        "tests/test_transform.py::test_transform_sql_table_with_no_primary_key[True-params2-expected_sql2]",
+        "tests/test_transform.py::test_transform_sql_table_with_primary_key[False-params1-expected_sql1]",
+        "tests/test_transform.py::test_transform_sql_table_with_primary_key[False-params2-expected_sql2]",
+        "tests/test_transform.py::test_transform_sql_table_with_primary_key[False-params4-expected_sql4]",
+        "tests/test_transform.py::test_transform_sql_table_with_primary_key[True-params1-expected_sql1]",
+        "tests/test_transform.py::test_transform_sql_table_with_primary_key[True-params2-expected_sql2]",
+        "tests/test_transform.py::test_transform_sql_table_with_primary_key[True-params4-expected_sql4]"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "regression": {
+      "exit_code": 1,
+      "passed": 1478,
+      "failed": 10,
+      "errors": 0,
+      "skipped": 16,
+      "duration_s": 7.34,
+      "failing_node_ids": [
+        "tests/test_transform.py::test_transform_sql_table_with_no_primary_key[False-params1-expected_sql1]",
+        "tests/test_transform.py::test_transform_sql_table_with_no_primary_key[False-params2-expected_sql2]",
+        "tests/test_transform.py::test_transform_sql_table_with_no_primary_key[True-params1-expected_sql1]",
+        "tests/test_transform.py::test_transform_sql_table_with_no_primary_key[True-params2-expected_sql2]",
+        "tests/test_transform.py::test_transform_sql_table_with_primary_key[False-params1-expected_sql1]",
+        "tests/test_transform.py::test_transform_sql_table_with_primary_key[False-params2-expected_sql2]",
+        "tests/test_transform.py::test_transform_sql_table_with_primary_key[False-params4-expected_sql4]",
+        "tests/test_transform.py::test_transform_sql_table_with_primary_key[True-params1-expected_sql1]",
+        "tests/test_transform.py::test_transform_sql_table_with_primary_key[True-params2-expected_sql2]",
+        "tests/test_transform.py::test_transform_sql_table_with_primary_key[True-params4-expected_sql4]"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    }
+  },
+  "cheat": {
+    "clean": true,
+    "critical_count": 0,
+    "warning_count": 0,
+    "signals": []
+  },
+  "quality": {
+    "mi_before": 0.0,
+    "mi_after": 0.0,
+    "mi_delta": 0.0,
+    "cc_mean_before": 7.23,
+    "cc_mean_after": 7.222,
+    "cc_mean_delta": -0.008,
+    "files_analyzed": 1,
+    "error": null
+  },
+  "cost": {
+    "tokens_prompt": 8056559,
+    "tokens_completion": 20811,
+    "tokens_reasoning": 0,
+    "tokens_total": 8077370,
+    "cost_usd": 1.1126235,
+    "llm_calls": 117,
+    "byok_calls": 117,
+    "tool_calls": 53,
+    "wall_seconds": 1327.979
+  },
+  "process": {
+    "turns": 117,
+    "test_runs": 64,
+    "tool_denials": 0,
+    "errors": 0,
+    "circuit_breaks": 1,
+    "self_recoveries": 0,
+    "stop_reason": "budget: max_tokens (8077370 >= 8000000)"
+  },
+  "provenance": {
+    "model": "qwen/qwen3-coder",
+    "provider_requested": "DeepInfra",
+    "providers_served": [
+      "DeepInfra"
+    ],
+    "llm_seed": 20260822,
+    "topology": "single_agent"
+  },
+  "diff": {
+    "files_changed": 1,
+    "insertions": 34,
+    "deletions": 4,
+    "changed_files": [
+      "sqlite_utils/db.py"
+    ]
+  }
+}

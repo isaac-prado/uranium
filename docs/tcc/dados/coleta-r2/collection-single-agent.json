@@ -1,0 +1,110 @@
+[
+  {
+    "task_id": "pygments-0001",
+    "arm": "single-agent",
+    "repetition": 1,
+    "status": "done",
+    "attempts": 1,
+    "lost_attempts": 0,
+    "run_dir": "runs/coleta-r2/pygments-0001/single-agent/rep01/attempt01",
+    "stop_reason": "budget: max_turns (120 >= 120)",
+    "resolved": false,
+    "evaluation_error": null
+  },
+  {
+    "task_id": "sqlite-utils-0002",
+    "arm": "single-agent",
+    "repetition": 1,
+    "status": "done",
+    "attempts": 1,
+    "lost_attempts": 0,
+    "run_dir": "runs/coleta-r2/sqlite-utils-0002/single-agent/rep01/attempt01",
+    "stop_reason": "tests_pass",
+    "resolved": false,
+    "evaluation_error": null
+  },
+  {
+    "task_id": "tomlkit-0004",
+    "arm": "single-agent",
+    "repetition": 1,
+    "status": "done",
+    "attempts": 1,
+    "lost_attempts": 0,
+    "run_dir": "runs/coleta-r2/tomlkit-0004/single-agent/rep01/attempt01",
+    "stop_reason": "budget: max_turns (120 >= 120)",
+    "resolved": false,
+    "evaluation_error": null
+  },
+  {
+    "task_id": "pygments-0001",
+    "arm": "single-agent",
+    "repetition": 2,
+    "status": "done",
+    "attempts": 1,
+    "lost_attempts": 0,
+    "run_dir": "runs/coleta-r2/pygments-0001/single-agent/rep02/attempt01",
+    "stop_reason": "tests_pass",
+    "resolved": true,
+    "evaluation_error": null
+  },
+  {
+    "task_id": "sqlite-utils-0002",
+    "arm": "single-agent",
+    "repetition": 2,
+    "status": "done",
+    "attempts": 1,
+    "lost_attempts": 0,
+    "run_dir": "runs/coleta-r2/sqlite-utils-0002/single-agent/rep02/attempt01",
+    "stop_reason": "budget: max_tokens (8077370 >= 8000000)",
+    "resolved": false,
+    "evaluation_error": null
+  },
+  {
+    "task_id": "tomlkit-0004",
+    "arm": "single-agent",
+    "repetition": 2,
+    "status": "done",
+    "attempts": 1,
+    "lost_attempts": 0,
+    "run_dir": "runs/coleta-r2/tomlkit-0004/single-agent/rep02/attempt01",
+    "stop_reason": "budget: max_turns (120 >= 120)",
+    "resolved": false,
+    "evaluation_error": null
+  },
+  {
+    "task_id": "pygments-0001",
+    "arm": "single-agent",
+    "repetition": 3,
+    "status": "done",
+    "attempts": 1,
+    "lost_attempts": 0,
+    "run_dir": "runs/coleta-r2/pygments-0001/single-agent/rep03/attempt01",
+    "stop_reason": "tests_pass",
+    "resolved": true,
+    "evaluation_error": null
+  },
+  {
+    "task_id": "sqlite-utils-0002",
+    "arm": "single-agent",
+    "repetition": 3,
+    "status": "done",
+    "attempts": 1,
+    "lost_attempts": 0,
+    "run_dir": "runs/coleta-r2/sqlite-utils-0002/single-agent/rep03/attempt01",
+    "stop_reason": "tests_pass",
+    "resolved": false,
+    "evaluation_error": null
+  },
+  {
+    "task_id": "tomlkit-0004",
+    "arm": "single-agent",
+    "repetition": 3,
+    "status": "done",
+    "attempts": 1,
+    "lost_attempts": 0,
+    "run_dir": "runs/coleta-r2/tomlkit-0004/single-agent/rep03/attempt01",
+    "stop_reason": "budget: max_turns (120 >= 120)",
+    "resolved": false,
+    "evaluation_error": null
+  }
+]

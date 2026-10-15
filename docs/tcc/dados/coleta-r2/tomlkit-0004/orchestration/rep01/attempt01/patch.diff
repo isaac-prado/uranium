@@ -1,0 +1,239 @@
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index 777d96a..d7ff787 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -74,6 +74,30 @@ class Container(dict):
+         if not isinstance(key, Key) and key is not None:
+             key = Key(key)
+ 
++        # Handle dotted keys
++        if key is not None and "." in key.key:
++            parts = key.key.split(".")
++            # Create nested structure
++            current_container = self
++            for part in parts[:-1]:
++                part_key = Key(part)
++                if part not in current_container:
++                    # Create intermediate table
++                    from .container import Container as ItemsContainer
++                    from .items import Trivia
++                    new_table = Table(ItemsContainer(), Trivia(), False, name=part)
++                    current_container.append(part_key, new_table)
++                current_container = current_container[part]
++                if not isinstance(current_container, Container):
++                    raise KeyAlreadyPresent(key)
++            # Set the final key
++            key = Key(parts[-1])
++            if hasattr(current_container, 'append'):
++                current_container.append(key, item)
++            else:
++                current_container[key.key] = item
++            return item
++
+         if not isinstance(item, Item):
+             item = _item(item)
+ 
+@@ -241,6 +265,18 @@ class Container(dict):
+         if not isinstance(key, Key):
+             key = Key(key)
+ 
++        # Handle dotted keys
++        if "." in key.key:
++            parts = key.key.split(".")
++            current = self
++            for part in parts[:-1]:
++                if part not in current:
++                    raise NonExistentKey(key)
++                current = current[part]
++                if not isinstance(current, Container):
++                    raise NonExistentKey(key)
++            key = Key(parts[-1])
++            
+         idx = self._map.get(key, None)
+         if idx is None:
+             raise NonExistentKey(key)
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..63e0c34 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -367,6 +367,19 @@ class Parser:
+         if not key.key.strip():
+             raise self.parse_error(EmptyKeyError)
+ 
++        # Check for dotted key
++        if isinstance(key, Key) and "." in key.key and key.t == KeyType.Bare:
++            # Handle dotted key by creating nested structure
++            # We need to properly parse dotted keys that might contain quoted parts
++            parts = self._split_dotted_key(key.key)
++            # Validate each part
++            for part in parts:
++                if not part:
++                    raise self.parse_error(EmptyKeyError)
++            
++            # Return the last part as the actual key and the rest as path
++            return self._create_dotted_key_value(parts, indent, parse_comment)
++        
+         self.mark()
+ 
+         found_equals = self._current == "="
+@@ -397,15 +410,158 @@ class Parser:
+ 
+         return key, val
+ 
++    def _split_dotted_key(self, key_str):
++        """
++        Split a dotted key into its parts, respecting quoted strings.
++        """
++        parts = []
++        current_part = ""
++        in_quotes = False
++        quote_char = None
++        i = 0
++        escaped = False
++        
++        while i < len(key_str):
++            char = key_str[i]
++            
++            if char == "\\" and not escaped and in_quotes:
++                escaped = True
++                current_part += char
++            elif char in ('"', "'") and not escaped:
++                if not in_quotes:
++                    in_quotes = True
++                    quote_char = char
++                elif char == quote_char:
++                    in_quotes = False
++                    quote_char = None
++                current_part += char
++                escaped = False
++            elif char == '.' and not in_quotes:
++                if current_part:
++                    parts.append(current_part)
++                current_part = ""
++                escaped = False
++            else:
++                current_part += char
++                escaped = False
++                
++            i += 1
++        
++        if current_part:
++            parts.append(current_part)
++            
++        return parts
++
++    def _create_dotted_key_value(self, parts, indent, parse_comment):
++        # For dotted keys, we just return the full key string and let the container handle nesting
++        key_str = ".".join(parts)
++        key = Key(key_str, sep="")
++        
++        # Parse the separator and value normally
++        self.mark()
++        found_equals = self._current == "="
++        while self._current.is_kv_sep() and self.inc():
++            if self._current == "=":
++                if found_equals:
++                    raise self.parse_error(UnexpectedCharError, ("=",))
++                else:
++                    found_equals = True
++            pass
++
++        key.sep = self.extract()
++
++        # Value
++        val = self._parse_value()
++
++        # Comment
++        if parse_comment:
++            cws, comment, trail = self._parse_comment_trail()
++            meta = val.trivia
++            meta.comment_ws = cws
++            meta.comment = comment
++            meta.trail = trail
++        else:
++            val.trivia.trail = ""
++
++        val.trivia.indent = indent
++
++        return key, val
++
+     def _parse_key(self):  # type: () -> Key
+         """
+         Parses a Key at the current position;
+         WS before the key must be exhausted first at the callsite.
+         """
++        # Check if this might be a dotted key by looking ahead
++        if self._current not in "\"'":
++            # Look ahead to see if there's a dot followed by more key characters
++            saved_pos = self._pos
++            saved_current = self._current
++            
++            # Try to parse what could be a dotted key part
++            temp_key = self._parse_bare_key()
++            
++            # If we're at a dot, this might be a dotted key
++            if self._current == ".":
++                # Reset and parse as dotted key
++                self._pos = saved_pos
++                self._current = saved_current
++                return self._parse_dotted_key_sequence()
++            else:
++                # Just a regular key
++                return temp_key
++        elif self._current in "\"'":
++            # Could be start of a quoted key in a dotted sequence
++            saved_pos = self._pos
++            saved_current = self._current
++            
++            # Try parsing the quoted key
++            temp_key = self._parse_quoted_key()
++            
++            # If we're at a dot, this might be a dotted key
++            if self._current == ".":
++                # Reset and parse as dotted key
++                self._pos = saved_pos
++                self._current = saved_current
++                return self._parse_dotted_key_sequence()
++            else:
++                # Just a regular quoted key
++                return temp_key
++        else:
++            if self._current in "\"'":
++                return self._parse_quoted_key()
++            else:
++                return self._parse_bare_key()
++
++    def _parse_dotted_key_sequence(self):  # type: () -> Key
++        """
++        Parses a dotted key sequence.
++        """
++        parts = []
++        
++        # Parse first part
+         if self._current in "\"'":
+-            return self._parse_quoted_key()
++            first_part = self._parse_quoted_key()
+         else:
+-            return self._parse_bare_key()
++            first_part = self._parse_bare_key()
++            
++        parts.append(first_part)
++        
++        # Continue parsing while we find dots
++        while self._current == ".":
++            self.inc()  # Skip the dot
++            
++            # Parse next part
++            if self._current in "\"'":
++                next_part = self._parse_quoted_key()
++            else:
++                next_part = self._parse_bare_key()
++                
++            parts.append(next_part)
++        
++        # Join all parts with dots to create the full key
++        full_key = ".".join([p.key for p in parts])
++        return Key(full_key, KeyType.Bare, "")
+ 
+     def _parse_quoted_key(self):  # type: () -> Key
+         """

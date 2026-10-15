@@ -1,0 +1,78 @@
+diff --git a/peewee.py b/peewee.py
+index 6a666d5b..3e30d95c 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -2652,6 +2652,13 @@ class Select(SelectBase):
+ 
+     @Node.copy
+     def window(self, *windows):
++        # Check for duplicate aliases
++        aliases = set()
++        for window in windows:
++            alias = getattr(window, '_alias', 'w')
++            if alias in aliases:
++                raise ValueError('Window with alias "%s" already exists.' % alias)
++            aliases.add(alias)
+         self._windows = windows if windows else None
+ 
+     @Node.copy
+@@ -3017,10 +3024,15 @@ class Insert(_WriteQuery):
+         with ctx.scope_values():
+             stmt = None
+             if self._on_conflict is not None:
++                if ctx.state is None or not hasattr(ctx.state, 'conflict_statement') or ctx.state.conflict_statement is None:
++                    raise InterfaceError('Query must be bound to a database in order to '
++                                         'use on_conflict().')
+                 stmt = self._on_conflict.get_conflict_statement(ctx, self)
++            else:
++                stmt = SQL('INSERT')
+ 
+             (ctx
+-             .sql(stmt or SQL('INSERT'))
++             .sql(stmt)
+              .literal(' INTO ')
+              .sql(self.table)
+              .literal(' '))
+@@ -3783,7 +3795,11 @@ class Database(_callable_context_manager):
+             self.connect()
+         ctx = self.atomic()
+         self._state.ctx.append(ctx)
+-        ctx.__enter__()
++        try:
++            ctx.__enter__()
++        except:
++            self._state.ctx.pop()
++            raise
+         return self
+ 
+     def __exit__(self, exc_type, exc_val, exc_tb):
+@@ -4037,10 +4053,14 @@ class Database(_callable_context_manager):
+             self.cursor().execute('BEGIN')
+ 
+     def rollback(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot rollback - connection is closed.')
+         with __exception_wrapper__:
+             self.cursor().execute('ROLLBACK')
+ 
+     def commit(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot commit - connection is closed.')
+         with __exception_wrapper__:
+             self.cursor().execute('COMMIT')
+ 
+@@ -4382,10 +4402,14 @@ class SqliteDatabase(Database):
+         self.execute_sql(statement)
+ 
+     def commit(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot commit - connection is closed.')
+         with __exception_wrapper__:
+             return self.execute_sql('COMMIT')
+ 
+     def rollback(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot rollback - connection is closed.')
+         with __exception_wrapper__:
+             return self.execute_sql('ROLLBACK')
+ 

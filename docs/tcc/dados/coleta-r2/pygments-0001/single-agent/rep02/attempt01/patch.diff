@@ -1,0 +1,91 @@
+diff --git a/pygments/lexers/go.py b/pygments/lexers/go.py
+index 3be68084d..3a044762e 100644
+--- a/pygments/lexers/go.py
++++ b/pygments/lexers/go.py
+@@ -34,8 +34,9 @@ class GoLexer(RegexLexer):
+             (r'//(.*?)$', Comment.Single),
+             (r'/(\\\n)?[*][\s\S]*?[*](\\\n)?/', Comment.Multiline),
+             (r'(import|package)\b', Keyword.Namespace),
+-            (r'(var|func|struct|map|chan|type|interface|const)\b',
++            (r'(var|func|struct|type|interface|const)\b',
+              Keyword.Declaration),
++            (r'(map|chan)\b', Keyword.Type),
+             (words((
+                 'break', 'default', 'select', 'case', 'defer', 'go',
+                 'else', 'goto', 'switch', 'fallthrough', 'if', 'range',
+@@ -43,40 +44,46 @@ class GoLexer(RegexLexer):
+              Keyword),
+             (r'(true|false|iota|nil)\b', Keyword.Constant),
+             # It seems the builtin types aren't actually keywords, but
+-            # can be used as functions. So we need two declarations.
++            # can be used as functions or type conversions. We need to handle both cases.
+             (words((
+                 'uint', 'uint8', 'uint16', 'uint32', 'uint64',
+                 'int', 'int8', 'int16', 'int32', 'int64',
+-                'float', 'float32', 'float64',
++                'float32', 'float64',
+                 'complex64', 'complex128', 'byte', 'rune',
+-                'string', 'bool', 'error', 'uintptr', 'any', 'comparable',
+-                'print', 'println', 'panic', 'recover', 'close', 'complex',
+-                'real', 'imag', 'len', 'cap', 'append', 'copy', 'delete',
+-                'new', 'make', 'min', 'max', 'clear'), suffix=r'\b(\()'),
+-             bygroups(Name.Builtin, Punctuation)),
++                'string', 'bool', 'error', 'uintptr', 'any', 'comparable'), suffix=r'\b(\()'),
++             bygroups(Keyword.Type, Punctuation)),
+             (words((
+                 'uint', 'uint8', 'uint16', 'uint32', 'uint64',
+                 'int', 'int8', 'int16', 'int32', 'int64',
+-                'float', 'float32', 'float64',
++                'float32', 'float64',
+                 'complex64', 'complex128', 'byte', 'rune',
+                 'string', 'bool', 'error', 'uintptr', 'any', 'comparable'), suffix=r'\b'),
+              Keyword.Type),
++            (words((
++                'print', 'println', 'panic', 'recover', 'close', 'complex',
++                'real', 'imag', 'len', 'cap', 'append', 'copy', 'delete',
++                'new', 'make', 'min', 'max', 'clear'), suffix=r'\b(\()'),
++             bygroups(Name.Builtin, Punctuation)),
+             # imaginary_lit
+-            (r'\d+i', Number),
+-            (r'\d+\.\d*([Ee][-+]\d+)?i', Number),
++            (r'(\d+_)*\d+i', Number),
++            (r'(\d+_)*\d+\.\d*([Ee][-+]\d+)?i', Number),
+             (r'\.\d+([Ee][-+]\d+)?i', Number),
+-            (r'\d+[Ee][-+]\d+i', Number),
++            (r'(\d+_)*\d+[Ee][-+]\d+i', Number),
+             # float_lit
+-            (r'\d+(\.\d+[eE][+\-]?\d+|'
++            (r'(\d+_)*\d+(\.\d+[eE][+\-]?\d+|'
+              r'\.\d*|[eE][+\-]?\d+)', Number.Float),
+             (r'\.\d+([eE][+\-]?\d+)?', Number.Float),
+             # int_lit
+-            # -- octal_lit
+-            (r'0[0-7]+', Number.Oct),
++            # -- binary_lit
++            (r'0[bB](_?[01])+(?![_0-9a-zA-Z])', Number.Bin),
++            # -- octal_lit (new syntax)
++            (r'0[oO](_?[0-7])+(?![_0-9a-zA-Z])', Number.Oct),
+             # -- hex_lit
+-            (r'0[xX][0-9a-fA-F]+', Number.Hex),
++            (r'0[xX](_?[0-9a-fA-F])+(?![_0-9a-zA-Z])', Number.Hex),
++            # -- octal_lit (old syntax) - only match if followed by actual octal digits
++            (r'0(_?[0-7])+', Number.Oct),
+             # -- decimal_lit
+-            (r'(0|[1-9][0-9]*)', Number.Integer),
++            (r'(0|[1-9](_?\d)*)', Number.Integer),
+             # char_lit
+             (r"""'(\\['"\\abfnrtv]|\\x[0-9a-fA-F]{2}|\\[0-7]{1,3}"""
+              r"""|\\u[0-9a-fA-F]{4}|\\U[0-9a-fA-F]{8}|[^\\])'""",
+@@ -88,9 +95,9 @@ class GoLexer(RegexLexer):
+             (r'"(\\\\|\\[^\\]|[^"\\])*"', String),
+             # Tokens
+             (r'(<<=|>>=|<<|>>|<=|>=|&\^=|&\^|\+=|-=|\*=|/=|%=|&=|\|=|&&|\|\|'
+-             r'|<-|\+\+|--|==|!=|:=|\.\.\.|[+\-*/%&]'
+-             r'|~|\|)', Operator),
+-            (r'[|^<>=!()\[\]{}.,;:]', Punctuation),
++             r'|<-|\+\+|--|==|!=|:=|\^=|[+\-*/%&|^<>!]|=)', Operator),
++            (r'(~|\.\.\.)', Punctuation),
++            (r'[\[\](){}.,;:]', Punctuation),
+             # identifier
+             (r'[^\W\d]\w*', Name.Other),
+         ]

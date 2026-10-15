@@ -1,0 +1,136 @@
+diff --git a/sqlite_utils/cli.py b/sqlite_utils/cli.py
+index a30f79a..c7be18e 100644
+--- a/sqlite_utils/cli.py
++++ b/sqlite_utils/cli.py
+@@ -3506,7 +3506,10 @@ def output_rows(iterator, headers, nl, arrays, json_cols):
+             # Any value that is a valid JSON string should be treated as JSON
+             data = [maybe_json(value) for value in data]
+         if not arrays:
+-            data = dict(zip(headers, data))
++            # Only deduplicate keys for JSON output, not for CSV/TSV etc
++            from .utils import dedupe_keys
++            deduped_headers = dedupe_keys(headers)
++            data = dict(zip(deduped_headers, data))
+         line = "{firstchar}{serialized}{maybecomma}{lastchar}".format(
+             firstchar=("[" if first else " ") if not nl else "",
+             serialized=json.dumps(data, default=json_binary),
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 3f23c7d..fb201f5 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -786,8 +786,10 @@ class Database:
+                     cursor = self.conn.execute(sql, *args)
+             if cursor.description is None:
+                 raise ValueError(message)
++            from .utils import dedupe_keys
+             keys = [d[0] for d in cursor.description]
+-            return (dict(zip(keys, row)) for row in cursor)
++            deduped_keys = dedupe_keys(keys)
++            return (dict(zip(deduped_keys, row)) for row in cursor)
+         # Execute inside a savepoint, so a statement that turns out not to
+         # return rows can be rolled back before the ValueError is raised
+         self.conn.execute('SAVEPOINT "sqlite_utils_query"')
+@@ -796,7 +798,9 @@ class Database:
+             cursor = self.conn.execute(sql, *args)
+             if cursor.description is None:
+                 raise ValueError(message)
++            from .utils import dedupe_keys
+             keys = [d[0] for d in cursor.description]
++            deduped_keys = dedupe_keys(keys)
+             try:
+                 self.conn.execute('RELEASE "sqlite_utils_query"')
+                 released = True
+@@ -809,8 +813,8 @@ class Database:
+                 fetched = cursor.fetchall()
+                 self.conn.execute('RELEASE "sqlite_utils_query"')
+                 released = True
+-                return (dict(zip(keys, row)) for row in fetched)
+-            return (dict(zip(keys, row)) for row in cursor)
++                return (dict(zip(deduped_keys, row)) for row in fetched)
++            return (dict(zip(deduped_keys, row)) for row in cursor)
+         finally:
+             if not released:
+                 # An error occurred - undo anything the statement changed
+@@ -1865,9 +1869,11 @@ class Queryable:
+         if offset is not None:
+             sql += " offset {}".format(offset)
+         cursor = self.db.execute(sql, where_args or [])
++        from .utils import dedupe_keys
+         columns = [c[0] for c in cursor.description]
++        deduped_columns = dedupe_keys(columns)
+         for row in cursor:
+-            yield dict(zip(columns, row))
++            yield dict(zip(deduped_columns, row))
+ 
+     def pks_and_rows_where(
+         self,
+@@ -3398,9 +3404,11 @@ class Table(Queryable):
+             ),
+             args,
+         )
++        from .utils import dedupe_keys
+         columns = [c[0] for c in cursor.description]
++        deduped_columns = dedupe_keys(columns)
+         for row in cursor:
+-            yield dict(zip(columns, row))
++            yield dict(zip(deduped_columns, row))
+ 
+     def value_or_default(self, key: str, value: Any) -> Any:
+         return self._defaults[key] if value is DEFAULT else value
+diff --git a/sqlite_utils/utils.py b/sqlite_utils/utils.py
+index 865ee79..3074482 100644
+--- a/sqlite_utils/utils.py
++++ b/sqlite_utils/utils.py
+@@ -629,3 +629,51 @@ def flatten(row: Dict[str, Any]) -> Dict[str, Any]:
+     :param row: A Python dictionary, optionally with nested dictionaries
+     """
+     return dict(_flatten(row))
++
++
++def dedupe_keys(keys: List[str]) -> List[str]:
++    """
++    Remove duplicate keys by appending numeric suffixes to duplicates.
++    
++    The first occurrence of a key remains unchanged. Each subsequent occurrence 
++    gets a suffix '_N' where N starts from 2 and increases to avoid conflicts.
++    
++    Examples:
++        [] -> []
++        ["id", "name"] -> ["id", "name"]
++        ["id", "id"] -> ["id", "id_2"]
++        ["id", "id", "id"] -> ["id", "id_2", "id_3"]
++        ["id", "id", "id_2"] -> ["id", "id_3", "id_2"]
++        ["id_2", "id", "id"] -> ["id_2", "id", "id_3"]
++        ["id", "id", "id_2", "id_2"] -> ["id", "id_3", "id_2", "id_2_2"]
++        
++    :param keys: List of column names to deduplicate
++    :return: New list with deduplicated column names
++    """
++    if not keys:
++        return []
++    
++    # Create a set of all existing keys for quick lookup
++    existing_keys = set(keys)
++    result = []
++    counts: Dict[str, int] = {}
++    
++    for key in keys:
++        if key not in counts:
++            # First occurrence - keep as is
++            counts[key] = 1
++            result.append(key)
++        else:
++            # Duplicate - need to add suffix
++            counts[key] += 1
++            suffix = counts[key]
++            
++            # Find the first available suffix that doesn't conflict
++            while True:
++                new_key = f"{key}_{suffix}"
++                if new_key not in existing_keys and new_key not in result:
++                    result.append(new_key)
++                    break
++                suffix += 1
++                
++    return result
+\ No newline at end of file

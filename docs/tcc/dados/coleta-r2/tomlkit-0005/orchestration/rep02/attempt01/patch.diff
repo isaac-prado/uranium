@@ -1,0 +1,131 @@
+diff --git a/tomlkit/_types.py b/tomlkit/_types.py
+index 3585d56..fe33478 100644
+--- a/tomlkit/_types.py
++++ b/tomlkit/_types.py
+@@ -71,11 +71,11 @@ else:
+             self.update(other)
+             return self
+ 
+-    class _CustomInt(Integral, int):
+-        """Adds Integral mixin while pretending to be a builtin int"""
++    class _CustomInt(int):
++        """Pretends to be a builtin int"""
+ 
+-    class _CustomFloat(Real, float):
+-        """Adds Real mixin while pretending to be a builtin float"""
++    class _CustomFloat(float):
++        """Pretends to be a builtin float"""
+ 
+ 
+ def wrap_method(
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 4a24fc0..3f4c602 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -540,6 +540,12 @@ class Item:
+     def __reduce_ex__(self, protocol: int) -> tuple[type, tuple[object, ...]]:  # type: ignore[override]
+         return self.__class__, self._getstate(protocol)
+ 
++
++class Container(Item):
++    """
++    A container item within a TOML document that supports item access.
++    """
++    
+     def __getitem__(self, key: Key | str | int) -> Any:
+         raise TypeError(f"{type(self).__name__} does not support item access")
+ 
+@@ -550,6 +556,21 @@ class Item:
+         raise TypeError(f"{type(self).__name__} does not support item deletion")
+ 
+ 
++class Scalar(Item):
++    """
++    A scalar item within a TOML document.
++    """
++    
++    def __getitem__(self, key: Key | str | int) -> Any:
++        raise AttributeError(f"'{type(self).__name__}' object has no attribute '__getitem__'")
++
++    def __setitem__(self, key: Key | str | int, value: Any) -> None:
++        raise AttributeError(f"'{type(self).__name__}' object has no attribute '__setitem__'")
++
++    def __delitem__(self, key: Key | str | int) -> None:
++        raise AttributeError(f"'{type(self).__name__}' object has no attribute '__delitem__'")
++
++
+ class Whitespace(Item):
+     """
+     A whitespace literal.
+@@ -608,7 +629,7 @@ class Comment(Item):
+         return f"{self._trivia.indent}{decode(self._trivia.comment)}"
+ 
+ 
+-class Integer(Item, _CustomInt):
++class Integer(Scalar, _CustomInt):
+     """
+     An integer literal.
+     """
+@@ -831,7 +852,7 @@ class Integer(Item, _CustomInt):
+         return Float._new(self, result)  # type: ignore[arg-type]
+ 
+ 
+-class Float(Item, _CustomFloat):
++class Float(Scalar, _CustomFloat):
+     """
+     A float literal.
+     """
+@@ -986,7 +1007,7 @@ class Float(Item, _CustomFloat):
+     __floor__ = float.__floor__
+ 
+ 
+-class Bool(Item):
++class Bool(Scalar):
+     """
+     A boolean literal.
+     """
+@@ -1032,7 +1053,7 @@ class Bool(Item):
+         return repr(self._value)
+ 
+ 
+-class DateTime(Item, datetime):
++class DateTime(Scalar, datetime):
+     """
+     A datetime literal.
+     """
+@@ -1192,7 +1213,7 @@ class DateTime(Item, datetime):
+         )
+ 
+ 
+-class Date(Item, date):
++class Date(Scalar, date):
+     """
+     A date literal.
+     """
+@@ -1271,7 +1292,7 @@ class Date(Item, date):
+         return (self.year, self.month, self.day, self._trivia, self._raw)
+ 
+ 
+-class Time(Item, time):
++class Time(Scalar, time):
+     """
+     A time literal.
+     """
+@@ -1383,7 +1404,7 @@ class _ArrayItemGroup:
+         return True
+ 
+ 
+-class Array(Item, _CustomList):  # type: ignore[type-arg]
++class Array(Container, _CustomList):  # type: ignore[type-arg]
+     """
+     An array literal
+     """
+@@ -2196,7 +2217,7 @@ class InlineTable(AbstractTable):
+         return (self._value, self._trivia)
+ 
+ 
+-class String(str, Item):  # type: ignore[misc]
++class String(str, Scalar):  # type: ignore[misc]
+     """
+     A string literal.
+     """

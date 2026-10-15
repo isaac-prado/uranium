@@ -1,0 +1,157 @@
+{
+  "result_schema_version": 2,
+  "harness_version": "1.0.0",
+  "evaluated_at": "2026-10-14T23:36:16+00:00",
+  "run_id": "tomlkit-0002-orchestration-r03-a01",
+  "arm": "orchestration",
+  "task_id": "tomlkit-0002",
+  "faixa": "grande",
+  "repetition": 3,
+  "base_commit": "b5da6c945aa00bf818f89d2fbd434bc3c2c949e2",
+  "resolved": false,
+  "resolved_blocked_by_cheat": false,
+  "oracle": {
+    "f2p_total": 1,
+    "f2p_passed": 0,
+    "f2p": {
+      "exit_code": 1,
+      "passed": 0,
+      "failed": 1,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.15,
+      "failing_node_ids": [
+        "tests/test_api.py::test_add_dotted_key"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "p2p": {
+      "exit_code": 1,
+      "passed": 719,
+      "failed": 25,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 2.09,
+      "failing_node_ids": [
+        "tests/test_api.py::test_add_dotted_key",
+        "tests/test_api.py::test_array",
+        "tests/test_api.py::test_build_super_table",
+        "tests/test_api.py::test_date",
+        "tests/test_api.py::test_datetime",
+        "tests/test_api.py::test_inline_table",
+        "tests/test_api.py::test_original_string_and_dumped_string_are_equal[0.5.0]",
+        "tests/test_api.py::test_original_string_and_dumped_string_are_equal[example]",
+        "tests/test_api.py::test_original_string_and_dumped_string_are_equal[hard]",
+        "tests/test_api.py::test_original_string_and_dumped_string_are_equal[pyproject]",
+        "tests/test_api.py::test_original_string_and_dumped_string_are_equal[test]",
+        "tests/test_api.py::test_string",
+        "tests/test_api.py::test_table",
+        "tests/test_api.py::test_time",
+        "tests/test_build.py::test_build_example",
+        "tests/test_build.py::test_top_level_keys_are_put_at_the_root_of_the_document",
+        "tests/test_items.py::test_array_add_line",
+        "tests/test_items.py::test_array_add_line_invalid_value",
+        "tests/test_items.py::test_deleting_inline_table_elemeent_does_not_leave_trailing_separator",
+        "tests/test_items.py::test_items_are_pickable",
+        "tests/test_items.py::test_trim_comments_when_building_inline_table",
+        "tests/test_toml_document.py::test_getting_inline_table_is_still_an_inline_table",
+        "tests/test_toml_document.py::test_pop_add_whitespace_and_insert_table_work_togheter",
+        "tests/test_toml_document.py::test_replace_with_comment",
+        "tests/test_toml_document.py::test_string_output_order_is_preserved_for_out_of_order_tables"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "regression": {
+      "exit_code": 1,
+      "passed": 719,
+      "failed": 25,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 2.09,
+      "failing_node_ids": [
+        "tests/test_api.py::test_add_dotted_key",
+        "tests/test_api.py::test_array",
+        "tests/test_api.py::test_build_super_table",
+        "tests/test_api.py::test_date",
+        "tests/test_api.py::test_datetime",
+        "tests/test_api.py::test_inline_table",
+        "tests/test_api.py::test_original_string_and_dumped_string_are_equal[0.5.0]",
+        "tests/test_api.py::test_original_string_and_dumped_string_are_equal[example]",
+        "tests/test_api.py::test_original_string_and_dumped_string_are_equal[hard]",
+        "tests/test_api.py::test_original_string_and_dumped_string_are_equal[pyproject]",
+        "tests/test_api.py::test_original_string_and_dumped_string_are_equal[test]",
+        "tests/test_api.py::test_string",
+        "tests/test_api.py::test_table",
+        "tests/test_api.py::test_time",
+        "tests/test_build.py::test_build_example",
+        "tests/test_build.py::test_top_level_keys_are_put_at_the_root_of_the_document",
+        "tests/test_items.py::test_array_add_line",
+        "tests/test_items.py::test_array_add_line_invalid_value",
+        "tests/test_items.py::test_deleting_inline_table_elemeent_does_not_leave_trailing_separator",
+        "tests/test_items.py::test_items_are_pickable",
+        "tests/test_items.py::test_trim_comments_when_building_inline_table",
+        "tests/test_toml_document.py::test_getting_inline_table_is_still_an_inline_table",
+        "tests/test_toml_document.py::test_pop_add_whitespace_and_insert_table_work_togheter",
+        "tests/test_toml_document.py::test_replace_with_comment",
+        "tests/test_toml_document.py::test_string_output_order_is_preserved_for_out_of_order_tables"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    }
+  },
+  "cheat": {
+    "clean": true,
+    "critical_count": 0,
+    "warning_count": 0,
+    "signals": []
+  },
+  "quality": {
+    "mi_before": 67.803,
+    "mi_after": 50.844,
+    "mi_delta": -16.959,
+    "cc_mean_before": 1.304,
+    "cc_mean_after": 1.167,
+    "cc_mean_delta": -0.137,
+    "files_analyzed": 1,
+    "error": null
+  },
+  "cost": {
+    "tokens_prompt": 1250803,
+    "tokens_completion": 10816,
+    "tokens_reasoning": 0,
+    "tokens_total": 1261619,
+    "cost_usd": 0.1478681,
+    "llm_calls": 121,
+    "byok_calls": 121,
+    "tool_calls": 118,
+    "wall_seconds": 234.262
+  },
+  "process": {
+    "turns": 120,
+    "test_runs": 3,
+    "tool_denials": 0,
+    "errors": 0,
+    "circuit_breaks": 2,
+    "self_recoveries": 0,
+    "stop_reason": "budget: max_turns (120 >= 120)"
+  },
+  "provenance": {
+    "model": "qwen/qwen3-coder",
+    "provider_requested": "DeepInfra",
+    "providers_served": [
+      "DeepInfra"
+    ],
+    "llm_seed": 20260823,
+    "topology": "multi_agent_roles"
+  },
+  "diff": {
+    "files_changed": 1,
+    "insertions": 74,
+    "deletions": 113,
+    "changed_files": [
+      "tomlkit/api.py"
+    ]
+  }
+}

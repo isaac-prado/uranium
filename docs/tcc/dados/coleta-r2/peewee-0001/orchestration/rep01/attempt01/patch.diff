@@ -1,0 +1,76 @@
+diff --git a/peewee.py b/peewee.py
+index 13d2c8e9..7c07a826 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -44,6 +44,23 @@ try:
+     compat.register()
+ except ImportError:
+     pass
++
++
++class QueryEvent:
++    """
++    Representa um evento de query executada.
++    
++    Atributos:
++        sql (str): A instrução SQL executada
++        params (tuple/list): Parâmetros passados para a query
++        duration (float): Duração da execução em segundos
++        exception (Exception): Exceção ocorrida durante a execução, ou None
++    """
++    def __init__(self, sql, params, duration, exception):
++        self.sql = sql
++        self.params = params
++        self.duration = duration
++        self.exception = exception
+ try:
+     import psycopg2
+     from psycopg2 import extensions as pg_extensions
+@@ -3770,6 +3787,9 @@ class Database(_callable_context_manager):
+             self._state = _ConnectionState()
+             self._lock = _NoopLock()
+ 
++        # Initialize query hooks
++        self.query_hooks = []
++
+         if autorollback:
+             __deprecated__('Peewee no longer uses the "autorollback" option, '
+                            'as we always run in autocommit-mode now. This '
+@@ -3892,9 +3912,34 @@ class Database(_callable_context_manager):
+ 
+     def execute_sql(self, sql, params=None):
+         self._log_query(sql, params)
+-        with __exception_wrapper__:
+-            cursor = self.cursor()
+-            cursor.execute(sql, params or ())
++        
++        # Registrar tempo de início
++        start_time = time.time()
++        exception = None
++        
++        try:
++            with __exception_wrapper__:
++                cursor = self.cursor()
++                cursor.execute(sql, params or ())
++        except Exception as e:
++            exception = e
++            raise
++        finally:
++            # Calcular duração
++            duration = time.time() - start_time
++            
++            # Chamar hooks se houver algum registrado
++            if self.query_hooks:
++                event = QueryEvent(sql, params, duration, exception)
++                for hook in self.query_hooks:
++                    try:
++                        hook(event)
++                    except Exception:
++                        # Se um hook levantar exceção, propagar para o chamador
++                        if exception is None:  # Só propagar se não houve exceção original
++                            raise
++        
++        # Se houve exceção, ela já foi lançada acima
+         return cursor
+ 
+     def execute(self, query, **context_options):

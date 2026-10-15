@@ -1,0 +1,260 @@
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..6222c27 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -132,7 +132,44 @@ class Parser:
+ 
+             key, value = item
+             if not self._merge_ws(value, body):
+-                body.append(key, value)
++                # Handle dotted keys
++                if key is not None and "." in key.key:
++                    # Use pre-parsed parts if available, otherwise parse now
++                    if hasattr(key, '_parsed_parts'):
++                        parts = key._parsed_parts
++                    else:
++                        parts = list(self._parse_dotted_key_parts(key.key))
++                    
++                    if len(parts) > 1:
++                        # Navigate/create nested structure
++                        current_container = body
++                        # All but the last part are table names
++                        for i, part in enumerate(parts[:-1]):
++                            if part.key not in current_container:
++                                # Create new table for this part
++                                new_table = Table(
++                                    Container(),
++                                    Trivia(indent="", comment_ws="", comment="", trail=""),
++                                    is_aot_element=False,
++                                    is_super_table=True
++                                )
++                                current_container.append(part.key, new_table)
++                            
++                            current_container = current_container[part.key]
++                            # If we got a table, get its container
++                            if isinstance(current_container, Table):
++                                current_container = current_container.value
++                        
++                        # The last part is the actual key for the value
++                        final_key = parts[-1]
++                        if isinstance(current_container, Container):
++                            current_container.append(final_key.key, value)
++                        else:
++                            body.append(key, value)  # fallback
++                    else:
++                        body.append(key, value)
++                else:
++                    body.append(key, value)
+ 
+             self.mark()
+ 
+@@ -204,48 +241,111 @@ class Parser:
+         return parent_parts == child_parts[: len(parent_parts)]
+ 
+     def _split_table_name(self, name):  # type: (str) -> Generator[Key]
+-        in_name = False
+-        delim = None
+-        current = ""
++        """
++        Split a table name into individual parts, handling quoted sections correctly.
++        This is used for table headers like [a.b."c.d"] where "c.d" is a single key.
++        """
++        in_quotes = False
++        quote_char = None
++        current_part = ""
+         t = KeyType.Bare
+-        for c in name:
+-            c = TOMLChar(c)
+-
+-            if c == ".":
+-                if in_name:
+-                    current += c
+-                    continue
+-
+-                if not current:
+-                    raise self.parse_error()
+-
+-                yield Key(current, t=t, sep="")
+-
+-                current = ""
+-                t = KeyType.Bare
+-                continue
+-            elif c in {"'", '"'}:
+-                if in_name:
+-                    if t == KeyType.Literal and c == '"':
+-                        current += c
+-                        continue
+-
+-                    if c != t.value:
+-                        raise self.parse_error()
+-
+-                    in_name = False
++        i = 0
++        
++        while i < len(name):
++            char = name[i]
++            
++            if char in {"'", '"'} and not in_quotes:
++                # Start of quoted section
++                in_quotes = True
++                quote_char = char
++                t = KeyType.Literal if char == "'" else KeyType.Basic
++                current_part = ""
++            elif char == quote_char and in_quotes:
++                # End of quoted section
++                yield Key(current_part, t=t, sep="")
++                
++                # Look ahead to see if there's a dot
++                j = i + 1
++                while j < len(name) and name[j] == ' ':
++                    j += 1
++                    
++                if j < len(name) and name[j] == '.':
++                    # Skip past the dot and any spaces
++                    i = j
++                    current_part = ""
++                    in_quotes = False
++                    quote_char = None
++                    t = KeyType.Bare
+                 else:
+-                    in_name = True
+-                    t = KeyType.Literal if c == "'" else KeyType.Basic
+-
++                    # No more dots, we're done
++                    return
++            elif char == '.' and not in_quotes:
++                # Dot separator between unquoted parts
++                if current_part:
++                    yield Key(current_part, t=KeyType.Bare, sep="")
++                current_part = ""
++            else:
++                # Regular character
++                current_part += char
++                
++            i += 1
++            
++        # Handle remaining unquoted part
++        if current_part and not in_quotes:
++            yield Key(current_part, t=KeyType.Bare, sep="")
++
++    def _parse_dotted_key_parts(self, name):  # type: (str) -> Generator[Key]
++        """
++        Parse dotted key parts for key-value assignments.
++        Unlike table names, each dot creates a new nesting level.
++        Quoted sections like "google.com" should be treated as a single key part.
++        """
++        parts = []
++        current_part = ""
++        in_quotes = False
++        quote_char = None
++        i = 0
++        
++        while i < len(name):
++            char = name[i]
++            
++            if char in {"'", '"'} and not in_quotes:
++                # Start of quoted section
++                in_quotes = True
++                quote_char = char
++                current_part = ""
++            elif char == quote_char and in_quotes:
++                # End of quoted section
++                key_type = KeyType.Literal if quote_char == "'" else KeyType.Basic
++                parts.append((current_part, key_type))
++                in_quotes = False
++                quote_char = None
++                current_part = ""
++                
++                # Skip to after the quote
++                i += 1
++                # If there's a dot next, skip it
++                if i < len(name) and name[i] == '.':
++                    i += 1
+                 continue
+-            elif in_name or c.is_bare_key_char():
+-                current += c
++            elif char == '.' and not in_quotes:
++                # Dot separator between unquoted parts
++                if current_part:
++                    parts.append((current_part, KeyType.Bare))
++                current_part = ""
+             else:
+-                raise self.parse_error()
+-
+-        if current:
+-            yield Key(current, t=t, sep="")
++                # Regular character
++                current_part += char
++                
++            i += 1
++            
++        # Handle remaining part
++        if current_part:
++            parts.append((current_part, KeyType.Bare))
++            
++        # Yield all parts as Key objects
++        for part, key_type in parts:
++            yield Key(part, t=key_type, sep="")
+ 
+     def _parse_item(self):  # type: () -> Optional[Tuple[Optional[Key], Item]]
+         """
+@@ -405,7 +505,7 @@ class Parser:
+         if self._current in "\"'":
+             return self._parse_quoted_key()
+         else:
+-            return self._parse_bare_key()
++            return self._parse_dotted_key()
+ 
+     def _parse_quoted_key(self):  # type: () -> Key
+         """
+@@ -432,6 +532,50 @@ class Parser:
+ 
+         return Key(key, key_type, "")
+ 
++    def _parse_dotted_key(self):  # type: () -> Key
++        """
++        Parses a dotted key.
++        """
++        self.mark()
++        
++        # We need to actually parse each part of the dotted key properly
++        parts = []
++        while True:
++            # Parse one key part (could be bare, quoted, etc.)
++            if self._current in "\"'":
++                # Quoted key part
++                quote_char = self._current
++                key_type = KeyType.Literal if quote_char == "'" else KeyType.Basic
++                self.inc()  # skip opening quote
++                self.mark()
++                while self._current != quote_char and self.inc():
++                    pass
++                part = self.extract()
++                self.inc()  # skip closing quote
++                parts.append(Key(part, t=key_type))
++            else:
++                # Bare key part
++                self.mark()
++                while self._current.is_bare_key_char() and self.inc():
++                    pass
++                part = self.extract()
++                parts.append(Key(part, t=KeyType.Bare))
++            
++            # Check if there's a dot following
++            if self._current == ".":
++                self.inc()  # skip the dot
++                continue
++            else:
++                break
++        
++        # For backward compatibility, return the full key as a single string
++        # But we'll handle the dotted nature in the parsing logic
++        full_key = ".".join(p.key for p in parts)
++        # Store the parsed parts in a special attribute for later use
++        key_obj = Key(full_key, sep="")
++        key_obj._parsed_parts = parts
++        return key_obj
++
+     def _parse_bare_key(self):  # type: () -> Key
+         """
+         Parses a bare key.

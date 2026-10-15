@@ -1,0 +1,130 @@
+diff --git a/tomlkit/api.py b/tomlkit/api.py
+index fd4b2f3..f9ee534 100644
+--- a/tomlkit/api.py
++++ b/tomlkit/api.py
+@@ -2,7 +2,9 @@ import datetime as _datetime
+ 
+ from collections.abc import Mapping
+ from typing import IO
++from typing import List
+ from typing import Tuple
++from typing import Union
+ 
+ from ._utils import parse_rfc3339
+ from .container import Container
+@@ -16,6 +18,7 @@ from .items import Float
+ from .items import InlineTable
+ from .items import Integer
+ from .items import Item as _Item
++from .items import DottedKey
+ from .items import Key
+ from .items import SingleKey
+ from .items import String
+@@ -141,7 +144,9 @@ def aot() -> AoT:
+     return AoT([])
+ 
+ 
+-def key(k: str) -> Key:
++def key(k: Union[str, List[str]]) -> Key:
++    if isinstance(k, list):
++        return DottedKey([SingleKey(_k) for _k in k])
+     return SingleKey(k)
+ 
+ 
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index dc6da89..4305498 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -20,9 +20,11 @@ from .items import Key
+ from .items import Null
+ from .items import SingleKey
+ from .items import Table
++from .items import Trivia
+ from .items import Whitespace
+ from .items import _CustomDict
+ from .items import item as _item
++from .items import DottedKey
+ 
+ 
+ _NOT_SET = object()
+@@ -89,6 +91,68 @@ class Container(_CustomDict):
+ 
+         return self.append(key, item)
+ 
++    def _handle_dotted_key(self, key: Key, item: Item) -> None:
++        """
++        Handle a dotted key, creating nested tables as needed.
++        """
++        names = tuple(iter(key))
++        name = names[0]
++        name._dotted = True
++        if name in self:
++            if not isinstance(item, Table):
++                table = Table(Container(True), Trivia(), False, is_super_table=True)
++                _table = table
++                for i, _name in enumerate(names[1:]):
++                    if i == len(names) - 2:
++                        _name.sep = key.sep
++
++                        _table.append(_name, item)
++                    else:
++                        _name._dotted = True
++                        _table.append(
++                            _name,
++                            Table(
++                                Container(True),
++                                Trivia(),
++                                False,
++                                is_super_table=i < len(names) - 2,
++                            ),
++                        )
++
++                        _table = _table[_name]
++
++                item = table
++
++            self.append(name, item)
++
++            return
++        else:
++            table = Table(Container(True), Trivia(), False, is_super_table=True)
++            self.append(name, table)
++
++        _table = self[name]  # Get the table we just added
++        for i, _name in enumerate(names[1:]):
++            if i == len(names) - 2:
++                _name.sep = key.sep
++
++                _table.append(_name, item)
++            else:
++                _name._dotted = True
++                if _name in _table.value:
++                    _table = _table.value[_name]
++                else:
++                    _table.append(
++                        _name,
++                        Table(
++                            Container(True),
++                            Trivia(),
++                            False,
++                            is_super_table=i < len(names) - 2,
++                        ),
++                    )
++
++                    _table = _table[_name]
++
+     def append(self, key: Union[Key, str, None], item: Item) -> "Container":
+         if not isinstance(key, Key) and key is not None:
+             key = SingleKey(key)
+@@ -96,6 +160,11 @@ class Container(_CustomDict):
+         if not isinstance(item, Item):
+             item = _item(item)
+ 
++        # Handle dotted keys
++        if isinstance(key, DottedKey):
++            self._handle_dotted_key(key, item)
++            return self
++
+         if isinstance(item, (AoT, Table)) and item.name is None:
+             item.name = key.key
+ 

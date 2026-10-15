@@ -1,0 +1,61 @@
+diff --git a/peewee.py b/peewee.py
+index 13d2c8e9..59bd1a7c 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -3727,6 +3727,16 @@ class ConnectionContext(_callable_context_manager):
+         return type(self)(self.db)
+ 
+ 
++class QueryEvent(object):
++    __slots__ = ('sql', 'params', 'duration', 'exception')
++    
++    def __init__(self, sql, params, duration, exception):
++        self.sql = sql
++        self.params = params
++        self.duration = duration
++        self.exception = exception
++
++
+ class Database(_callable_context_manager):
+     context_class = Context
+     field_types = {}
+@@ -3786,6 +3796,7 @@ class Database(_callable_context_manager):
+                            'autocommit could impact the behavior of the '
+                            'database driver you are using.')
+ 
++        self.query_hooks = []
+         self.connect_params = {}
+         self.init(database, **kwargs)
+ 
+@@ -3892,9 +3903,28 @@ class Database(_callable_context_manager):
+ 
+     def execute_sql(self, sql, params=None):
+         self._log_query(sql, params)
+-        with __exception_wrapper__:
+-            cursor = self.cursor()
+-            cursor.execute(sql, params or ())
++        start_time = time.time()
++        exception = None
++        
++        try:
++            with __exception_wrapper__:
++                cursor = self.cursor()
++                cursor.execute(sql, params or ())
++        except Exception as exc:
++            exception = exc
++            raise
++        finally:
++            duration = time.time() - start_time
++            if self.query_hooks:
++                event = QueryEvent(sql, params, duration, exception)
++                for hook in self.query_hooks:
++                    try:
++                        hook(event)
++                    except Exception:
++                        # Se um gancho levantar exceção, propague para o chamador
++                        if exception is None:
++                            raise
++        
+         return cursor
+ 
+     def execute(self, query, **context_options):

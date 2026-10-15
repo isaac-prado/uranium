@@ -1,0 +1,50 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 48987a6..c637dcd 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -429,6 +429,15 @@ if np:
+         # https://github.com/simonw/sqlite-utils/issues/632
+         pass
+ 
++
++def _is_numeric_type(type_):
++    """Check if a type is numeric (int, float, or their string representations)."""
++    if type_ in (int, float):
++        return True
++    if isinstance(type_, str):
++        return type_.lower() in ("integer", "real", "float", "int")
++    return False
++
+ # If pandas is available, add more types
+ if pd:
+     COLUMN_TYPE_MAPPING.update({pd.Timestamp: "TEXT"})  # type: ignore
+@@ -3103,10 +3112,28 @@ class Table(Queryable):
+         if "rowid" not in new_cols:
+             new_cols.insert(0, "rowid")
+             old_cols.insert(0, "rowid")
++        
++        # Apply NULLIF for columns being converted from TEXT to numeric types
++        processed_old_cols = []
++        for i, col in enumerate(old_cols):
++            # Get the original column type
++            original_type = self.columns_dict.get(col)
++            # Get the target type for this column
++            target_type = types.get(col)
++            
++            # If converting from TEXT to a numeric type, wrap with NULLIF(col, '')
++            if (original_type == str and 
++                target_type is not None and 
++                _is_numeric_type(target_type) and
++                col != "rowid"):  # Don't process rowid
++                processed_old_cols.append(f"NULLIF({quote_identifier(col)}, '')")
++            else:
++                processed_old_cols.append(quote_identifier(col))
++                
+         copy_sql = "INSERT INTO {} ({new_cols})\n   SELECT {old_cols} FROM {};".format(
+             quote_identifier(new_table_name),
+             quote_identifier(self.name),
+-            old_cols=", ".join(quote_identifier(col) for col in old_cols),
++            old_cols=", ".join(processed_old_cols),
+             new_cols=", ".join(quote_identifier(col) for col in new_cols),
+         )
+         sqls.append(copy_sql)
