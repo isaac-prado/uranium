@@ -4,8 +4,11 @@
 % podem ser apagados na versão final.
 %
 % Pacotes que o texto assume no preâmbulo do template: algorithm2e (com
-% \normalem de ulem), booktabs, graphicx, url. Se booktabs não estiver no
-% template, trocar \toprule/\midrule/\bottomrule por \hline.
+% \normalem de ulem), booktabs, graphicx, url, e para a Figura 1:
+%   \usepackage{tikz}
+%   \usetikzlibrary{positioning,fit,backgrounds,arrows.meta}
+% Se booktabs não estiver no template, trocar \toprule/\midrule/\bottomrule
+% por \hline.
 
 \section{Desenvolvimento}
 \label{desenvolvimento}
@@ -36,6 +39,12 @@ No segundo ciclo de mineração, sobre cinco repositórios e 14.873 commits, a v
 As faixas média e grande foram completadas com a revisão da regra de faixa (``módulo'' passou a ser o arquivo, não o diretório) e com o suporte ao layout \texttt{src/}. % 09-decisoes-do-autor.md, decisões 1 e 22
 
 Cada tarefa é um diretório com: o \textbf{enunciado} (\texttt{statement.md}), escrito do ponto de vista de quem usa a biblioteca, sem citar arquivo, classe ou função interna e sem indicar a forma da correção; o \textbf{oráculo oculto} (\texttt{test\_patch.diff}), os testes da correção original, que o agente nunca vê; \textbf{duas soluções de referência} diferentes (a do projeto e uma alternativa escrita para o estudo), que provam que o oráculo não exige uma forma específica de resolver; \textbf{patches de trapaça} plantados, que provam que o detector funciona; e o \texttt{task.json} com a faixa e os parâmetros de execução. Onze enunciados e onze soluções alternativas foram redigidos por um assistente de IA (um agente por tarefa) a partir do teste oculto e da \emph{issue} ou \emph{pull request} original, nunca da mensagem de commit, e revisados pelo autor; dois foram escritos pelo autor. Cada trecho reproduzível de enunciado foi executado no commit-base (mostra o problema) e com cada uma das duas soluções (mostra o esperado). % 10-tarefas.md, "Procedência"
+
+A título de exemplo, o enunciado da tarefa \texttt{tomlkit-0002} começa assim (trecho; o documento completo tem ainda a seção de reprodução, com o código e a saída esperada, e as restrições do ambiente): % tasks/tomlkit-0002/statement.md
+
+\begin{quote}\small
+\textbf{Não há como criar chave pontilhada pela API de construção de documentos.} O TOML permite escrever chaves pontilhadas, como \texttt{foo.bar = 1}, que equivalem a uma tabela \texttt{foo} contendo \texttt{bar = 1}. A biblioteca já lê e preserva esse formato ao analisar um arquivo existente, mas quem monta um documento do zero pela API não consegue produzi-lo: não há como pedir que um valor seja gravado com chave pontilhada. [\ldots] \texttt{tomlkit.key(...)} passa a aceitar, além de uma string, uma lista de strings. Cada string é uma parte da chave: \texttt{tomlkit.key(["foo", "bar"])} representa a chave pontilhada \texttt{foo.bar}. [\ldots] Para \texttt{add(tomlkit.key(["foo", "bar"]), 1)} num documento ou numa tabela vazios, o resultado tem de ser exatamente a string \texttt{"foo.bar = 1\textbackslash n"}.
+\end{quote}
 
 Uma tarefa só entra no estudo depois de passar nos portões de \texttt{scripts/validate\_task.py}: (1) o commit-base está verde; (2) o teste oculto falha no commit-base; (3) cada solução de referência resolve, sem regressão e sem acusação de trapaça; (4) cada patch de trapaça é detectado e reprovado; e (5), acrescentado durante a coleta, com cada referência aplicada e sem o patch de teste, a suíte visível que o agente roda continua verde. Quando o patch de teste original modifica testes visíveis ou um arquivo dourado protegido, os casos afetados são desmarcados da suíte visível (\texttt{visible\_deselect}), igualmente para os dois braços e registrado no manifesto; o oráculo nunca desmarca nada. % scripts/validate_task.py; 09-decisoes-do-autor.md, decisões 27 e 30
 
@@ -74,9 +83,44 @@ O Uranium é o aparato que executa os dois sistemas sobre as mesmas tarefas e os
 
 \begin{figure}[ht!]
     \centering
-    % Figura a produzir (figs/uranium-arquitetura.pdf): à esquerda, o agente único com o operador determinístico; à direita, o grafo refinador -> [clarificação] -> planejador -> desenvolvedor <-> validador -> gerador de testes; embaixo, o avaliador independente (oráculo, detector de trapaça, qualidade, custo), comum aos dois; em volta, o que é idêntico (modelo, ferramentas, prompt, limites, semente).
-    \fbox{\parbox{0.9\textwidth}{\centering\vspace{2em}\textit{Diagrama da arquitetura a inserir.}\vspace{2em}}}
-    \caption{Arquitetura do Uranium: os dois braços, o avaliador independente e o que é idêntico entre eles.}
+    \begin{tikzpicture}[
+        font=\footnotesize,
+        caixa/.style={draw, rounded corners=2pt, align=center, inner sep=4pt, minimum height=2em},
+        papel/.style={caixa, fill=black!8, text width=46mm},
+        comum/.style={caixa, fill=black!18},
+        grupo/.style={draw, dashed, rounded corners=3pt, inner sep=6pt},
+        seta/.style={-{Stealth[length=2mm]}, semithick},
+        dupla/.style={{Stealth[length=2mm]}-{Stealth[length=2mm]}, semithick},
+        node distance=5mm and 10mm,
+    ]
+        \node[comum, text width=0.88\textwidth] (comum) {\textbf{Idêntico nos dois braços:} modelo (\texttt{qwen/qwen3-coder}, provedor pinado, temperatura 0, semente $s_0 + k$) $\cdot$ sete ferramentas e guarda de caminho $\cdot$ prompt de sistema $\cdot$ enunciado $\cdot$ tetos (120 turnos, 8 M tokens, 3.600 s) $\cdot$ mensagens de protocolo};
+
+        \node[papel, below=14mm of comum.south, anchor=north, xshift=-38mm] (agente) {Agente único\\LLM com as sete ferramentas, conversa inteira a cada turno};
+        \node[caixa, below=of agente, text width=46mm] (operador) {Operador determinístico\\sem modelo: roda a suíte e devolve o \texttt{pytest} cru};
+        \draw[dupla] (agente) -- (operador);
+
+        \node[papel, below=14mm of comum.south, anchor=north, xshift=38mm] (refinador) {Refinador de intenção\\(+ clarificador, até 3 vezes)};
+        \node[papel, below=of refinador] (planejador) {Planejador\\só leitura; sub-tarefas; executa os exemplos no código original};
+        \node[papel, below=of planejador] (dev) {Desenvolvedor\\mesmo prompt e ferramentas; ciclos de 40 turnos com memória de trabalho};
+        \node[papel, below=of dev] (validador) {Validador\\suíte, execução dos exemplos, comparação, revisor};
+        \node[papel, below=of validador] (tg) {Gerador de testes (fora da medição)};
+        \draw[seta] (refinador) -- (planejador);
+        \draw[seta] (planejador) -- (dev);
+        \draw[dupla] (dev) -- (validador);
+        \draw[seta] (validador) -- (tg);
+
+        \begin{scope}[on background layer]
+            \node[grupo, fit=(agente) (operador), label={[font=\footnotesize\bfseries]above:Braço 1: agente único}] (g1) {};
+            \node[grupo, fit=(refinador) (tg), label={[font=\footnotesize\bfseries]above:Braço 2: orquestração}] (g2) {};
+        \end{scope}
+
+        \node[caixa, below=10mm of g2.south, anchor=north, xshift=-38mm, text width=0.6\textwidth] (ws) {Workspace por execução: clone do espelho do repositório e venv próprio; área de testes protegida; trilha de eventos e manifesto};
+        \node[comum, below=of ws, text width=0.88\textwidth] (aval) {\textbf{Avaliador independente} (nunca lê o relato dos agentes): oráculo oculto (fail-to-pass, pass-to-pass, regressão) $\cdot$ detector de trapaça C1 a C6 $\cdot$ complexidade ciclomática $\cdot$ custo por chamada};
+        \draw[seta] (g1.south) -- (ws.north -| g1.south);
+        \draw[seta] (g2.south) -- (ws.north -| g2.south);
+        \draw[seta] (ws) -- (aval);
+    \end{tikzpicture}
+    \caption{Arquitetura do Uranium: os dois braços, o que é idêntico entre eles e o avaliador independente que julga o resultado dos dois.}
     \label{fig-arquitetura}
 \end{figure}
 
@@ -146,6 +190,27 @@ O braço orquestrado é um grafo de estados (LangGraph) em que papéis especiali
 
 A linha 1 produz a especificação que o desenvolvedor recebe no lugar do enunciado cru (esse é um traço do protótipo, declarado como parte do tratamento e medido por uma ablação). A linha 2 só existe com o planejador ligado. Entre as linhas 5 e 7 o desenvolvedor trabalha em \emph{ciclos}: a cada 40 turnos, ou quando ele mesmo encerra, a conversa é descartada e, na volta, ele recebe a memória de trabalho (o registro determinístico do que fez e o diff atual), nunca a transcrição anterior. As linhas 8 a 14 são o validador: a suíte decide (linha 8); o revisor só pode rebaixar um veredito verde, nunca promover um vermelho (linhas 11 e 12); e o teto de reprovações (linha 13) é o único critério de parada que não existe no outro braço, aplicado só quando o desenvolvedor submeteu por decisão própria com o plano fechado. A linha 15 é a esteira de sub-tarefas, cujo veredito é determinístico na rodada 5 e era dado por um revisor na rodada 4. A linha 16 mostra o que volta ao desenvolvedor: o mesmo texto cru do \texttt{pytest} que o agente único recebe, mais o que só existe neste braço (o parecer do revisor e a comparação de saídas), que são a própria topologia.
 
+A Tabela~\ref{tab-papeis} resume o que cada papel recebe, produz e pode fazer. % src/agents/*.py; src/runtime.py (ferramentas por papel)
+
+\begin{table}[ht!]
+\centering
+\caption{Papéis do braço orquestrado na configuração da rodada 5.}
+\label{tab-papeis}
+\small
+\begin{tabular}{lp{4.2cm}p{4.6cm}p{2.6cm}l}
+\toprule
+Papel & Recebe & Produz & Ferramentas & Chamadas \\
+\midrule
+Refinador & enunciado & especificação estruturada (objetivo, contexto, critérios; reprodução, saídas esperadas e restrições copiadas) & nenhuma & 1 \\
+Clarificador & especificação com perguntas & respostas simuladas & nenhuma & até 3 \\
+Planejador & especificação; repositório & plano de até 3 sub-tarefas (critérios, blocos e saídas esperadas por índice); trechos lidos; saídas que o código original já produz & \texttt{list\_files}, \texttt{read\_file}, \texttt{search\_code} & até 8 de leitura + 1 ou 2 \\
+Desenvolvedor & especificação; sub-tarefa com trechos; memória de trabalho; feedback & diff do repositório; nota de ciclo & as sete & até 40 por ciclo \\
+Validador & repositório; especificação; plano & relatório da suíte; saídas dos exemplos; comparação; parecer do revisor; avanço do plano & suíte e exemplos (pelo harness) & 1 por revisão final \\
+Gerador de testes & especificação; diff & plano de testes, fora da medição & nenhuma & 1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \subsubsection{Paridade entre os braços}
 
 A alegação causal depende de os dois braços serem idênticos em tudo, exceto na topologia. Isso é verificado por testes automatizados que rodam antes de qualquer commit: o manifesto de uma execução de cada braço, sobre a mesma tarefa e repetição, só pode diferir em um conjunto declarado de chaves (\texttt{arm}, \texttt{topology}, \texttt{driver\_policy}, \texttt{orchestration\_policy}, \texttt{run\_id}, \texttt{started\_at}, \texttt{attempt}); a configuração do modelo, o orçamento, o conjunto, a ordem, os esquemas e as descrições das ferramentas, o prompt de sistema e as mensagens de protocolo (aviso de diff vazio, texto da falha da suíte e seu truncamento) são comparados literalmente; e a repetição $k$ de um braço roda sob a mesma semente que a $k$ do outro. Tudo que muda o comportamento de um braço vai ao manifesto, que tem versão (13 na rodada 5): duas execuções com configuração diferente nunca produzem manifestos idênticos. % tests/test_arm_parity.py; src/arms/runner.py (MANIFEST_VERSION, CHAVES_QUE_PODEM_DIFERIR)
@@ -212,12 +277,12 @@ ablação do refinador (14/10) & v8 & desenvolvedor recebe o enunciado íntegro 
 2 (14/10) & v10 & refinador v2 (copia reprodução, saídas esperadas e restrições); validador executa os blocos de reprodução e entrega a saída real ao revisor; nota de ciclo escrita pelo desenvolvedor \\
 3 (14--15/10) & v11 & revisor coerente (aprovação com critério faltando é rebaixada); sem teto de reprovações \\
 4 (15/10) & v12 & volta ao teto 2; planejador (12 turnos de leitura, até 6 sub-tarefas, 1 replanejamento, 2 ciclos por sub-tarefa); blocos de reprodução executados de forma acumulada \\
-5 (15/10) & v13 & veredito da sub-tarefa por comparação determinística das saídas esperadas; comparação entregue ao revisor final com a regra ``não verificável não reprova''; trechos lidos pelo planejador entregues ao desenvolvedor (16.000 caracteres); planejador com 8 turnos e 3 sub-tarefas \\
+5 (15--16/10) & v14 & veredito da sub-tarefa por comparação determinística das saídas esperadas; comparação entregue ao revisor final com a regra ``não verificável não reprova''; trechos lidos pelo planejador entregues ao desenvolvedor (16.000 caracteres); planejador com 8 turnos e 3 sub-tarefas; saídas esperadas que o código original já produz ficam fora de toda comparação (relançada após uma falsa partida de 4 execuções, manifesto v13) \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Duas mudanças foram decididas com dados antes de gastar. A execução acumulada dos blocos (rodada 4) veio da contagem, na rodada 3, de blocos que quebravam por falta do contexto do bloco anterior. A escolha de usar a comparação determinística como veredito da sub-tarefa e como subsídio ao revisor, e não como barreira na revisão final (rodada 5), veio de uma calibração \emph{offline}: a comparação foi aplicada às execuções já gravadas das rodadas 2 a 4 e cruzada com o oráculo, mostrando quantas execuções resolvidas uma barreira dura teria derrubado. % scripts/calibrar_comparacao.py; dados/coleta-r5/calibracao-offline.txt
+Três mudanças foram decididas com dados, duas delas antes de gastar. A execução acumulada dos blocos (rodada 4) veio da contagem, na rodada 3, de blocos que quebravam por falta do contexto do bloco anterior. A escolha de usar a comparação determinística como veredito da sub-tarefa e como subsídio ao revisor, e não como barreira na revisão final (rodada 5), veio de uma calibração \emph{offline}: a comparação foi aplicada às execuções já gravadas das rodadas 2 a 4 e cruzada com o oráculo, mostrando quantas execuções resolvidas uma barreira dura teria derrubado. A terceira veio da própria rodada 5, interrompida após quatro execuções: as saídas esperadas copiadas do enunciado incluem as saídas \emph{atuais} com que o enunciado descreve o defeito, e a comparação passou a exigi-las, levando o desenvolvedor a desfazer uma correção certa. A regra adotada repete a lógica do oráculo: os exemplos são executados no código original antes do planejamento, e toda saída esperada que já aparece ali deixa de contar, porque não discrimina a correção. As quatro execuções foram descartadas, identificadas pela versão do manifesto, e a rodada recomeçou do zero com as mesmas sementes. % scripts/calibrar_comparacao.py; dados/coleta-r5/calibracao-offline.txt; 09-decisoes-do-autor.md, decisão 39; runs/coleta-r5-descartados/README.md
 
 \subsubsection{Reprodução}
 
@@ -257,4 +322,4 @@ Orquestrado: planejador (rodadas 4 e 5) & 12 e 6; 8 e 3 (turnos; sub-tarefas) & 
 \end{tabular}
 \end{table}
 
-O código do instrumento tem 694 testes automatizados, que cobrem o detector de trapaça, o oráculo, a guarda de caminho, o pino de provedor, a paridade entre os braços e cada política do braço orquestrado; a suíte roda verde antes de cada commit. % .venv/bin/python -m pytest -q, 15/10/2026
+O código do instrumento tem 696 testes automatizados, que cobrem o detector de trapaça, o oráculo, a guarda de caminho, o pino de provedor, a paridade entre os braços e cada política do braço orquestrado; a suíte roda verde antes de cada commit. % .venv/bin/python -m pytest -q, 15/10/2026
