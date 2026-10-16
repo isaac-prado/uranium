@@ -50,4 +50,56 @@ Leitura: as duas resolvidas fecharam em menos da metade dos turnos da fumaça da
 
 Dos 4 primeiros runs, 3 cortados por orçamento (attrs-0001 2/3 ocultos, peewee-0001 0/4, peewee-0002 5/6) e 1 resolvido (peewee-0003). A leitura dos eventos mostrou um defeito de desenho, não variação: o refinador copia como "saídas esperadas" também as saídas atuais com que o enunciado descreve o bug (attrs-0001: `has(Caixa[str]): False`, `fields(Caixa[str]) falhou: TypeError`; peewee-0002: `commit -> OperationalError no such savepoint`), o planejador as apontou em `expected`, e a comparação passou a exigir o comportamento do bug. Na attrs-0001 o developer corrigiu no ciclo 1, recebeu "saída esperada 2: NÃO encontrada", o revisor reprovou "porque `has(Caixa[str])` retorna True", e ele desfez a correção (ciclos 2, 5 e 8), num vaivém até o orçamento; na peewee-0002 a sub-tarefa 1 nunca podia ficar feita e foi adiada com a correção certa. A rodada foi parada no 5º run (US$ 0,9 gastos), corrigida pela decisão 39 (o planejador executa os blocos no código original e o que já aparece ali sai da comparação; manifesto v14) e relançada do zero com as mesmas sementes. A peewee-0001 caiu por outro motivo, já conhecido: o developer tentou reescrever `peewee.py` inteiro com `write_file` e deixou a suíte com 28 erros até o fim.
 
-## 5. Resultados (a preencher)
+### 4.2 Execução
+
+Relançada às 00:5x de 16/10 (manifesto v14). Queda de energia às 06:29 com 29 células fechadas; a célula em andamento (peewee-0003 rep03, attempt01, sem `summary.json`) contou como perdida pela regra de `harness/attempts.py` e foi refeita como attempt02 com a mesma semente; coleta retomada às 08:0x e fechada às 10:4x. 39 células, 0 erros do harness, 1 tentativa perdida (a da queda). Custo US$ 5,61, 42,1 M tokens, 3,4 h de parede (provedor rápido: nenhum corte por parede). Dados: `dados/coleta-r5/` (runs, `collection.json`, `analise-sete-metricas.{md,json}`, `apendice-metricas.md`); raiz pareada `runs/coleta-r5-analise/`.
+
+## 5. Resultados: a rodada 5 é pior que a 4
+
+| | runs resolvidos (de 39) | tarefas (mediana, de 13) | por repetição | grande / média / pequena | custo | tokens | tokens por run (mediana) |
+|---|---|---|---|---|---|---|---|
+| single-agent pareado | 23 | 8 | 7, 10, 6 | 4/9, 10/12, 9/18 | US$ 8,44 | 72,4 M | 464 mil |
+| orquestrado, rodada 2 | 23 | 7 | 9, 8, 6 | 4/9, 6/12, 13/18 | US$ 4,72 | 33,4 M | 464 mil |
+| orquestrado, rodada 4 | 24 | 9 | 7, 10, 7 | 5/9, 7/12, 12/18 | US$ 5,67 | 37,9 M | 884 mil |
+| **orquestrado, rodada 5** | **18** | **6** | 8, 5, 5 | 5/9, **4/12**, **9/18** | US$ 5,61 | 42,1 M | 614 mil |
+
+Fonte: `dados/coleta-r5/analise-sete-metricas.md` e `apendice-metricas.md`; rodadas anteriores em [20-rodada-4.md](20-rodada-4.md). Por tarefa (✓ por repetição):
+
+| tarefa | faixa | SA | r5 | r4 | r2 |
+|---|---|---|---|---|---|
+| attrs-0001 | média | ✓✓✓ | ✓✗✗ | ✓✓✗ | ✓✓✗ |
+| peewee-0001 | média | ✓✓✓ | ✓✓✓ | ✓✓✓ | ✓✓✓ |
+| peewee-0002 | média | ✓✓✗ | ✗✗✗ | ✗✗✗ | ✗✗✗ |
+| peewee-0003 | pequena | ✓✓✓ | ✓✓✓ | ✓✓✓ | ✓✓✓ |
+| pygments-0001 | pequena | ✗✓✓ | ✓✓✗ | ✓✓✓ | ✗✓✗ |
+| sqlite-utils-0001 | pequena | ✗✓✗ | ✗✗✗ | ✗✓✗ | ✗✓✗ |
+| sqlite-utils-0002 | pequena | ✗✗✗ | ✓✗✗ | ✓✓✗ | ✓✓✓ |
+| sqlite-utils-0003 | média | ✓✓✗ | ✗✗✗ | ✗✓✓ | ✓✗✗ |
+| tomlkit-0001 | pequena | ✓✓✓ | ✓✗✓ | ✓✓✓ | ✓✓✓ |
+| tomlkit-0002 | grande | ✗✓✗ | ✓✓✗ | ✗✓✓ | ✓✗✗ |
+| tomlkit-0003 | grande | ✓✓✓ | ✓✓✓ | ✓✓✓ | ✓✓✓ |
+| tomlkit-0004 | grande | ✗✗✗ | ✗✗✗ | ✗✗✗ | ✗✗✗ |
+| tomlkit-0005 | pequena | ✗✗✗ | ✗✗✓ | ✗✗✗ | ✓✗✓ |
+
+Sete métricas contra o single-agent pareado (`analise-sete-metricas.md`): tarefas 8/13 × 6/13 (sinal: 3 +OR, 5 −SA, 5 empates, p = 0,73); tokens nas 5 tarefas resolvidas por ambos 314 mil × 457 mil (p = 0,63); tempo 179 s × 276 s (p = 0,44); consistência 5/10 × 3/9; conclusão sem corte 29/39 × 26/39; violações 0; 0; 5 × 0; 0; 4. Por faixa (apêndice B): grande 1 +OR / 0 / 2 empates; média 0 / 3 / 1 (p = 0,25); pequena 2 / 2 / 2.
+
+### 5.1 Onde os runs se perderam (eventos de `dados/coleta-r5`)
+
+Em relação à rodada 4, 8 runs deixaram de resolver (attrs-0001 rep02, pygments-0001 rep03, sqlite-utils-0001 rep02, sqlite-utils-0002 rep02, sqlite-utils-0003 rep02 e rep03, tomlkit-0001 rep02, tomlkit-0002 rep03) e 2 passaram a resolver (tomlkit-0002 rep01, tomlkit-0005 rep03). Causas, pelos eventos `validation`, `plan` e `memory`:
+
+- **Revisor aprovando cedo (7 aprovações finais com oráculo vermelho; rodada 4: 3).** attrs-0001 rep02 e rep03 (2/3 ocultos), sqlite-utils-0001 rep01 (4/5) e rep03 (0/5), sqlite-utils-0002 rep03 (5/11), sqlite-utils-0003 rep02 e rep03 (11/12). Em cinco deles a aprovação veio no primeiro ciclo, com nenhuma saída esperada comparável (todas descartadas pelo filtro da decisão 39 ou não verificáveis), e o prompt do revisor trazia a regra "não verificável não é motivo de reprovação" (`REGRA_COMPARACAO`). A regra, posta para evitar reprovações injustas, deslocou o erro do revisor para o outro lado. Das 86 revisões finais, 20 aprovaram e 66 reprovaram; com todas as saídas apontadas encontradas, 9 aprovaram e 8 reprovaram; só com saídas não verificáveis, 5 aprovaram e 15 reprovaram; com alguma saída NÃO encontrada, 31 reprovaram e 1 aprovou.
+- **Suíte quebrada em ciclos tardios.** tomlkit-0001 rep02 terminou com 1/1 oculto passando e 74 regressões; sqlite-utils-0002 rep02 com 9/11 e 6 regressões; sqlite-utils-0003 rep01 com 9/12 e 25. Com as sub-tarefas avançando pela palavra do developer (33 das 37 "feitas"), ele seguiu editando depois de ter resolvido o essencial e não recuperou o verde. 28 dos 88 vereditos de sub-tarefa foram `suite_vermelha`.
+- **Reprovação injusta seguida de retrabalho destrutivo.** pygments-0001 rep03: primeira revisão com todas as saídas encontradas e o revisor reprovando; o developer refez e quebrou (0/2 ao fim).
+- **Não convergência com tudo não verificável.** sqlite-utils-0001 rep02: 7 ciclos, 7 reprovações, 6 sub-tarefas "feitas" pela palavra do developer (um replanejamento), 0/5 ao fim.
+- **Comparação legítima.** tomlkit-0002 rep03 e tomlkit-0005 rep02: as saídas apontadas eram saídas da correção, não apareceram, e o developer não fechou; peewee-0002 (0/3) e tomlkit-0004 (0/3) como em todas as rodadas.
+
+### 5.2 O que o planejador e a verificação fizeram
+
+39 planos sem fallback, mediana de 8 turnos de exploração e 3 sub-tarefas (98 nos planos iniciais; 8 replanejamentos acrescentaram 15). Estado final: 37 feitas (33 pela palavra do developer, 4 por comparação), 14 adiadas, 1 abandonada, 61 em andamento ou pendentes. O filtro da decisão 39 agiu em 16 dos 39 planos (34 saídas esperadas descartadas por já aparecerem no código original); onde sobraram saídas comparáveis, a comparação deu 4 "feita" e 19 "não feita". Tokens por run caíram de 884 mil (rodada 4) para 614 mil com o planejador de 8 turnos, mesmo com os trechos de 16 mil caracteres no prompt do developer.
+
+### 5.3 Leitura
+
+- A rodada 5 é um resultado negativo informativo: a verificação determinística vale o que valem as saídas esperadas, e os enunciados, copiados pelo refinador, trazem poucas saídas literais da correção (depois do filtro, 23 dos 39 runs ficaram sem nenhuma comparável). Sem elas, o veredito da sub-tarefa recai na palavra do developer, que avança o plano e o mantém editando.
+- A regra "não verificável não reprova" no revisor final é a mudança a reverter primeiro: 7 aprovações erradas contra 3, concentradas no primeiro ciclo.
+- A rodada 4 segue como a melhor configuração em resolução (24/39, 9/13) e a rodada 2 como a mais barata (23/39, 464 mil tokens por run); a faixa grande ficou em 5/9 nas duas últimas rodadas. A hipótese do autor sobre as tarefas grandes mantém o sinal da rodada 4; a faixa média continua sendo onde o orquestrado perde (4/12 × 10/12).
+- Próximos passos possíveis, para decisão do autor: (a) declarar a rodada 4 como configuração final do orquestrado e usar o crédito restante na replicação com um segundo modelo; (b) rodada 6 = rodada 5 com `REVIEW_COMPARE=off` (revisor como na rodada 4) para isolar o efeito da regra, cerca de US$ 5,6, sem garantia de recuperar a rodada 4 com três repetições por tarefa.

@@ -1,0 +1,28 @@
+diff --git a/src/attr/_funcs.py b/src/attr/_funcs.py
+index 518be16e..3f3a372f 100644
+--- a/src/attr/_funcs.py
++++ b/src/attr/_funcs.py
+@@ -296,6 +296,9 @@ def has(cls):
+ 
+     :rtype: bool
+     """
++    # Handle generic classes (e.g., MyClass[str])
++    if hasattr(cls, "__origin__"):
++        cls = cls.__origin__
+     return getattr(cls, "__attrs_attrs__", None) is not None
+ 
+ 
+diff --git a/src/attr/_make.py b/src/attr/_make.py
+index 014b7bc2..ff5666a0 100644
+--- a/src/attr/_make.py
++++ b/src/attr/_make.py
+@@ -1919,6 +1919,9 @@ def fields(cls):
+     .. versionchanged:: 16.2.0 Returned tuple allows accessing the fields
+        by name.
+     """
++    # Handle generic classes (e.g., MyClass[str])
++    if hasattr(cls, "__origin__"):
++        cls = cls.__origin__
+     if not isinstance(cls, type):
+         raise TypeError("Passed object must be a class.")
+     attrs = getattr(cls, "__attrs_attrs__", None)

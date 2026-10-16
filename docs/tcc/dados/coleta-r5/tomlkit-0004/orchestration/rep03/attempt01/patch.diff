@@ -1,0 +1,149 @@
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..053e6ce 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -17,6 +17,7 @@ from ._compat import decode
+ from ._compat import string_escape
+ from ._utils import parse_rfc3339
+ from .container import Container
++from .dotted_keys import split_dotted_key
+ from .exceptions import EmptyKeyError
+ from .exceptions import EmptyTableNameError
+ from .exceptions import InternalParserError
+@@ -132,7 +133,17 @@ class Parser:
+ 
+             key, value = item
+             if not self._merge_ws(value, body):
+-                body.append(key, value)
++                # Check for dotted key and handle appropriately
++                try:
++                    key_parts = split_dotted_key(key.key)
++                    if len(key_parts) > 1:
++                        # This is a dotted key, create nested structure
++                        self._handle_dotted_key(body, key_parts, value, key.sep)
++                    else:
++                        body.append(key, value)
++                except ValueError:
++                    # Not a valid dotted key, treat as regular key
++                    body.append(key, value)
+ 
+             self.mark()
+ 
+@@ -147,6 +158,35 @@ class Parser:
+ 
+         return body
+ 
++    def _handle_dotted_key(self, container, key_parts, value, sep=" = "):
++        """
++        Handle dotted key by creating nested table structure.
++        """
++        from .container import Container as ItemsContainer
++        
++        # Create nested structure
++        current_container = container
++        for i, part in enumerate(key_parts[:-1]):
++            # Check if part already exists
++            if part in current_container:
++                existing = current_container[part]
++                if isinstance(existing, Table):
++                    current_container = existing
++                else:
++                    # Cannot create nested structure, key conflict
++                    raise self.parse_error(KeyAlreadyPresent, part)
++            else:
++                # Create new table for this part
++                from .items import Trivia
++                new_table = Table(ItemsContainer(), Trivia(), False, is_super_table=(i < len(key_parts) - 2))
++                new_table.name = part
++                current_container.append(part, new_table)
++                current_container = new_table
++                
++        # Set the final value
++        final_key = key_parts[-1]
++        current_container.append(final_key, value)
++
+     def _merge_ws(self, item, container):  # type: (Item, Container) -> bool:
+         """
+         Merges the given Item with the last one currently in the given Container if
+@@ -367,6 +407,18 @@ class Parser:
+         if not key.key.strip():
+             raise self.parse_error(EmptyKeyError)
+ 
++        # Check for dotted key
++        try:
++            key_parts = split_dotted_key(key.key)
++            if len(key_parts) > 1:
++                # This is a dotted key, handle specially
++                is_dotted = True
++            else:
++                is_dotted = False
++        except ValueError:
++            # Not a valid dotted key, treat as regular key
++            is_dotted = False
++
+         self.mark()
+ 
+         found_equals = self._current == "="
+@@ -405,6 +457,40 @@ class Parser:
+         if self._current in "\"'":
+             return self._parse_quoted_key()
+         else:
++            # Try to parse as dotted key first
++            self.mark()
++            start_idx = self._idx
++            
++            # Read until we find a separator (=, [, or end of line/space)
++            while (not self.end() and 
++                   self._current not in "= \t\n\r#" and 
++                   self._current != "[" and 
++                   self.inc()):
++                pass
++            
++            key_str = self._src[start_idx:self._idx]
++            
++            # Reset position to parse properly
++            self._idx = start_idx
++            self._current = TOMLChar(self._src[self._idx]) if self._idx < len(self._src) else ""
++            
++            # Check if it's a dotted key
++            if "." in key_str and not key_str.startswith("."):
++                try:
++                    from .dotted_keys import split_dotted_key
++                    parts = split_dotted_key(key_str)
++                    if len(parts) > 1:
++                        # It's a valid dotted key, consume all characters
++                        self._idx = start_idx + len(key_str)
++                        if self._idx < len(self._src):
++                            self._current = TOMLChar(self._src[self._idx])
++                        else:
++                            self._current = ""
++                        return Key(key_str, sep="")
++                except ValueError:
++                    pass  # Not a valid dotted key, fall back to bare key
++            
++            # Not a dotted key, parse as bare key
+             return self._parse_bare_key()
+ 
+     def _parse_quoted_key(self):  # type: () -> Key
+@@ -805,8 +891,6 @@ class Parser:
+             # TODO: Verify close bracket
+             self.inc()
+ 
+-        cws, comment, trail = self._parse_comment_trail()
+-
+         result = Null()
+ 
+         if len(name_parts) > 1:
+@@ -905,6 +989,12 @@ class Parser:
+                         ("_parse_item() returned None on a non-bracket character.",),
+                     )
+ 
++        # The newline after the header should belong to the header, not the content
++        # So we consume it as part of the table's trailing trivia
++        if not self.end() and self._current == "\n":
++            self.inc()
++            trail += "\n"
++            
+         if isinstance(result, Null):
+             result = Table(
+                 values,

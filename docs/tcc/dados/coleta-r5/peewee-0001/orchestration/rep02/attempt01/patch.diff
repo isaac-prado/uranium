@@ -1,0 +1,137 @@
+diff --git a/peewee.py b/peewee.py
+index 13d2c8e9..03b2b288 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -27,6 +27,13 @@ import types
+ import uuid
+ import warnings
+ 
++class QueryEvent:
++    def __init__(self, sql, params, duration, exception):
++        self.sql = sql
++        self.params = params
++        self.duration = duration
++        self.exception = exception
++
+ try:
+     from pysqlite3 import dbapi2 as pysq3
+ except ImportError:
+@@ -3761,6 +3768,7 @@ class Database(_callable_context_manager):
+         if operations:
+             self._operations.update(operations)
+ 
++        self.query_hooks = []
+         self.autoconnect = autoconnect
+         self.thread_safe = thread_safe
+         if thread_safe:
+@@ -3892,9 +3900,30 @@ class Database(_callable_context_manager):
+ 
+     def execute_sql(self, sql, params=None):
+         self._log_query(sql, params)
+-        with __exception_wrapper__:
+-            cursor = self.cursor()
+-            cursor.execute(sql, params or ())
++        start_time = time.time()
++        exception = None
++        
++        try:
++            with __exception_wrapper__:
++                cursor = self.cursor()
++                cursor.execute(sql, params or ())
++        except Exception as exc:
++            exception = exc
++            raise
++        finally:
++            end_time = time.time()
++            duration = end_time - start_time
++            
++            # Chamar os ganchos registrados
++            if self.query_hooks:
++                event = QueryEvent(sql, params, duration, exception)
++                for hook in self.query_hooks:
++                    try:
++                        hook(event)
++                    except Exception:
++                        # Se um gancho levantar exceção, deixamos isso subir
++                        raise
++                        
+         return cursor
+ 
+     def execute(self, query, **context_options):
+diff --git a/playhouse/postgres_ext.py b/playhouse/postgres_ext.py
+index 89eb017e..6f016447 100644
+--- a/playhouse/postgres_ext.py
++++ b/playhouse/postgres_ext.py
+@@ -727,9 +727,30 @@ class PostgresqlExtDatabase(PostgresqlDatabase):
+         if not named_cursor:
+             return super(PostgresqlExtDatabase, self).execute_sql(sql, params)
+         self._log_query(sql, params)
+-        with __exception_wrapper__:
+-            cursor = self.cursor(named_cursor=named_cursor)
+-            cursor.execute(sql, params or ())
++        start_time = time.time()
++        exception = None
++        
++        try:
++            with __exception_wrapper__:
++                cursor = self.cursor(named_cursor=named_cursor)
++                cursor.execute(sql, params or ())
++        except Exception as exc:
++            exception = exc
++            raise
++        finally:
++            end_time = time.time()
++            duration = end_time - start_time
++            
++            # Chamar os ganchos registrados
++            if self.query_hooks:
++                event = QueryEvent(sql, params, duration, exception)
++                for hook in self.query_hooks:
++                    try:
++                        hook(event)
++                    except Exception:
++                        # Se um gancho levantar exceção, deixamos isso subir
++                        raise
++                        
+         return cursor
+ 
+ 
+diff --git a/playhouse/pwasyncio.py b/playhouse/pwasyncio.py
+index f800353b..0101dc4e 100644
+--- a/playhouse/pwasyncio.py
++++ b/playhouse/pwasyncio.py
+@@ -237,9 +237,31 @@ class AsyncDatabaseMixin(object):
+ 
+     async def aexecute_sql(self, sql, params=None):
+         self._log_query(sql, params)
+-        conn = await self.aconnect()
+-        with __exception_wrapper__:
+-            return await conn.execute(sql, params)
++        start_time = time.time()
++        exception = None
++        
++        try:
++            conn = await self.aconnect()
++            with __exception_wrapper__:
++                result = await conn.execute(sql, params)
++        except Exception as exc:
++            exception = exc
++            raise
++        finally:
++            end_time = time.time()
++            duration = end_time - start_time
++            
++            # Chamar os ganchos registrados
++            if self.query_hooks:
++                event = QueryEvent(sql, params, duration, exception)
++                for hook in self.query_hooks:
++                    try:
++                        hook(event)
++                    except Exception:
++                        # Se um gancho levantar exceção, deixamos isso subir
++                        raise
++                        
++        return result
+ 
+     def connect(self):
+         return await_(self.aconnect())

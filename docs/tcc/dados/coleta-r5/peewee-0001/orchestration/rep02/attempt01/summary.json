@@ -1,0 +1,36 @@
+{
+  "run_id": "peewee-0001-orchestration-r02-a01",
+  "arm": "orchestration",
+  "task_id": "peewee-0001",
+  "repetition": 2,
+  "attempt": 1,
+  "llm_seed": 20260822,
+  "topology": "multi_agent_roles",
+  "stop_reason": "concluiu",
+  "lost": false,
+  "is_valid": true,
+  "changed_files": [
+    "peewee.py",
+    "peewee_test.db-shm",
+    "playhouse/postgres_ext.py",
+    "playhouse/pwasyncio.py"
+  ],
+  "diff_stat": {
+    "files_changed": 3,
+    "insertions": 81,
+    "deletions": 9
+  },
+  "turns": 42,
+  "totals": {
+    "tokens_prompt": 542820,
+    "tokens_completion": 8925,
+    "tokens_reasoning": 0,
+    "tokens_total": 551745,
+    "cost_usd": 0.0781614,
+    "llm_calls": 46,
+    "tool_calls": 51,
+    "test_runs": 2,
+    "errors": 0
+  },
+  "out_dir": "runs/coleta-r5/peewee-0001/orchestration/rep02/attempt01"
+}

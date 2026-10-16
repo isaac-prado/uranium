@@ -1,0 +1,42 @@
+diff --git a/src/attr/_funcs.py b/src/attr/_funcs.py
+index 518be16e..cdda8199 100644
+--- a/src/attr/_funcs.py
++++ b/src/attr/_funcs.py
+@@ -296,6 +296,10 @@ def has(cls):
+ 
+     :rtype: bool
+     """
++    # Handle specialized generic classes (e.g., `MyClass[str]`)
++    if hasattr(cls, "__origin__"):
++        cls = cls.__origin__
++
+     return getattr(cls, "__attrs_attrs__", None) is not None
+ 
+ 
+diff --git a/src/attr/_make.py b/src/attr/_make.py
+index 014b7bc2..ee687de5 100644
+--- a/src/attr/_make.py
++++ b/src/attr/_make.py
+@@ -1919,8 +1919,22 @@ def fields(cls):
+     .. versionchanged:: 16.2.0 Returned tuple allows accessing the fields
+        by name.
+     """
++    # Handle specialized generic classes (e.g., `MyClass[str]`).
++    # These are not instances of `type`, but we still want to process them.
++    if hasattr(cls, "__origin__"):
++        origin_cls = cls.__origin__
++        attrs = getattr(origin_cls, "__attrs_attrs__", None)
++        if attrs is None:
++            # As per acceptance criterion 3, if the origin is not an attrs class,
++            # we must raise NotAnAttrsClassError with the message for the specialized type.
++            raise NotAnAttrsClassError(f"{cls!r} is not an attrs-decorated class.")
++        return attrs
++
++    # The isinstance check comes after handling __origin__ to allow processing
++    # specialized generics, which are not strictly instances of `type`.
+     if not isinstance(cls, type):
+         raise TypeError("Passed object must be a class.")
++
+     attrs = getattr(cls, "__attrs_attrs__", None)
+     if attrs is None:
+         raise NotAnAttrsClassError(f"{cls!r} is not an attrs-decorated class.")

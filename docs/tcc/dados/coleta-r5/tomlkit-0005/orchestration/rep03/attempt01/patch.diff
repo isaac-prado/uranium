@@ -1,0 +1,27 @@
+diff --git a/tomlkit/_types.py b/tomlkit/_types.py
+index 3585d56..ff3ffb3 100644
+--- a/tomlkit/_types.py
++++ b/tomlkit/_types.py
+@@ -87,4 +87,4 @@ def wrap_method(
+             return result
+         return self._new(result)
+ 
+-    return wrapper
++    return wrapper
+\ No newline at end of file
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 4a24fc0..39d1221 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -540,8 +540,9 @@ class Item:
+     def __reduce_ex__(self, protocol: int) -> tuple[type, tuple[object, ...]]:  # type: ignore[override]
+         return self.__class__, self._getstate(protocol)
+ 
+-    def __getitem__(self, key: Key | str | int) -> Any:
+-        raise TypeError(f"{type(self).__name__} does not support item access")
++    # Método removido para evitar que Item seja reconhecido como sequência
++    # def __getitem__(self, key: Key | str | int) -> Any:
++    #     raise TypeError(f"{type(self).__name__} does not support item access")
+ 
+     def __setitem__(self, key: Key | str | int, value: Any) -> None:
+         raise TypeError(f"{type(self).__name__} does not support item assignment")

@@ -1,0 +1,122 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 3f23c7d..bb2afd0 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -8,6 +8,7 @@ from .utils import (
+     column_affinity,
+     progressbar,
+     find_spatialite,
++    dedupe_keys,
+ )
+ import binascii
+ from collections import namedtuple
+@@ -787,7 +788,8 @@ class Database:
+             if cursor.description is None:
+                 raise ValueError(message)
+             keys = [d[0] for d in cursor.description]
+-            return (dict(zip(keys, row)) for row in cursor)
++            deduped_keys = dedupe_keys(keys)
++            return (dict(zip(deduped_keys, row)) for row in cursor)
+         # Execute inside a savepoint, so a statement that turns out not to
+         # return rows can be rolled back before the ValueError is raised
+         self.conn.execute('SAVEPOINT "sqlite_utils_query"')
+@@ -809,8 +811,10 @@ class Database:
+                 fetched = cursor.fetchall()
+                 self.conn.execute('RELEASE "sqlite_utils_query"')
+                 released = True
+-                return (dict(zip(keys, row)) for row in fetched)
+-            return (dict(zip(keys, row)) for row in cursor)
++                deduped_keys = dedupe_keys(keys)
++                return (dict(zip(deduped_keys, row)) for row in fetched)
++            deduped_keys = dedupe_keys(keys)
++            return (dict(zip(deduped_keys, row)) for row in cursor)
+         finally:
+             if not released:
+                 # An error occurred - undo anything the statement changed
+@@ -1866,8 +1870,9 @@ class Queryable:
+             sql += " offset {}".format(offset)
+         cursor = self.db.execute(sql, where_args or [])
+         columns = [c[0] for c in cursor.description]
++        deduped_columns = dedupe_keys(columns)
+         for row in cursor:
+-            yield dict(zip(columns, row))
++            yield dict(zip(deduped_columns, row))
+ 
+     def pks_and_rows_where(
+         self,
+@@ -3399,8 +3404,9 @@ class Table(Queryable):
+             args,
+         )
+         columns = [c[0] for c in cursor.description]
++        deduped_columns = dedupe_keys(columns)
+         for row in cursor:
+-            yield dict(zip(columns, row))
++            yield dict(zip(deduped_columns, row))
+ 
+     def value_or_default(self, key: str, value: Any) -> Any:
+         return self._defaults[key] if value is DEFAULT else value
+diff --git a/sqlite_utils/utils.py b/sqlite_utils/utils.py
+index 865ee79..0e5ff82 100644
+--- a/sqlite_utils/utils.py
++++ b/sqlite_utils/utils.py
+@@ -629,3 +629,59 @@ def flatten(row: Dict[str, Any]) -> Dict[str, Any]:
+     :param row: A Python dictionary, optionally with nested dictionaries
+     """
+     return dict(_flatten(row))
++
++
++def dedupe_keys(keys: List[str]) -> List[str]:
++    """
++    Resolve duplicate column names by adding numeric suffixes (_2, _3, etc.)
++    
++    The first occurrence of a name remains unchanged. Each subsequent occurrence
++    gets a suffix starting from _2, ensuring uniqueness.
++    
++    Examples:
++        [] -> []
++        ["id", "name"] -> ["id", "name"]
++        ["id", "id"] -> ["id", "id_2"]
++        ["id", "id", "id"] -> ["id", "id_2", "id_3"]
++        ["id", "id", "id_2"] -> ["id", "id_3", "id_2"]
++        ["id_2", "id", "id"] -> ["id_2", "id", "id_3"]
++        ["id", "id", "id_2", "id_2"] -> ["id", "id_3", "id_2", "id_2_2"]
++        
++    :param keys: List of column names that may contain duplicates
++    :return: List of unique column names
++    """
++    if not keys:
++        return []
++    
++    # Count occurrences of each key
++    key_counts = {}
++    for key in keys:
++        key_counts[key] = key_counts.get(key, 0) + 1
++    
++    # Track how many times we've used each base key
++    key_usage = {}
++    result = []
++    
++    for key in keys:
++        if key_counts[key] == 1:
++            # Unique key, no change needed
++            result.append(key)
++        else:
++            # Duplicate key, need to add suffix
++            usage_count = key_usage.get(key, 0) + 1
++            key_usage[key] = usage_count
++            
++            if usage_count == 1:
++                # First occurrence stays as-is
++                result.append(key)
++            else:
++                # Subsequent occurrences get suffixed
++                new_key = f"{key}_{usage_count}"
++                # Handle case where the suffixed key already exists
++                counter = usage_count
++                while new_key in key_counts or new_key in result:
++                    counter += 1
++                    new_key = f"{key}_{counter}"
++                result.append(new_key)
++    
++    return result
+\ No newline at end of file

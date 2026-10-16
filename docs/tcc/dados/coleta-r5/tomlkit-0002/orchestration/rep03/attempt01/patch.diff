@@ -1,0 +1,90 @@
+diff --git a/tomlkit/api.py b/tomlkit/api.py
+index fd4b2f3..de15743 100644
+--- a/tomlkit/api.py
++++ b/tomlkit/api.py
+@@ -3,6 +3,7 @@ import datetime as _datetime
+ from collections.abc import Mapping
+ from typing import IO
+ from typing import Tuple
++from typing import Union, List
+ 
+ from ._utils import parse_rfc3339
+ from .container import Container
+@@ -17,6 +18,7 @@ from .items import InlineTable
+ from .items import Integer
+ from .items import Item as _Item
+ from .items import Key
++from .items import DottedKey
+ from .items import SingleKey
+ from .items import String
+ from .items import Table
+@@ -141,8 +143,13 @@ def aot() -> AoT:
+     return AoT([])
+ 
+ 
+-def key(k: str) -> Key:
+-    return SingleKey(k)
++def key(k: Union[str, List[str]]) -> Key:
++    if isinstance(k, str):
++        return SingleKey(k)
++    elif isinstance(k, list):
++        return DottedKey([SingleKey(part) for part in k])
++    else:
++        raise TypeError("Key must be a string or a list of strings")
+ 
+ 
+ def value(raw: str) -> _Item:
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index dc6da89..5384051 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -15,11 +15,13 @@ from .exceptions import NonExistentKey
+ from .exceptions import TOMLKitError
+ from .items import AoT
+ from .items import Comment
++from .items import DottedKey
+ from .items import Item
+ from .items import Key
+ from .items import Null
+ from .items import SingleKey
+ from .items import Table
++from .items import Trivia
+ from .items import Whitespace
+ from .items import _CustomDict
+ from .items import item as _item
+@@ -93,6 +95,35 @@ class Container(_CustomDict):
+         if not isinstance(key, Key) and key is not None:
+             key = SingleKey(key)
+ 
++        # Handle dotted keys by converting them to nested tables like the parser does
++        if isinstance(key, DottedKey):
++            names = tuple(iter(key))
++            name = names[0]
++            name._dotted = True
++            
++            # Create a super table to hold the nested structure
++            table = Table(Container(True), Trivia(), False, is_super_table=True)
++            self.append(name, table)
++            
++            # Build the nested structure
++            current_table = table
++            for i, _name in enumerate(names[1:]):
++                if i == len(names) - 2:  # Last part
++                    _name.sep = key.sep
++                    current_table.append(_name, item)
++                else:
++                    _name._dotted = True
++                    next_table = Table(
++                        Container(True),
++                        Trivia(),
++                        False,
++                        is_super_table=True,
++                    )
++                    current_table.append(_name, next_table)
++                    current_table = next_table
++                    
++            return self
++
+         if not isinstance(item, Item):
+             item = _item(item)
+ 

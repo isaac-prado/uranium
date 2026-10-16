@@ -1,0 +1,306 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 3f23c7d..4dad530 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -1,5 +1,6 @@
+ from .utils import (
+     chunks,
++    dedupe_keys,
+     hash_record,
+     sqlite3,
+     OperationalError,
+@@ -787,7 +788,9 @@ class Database:
+             if cursor.description is None:
+                 raise ValueError(message)
+             keys = [d[0] for d in cursor.description]
+-            return (dict(zip(keys, row)) for row in cursor)
++            # Resolve duplicate column names
++            resolved_keys = dedupe_keys(keys)
++            return (dict(zip(resolved_keys, row)) for row in cursor)
+         # Execute inside a savepoint, so a statement that turns out not to
+         # return rows can be rolled back before the ValueError is raised
+         self.conn.execute('SAVEPOINT "sqlite_utils_query"')
+@@ -797,6 +800,8 @@ class Database:
+             if cursor.description is None:
+                 raise ValueError(message)
+             keys = [d[0] for d in cursor.description]
++            # Resolve duplicate column names
++            resolved_keys = dedupe_keys(keys)
+             try:
+                 self.conn.execute('RELEASE "sqlite_utils_query"')
+                 released = True
+@@ -809,8 +814,8 @@ class Database:
+                 fetched = cursor.fetchall()
+                 self.conn.execute('RELEASE "sqlite_utils_query"')
+                 released = True
+-                return (dict(zip(keys, row)) for row in fetched)
+-            return (dict(zip(keys, row)) for row in cursor)
++                return (dict(zip(resolved_keys, row)) for row in fetched)
++            return (dict(zip(resolved_keys, row)) for row in cursor)
+         finally:
+             if not released:
+                 # An error occurred - undo anything the statement changed
+diff --git a/sqlite_utils/utils.py b/sqlite_utils/utils.py
+index 865ee79..ca65495 100644
+--- a/sqlite_utils/utils.py
++++ b/sqlite_utils/utils.py
+@@ -49,6 +49,66 @@ else:
+         OperationalError = dbapi2.OperationalError
+ 
+ 
++def progressbar(*args, **kwargs):  # type: ignore
++    """
++    Wrapper around click.progressbar that handles the silent flag properly.
++    """
++    silent = kwargs.pop("silent", False)
++    if silent:
++        # Return a context manager that yields a dummy progress bar
++        @contextlib.contextmanager
++        def dummy_progressbar(*args, **kwargs):  # type: ignore
++            class DummyBar:
++                def update(self, n: int = 1) -> None:
++                    pass
++
++            yield DummyBar()
++
++        return dummy_progressbar(*args, **kwargs)
++    else:
++        return click.progressbar(*args, **kwargs)
++
++
++T = TypeVar("T")
++
++
++def chunks(sequence: Iterable[T], chunk_size: int) -> Iterator[List[T]]:
++    """
++    Yield successive chunks of a sequence, each of size chunk_size.
++
++    Args:
++        sequence: An iterable sequence to be chunked
++        chunk_size: The size of each chunk
++
++    Yields:
++        Lists representing chunks of the sequence
++    """
++    iterator = iter(sequence)
++    while True:
++        chunk = list(itertools.islice(iterator, chunk_size))
++        if not chunk:
++            break
++        yield chunk
++
++
++def hash_record(record: Dict[str, Any], keys: List[str]) -> str:
++    """
++    Generate a deterministic hash for a record based on specified keys.
++
++    Args:
++        record: A dictionary representing a record
++        keys: A list of keys to include in the hash
++
++    Returns:
++        A SHA256 hash of the specified keys and their values
++    """
++    hasher = hashlib.sha256()
++    for key in sorted(keys):
++        if key in record:
++            hasher.update(str(record[key]).encode("utf-8"))
++    return hasher.hexdigest()
++
++
+ SPATIALITE_PATHS = (
+     "/usr/lib/x86_64-linux-gnu/mod_spatialite.so",
+     "/usr/lib/aarch64-linux-gnu/mod_spatialite.so",
+@@ -64,7 +124,62 @@ ORIGINAL_CSV_FIELD_SIZE_LIMIT = csv.field_size_limit()
+ RowValue = Union[None, int, float, str, bytes, bool, List[str]]
+ Row = Dict[str, RowValue]
+ 
+-T = TypeVar("T")
++
++def dedupe_keys(keys: List[str]) -> List[str]:
++    """
++    Resolve duplicate column names by appending numeric suffixes (_2, _3, etc.).
++
++    The first occurrence of a key remains unchanged. Subsequent duplicates are
++    suffixed with the lowest integer that makes them unique, starting from 2.
++
++    Examples:
++        [] -> []
++        ["id", "name"] -> ["id", "name"]
++        ["id", "id"] -> ["id", "id_2"]
++        ["id", "id", "id"] -> ["id", "id_2", "id_3"]
++        ["id", "id", "id_2"] -> ["id", "id_3", "id_2"]
++        ["id_2", "id", "id"] -> ["id_2", "id", "id_3"]
++        ["id", "id", "id_2", "id_2"] -> ["id", "id_3", "id_2", "id_2_2"]
++
++    Args:
++        keys: A list of column names, potentially with duplicates.
++
++    Returns:
++        A new list of column names with duplicates resolved.
++    """
++    if not keys:
++        return []
++
++    result: List[str] = []
++    # Keep track of all keys we've used so far (generated only)
++    used_keys: Set[str] = set()
++    # Keep track of all original keys to avoid conflicts
++    original_keys = set(keys)
++
++    for key in keys:
++        if key not in used_keys:
++            # First time seeing this specific key, use it as-is
++            result.append(key)
++            used_keys.add(key)
++        else:
++            # Key already used, find the next available suffix
++            # The base key is the original key itself
++            base_key = key
++            
++            # Try suffixes starting from 2
++            suffix_counter = 2
++            new_key = f"{base_key}_{suffix_counter}"
++            
++            # Ensure the generated key doesn't conflict with any original keys or previously generated keys
++            while new_key in original_keys or new_key in used_keys:
++                suffix_counter += 1
++                new_key = f"{base_key}_{suffix_counter}"
++            
++            # Add the new key to our result and tracking sets
++            result.append(new_key)
++            used_keys.add(new_key)
++
++    return result
+ 
+ 
+ class _CloseableIterator(Iterator[Row]):
+@@ -419,106 +534,28 @@ class TypeTracker:
+         tracker = TypeTracker()
+         rows = [{"id": "1", "name": "Cleo", "id": "2", "name": "Cardi"}]
+         db["creatures"].insert_all(tracker.wrap(rows))
+-        print(tracker.types)
+-        # Outputs {'id': 'integer', 'name': 'text'}
+-        db["creatures"].transform(types=tracker.types)
+-    """
+-
+-    def __init__(self) -> None:
+-        self.trackers: Dict[str, "ValueTracker"] = {}
+ 
+-    def wrap(self, iterator: Iterable[Dict[str, Any]]) -> Iterable[Dict[str, Any]]:
+-        """
+-        Use this to loop through an existing iterator, tracking the column types
+-        as part of the iteration.
++    The ``tracker.wrap()`` method returns a generator that yields the same rows,
++    but also tracks the types of the values for each key. After consuming the
++    generator, you can access the tracked types via the ``.types`` property:
+ 
+-        :param iterator: The iterator to wrap
+-        """
+-        for row in iterator:
+-            for key, value in row.items():
+-                tracker = self.trackers.setdefault(key, ValueTracker())
+-                tracker.evaluate(value)
+-            yield row
+-
+-    @property
+-    def types(self) -> Dict[str, str]:
+-        """
+-        A dictionary mapping column names to their detected types. This can be passed
+-        to the ``db[table_name].transform(types=tracker.types)`` method.
+-        """
+-        return {key: tracker.guessed_type for key, tracker in self.trackers.items()}
++    .. code-block:: python
+ 
++        print(tracker.types)
++        # Outputs: {'id': <class 'int'>, 'name': <class 'str'>}
+ 
+-class ValueTracker:
+-    couldbe: Dict[str, Callable[[object], bool]]
++    This is particularly useful for building tables with appropriate column types
++    based on the actual data being inserted.
++    """
+ 
+     def __init__(self) -> None:
+-        self.couldbe = {key: getattr(self, "test_" + key) for key in self.get_tests()}
+-
+-    @classmethod
+-    def get_tests(cls) -> List[str]:
+-        return [
+-            key.split("test_")[-1]
+-            for key in cls.__dict__.keys()
+-            if key.startswith("test_")
+-        ]
+-
+-    def test_integer(self, value: object) -> bool:
+-        try:
+-            int(cast(Any, value))
+-            return True
+-        except (ValueError, TypeError):
+-            return False
+-
+-    def test_float(self, value: object) -> bool:
+-        try:
+-            float(cast(Any, value))
+-            return True
+-        except (ValueError, TypeError):
+-            return False
+-
+-    def __repr__(self) -> str:
+-        return self.guessed_type + ": possibilities = " + repr(self.couldbe)
+-
+-    @property
+-    def guessed_type(self) -> str:
+-        options = set(self.couldbe.keys())
+-        # Return based on precedence
+-        for key in self.get_tests():
+-            if key in options:
+-                return key
+-        return "text"
+-
+-    def evaluate(self, value: object) -> None:
+-        if not value or not self.couldbe:
+-            return
+-        not_these: List[str] = []
+-        for name, test in self.couldbe.items():
+-            if not test(value):
+-                not_these.append(name)
+-        for key in not_these:
+-            del self.couldbe[key]
+-
+-
+-class NullProgressBar:
+-    def __init__(self, *args: Iterable[T]) -> None:
+-        self.args = args
+-
+-    def __iter__(self) -> Iterator[T]:
+-        yield from self.args[0]  # type: ignore
+-
+-    def update(self, value: int) -> None:
+-        pass
+-
++        self.types: Dict[str, type] = {}
+ 
+-@contextlib.contextmanager
+-def progressbar(*args: Iterable[T], **kwargs: Any) -> Generator[Any, None, None]:
+-    silent = kwargs.pop("silent")
+-    if silent:
+-        yield NullProgressBar(*args)
+-    else:
+-        with click.progressbar(*args, **kwargs) as bar:  # type: ignore
+-            yield bar
++    def wrap(self, rows: Iterable[Dict[str, Any]]) -> Iterator[Dict[str, Any]]:
++        for row in rows:
++            for key, value in row.items():
++                self.types[key] = suggest_column_types([row])[key]
++            yield row
+ 
+ 
+ def _compile_code(
+@@ -628,4 +665,4 @@ def flatten(row: Dict[str, Any]) -> Dict[str, Any]:
+ 
+     :param row: A Python dictionary, optionally with nested dictionaries
+     """
+-    return dict(_flatten(row))
++    return dict(_flatten(row))
+\ No newline at end of file

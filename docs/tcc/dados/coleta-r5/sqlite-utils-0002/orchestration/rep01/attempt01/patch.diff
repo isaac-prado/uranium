@@ -1,0 +1,37 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 48987a6..b152dd1 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -3103,10 +3103,31 @@ class Table(Queryable):
+         if "rowid" not in new_cols:
+             new_cols.insert(0, "rowid")
+             old_cols.insert(0, "rowid")
++        
++        # Modify old_cols to use NULLIF for TEXT columns being converted to numeric types
++        processed_old_cols = []
++        for i, (from_col, to_col) in enumerate(zip(old_cols[1:], new_cols[1:])):  # Skip rowid
++            from_col_type = self.columns_dict.get(from_col)
++            to_col_type = types.get(from_col)
++            
++            # Check if we're converting a TEXT column to a numeric type
++            if (from_col_type == str and to_col_type is not None and 
++                COLUMN_TYPE_MAPPING.get(to_col_type) in ("INTEGER", "REAL", "FLOAT")):
++                processed_old_cols.append(f"NULLIF({quote_identifier(from_col)}, '')")
++            else:
++                processed_old_cols.append(quote_identifier(from_col))
++        
++        # Handle rowid specially
++        if old_cols and new_cols:
++            processed_old_cols.insert(0, quote_identifier(old_cols[0]))
++            old_cols_formatted = ", ".join(processed_old_cols)
++        else:
++            old_cols_formatted = ", ".join(quote_identifier(col) for col in old_cols)
++            
+         copy_sql = "INSERT INTO {} ({new_cols})\n   SELECT {old_cols} FROM {};".format(
+             quote_identifier(new_table_name),
+             quote_identifier(self.name),
+-            old_cols=", ".join(quote_identifier(col) for col in old_cols),
++            old_cols=old_cols_formatted,
+             new_cols=", ".join(quote_identifier(col) for col in new_cols),
+         )
+         sqls.append(copy_sql)

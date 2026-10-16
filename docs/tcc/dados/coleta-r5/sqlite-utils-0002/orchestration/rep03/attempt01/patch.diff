@@ -1,0 +1,39 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 48987a6..a70633b 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -3103,10 +3103,33 @@ class Table(Queryable):
+         if "rowid" not in new_cols:
+             new_cols.insert(0, "rowid")
+             old_cols.insert(0, "rowid")
++        
++        # Apply NULLIF for TEXT to numeric conversions
++        old_cols_processed = []
++        # Create a mapping of column names to their SQLite types
++        column_types = {column.name: column.type for column in self.columns}
++        for col in old_cols:
++            if col == "rowid":
++                old_cols_processed.append(quote_identifier(col))
++                continue
++                
++            # Find the original column type
++            original_type = column_types.get(col)
++            target_type = types.get(col)  # This gets the target type for this column
++            
++            # Check if we're converting from TEXT to a numeric type
++            if (original_type == "TEXT" and 
++                target_type is not None and
++                COLUMN_TYPE_MAPPING.get(target_type) in ("INTEGER", "REAL", "FLOAT")):
++                # Apply NULLIF to convert empty strings to NULL
++                old_cols_processed.append(f'NULLIF({quote_identifier(col)}, "") AS {quote_identifier(col)}')
++            else:
++                old_cols_processed.append(quote_identifier(col))
++        
+         copy_sql = "INSERT INTO {} ({new_cols})\n   SELECT {old_cols} FROM {};".format(
+             quote_identifier(new_table_name),
+             quote_identifier(self.name),
+-            old_cols=", ".join(quote_identifier(col) for col in old_cols),
++            old_cols=", ".join(old_cols_processed),
+             new_cols=", ".join(quote_identifier(col) for col in new_cols),
+         )
+         sqls.append(copy_sql)

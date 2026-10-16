@@ -1,0 +1,176 @@
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index 777d96a..fb6646e 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -28,6 +28,55 @@ class Container(dict):
+         self._map = {}  # type: Dict[Key, int]
+         self._body = []  # type: List[Tuple[Optional[Key], Item]]
+ 
++    def _split_dotted_key(self, key):  # type: (str) -> List[str]
++        """
++        Split a dotted key into its components, respecting quoted strings.
++        """
++        parts = []
++        current_part = ""
++        in_quotes = False
++        quote_char = None
++        escaped = False
++        
++        i = 0
++        while i < len(key):
++            char = key[i]
++            
++            if escaped:
++                current_part += char
++                escaped = False
++            elif char == '\\':
++                current_part += char
++                escaped = True
++            elif char in ('"', "'") and not escaped:
++                if not in_quotes:
++                    in_quotes = True
++                    quote_char = char
++                elif char == quote_char:
++                    in_quotes = False
++                    quote_char = None
++                current_part += char
++            elif char == '.' and not in_quotes:
++                parts.append(current_part)
++                current_part = ""
++            else:
++                current_part += char
++                
++            i += 1
++            
++        if current_part:
++            parts.append(current_part)
++            
++        # Remove quotes from individual parts that are fully quoted
++        cleaned_parts = []
++        for part in parts:
++            if len(part) >= 2 and part[0] == part[-1] and part[0] in ('"', "'"):
++                cleaned_parts.append(part[1:-1])
++            else:
++                cleaned_parts.append(part)
++                
++        return cleaned_parts
++
+     @property
+     def body(self):  # type: () -> List[Tuple[Optional[Key], Item]]
+         return self._body
+@@ -70,6 +119,7 @@ class Container(dict):
+ 
+     def append(self, key, item):  # type: (Key, Item) -> None
+         from .api import item as _item
++        from .items import Table
+ 
+         if not isinstance(key, Key) and key is not None:
+             key = Key(key)
+@@ -77,6 +127,47 @@ class Container(dict):
+         if not isinstance(item, Item):
+             item = _item(item)
+ 
++        # Handle dotted keys
++        if key is not None and "." in key.key:
++            # Properly split dotted key considering quotes
++            key_parts = self._split_dotted_key(key.key)
++            if len(key_parts) > 1:
++                # This is a dotted key, create nested structure
++                current_container = self
++                for i, part in enumerate(key_parts[:-1]):
++                    # Check if the part already exists
++                    if part in current_container:
++                        existing_item = current_container[part]
++                        if not isinstance(existing_item, Table):
++                            # Convert existing item to table
++                            from .api import table
++                            new_table = table()
++                            # Move existing item to the new table if possible
++                            if hasattr(existing_item, '__getitem__'):
++                                for k, v in existing_item.items():
++                                    new_table[k] = v
++                            current_container[part] = new_table
++                            current_container = new_table
++                        else:
++                            current_container = existing_item
++                    else:
++                        # Create new table for this part
++                        from .api import table
++                        new_table = table()
++                        current_container[part] = new_table
++                        current_container = new_table
++                
++                # Set the final value in the nested structure
++                final_part = key_parts[-1]
++                current_container[final_part] = item
++                return item
++
++        if isinstance(item, (AoT, Table)) and item.name is None:
++            item.name = key.key
++
++        if key is not None and key in self:
++            current = self._body[self._map[key]][1]
++
+         if isinstance(item, (AoT, Table)) and item.name is None:
+             item.name = key.key
+ 
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..17bc20f 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -362,8 +362,8 @@ class Parser:
+ 
+         indent = self.extract()
+ 
+-        # Key
+-        key = self._parse_key()
++        # Key - check for dotted keys first
++        key = self._parse_dotted_key()
+         if not key.key.strip():
+             raise self.parse_error(EmptyKeyError)
+ 
+@@ -397,6 +397,32 @@ class Parser:
+ 
+         return key, val
+ 
++    def _parse_dotted_key(self):  # type: () -> Key
++        """
++        Parses a dotted key at the current position.
++        """
++        # Save current position
++        start_index = self._idx
++        self.mark()
++        
++        # Parse the full key including dots and quoted sections
++        while (not self.end() and self._current != '=' and not self._current.is_ws()):
++            # Handle quoted strings within the key
++            if self._current in "\"'":
++                quote_char = self._current
++                self.inc()  # Skip opening quote
++                while not self.end() and self._current != quote_char:
++                    if self._current == '\\':
++                        self.inc()  # Skip escaped character
++                    self.inc()
++                if not self.end():
++                    self.inc()  # Skip closing quote
++            else:
++                self.inc()
++            
++        key_str = self.extract().rstrip()
++        return Key(key_str, sep="")
++
+     def _parse_key(self):  # type: () -> Key
+         """
+         Parses a Key at the current position;
+@@ -807,6 +833,11 @@ class Parser:
+ 
+         cws, comment, trail = self._parse_comment_trail()
+ 
++        # Consume the newline after the table header and add it to trail
++        if self._current == "\n":
++            self.inc()
++            trail += "\n"
++
+         result = Null()
+ 
+         if len(name_parts) > 1:

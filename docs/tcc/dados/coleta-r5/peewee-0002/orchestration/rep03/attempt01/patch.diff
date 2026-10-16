@@ -1,0 +1,88 @@
+diff --git a/peewee.py b/peewee.py
+index 6a666d5b..be8fe8df 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -3694,10 +3694,34 @@ class ConnectionContext(object):
+         if self.db.is_closed():
+             self.db.connect()
+         self.db._state.ctx.append(self)
++
+     def __exit__(self, exc_type, exc_val, exc_tb):
+-        self.db._state.ctx.pop()
+-        if not self.db._state.ctx:
+-            self.db.close()
++        # Garante que sempre tentará limpar o contexto e fechar a conexão
++        try:
++            if exc_type is not None:
++                # Se houve uma exceção, fecha a conexão independentemente do contexto
++                if not self.db.is_closed():
++                    # Fecha a conexão mesmo que haja transações pendentes
++                    try:
++                        self.db.close()
++                    except:
++                        # Ignora erros ao fechar, mas força o fechamento
++                        self.db._state.closed = True
++                        if hasattr(self.db._state, 'conn'):
++                            del self.db._state.conn
++        finally:
++            # Apenas remove do contexto se estiver lá
++            if self in self.db._state.ctx:
++                self.db._state.ctx.remove(self)
++            # Fecha a conexão se não houver mais contextos ativos
++            if not self.db._state.ctx:
++                try:
++                    self.db.close()
++                except:
++                    # Força o fechamento em caso de erro
++                    self.db._state.closed = True
++                    if hasattr(self.db._state, 'conn'):
++                        del self.db._state.conn
+     def __call__(self, fn):
+         @wraps(fn)
+         def inner(*args, **kwargs):
+@@ -4037,10 +4061,14 @@ class Database(_callable_context_manager):
+             self.cursor().execute('BEGIN')
+ 
+     def rollback(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot rollback transaction on closed database.')
+         with __exception_wrapper__:
+             self.cursor().execute('ROLLBACK')
+ 
+     def commit(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot commit transaction on closed database.')
+         with __exception_wrapper__:
+             self.cursor().execute('COMMIT')
+ 
+@@ -4382,10 +4410,14 @@ class SqliteDatabase(Database):
+         self.execute_sql(statement)
+ 
+     def commit(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot commit transaction on closed database.')
+         with __exception_wrapper__:
+             return self.execute_sql('COMMIT')
+ 
+     def rollback(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot rollback transaction on closed database.')
+         with __exception_wrapper__:
+             return self.execute_sql('ROLLBACK')
+ 
+@@ -5242,7 +5274,14 @@ class _atomic(object):
+                              'manual commit mode.')
+         else:
+             self._helper = self.db.savepoint()
+-        return self._helper.__enter__()
++        try:
++            return self._helper.__enter__()
++        except:
++            # Se ocorrer um erro em __enter__, removemos este objeto do contexto
++            # para não ficar preso
++            if self in self.db._state.ctx:
++                self.db._state.ctx.remove(self)
++            raise
+ 
+     def __exit__(self, exc_type, exc_val, exc_tb):
+         return self._helper.__exit__(exc_type, exc_val, exc_tb)

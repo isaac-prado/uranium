@@ -1,0 +1,53 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 48987a6..0d5131b 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -3096,18 +3096,45 @@ class Table(Queryable):
+         # Copy across data, respecting any renamed columns
+         new_cols = []
+         old_cols = []
++        select_items = []
+         for from_, to_ in copy_from_to.items():
+             old_cols.append(from_)
+             new_cols.append(to_)
++            # Check if we need to use NULLIF for TEXT to numeric conversion
++            original_type = self.columns_dict.get(from_)
++            target_type = types.get(from_) if types else None
++            if (original_type == str or 
++                (isinstance(original_type, str) and COLUMN_TYPE_MAPPING.get(original_type, "").upper() == "TEXT")) and \
++               target_type and \
++               (target_type in COLUMN_TYPE_MAPPING and 
++                COLUMN_TYPE_MAPPING[target_type] in ("INTEGER", "REAL", "FLOAT") or
++                (isinstance(target_type, str) and target_type.upper() in ("INTEGER", "REAL", "FLOAT", "NUMERIC"))):
++                # Use NULLIF for TEXT to numeric conversions
++                select_item = 'NULLIF({}, \'\')'.format(quote_identifier(from_))
++                if from_ != to_:
++                    select_item += ' AS {}'.format(quote_identifier(to_))
++                select_items.append(select_item)
++            else:
++                # Regular column handling
++                if from_ != to_:
++                    select_items.append('{} AS {}'.format(quote_identifier(from_), quote_identifier(to_)))
++                else:
++                    select_items.append(quote_identifier(from_))
+         # Ensure rowid is copied too
+         if "rowid" not in new_cols:
+             new_cols.insert(0, "rowid")
+             old_cols.insert(0, "rowid")
+-        copy_sql = "INSERT INTO {} ({new_cols})\n   SELECT {old_cols} FROM {};".format(
++            select_items.insert(0, '"rowid"')
++        else:
++            # Make sure rowid is first in select_items if it exists
++            if '"rowid"' in select_items:
++                select_items.remove('"rowid"')
++                select_items.insert(0, '"rowid"')
++        copy_sql = "INSERT INTO {} ({})\n   SELECT {} FROM {};".format(
+             quote_identifier(new_table_name),
++            ", ".join(quote_identifier(col) for col in new_cols),
++            ", ".join(select_items),
+             quote_identifier(self.name),
+-            old_cols=", ".join(quote_identifier(col) for col in old_cols),
+-            new_cols=", ".join(quote_identifier(col) for col in new_cols),
+         )
+         sqls.append(copy_sql)
+         # Capture indexes before the old table is changed. Simple indexes that

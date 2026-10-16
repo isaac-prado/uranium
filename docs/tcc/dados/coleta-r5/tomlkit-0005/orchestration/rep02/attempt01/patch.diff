@@ -1,0 +1,62 @@
+diff --git a/tomlkit/_types.py b/tomlkit/_types.py
+index 3585d56..1e27170 100644
+--- a/tomlkit/_types.py
++++ b/tomlkit/_types.py
+@@ -74,9 +74,13 @@ else:
+     class _CustomInt(Integral, int):
+         """Adds Integral mixin while pretending to be a builtin int"""
+ 
++        pass
++
+     class _CustomFloat(Real, float):
+         """Adds Real mixin while pretending to be a builtin float"""
+ 
++        pass
++
+ 
+ def wrap_method(
+     original_method: Callable[Concatenate[WT, P], Any],
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 4a24fc0..364b1f1 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -642,6 +642,9 @@ class Integer(Item, _CustomInt):
+         """The wrapped integer value"""
+         return self
+ 
++    def __getitem__(self, key):
++        raise AttributeError(f"'{type(self).__name__}' object has no attribute '__getitem__'")
++
+     def as_string(self) -> str:
+         return self._raw
+ 
+@@ -865,6 +868,9 @@ class Float(Item, _CustomFloat):
+         """The wrapped float value"""
+         return self
+ 
++    def __getitem__(self, key):
++        raise AttributeError(f"'{type(self).__name__}' object has no attribute '__getitem__'")
++
+     def as_string(self) -> str:
+         return self._raw
+ 
+@@ -1107,6 +1113,9 @@ class DateTime(Item, datetime):
+     def as_string(self) -> str:
+         return self._raw
+ 
++    def __getitem__(self, key):
++        raise AttributeError(f"'{type(self).__name__}' object has no attribute '__getitem__'")
++
+     def __add__(self, other: timedelta) -> DateTime:
+         if PY38:
+             result = datetime(
+@@ -1234,6 +1243,9 @@ class Date(Item, date):
+     def as_string(self) -> str:
+         return self._raw
+ 
++    def __getitem__(self, key):
++        raise AttributeError(f"'{type(self).__name__}' object has no attribute '__getitem__'")
++
+     def __add__(self, other: timedelta) -> Date:
+         if PY38:
+             result = date(self.year, self.month, self.day).__add__(other)

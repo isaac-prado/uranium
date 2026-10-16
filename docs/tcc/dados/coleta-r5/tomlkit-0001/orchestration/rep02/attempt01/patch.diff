@@ -1,0 +1,390 @@
+diff --git a/tomlkit/exceptions.py b/tomlkit/exceptions.py
+index 473357e..a7957e1 100644
+--- a/tomlkit/exceptions.py
++++ b/tomlkit/exceptions.py
+@@ -32,149 +32,143 @@ class ParseError(ValueError, TOMLKitError):
+         return self._col
+ 
+ 
+-class MixedArrayTypesError(ParseError):
++class UnexpectedCharError(ParseError):
+     """
+-    An array was found that had two or more element types.
++    Unexpected character error.
+     """
+ 
+-    def __init__(self, line: int, col: int) -> None:
+-        message = "Mixed types found in array"
++    def __init__(self, line: int, col: int, char: str) -> None:
++        super().__init__(line, col, f"Unexpected character: {repr(char)}")
+ 
+-        super().__init__(line, col, message=message)
++        self.char = char
+ 
+ 
+-class InvalidNumberError(ParseError):
++class MarkedInlineTableError(ParseError):
+     """
+-    A numeric field was improperly specified.
++    Marker error to indicate an inline table parsing issue.
+     """
++    def __init__(self, original_error):
++        self.original_error = original_error
++        # Delegate line and col to the original error if it has them
++        line = getattr(original_error, 'line', 0)
++        col = getattr(original_error, 'col', 0)
++        super().__init__(line, col, f"Marked inline table error: {original_error}")
+ 
+-    def __init__(self, line: int, col: int) -> None:
+-        message = "Invalid number"
+ 
+-        super().__init__(line, col, message=message)
+-
+-
+-class InvalidDateTimeError(ParseError):
++class UnexpectedEofError(ParseError):
+     """
+-    A datetime field was improperly specified.
++    Unexpected end of file error.
+     """
+ 
+     def __init__(self, line: int, col: int) -> None:
+-        message = "Invalid datetime"
++        super().__init__(line, col, "Unexpected end of file")
+ 
+-        super().__init__(line, col, message=message)
+ 
+-
+-class InvalidDateError(ParseError):
++class EmptyKeyError(ParseError):
+     """
+-    A date field was improperly specified.
++    Empty key error.
+     """
+ 
+     def __init__(self, line: int, col: int) -> None:
+-        message = "Invalid date"
+-
+-        super().__init__(line, col, message=message)
++        super().__init__(line, col, "Empty key")
+ 
+ 
+-class InvalidTimeError(ParseError):
++class EmptyTableNameError(ParseError):
+     """
+-    A date field was improperly specified.
++    Empty table name error.
+     """
+ 
+     def __init__(self, line: int, col: int) -> None:
+-        message = "Invalid time"
++        super().__init__(line, col, "Empty table name")
+ 
+-        super().__init__(line, col, message=message)
+ 
+-
+-class InvalidNumberOrDateError(ParseError):
++class InvalidCharInStringError(ParseError):
+     """
+-    A numeric or date field was improperly specified.
++    Invalid character error in string.
+     """
+ 
+-    def __init__(self, line: int, col: int) -> None:
+-        message = "Invalid number or date format"
++    def __init__(self, line: int, col: int, char: str) -> None:
++        super().__init__(line, col, f"Invalid character in string: {repr(char)}")
+ 
+-        super().__init__(line, col, message=message)
++        self.char = char
+ 
+ 
+ class InvalidUnicodeValueError(ParseError):
+     """
+-    A unicode code was improperly specified.
++    Invalid unicode value error.
+     """
+ 
+-    def __init__(self, line: int, col: int) -> None:
+-        message = "Invalid unicode value"
++    def __init__(self, line: int, col: int, char: str) -> None:
++        super().__init__(line, col, f"Invalid unicode value: {repr(char)}")
+ 
+-        super().__init__(line, col, message=message)
++        self.char = char
+ 
+ 
+-class UnexpectedCharError(ParseError):
++class InvalidControlChar(ParseError):
+     """
+-    An unexpected character was found during parsing.
++    Invalid control character error.
+     """
+ 
+-    def __init__(self, line: int, col: int, char: str) -> None:
+-        message = f"Unexpected character: {char!r}"
++    def __init__(self, line: int, col: int, char: int, type: str) -> None:
++        super().__init__(
++            line, col, f"Invalid control character: 0x{char:x} ({type})"
++        )
+ 
+-        super().__init__(line, col, message=message)
++        self.char = char
+ 
+ 
+-class EmptyKeyError(ParseError):
++class InvalidDateError(ParseError):
+     """
+-    An empty key was found during parsing.
++    Invalid date error.
+     """
+ 
+-    def __init__(self, line: int, col: int) -> None:
+-        message = "Empty key"
++    def __init__(self, line: int, col: int, char: str) -> None:
++        super().__init__(line, col, f"Invalid date: {repr(char)}")
+ 
+-        super().__init__(line, col, message=message)
++        self.char = char
+ 
+ 
+-class EmptyTableNameError(ParseError):
++class InvalidTimeError(ParseError):
+     """
+-    An empty table name was found during parsing.
++    Invalid time error.
+     """
+ 
+-    def __init__(self, line: int, col: int) -> None:
+-        message = "Empty table name"
++    def __init__(self, line: int, col: int, char: str) -> None:
++        super().__init__(line, col, f"Invalid time: {repr(char)}")
+ 
+-        super().__init__(line, col, message=message)
++        self.char = char
+ 
+ 
+-class InvalidCharInStringError(ParseError):
++class InvalidDateTimeError(ParseError):
+     """
+-    The string being parsed contains an invalid character.
++    Invalid date time error.
+     """
+ 
+     def __init__(self, line: int, col: int, char: str) -> None:
+-        message = f"Invalid character {char!r} in string"
++        super().__init__(line, col, f"Invalid date time: {repr(char)}")
+ 
+-        super().__init__(line, col, message=message)
++        self.char = char
+ 
+ 
+-class UnexpectedEofError(ParseError):
++class InvalidNumberError(ParseError):
+     """
+-    The TOML being parsed ended before the end of a statement.
++    Invalid number error.
+     """
+ 
+     def __init__(self, line: int, col: int) -> None:
+-        message = "Unexpected end of file"
+-
+-        super().__init__(line, col, message=message)
++        super().__init__(line, col, "Invalid number")
+ 
+ 
+-class InternalParserError(ParseError):
++class KeyAlreadyPresent(TOMLKitError):
+     """
+-    An error that indicates a bug in the parser.
++    An already present key was used.
+     """
+ 
+-    def __init__(self, line: int, col: int, message: str | None = None) -> None:
+-        msg = "Internal parser error"
+-        if message:
+-            msg += f" ({message})"
++    def __init__(self, key: object) -> None:
++        key = getattr(key, "key", key)
++        message = f'Key "{key}" already exists.'
+ 
+-        super().__init__(line, col, message=msg)
++        super().__init__(message)
+ 
+ 
+ class NonExistentKey(KeyError, TOMLKitError):
+@@ -188,34 +182,13 @@ class NonExistentKey(KeyError, TOMLKitError):
+         super().__init__(message)
+ 
+ 
+-class KeyAlreadyPresent(TOMLKitError):
++class InternalParserError(ParseError):
+     """
+-    An already present key was used.
++    Internal parser error.
+     """
+ 
+-    def __init__(self, key: object) -> None:
+-        key = getattr(key, "key", key)
+-        message = f'Key "{key}" already exists.'
+-
+-        super().__init__(message)
+-
+-
+-class InvalidControlChar(ParseError):
+-    def __init__(self, line: int, col: int, char: int, type: str) -> None:
+-        display_code = "\\u00"
+-
+-        if char < 16:
+-            display_code += "0"
+-
+-        display_code += hex(char)[2:]
+-
+-        message = (
+-            "Control characters (codes less than 0x1f and 0x7f)"
+-            f" are not allowed in {type}, "
+-            f"use {display_code} instead"
+-        )
+-
+-        super().__init__(line, col, message=message)
++    def __init__(self, line: int, col: int, msg: str) -> None:
++        super().__init__(line, col, msg)
+ 
+ 
+ class InvalidStringError(ValueError, TOMLKitError):
+@@ -231,4 +204,4 @@ class ConvertError(TypeError, ValueError, TOMLKitError):
+     """Raised when item() fails to convert a value.
+     It should be a TypeError, but due to historical reasons
+     it needs to subclass ValueError as well.
+-    """
++    """
+\ No newline at end of file
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index b952b36..6976fbd 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -106,6 +106,7 @@ class Parser:
+ 
+         self._aot_stack: list[Key] = []
+         self._nesting_depth = 0
++        self._parsing_inline_table = False
+ 
+     @property
+     def _state(self) -> _StateHandler:
+@@ -496,7 +497,11 @@ class Parser:
+         elif c == "[":
+             return self._parse_nested(self._parse_array)
+         elif c == "{":
+-            return self._parse_nested(self._parse_inline_table)
++            self._parsing_inline_table = True
++            try:
++                return self._parse_nested(self._parse_inline_table)
++            finally:
++                self._parsing_inline_table = False
+         elif c in "+-" or self._peek(4) in {
+             "+inf",
+             "-inf",
+@@ -669,8 +674,13 @@ class Parser:
+                     elems.append(self._parse_value())
+                     prev_value = True
+                     continue
+-                except UnexpectedCharError:
+-                    pass
++                except Exception as e:
++                    # Check if it's our marked inline table error
++                    if hasattr(e, '__class__') and 'MarkedInlineTableError' in str(type(e)):
++                        # This is our marked error, re-raise the original
++                        raise e.original_error
++                    # For any other exception, especially UnexpectedCharError, re-raise it
++                    raise
+ 
+             # consume comma
+             if prev_value and self._current == ",":
+@@ -701,48 +711,53 @@ class Parser:
+         raise self.parse_error(ParseError, "Failed to parse array")
+ 
+     def _parse_inline_table(self) -> InlineTable:
+-        # consume opening bracket, EOF here is an issue (middle of array)
+-        self.inc(exception=UnexpectedEofError)
++        try:
++            # consume opening bracket, EOF here is an issue (middle of array)
++            self.inc(exception=UnexpectedEofError)
+ 
+-        elems = Container(True)
+-        expect_key = True
+-        while True:
++            elems = Container(True)
++            expect_key = True
+             while True:
+-                # consume whitespace and newlines
+-                mark = self._idx
+-                self.consume(" \t\n\r")
+-                raw = self._src[mark : self._idx]
+-                if raw:
+-                    elems.add(Whitespace(raw))
+-
+-                if self._current != "#":
+-                    break
++                while True:
++                    # consume whitespace and newlines
++                    mark = self._idx
++                    self.consume(" \t\n\r")
++                    raw = self._src[mark : self._idx]
++                    if raw:
++                        elems.add(Whitespace(raw))
++
++                    if self._current != "#":
++                        break
+ 
+-                cws, comment, trail = self._parse_comment_trail(parse_trail=False)
+-                elems.add(Comment(Trivia("", cws, comment, trail)))
++                    cws, comment, trail = self._parse_comment_trail(parse_trail=False)
++                    elems.add(Comment(Trivia("", cws, comment, trail)))
+ 
+-            if self._current == "}":
+-                # consume closing bracket, EOF here doesn't matter
+-                self.inc()
+-                break
++                if self._current == "}":
++                    # consume closing bracket, EOF here doesn't matter
++                    self.inc()
++                    break
+ 
+-            if expect_key:
+-                if self._current == ",":
+-                    raise self.parse_error(UnexpectedCharError, self._current)
+-                key, val = self._parse_key_value(False)
+-                elems.add(key, val)
+-                expect_key = False
+-                continue
++                if expect_key:
++                    if self._current == ",":
++                        raise self.parse_error(UnexpectedCharError, self._current)
++                    key, val = self._parse_key_value(False)
++                    elems.add(key, val)
++                    expect_key = False
++                    continue
+ 
+-            if self._current != ",":
+-                raise self.parse_error(UnexpectedCharError, self._current)
++                if self._current != ",":
++                    raise self.parse_error(UnexpectedCharError, self._current)
+ 
+-            elems.add(Whitespace(","))
+-            # consume comma, EOF here is an issue (middle of inline table)
+-            self.inc(exception=UnexpectedEofError)
+-            expect_key = True
++                elems.add(Whitespace(","))
++                # consume comma, EOF here is an issue (middle of inline table)
++                self.inc(exception=UnexpectedEofError)
++                expect_key = True
+ 
+-        return InlineTable(elems, Trivia())
++            return InlineTable(elems, Trivia())
++        except UnexpectedCharError as e:
++            # Wrap the error so _parse_array can recognize it
++            from tomlkit.exceptions import MarkedInlineTableError
++            raise MarkedInlineTableError(e) from e
+ 
+     def _parse_number(self, raw: str, trivia: Trivia) -> Item | None:
+         # Leading zeros are not allowed
