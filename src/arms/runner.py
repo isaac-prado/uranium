@@ -60,7 +60,10 @@ from src.workspace import Workspace, WorkspaceSpec
 # 10 = rodada 2 (decisões 27 e 29, 14/10/2026): `visible_deselect` da tarefa
 # no manifesto (igual nos dois braços), `orchestration_policy.review_execution`
 # e `cycle_note`.
-MANIFEST_VERSION = 14
+# 15 = rodada 6 (decisões 40 a 42, 16/10/2026): `subtask_check` ganha
+# "hybrid", `review_compare` ganha "neutral" e entra
+# `reproduction_compile_check`.
+MANIFEST_VERSION = 15
 
 # Chaves do manifesto que PODEM diferir entre os braços. Qualquer outra
 # divergência é violação do desenho experimental. Note que `repetition` NÃO
@@ -176,6 +179,10 @@ def _orchestration_policy() -> dict[str, Any]:
         # original e tira da comparação as saídas esperadas que ele já
         # produz. Runs v13 (falsa partida da rodada 5) não tinham o filtro.
         "expected_outputs_base_filter": "on",
+        # Rodada 6 (decisão 42, manifesto v15): bloco de reprodução que não
+        # compila fica fora da execução e da cadeia acumulada. "off" é a
+        # rodada 5.
+        "reproduction_compile_check": config.REPRODUCTION_COMPILE_CHECK,
         "developer_input": config.DEVELOPER_INPUT,
         "developer_memory": config.DEVELOPER_MEMORY,
         "developer_memory_diff_max_chars": MEMORIA_DIFF_MAX_CHARS,

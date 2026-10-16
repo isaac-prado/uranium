@@ -562,3 +562,133 @@ class TestSaidasQueOCodigoOriginalJaProduz:
         assert "fora da comparação: 2" in usuario and "saída esperada 2:" not in usuario
         ev = [e for e in read_events(tel.path) if e["event_type"] == "validation" and not e["payload"].get("scope")][-1]["payload"]
         assert [c["indice"] for c in ev["comparisons"]] == [1]
+
+
+# ------------------------------------------------------------ rodada 6
+
+
+@mirror_available
+class TestRodada6:
+    """
+    Decisões 40 a 42 (16/10/2026, aprovadas por escrito): veredito híbrido da
+    sub-tarefa, revisor final sem a frase de leniência e coerente, bloco de
+    reprodução que não compila fora da evidência.
+    """
+
+    def _roda(self, ambiente, monkeypatch, estado, vereditos, *, mudanca=True, compare="neutral", strict="on"):
+        from src.agents.validator import validator
+
+        monkeypatch.setattr(config, "PLANNER", "on")
+        monkeypatch.setattr(config, "REVIEW_EXECUTION", "cumulative")
+        monkeypatch.setattr(config, "SUBTASK_CHECK", "hybrid")
+        monkeypatch.setattr(config, "REVIEW_COMPARE", compare)
+        monkeypatch.setattr(config, "REVIEW_STRICT", strict)
+        monkeypatch.setattr(config, "REPRODUCTION_COMPILE_CHECK", "on")
+        monkeypatch.setattr(config, "SUBTASK_MAX_CYCLES", 2)
+        monkeypatch.setattr(config, "PLANNER_MAX_REPLANS", 1)
+        monkeypatch.setenv("SEMANTIC_REVIEW", "true")
+        ws, tel, montar = ambiente
+        if mudanca:
+            _mudanca_benigna(ws)
+        montar(FakeToolCallingLLM([ai(content="x")]))
+        fila = iter(vereditos)
+        chamadas: list = []
+
+        def _estruturada(schema, messages, **k):
+            chamadas.append(messages)
+            return next(fila), None
+        monkeypatch.setattr("src.structured_llm.invoke_structured_raw", _estruturada)
+        return validator(estado), tel, chamadas
+
+    @staticmethod
+    def _eventos(tel, scope):
+        return [e["payload"] for e in read_events(tel.path)
+                if e["event_type"] == "validation" and e["payload"].get("scope") == scope]
+
+    def test_hibrido_com_saida_verificavel_decide_pela_comparacao_sem_o_modelo(self, ambiente, monkeypatch):
+        estado = _estado_com_plano(stop_reason="concluiu")
+        out, tel, chamadas = self._roda(ambiente, monkeypatch, estado,
+                                        [ValidationResult(is_valid=False, issues=["falta a parte 2"])])
+        assert len(chamadas) == 1  # só a revisão final consultou o modelo
+        assert [s["status"] for s in out["plan"]["status"]] == ["feita", "em_andamento"]
+        ev = self._eventos(tel, "subtask")[-1]
+        assert ev["basis"] == "comparacao" and ev["deterministic"] is True
+
+    def test_hibrido_sem_saida_verificavel_consulta_o_revisor_de_subtarefa_e_a_palavra_nao_vale(self, ambiente, monkeypatch):
+        estado = _estado_com_plano(stop_reason="concluiu")
+        estado["plan"]["subtasks"][0]["expected"] = []
+        # 1ª chamada: revisão final (reprova); 2ª: revisão da sub-tarefa (não feita, com motivo)
+        out, tel, chamadas = self._roda(
+            ambiente, monkeypatch, estado,
+            [ValidationResult(is_valid=False), ValidationResult(is_valid=False, issues=["falta tratar o caso x"])],
+        )
+        assert len(chamadas) == 2
+        assert out["plan"]["status"][0]["status"] == "em_andamento" and out["subtask_current"] == 1
+        assert out["subtask_review"]["issues"] == ["falta tratar o caso x"]
+        ev = self._eventos(tel, "subtask")[-1]
+        assert ev["basis"] == "revisao_do_modelo" and "deterministic" not in ev
+        assert "Execução dos exemplos desta sub-tarefa" in chamadas[1][1][1]  # execução reaproveitada
+        # quando o revisor de sub-tarefa a dá por feita, o plano avança
+        out2, _, chamadas2 = self._roda(ambiente, monkeypatch, estado,
+                                        [ValidationResult(is_valid=False), ValidationResult(is_valid=True)])
+        assert len(chamadas2) == 2
+        assert out2["plan"]["status"][0]["status"] == "feita" and out2["subtask_current"] == 2
+        # e aprovar listando critério faltando não fecha (REVIEW_STRICT=on vale na sub-tarefa)
+        out3, _, _ = self._roda(ambiente, monkeypatch, estado,
+                                [ValidationResult(is_valid=False), ValidationResult(is_valid=True, missing_criteria=["2"])])
+        assert out3["plan"]["status"][0]["status"] == "em_andamento"
+
+    def test_hibrido_com_suite_vermelha_nao_consulta_o_modelo(self, ambiente, monkeypatch):
+        ws, _, _ = ambiente
+        ws.resolve("tomlkit/_utils.py").write_text("def (\n")  # suíte não coleta
+        estado = _estado_com_plano(stop_reason="concluiu")
+        estado["plan"]["subtasks"][0]["expected"] = []
+        out, tel, chamadas = self._roda(ambiente, monkeypatch, estado, [], mudanca=False)
+        assert chamadas == [] and out["is_valid"] is False
+        ev = self._eventos(tel, "subtask")[-1]
+        assert ev["basis"] == "suite_vermelha" and out["plan"]["status"][0]["status"] == "em_andamento"
+
+    def test_neutral_leva_a_comparacao_sem_a_regra_e_strict_rebaixa_aprovacao_com_criterio_faltando(self, ambiente, monkeypatch):
+        estado = _estado_com_plano(stop_reason="concluiu")
+        out, tel, chamadas = self._roda(ambiente, monkeypatch, estado,
+                                        [ValidationResult(is_valid=True, missing_criteria=["5"])])
+        assert len(chamadas) == 1  # revisão final coagida; sub-tarefa 1 feita por comparação, sem o modelo
+        sistema, usuario = chamadas[0][0][1], chamadas[0][1][1]
+        assert "não verificável não prova nada" not in sistema
+        assert "Comparação automática das saídas esperadas" in usuario and "- saída esperada 1: encontrada" in usuario
+        final = self._eventos(tel, None)[-1]
+        assert final["strict_coerced"] is True and final["is_valid"] is False and out["is_valid"] is False
+        assert out["plan"]["status"][0]["status"] == "feita"
+
+    def test_bloco_que_nao_compila_sai_da_cadeia_e_e_rotulado(self, ambiente, monkeypatch):
+        from src.agents.validator import _executar_reproducao
+        from src.verificacao import comparar_saidas
+
+        _, _, montar = ambiente
+        montar(FakeToolCallingLLM([ai(content="x")]))
+        intent = _intent_v2()
+        intent["reproduction"] = ["x = 2", "a = [{a]", "print('soma:', x + 2)"]
+        estado = _estado(intent=intent)
+        monkeypatch.setattr(config, "REVIEW_EXECUTION", "cumulative")
+        monkeypatch.setattr(config, "REPRODUCTION_COMPILE_CHECK", "off")
+        sem = _executar_reproducao(estado, _ctx(montar))
+        assert "SyntaxError" in sem[1]["saida"] and "SyntaxError" in sem[2]["saida"]  # rodada 5: o 2º envenena o 3º
+        monkeypatch.setattr(config, "REPRODUCTION_COMPILE_CHECK", "on")
+        com = _executar_reproducao(estado, _ctx(montar))
+        assert com[1]["executado"] is False and com[1]["nao_compila"] is True
+        assert "não compila como Python" in com[1]["saida"] and "SyntaxError na linha 1" in com[1]["saida"]
+        assert com[2]["executado"] is True and com[2]["acumulado"] is True and "soma: 4" in com[2]["saida"]
+        # a comparação só vê os blocos que rodaram: verificável, sem "não verificável" por tabela
+        assert [c["estado"] for c in comparar_saidas([(1, "soma: 4"), (2, "nunca")], com)] == ["encontrada", "nao_encontrada"]
+        assert [c["estado"] for c in comparar_saidas([(1, "soma: 4")], [com[1]])] == ["nao_verificavel"]
+
+    def test_manifesto_registra_a_rodada_6(self, monkeypatch):
+        from src.arms.runner import _orchestration_policy
+
+        monkeypatch.setattr(config, "SUBTASK_CHECK", "hybrid")
+        monkeypatch.setattr(config, "REVIEW_COMPARE", "neutral")
+        monkeypatch.setattr(config, "REVIEW_STRICT", "on")
+        monkeypatch.setattr(config, "REPRODUCTION_COMPILE_CHECK", "on")
+        pol = _orchestration_policy()
+        assert (pol["subtask_check"], pol["review_compare"], pol["review_strict"], pol["reproduction_compile_check"]) \
+            == ("hybrid", "neutral", "on", "on")

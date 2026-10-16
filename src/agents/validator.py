@@ -51,8 +51,12 @@ tarefa.
 
 # Rodada 5 (decisão 34, parte final, e 35): com a comparação automática das
 # saídas esperadas no prompt, o revisor final recebe a regra "não
-# verificável não reprova". Só entra com `REVIEW_COMPARE` ligado, para que
-# "off" reproduza a rodada 4 literalmente.
+# verificável não reprova". Só entra com `REVIEW_COMPARE=advisory` (rodada
+# 5) ou `strict`; "off" reproduz a rodada 4 literalmente e "neutral"
+# (decisão 41, rodada 6) entrega as linhas de comparação sem a regra: na
+# rodada 5 ela deslocou o erro do revisor para aprovações no primeiro ciclo
+# (11, 5 erradas; rodada 4: 7 e 1), inclusive aprovando com critérios que
+# ele mesmo listou como não cobertos (sqlite-utils-0003 rep02 e rep03).
 REGRA_COMPARACAO = """
 Quando houver uma comparação automática das saídas esperadas com a execução
 dos exemplos: uma saída esperada NÃO encontrada, com o bloco executado, é
@@ -62,8 +66,8 @@ motivo de reprovação.
 
 
 def system_prompt_revisao() -> str:
-    """Prompt do revisor final, com a regra da comparação quando ela está ligada."""
-    return SYSTEM_PROMPT + (REGRA_COMPARACAO if config.REVIEW_COMPARE != "off" else "")
+    """Prompt do revisor final, com a regra da comparação só em `advisory` e `strict`."""
+    return SYSTEM_PROMPT + (REGRA_COMPARACAO if config.REVIEW_COMPARE in ("advisory", "strict") else "")
 
 
 # Revisão de sub-tarefa (decisão 33): o mesmo revisor, com a pergunta
@@ -189,6 +193,25 @@ def _codigo_python(bloco: str) -> str | None:
     return m.group(2) if linguagem in ("", "python", "py", "python3") else None
 
 
+# Rodada 6 (decisão 42): rótulo do bloco que não compila sozinho. Vai ao
+# revisor e ao developer no lugar de um traceback de SyntaxError, que na
+# rodada 5 foi lido como falha do código.
+BLOCO_NAO_COMPILA = "(não executado: o bloco não compila como Python e não é evidência; {erro})"
+
+
+def _blocos_que_nao_compilam(codigos: dict[int, str | None]) -> dict[int, str]:
+    """Índice → erro dos blocos Python que não compilam sozinhos (`compile`, sem executar)."""
+    erros: dict[int, str] = {}
+    for i, codigo in codigos.items():
+        if not codigo or not codigo.strip():
+            continue
+        try:
+            compile(codigo, f"<bloco {i}>", "exec")
+        except SyntaxError as exc:  # IndentationError é subclasse
+            erros[i] = f"{type(exc).__name__} na linha {exc.lineno}: {exc.msg}"
+    return erros
+
+
 def _executar_reproducao(
     state: WorkflowState, ctx: RunContext, *, indices: list[int] | None = None
 ) -> list[dict[str, Any]]:
@@ -202,6 +225,10 @@ def _executar_reproducao(
     if config.REVIEW_EXECUTION == "off" or not isinstance(intent, StructuredIntentV2):
         return []
     codigos = {i: _codigo_python(b) for i, b in enumerate(intent.reproduction, 1)}
+    # Decisão 42 (rodada 6): o bloco que não compila sozinho não roda e não
+    # entra na cadeia acumulada; na rodada 5 (tomlkit-0001) cinco blocos
+    # eram texto TOML e o SyntaxError do 2º apagava a saída dos seguintes.
+    nao_compila = _blocos_que_nao_compilam(codigos) if config.REPRODUCTION_COMPILE_CHECK == "on" else {}
     acumulado = config.REVIEW_EXECUTION == "cumulative"
     selecionados = (list(codigos) if indices is None
                     else [i for i in indices if i in codigos])
@@ -211,10 +238,15 @@ def _executar_reproducao(
         if codigo is None or not codigo.strip():
             saidas.append({"bloco": i, "executado": False, "saida": "(não executado: não é Python)"})
             continue
+        if i in nao_compila:
+            saidas.append({"bloco": i, "executado": False, "nao_compila": True,
+                           "saida": BLOCO_NAO_COMPILA.format(erro=nao_compila[i])})
+            continue
         if acumulado:
             # Decisão 34: o bloco i roda precedido dos blocos 1..i-1, porque
             # os enunciados encadeiam (o segundo usa o `db` do primeiro).
-            anteriores = [codigos[j] for j in range(1, i) if codigos[j] and codigos[j].strip()]
+            anteriores = [codigos[j] for j in range(1, i)
+                          if codigos[j] and codigos[j].strip() and j not in nao_compila]
             codigo = "\n\n".join(anteriores + [codigo])
         saida = run_python(ctx.workspace, codigo, timeout_s=min(60, ctx.test_timeout_s))
         saidas.append({"bloco": i, "executado": True, "acumulado": acumulado and i > 1,
@@ -330,10 +362,13 @@ def _build_subtask_review_prompt(
 def _verificar_subtarefa(
     state: WorkflowState, ctx: RunContext, sub: dict[str, Any], *,
     houve_mudanca: bool, suite_verde: bool, execucoes: list[dict[str, Any]],
-) -> tuple[bool, ValidationResult | None]:
+) -> tuple[bool | None, ValidationResult | None, list[dict[str, Any]]]:
     """
     Veredito determinístico da sub-tarefa (decisão 36, rodada 5), sem
-    chamada ao modelo. Com a suíte verde e mudança no workspace: as saídas
+    chamada ao modelo. Devolve (veredito, parecer, execuções); em
+    `SUBTASK_CHECK=hybrid` (decisão 40, rodada 6) o veredito é None quando
+    nada é verificável, e o chamador consulta o revisor de sub-tarefa com
+    as mesmas execuções: a palavra do developer deixa de fechar sub-tarefa. Com a suíte verde e mudança no workspace: as saídas
     esperadas que o planejador apontou para a sub-tarefa são comparadas com
     a saída real dos blocos dela (a execução da revisão final é
     reaproveitada; os blocos só rodam de novo se ela não executou). Alguma
@@ -361,6 +396,9 @@ def _verificar_subtarefa(
     elif verificaveis(comparacoes):
         base = "comparacao"
         concluida = not faltantes(comparacoes)
+    elif config.SUBTASK_CHECK == "hybrid" and semantic_review_enabled():
+        # Decisão 40: nada verificável → o revisor de sub-tarefa decide.
+        return None, None, execs
     else:
         base = "palavra_do_developer"
         concluida = str(state.get("stop_reason") or "") == "concluiu"
@@ -376,7 +414,35 @@ def _verificar_subtarefa(
     )
     # Sem nada a dizer (teto do ciclo, suíte vermelha, diff vazio), nenhum
     # parecer volta ao developer: o feedback de sempre já explica.
-    return concluida, (parecer if issues else None)
+    return concluida, (parecer if issues else None), execs
+
+
+def _revisar_subtarefa_pelo_modelo(
+    state: WorkflowState, ctx: RunContext, sub: dict[str, Any], execucoes_sub: list[dict[str, Any]],
+    *, basis: str | None = None,
+) -> tuple[bool, ValidationResult | None]:
+    """
+    Revisão de sub-tarefa pelo modelo (`SUBTASK_CHECK=llm`, rodada 4; em
+    `hybrid`, rodada 6, só quando nenhuma saída esperada é verificável, com
+    `basis="revisao_do_modelo"` no evento). Com `REVIEW_STRICT=on`, aprovar
+    listando critérios não cobertos não fecha a sub-tarefa.
+    """
+    extras = {"basis": basis} if basis else {}
+    try:
+        parecer = ctx.invoke_structured(
+            ValidationResult,
+            [("system", SYSTEM_PROMPT_SUBTAREFA),
+             ("user", _build_subtask_review_prompt(state, ctx, sub, execucoes_sub))],
+        )
+        if config.REVIEW_STRICT == "on" and parecer.is_valid and parecer.missing_criteria:
+            parecer = parecer.model_copy(update={"is_valid": False})
+        ctx.telemetry.emit_validation(
+            parecer, executions=execucoes_sub, scope="subtask", subtask=sub.get("id"), **extras,
+        )
+        return parecer.is_valid, parecer
+    except StructuredOutputError as exc:
+        ctx.telemetry.emit_error(exc)
+        return False, None
 
 
 def _avancar_plano(
@@ -399,25 +465,22 @@ def _avancar_plano(
     linha = next((s for s in status if s.get("id") == atual), None)
     if sub is not None and linha is not None:
         concluida = False
-        if config.SUBTASK_CHECK == "deterministic":
-            concluida, parecer = _verificar_subtarefa(
+        if config.SUBTASK_CHECK in ("deterministic", "hybrid"):
+            veredito, parecer, execs = _verificar_subtarefa(
                 state, ctx, sub, houve_mudanca=houve_mudanca, suite_verde=suite_verde,
                 execucoes=execucoes or [],
             )
+            if veredito is None:
+                # Híbrido (decisão 40): nada verificável, suíte verde e diff
+                # presente; o revisor de sub-tarefa decide com a execução feita.
+                concluida, parecer = _revisar_subtarefa_pelo_modelo(
+                    state, ctx, sub, execs, basis="revisao_do_modelo",
+                )
+            else:
+                concluida = veredito
         elif houve_mudanca and semantic_review_enabled():
             execucoes_sub = _executar_reproducao(state, ctx, indices=list(sub.get("reproduction") or []))
-            try:
-                parecer = ctx.invoke_structured(
-                    ValidationResult,
-                    [("system", SYSTEM_PROMPT_SUBTAREFA),
-                     ("user", _build_subtask_review_prompt(state, ctx, sub, execucoes_sub))],
-                )
-                if config.REVIEW_STRICT == "on" and parecer.is_valid and parecer.missing_criteria:
-                    parecer = parecer.model_copy(update={"is_valid": False})
-                ctx.telemetry.emit_validation(parecer, executions=execucoes_sub, scope="subtask", subtask=atual)
-                concluida = parecer.is_valid
-            except StructuredOutputError as exc:
-                ctx.telemetry.emit_error(exc)
+            concluida, parecer = _revisar_subtarefa_pelo_modelo(state, ctx, sub, execucoes_sub)
         linha["ciclos"] = int(linha.get("ciclos", 0)) + 1
         if concluida:
             linha["status"] = STATUS_FEITA

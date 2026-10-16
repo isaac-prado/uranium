@@ -129,7 +129,11 @@ PLANNER_MAX_SUBTASKS = int(os.getenv("PLANNER_MAX_SUBTASKS", "6"))
 # sub-tarefa com as saídas esperadas que o planejador apontou
 # (src/verificacao.py), sem chamada ao modelo; quando nada é verificável,
 # vale a palavra do developer (encerrou o ciclo sem bater o teto).
-SUBTASK_CHECK_MODES = ("llm", "deterministic")
+# "hybrid" (decisão 40, 16/10/2026, rodada 6): comparação quando há saída
+# verificável; senão, a revisão de sub-tarefa do modelo (a da rodada 4). A
+# palavra do developer nunca fecha sub-tarefa: na rodada 5 fechou 33 de 37,
+# sempre no ponto de checagem em que a revisão final reprovava a tarefa.
+SUBTASK_CHECK_MODES = ("llm", "deterministic", "hybrid")
 SUBTASK_CHECK = os.getenv("SUBTASK_CHECK", "llm").strip().lower()
 if SUBTASK_CHECK not in SUBTASK_CHECK_MODES:
     raise ValueError(f"SUBTASK_CHECK={SUBTASK_CHECK!r} inválido; use um de {SUBTASK_CHECK_MODES}")
@@ -138,8 +142,10 @@ if SUBTASK_CHECK not in SUBTASK_CHECK_MODES:
 # não é verificável, e a regra de que não verificável não reprova;
 # "strict" reprova sem consultar o revisor quando uma saída verificável
 # falta (guardado: na calibração sobre a rodada 4 derrubaria 8 dos 22 runs
-# resolvidos); "off" é a rodada 4.
-REVIEW_COMPARE_MODES = ("off", "advisory", "strict")
+# resolvidos); "off" é a rodada 4. "neutral" (decisão 41, rodada 6): as
+# mesmas linhas de comparação, sem a regra; com a regra, a rodada 5 teve 11
+# aprovações no primeiro ciclo, 5 erradas (rodada 4: 7 e 1).
+REVIEW_COMPARE_MODES = ("off", "advisory", "neutral", "strict")
 REVIEW_COMPARE = os.getenv("REVIEW_COMPARE", "off").strip().lower()
 if REVIEW_COMPARE not in REVIEW_COMPARE_MODES:
     raise ValueError(f"REVIEW_COMPARE={REVIEW_COMPARE!r} inválido; use um de {REVIEW_COMPARE_MODES}")
@@ -148,6 +154,19 @@ if REVIEW_COMPARE not in REVIEW_COMPARE_MODES:
 PLANNER_CONTEXT_MAX_CHARS = int(os.getenv("PLANNER_CONTEXT_MAX_CHARS", "0"))
 if PLANNER_CONTEXT_MAX_CHARS < 0:
     raise ValueError("PLANNER_CONTEXT_MAX_CHARS não pode ser negativo (0 desliga)")
+# Rodada 6 (decisão 42, 16/10/2026): com "on", cada bloco de reprodução é
+# compilado sozinho antes de rodar; o que não compila (texto TOML ou linha
+# de shell copiados como bloco) não executa, não entra na cadeia acumulada
+# e chega ao revisor e ao developer rotulado como "não é evidência". Na
+# rodada 5 (tomlkit-0001 rep02) cinco dos seis blocos eram TOML: o
+# SyntaxError do 2º apagava a saída dos seguintes e o revisor reprovou a
+# correção certa três vezes. "off" reproduz as rodadas 4 e 5.
+REPRODUCTION_COMPILE_CHECK_MODES = ("on", "off")
+REPRODUCTION_COMPILE_CHECK = os.getenv("REPRODUCTION_COMPILE_CHECK", "off").strip().lower()
+if REPRODUCTION_COMPILE_CHECK not in REPRODUCTION_COMPILE_CHECK_MODES:
+    raise ValueError(
+        f"REPRODUCTION_COMPILE_CHECK={REPRODUCTION_COMPILE_CHECK!r} inválido; use um de {REPRODUCTION_COMPILE_CHECK_MODES}"
+    )
 DEVELOPER_INPUT_MODES = ("intent", "enunciado+intent")
 DEVELOPER_INPUT = os.getenv("DEVELOPER_INPUT", "intent").strip().lower()
 if DEVELOPER_INPUT not in DEVELOPER_INPUT_MODES:
