@@ -1,0 +1,260 @@
+% Capítulo Desenvolvimento do TFG — rascunho inicial de 15/10/2026.
+% Cada número traz, em comentário, o arquivo do repositório de onde saiu
+% (regra do projeto: nenhum número sem a origem ao lado). Os comentários
+% podem ser apagados na versão final.
+%
+% Pacotes que o texto assume no preâmbulo do template: algorithm2e (com
+% \normalem de ulem), booktabs, graphicx, url. Se booktabs não estiver no
+% template, trocar \toprule/\midrule/\bottomrule por \hline.
+
+\section{Desenvolvimento}
+\label{desenvolvimento}
+
+Este capítulo descreve como o estudo foi conduzido: o tipo de pesquisa, os materiais (repositórios e tarefas), o instrumento construído para a comparação (o Uranium), o projeto do experimento e o ambiente em que tudo rodou. A descrição é feita de modo a permitir a reprodução: cada parâmetro tem o valor usado, cada regra tem o arquivo que a implementa e cada execução deixa um manifesto que a identifica.
+
+\subsection{Caracterização da pesquisa}
+\label{ssec:caracterizacao}
+
+Quanto à abordagem, a pesquisa é \textbf{quantitativa}: a pergunta (``a decomposição em papéis especializados resolve mais tarefas de manutenção que um agente único, e a que custo?'') é respondida por medidas tomadas por um avaliador automático sobre o código produzido, nunca pelo relato dos próprios sistemas. Quanto à natureza, é \textbf{aplicada}: exigiu construir um aparato experimental, o Uranium, que coloca as duas topologias de agente para resolver as mesmas tarefas sob condições idênticas. Quanto ao procedimento, é uma \textbf{pesquisa experimental controlada}, com um único fator manipulado (a topologia do sistema de agentes) em dois níveis, delineamento pareado por tarefa e repetições sob a mesma semente aleatória em cada par.
+
+O método de condução foi iterativo e registrado. O aparato foi construído em etapas com portões de verificação automática; a coleta principal foi seguida de rodadas em que só o braço orquestrado mudou, cada mudança aprovada por escrito pelo autor, numerada como decisão e medida numa rodada própria, com o braço de agente único mantido fixo como referência. Esse registro (38 decisões até a data deste texto) é parte do método, porque é ele que permite atribuir cada diferença de resultado a uma mudança de desenho e não a acaso ou a defeito de instrumentação. % docs/tcc/09-decisoes-do-autor.md
+
+\subsection{Materiais: repositórios e tarefas}
+\label{ssec:materiais}
+
+\subsubsection{Repositórios-semente}
+
+As tarefas vêm do histórico real de cinco bibliotecas Python de código aberto, de licença permissiva, com suíte de testes verde no commit escolhido e com correções acompanhadas de teste: \texttt{tomlkit} (leitor e escritor de TOML que preserva a formatação; cerca de 5.000 linhas e 1.052 testes), \texttt{sqlite-utils} (manipulação de bancos SQLite; 9.813 linhas e 1.488 testes), \texttt{peewee} (mapeador objeto-relacional; 15.461 linhas e 1.634 testes), \texttt{pygments} (realce de sintaxe; 5.330 testes) e \texttt{attrs} (classes com atributos declarativos; 1.395 testes). % 02-resumo-cientifico.md; 07-e3-1-mineracao.md §3.1; 07-execucao.md (tabela do src layout)
+Oito repositórios foram examinados; três foram descartados por exigirem passos de build ou dados externos, e os de layout \texttt{src/} só entraram depois que o aparato passou a suportar esse layout sem instalar o pacote no ambiente. % 07-e3-1-mineracao.md §3.2; 09-decisoes-do-autor.md, decisão 1
+
+Cada repositório é materializado a partir de um espelho local (\texttt{git clone} de um \emph{bare mirror}) num diretório de trabalho próprio por execução, com um ambiente virtual Python por repositório, preparado uma única vez no commit-base. Nada é instalado durante uma execução.
+
+\subsubsection{Mineração e verificação das tarefas}
+
+Uma tarefa é uma correção ou evolução real do histórico, reconstruída de modo que o agente receba o problema e o avaliador guarde a solução. O minerador percorre o histórico (\texttt{git log}) e aceita como candidato todo commit que altera ao mesmo tempo código de produção e testes; classifica a faixa de tamanho pelo patch de referência (regra fixa, congelada antes da coleta: \emph{pequena} = 1 ou 2 arquivos-fonte e 10 a 50 linhas; \emph{média} = 3 a 7 arquivos e 40 a 400 linhas; \emph{grande} = 3 ou mais arquivos, 80 ou mais linhas, mais testes novos que modificados e mensagem que não é de correção); e só aceita o candidato depois de \textbf{verificação por execução}: a suíte do repositório fica verde no commit-base, o teste que acompanhou a correção falha no commit-base e passa com a correção aplicada. % CLAUDE.md (faixas); scripts/mine_tasks.py::calcular_faixa
+No segundo ciclo de mineração, sobre cinco repositórios e 14.873 commits, a verificação por execução aceitou 3 candidatos grandes, 2 médios e 55 pequenos: a maior parte dos candidatos médios e grandes do pré-filtro foi rejeitada porque o teste já passava sem a correção, porque a suíte não rodava no commit-base ou porque a referência tocava área protegida. % 07-e3-1-mineracao.md §4 (mined-v2)
+As faixas média e grande foram completadas com a revisão da regra de faixa (``módulo'' passou a ser o arquivo, não o diretório) e com o suporte ao layout \texttt{src/}. % 09-decisoes-do-autor.md, decisões 1 e 22
+
+Cada tarefa é um diretório com: o \textbf{enunciado} (\texttt{statement.md}), escrito do ponto de vista de quem usa a biblioteca, sem citar arquivo, classe ou função interna e sem indicar a forma da correção; o \textbf{oráculo oculto} (\texttt{test\_patch.diff}), os testes da correção original, que o agente nunca vê; \textbf{duas soluções de referência} diferentes (a do projeto e uma alternativa escrita para o estudo), que provam que o oráculo não exige uma forma específica de resolver; \textbf{patches de trapaça} plantados, que provam que o detector funciona; e o \texttt{task.json} com a faixa e os parâmetros de execução. Onze enunciados e onze soluções alternativas foram redigidos por um assistente de IA (um agente por tarefa) a partir do teste oculto e da \emph{issue} ou \emph{pull request} original, nunca da mensagem de commit, e revisados pelo autor; dois foram escritos pelo autor. Cada trecho reproduzível de enunciado foi executado no commit-base (mostra o problema) e com cada uma das duas soluções (mostra o esperado). % 10-tarefas.md, "Procedência"
+
+Uma tarefa só entra no estudo depois de passar nos portões de \texttt{scripts/validate\_task.py}: (1) o commit-base está verde; (2) o teste oculto falha no commit-base; (3) cada solução de referência resolve, sem regressão e sem acusação de trapaça; (4) cada patch de trapaça é detectado e reprovado; e (5), acrescentado durante a coleta, com cada referência aplicada e sem o patch de teste, a suíte visível que o agente roda continua verde. Quando o patch de teste original modifica testes visíveis ou um arquivo dourado protegido, os casos afetados são desmarcados da suíte visível (\texttt{visible\_deselect}), igualmente para os dois braços e registrado no manifesto; o oráculo nunca desmarca nada. % scripts/validate_task.py; 09-decisoes-do-autor.md, decisões 27 e 30
+
+A Tabela~\ref{tab-tarefas} lista as treze tarefas do estudo. % 10-tarefas.md; tasks/*/task.json (fail_to_pass, visible_deselect)
+
+\begin{table}[ht!]
+\centering
+\caption{As treze tarefas do estudo, por faixa. ``Arquivos'' e ``linhas'' são do patch de referência do projeto; ``casos ocultos'' é o número de identificadores de teste do oráculo que falham no commit-base e passam com a referência.}
+\label{tab-tarefas}
+\small
+\begin{tabular}{llrrrl}
+\toprule
+Tarefa & Repositório & Arquivos & Linhas & Casos ocultos & Faixa \\
+\midrule
+tomlkit-0002 & tomlkit & 4 & 163 & 1 & grande \\
+tomlkit-0003 & tomlkit & 4 & 169 & 1 & grande \\
+tomlkit-0004 & tomlkit & 3 & 101 & 7 & grande \\
+attrs-0001 & attrs & 3 & 46 & 3 & média \\
+peewee-0001 & peewee & 3 & 54 & 4 & média \\
+peewee-0002 & peewee & 6 & 72 & 6 & média \\
+sqlite-utils-0003 & sqlite-utils & 3 & 45 & 12 & média \\
+peewee-0003 & peewee & 2 & 11 & 1 & pequena \\
+pygments-0001 & pygments & 1 & 26 & 2 & pequena \\
+sqlite-utils-0001 & sqlite-utils & 1 & 34 & 5 & pequena \\
+sqlite-utils-0002 & sqlite-utils & 1 & 21 & 11 & pequena \\
+tomlkit-0001 & tomlkit & 1 & 9 & 1 & pequena \\
+tomlkit-0005 & tomlkit & 2 & 19 & 1 & pequena \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{O instrumento: Uranium}
+\label{ssec:uranium}
+
+O Uranium é o aparato que executa os dois sistemas sobre as mesmas tarefas e os avalia com um avaliador que não confia no relato de nenhum deles. A Figura~\ref{fig-arquitetura} resume a arquitetura: os dois braços compartilham o modelo de linguagem, as ferramentas, o enunciado, o prompt de sistema, os limites e o avaliador; diferem só em quem decide o próximo passo e com base em quê.
+
+\begin{figure}[ht!]
+    \centering
+    % Figura a produzir (figs/uranium-arquitetura.pdf): à esquerda, o agente único com o operador determinístico; à direita, o grafo refinador -> [clarificação] -> planejador -> desenvolvedor <-> validador -> gerador de testes; embaixo, o avaliador independente (oráculo, detector de trapaça, qualidade, custo), comum aos dois; em volta, o que é idêntico (modelo, ferramentas, prompt, limites, semente).
+    \fbox{\parbox{0.9\textwidth}{\centering\vspace{2em}\textit{Diagrama da arquitetura a inserir.}\vspace{2em}}}
+    \caption{Arquitetura do Uranium: os dois braços, o avaliador independente e o que é idêntico entre eles.}
+    \label{fig-arquitetura}
+\end{figure}
+
+\subsubsection{Ferramentas, guardas e limites compartilhados}
+
+Os agentes dos dois braços agem sobre o repositório por sete ferramentas, com os mesmos nomes, descrições, esquemas de argumento e ordem de apresentação ao modelo: \texttt{list\_files}, \texttt{read\_file}, \texttt{search\_code}, \texttt{write\_file}, \texttt{replace\_in\_file}, \texttt{run\_python} e \texttt{run\_tests}. Uma guarda de caminho recusa qualquer escrita em área protegida (os diretórios de teste e os arquivos de configuração de teste), e a recusa volta ao modelo como texto, contada como ``negação'' na telemetria. Se um trecho executado por \texttt{run\_python} alterar arquivo protegido, a alteração é revertida e a chamada é recusada. Os limites das ferramentas são constantes de módulo, iguais nos dois braços e gravadas no manifesto de cada execução (Tabela~\ref{tab-parametros}). % src/tools/base.py; src/tools/exec.py; src/runtime.py; src/arms/runner.py::_shared_limits
+
+\subsubsection{Braço 1: agente único com operador determinístico}
+
+O agente único recebe o enunciado inteiro uma vez e conversa com o modelo em turnos: cada turno é uma chamada ao modelo com toda a conversa até ali. Quem fecha o laço é um \emph{operador determinístico}, uma política fixa, sem modelo e sem humano, serializada no manifesto: aceita todo patch; quando o agente encerra um turno sem pedir ferramenta, roda a suíte visível; se ela falha, devolve a saída crua do \texttt{pytest}, sem resumir nem sugerir; se passa e houve mudança, encerra. O Algoritmo~\ref{alg-single} descreve o laço. % src/arms/driver.py; src/arms/single_agent.py
+
+\begin{algorithm}[ht!]
+    \normalem
+    \KwData{enunciado $E$, espaço de trabalho $W$, orçamento $B$ (turnos, tokens, tempo)}
+    \KwResult{$W$ modificado e o motivo de parada}
+    $M \leftarrow$ [prompt de sistema, $E$]\;
+    \While{$B$ não esgotado}{
+        $r \leftarrow$ \texttt{LLM}($M$); registrar tokens, custo e latência; $M \leftarrow M + r$\;
+        \eIf{$r$ pede ferramentas}{
+            \ForEach{chamada em $r$ (até 8 por turno)}{
+                $s \leftarrow$ executar sobre $W$ com a guarda de caminho; $M \leftarrow M + s$\;
+            }
+        }{
+            $T \leftarrow$ \texttt{pytest}($W$), suíte visível com os casos desmarcados da tarefa\;
+            \uIf{$T$ verde e $W$ sem mudança}{ $M \leftarrow M + $ aviso de diff vazio\; }
+            \uElseIf{$T$ verde}{ \Return{$W$, ``concluiu''}\; }
+            \Else{ $M \leftarrow M + $ saída crua do \texttt{pytest} (8.000 caracteres)\; }
+        }
+    }
+    \Return{$W$, ``orçamento''}
+    \caption{Braço de agente único: laço do agente e política do operador.}
+    \label{alg-single}
+\end{algorithm}
+
+Entre as linhas 3 e 7 o agente age: lê, busca, escreve e executa, e cada resultado de ferramenta entra na conversa. Entre as linhas 8 e 13 o operador decide: a suíte visível já está verde no commit-base (o teste que discrimina é o oculto), por isso ``verde sem mudança'' não encerra e volta ao agente com um aviso (linha 10); ``verde com mudança'' encerra (linha 11); vermelho devolve o texto do \texttt{pytest} como saiu da ferramenta (linha 12). Não existe, em nenhum ponto, interpretação do harness: resumir a falha ou apontar um arquivo seria injetar inteligência de fora e contaminar a comparação. % src/feedback.py
+
+\subsubsection{Braço 2: papéis orquestrados por um grafo}
+
+O braço orquestrado é um grafo de estados (LangGraph) em que papéis especializados cooperam sem intervenção externa: o \textbf{refinador de intenção} transforma o enunciado numa especificação estruturada (objetivo, contexto, critérios de aceitação e, na versão 2, os trechos de reprodução, as saídas esperadas e as restrições do enunciado copiados literalmente); o \textbf{clarificador} responde perguntas pendentes da especificação (até três iterações); o \textbf{planejador} (a partir da rodada 4) explora o repositório só com ferramentas de leitura e fatia a especificação em sub-tarefas; o \textbf{desenvolvedor} age sobre o repositório com o mesmo prompt de sistema e as mesmas ferramentas do agente único; o \textbf{validador} roda a suíte, executa os trechos de reprodução sobre o código atual e, com a suíte verde, pede a um revisor que julgue se a mudança resolve o problema ou só faz os testes passarem; o \textbf{gerador de testes} é o nó terminal e propõe testes complementares que não contam na avaliação. O Algoritmo~\ref{alg-orq} descreve o laço central, na configuração da rodada 5. % src/graph.py; src/agents/*.py
+
+\begin{algorithm}[ht!]
+    \normalem
+    \KwData{enunciado $E$, espaço de trabalho $W$, orçamento $B$, política $P$ (manifesto)}
+    \KwResult{$W$ modificado e o motivo de parada}
+    $I \leftarrow$ \texttt{Refinador}($E$); \While{$I$ não pronta e iterações $< 3$}{$I \leftarrow$ \texttt{Clarificador}($I$)\;}
+    $Q \leftarrow$ \texttt{Planejador}($I$, $W$): até 8 turnos de leitura; até 3 sub-tarefas, cada uma com critérios, blocos e saídas esperadas apontados por índice\;
+    memória $\leftarrow$ [ ]; reprovações $\leftarrow 0$\;
+    \While{$B$ não esgotado}{
+        $q \leftarrow$ sub-tarefa corrente de $Q$, com os trechos que o planejador leu dos arquivos dela (até 16.000 caracteres)\;
+        $D \leftarrow$ \texttt{Desenvolvedor}($I$, $q$, memória, feedback): até 40 turnos, mesmo prompt e ferramentas do Algoritmo~\ref{alg-single}\;
+        memória $\leftarrow$ memória $+$ registro do ciclo (arquivos lidos, buscas, escritas, suítes, nota final) $+$ diff atual\;
+        $T \leftarrow$ \texttt{pytest}($W$)\;
+        \If{$T$ verde}{
+            $X \leftarrow$ executar os blocos de reprodução de $I$, cada um precedido dos anteriores\;
+            $C \leftarrow$ comparar as saídas de $X$ com as saídas esperadas apontadas por $Q$\;
+            $V \leftarrow$ \texttt{Revisor}($I$, diff, $X$, $C$)\;
+            \If{$V$ aprova e $W$ mudou}{ \Return{$W$, ``concluiu''}\; }
+            \If{$D$ submeteu por conta própria e $Q$ está fechado}{ reprovações $\leftarrow$ reprovações $+ 1$; \lIf{reprovações $\geq P$.teto}{\Return{$W$, ``reprovado''}} }
+        }
+        avançar $Q$: sub-tarefa feita se $T$ verde, $W$ mudou e toda saída esperada verificável de $q$ aparece em $X$ (sem saída verificável, vale a palavra do desenvolvedor); senão continua, e depois de 2 ciclos é adiada; $Q$ esgotado $\rightarrow$ replanejar (uma vez)\;
+        feedback $\leftarrow$ saída crua do \texttt{pytest} $\mid$ parecer do revisor $\mid$ comparação da sub-tarefa\;
+    }
+    \Return{$W$, ``orçamento''}
+    \caption{Braço orquestrado: o laço desenvolvedor--validador com planejador e verificação determinística (configuração da rodada 5).}
+    \label{alg-orq}
+\end{algorithm}
+
+A linha 1 produz a especificação que o desenvolvedor recebe no lugar do enunciado cru (esse é um traço do protótipo, declarado como parte do tratamento e medido por uma ablação). A linha 2 só existe com o planejador ligado. Entre as linhas 5 e 7 o desenvolvedor trabalha em \emph{ciclos}: a cada 40 turnos, ou quando ele mesmo encerra, a conversa é descartada e, na volta, ele recebe a memória de trabalho (o registro determinístico do que fez e o diff atual), nunca a transcrição anterior. As linhas 8 a 14 são o validador: a suíte decide (linha 8); o revisor só pode rebaixar um veredito verde, nunca promover um vermelho (linhas 11 e 12); e o teto de reprovações (linha 13) é o único critério de parada que não existe no outro braço, aplicado só quando o desenvolvedor submeteu por decisão própria com o plano fechado. A linha 15 é a esteira de sub-tarefas, cujo veredito é determinístico na rodada 5 e era dado por um revisor na rodada 4. A linha 16 mostra o que volta ao desenvolvedor: o mesmo texto cru do \texttt{pytest} que o agente único recebe, mais o que só existe neste braço (o parecer do revisor e a comparação de saídas), que são a própria topologia.
+
+\subsubsection{Paridade entre os braços}
+
+A alegação causal depende de os dois braços serem idênticos em tudo, exceto na topologia. Isso é verificado por testes automatizados que rodam antes de qualquer commit: o manifesto de uma execução de cada braço, sobre a mesma tarefa e repetição, só pode diferir em um conjunto declarado de chaves (\texttt{arm}, \texttt{topology}, \texttt{driver\_policy}, \texttt{orchestration\_policy}, \texttt{run\_id}, \texttt{started\_at}, \texttt{attempt}); a configuração do modelo, o orçamento, o conjunto, a ordem, os esquemas e as descrições das ferramentas, o prompt de sistema e as mensagens de protocolo (aviso de diff vazio, texto da falha da suíte e seu truncamento) são comparados literalmente; e a repetição $k$ de um braço roda sob a mesma semente que a $k$ do outro. Tudo que muda o comportamento de um braço vai ao manifesto, que tem versão (13 na rodada 5): duas execuções com configuração diferente nunca produzem manifestos idênticos. % tests/test_arm_parity.py; src/arms/runner.py (MANIFEST_VERSION, CHAVES_QUE_PODEM_DIFERIR)
+
+\subsubsection{Avaliador independente}
+
+Terminada a execução, um avaliador que nunca leu o relato do sistema julga o espaço de trabalho: o \textbf{oráculo} injeta os testes ocultos num diretório que não existe no commit-base e verifica, com a rede isolada, três coisas: os testes ocultos passam (\emph{fail-to-pass}); a suíte que já passava continua passando (\emph{pass-to-pass}); e a suíte original completa não regrediu. O \textbf{detector de trapaça} aplica seis regras, comparando sempre o estado antes e depois: arquivo de teste ou configuração alterado (C1), opções do \texttt{pytest} alteradas (C2), \texttt{skip}/\texttt{xfail} inserido (C3), \texttt{conftest.py} criado ou alterado (C4), código de produção que detecta estar sob teste (C5) e \texttt{except: pass} novo que pode engolir a exceção esperada (C6); as três últimas via árvore sintática, para não acusar comentários. O módulo de \textbf{qualidade} mede a complexidade ciclomática média dos arquivos alterados antes e depois; o de \textbf{custo} soma tokens, dólares e chamadas a partir da resposta do provedor, chamada a chamada. Uma execução conta como \emph{resolvida} quando os testes ocultos passam, nada regride e o detector não acusa. % harness/oracle.py; harness/cheat.py; harness/quality.py; harness/cost.py; harness/evaluate.py
+
+Toda execução grava uma trilha de eventos em JSON por linha, validada contra um esquema (catorze tipos de evento: início e fim, entrada e saída de nó, roteamento, chamada ao modelo, chamada de ferramenta, execução de suíte, erro, corte de orçamento, intenção, validação, memória e plano), e um \texttt{result.json} com o veredito do avaliador, o custo, o processo e o diff. É dessa trilha, e não de relato, que saem as métricas. % src/telemetry.py; harness/schema/event.schema.json
+
+\subsection{Projeto de experimentos}
+\label{ssec:experimento}
+
+\subsubsection{Fatores, níveis e variáveis de resposta}
+
+O experimento tem um fator, a \textbf{topologia}, em dois níveis: agente único com operador determinístico e papéis orquestrados por grafo. A unidade experimental é a \textbf{tarefa} (13), com três repetições por tarefa e braço; a repetição $k$ roda sob a semente $s_0 + k$ nos dois braços, o que forma pares. A faixa de tamanho (3 grandes, 4 médias, 6 pequenas) é fator de bloco, usado para ler os resultados por estrato, não para inferência.
+
+As variáveis de resposta são as sete métricas da Tabela~\ref{tab-metricas}, uma por pergunta que se faria de qualquer ferramenta desse tipo. Nenhuma depende da arquitetura interna de um dos braços. Para cada tarefa e braço, o valor é a mediana das três repetições; a comparação é sempre orquestração menos agente único. % docs/tcc/03-metricas.md
+
+\begin{table}[ht!]
+\centering
+\caption{Variáveis de resposta.}
+\label{tab-metricas}
+\small
+\begin{tabular}{clp{6.2cm}ll}
+\toprule
+\# & Métrica & Definição & Melhor & Análise \\
+\midrule
+1 & Taxa de resolução & proporção de execuções em que os testes ocultos passam, nada regride e não há trapaça & maior & teste de sinal pareado, exato, bilateral (primária) \\
+2 & Custo computacional & tokens por execução (dólares e chamadas reportados junto) & menor & Wilcoxon pareado exato, nas tarefas resolvidas por ambos (primária inferencial) \\
+3 & Tempo até a solução & segundos de relógio da execução & menor & Wilcoxon pareado, mesma censura \\
+4 & Consistência & tarefas resolvidas em todas as repetições, entre as resolvidas ao menos uma vez & maior & descritiva \\
+5 & Variação da complexidade & diferença da complexidade ciclomática média dos arquivos alterados & menor & Wilcoxon, exploratória \\
+6 & Conclusão sem corte & execuções encerradas por decisão do sistema, não por limite & maior & descritiva \\
+7 & Violações & trapaça detectada ou tentativa de escrita em área protegida & menor & descritiva \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+A hipótese é neutra e o teste, bicaudal: $H_0$ diz que a topologia não altera a taxa de resolução; $H_1$, que altera, em qualquer direção. O teste de sinal usa só as tarefas em que os braços discordam; com 13 tarefas, ele fica declarado a priori e reportado mesmo quando não significativo, e a leitura substantiva recai sobre o custo e sobre as contagens por faixa. As métricas 2, 3 e 5 usam só as tarefas resolvidas por ambos os braços, e a censura é declarada com a lista das tarefas excluídas, porque uma execução cortada por limite custa o teto, não o custo de resolver. Os dois testes são exatos, por enumeração, implementados em funções puras do próprio script de análise, sem dependência de biblioteca estatística. % scripts/analyze_results.py (teste_sinal, wilcoxon)
+
+\subsubsection{Limites, tetos e protocolo de execução}
+
+Os tetos de uma execução foram calibrados em oito execuções de fumaça na tarefa grande mais difícil e congelados antes da coleta: 120 turnos (o orçamento de fato, comparável entre repositórios), 8 milhões de tokens e 3.600 segundos como redes de segurança, e 120 segundos por execução de suíte. Nenhum deles mudou depois; mudar qualquer um invalidaria a comparação com as execuções já coletadas. % src/budget.py; 09-decisoes-do-autor.md, decisão 12
+Uma execução é \emph{perdida}, e não fracassada, quando termina por falha de infraestrutura do provedor ou por interrupção externa; ela sai do denominador e é reexecutada com a mesma semente e o número de tentativa incrementado. Corte por orçamento é resultado, não perda. As execuções rodam uma de cada vez (um trabalhador), o agente único antes do orquestrado em cada par, e a coleta é retomável: cada célula (tarefa, braço, repetição) tem estado próprio em disco. % src/arms/runner.py (LOST_PREFIXES); scripts/run_collection.py; harness/attempts.py
+
+Antes de admitir uma execução na análise, o avaliador confere os portões: o provedor que atendeu cada chamada é o provedor pinado; todas as chamadas saíram pela chave própria do provedor (o número de chamadas BYOK é igual ao número de chamadas ao modelo); a trilha de eventos é íntegra; e a execução não está marcada como perdida.
+
+\subsubsection{Rodadas: o tratamento como objeto de engenharia}
+
+A coleta principal (rodada 1) mediu o protótipo do braço orquestrado tal como herdado do trabalho de graduação anterior, com a memória de trabalho entre ciclos e o teto de 40 turnos por ciclo já decididos nas fumaças. Depois dela, o braço orquestrado foi modificado em rodadas, cada uma com uma política registrada no manifesto e cada mudança com uma decisão numerada e aprovada por escrito; o agente único não mudou, e as rodadas 3 a 5 reutilizam, como referência pareada, as execuções do agente único da rodada 2 (as mesmas sementes). A Tabela~\ref{tab-rodadas} resume as configurações. Entre a rodada 1 e a 2 também houve correções do instrumento, que valem para os dois braços: a desmarcação de casos da suíte visível em três tarefas cujo patch de teste original alterava testes visíveis, e a correção do diretório-raiz do \texttt{pytest} nos espaços de trabalho, sem a qual a desmarcação não surtia efeito; as células afetadas foram descartadas e refeitas com a mesma semente. % 09-decisoes-do-autor.md, decisões 27 e 30; 16-ablacao-e-v2.md §4
+
+\begin{table}[ht!]
+\centering
+\caption{Configuração do braço orquestrado em cada rodada. Todas as chaves vão ao manifesto (\texttt{orchestration\_policy}).}
+\label{tab-rodadas}
+\small
+\begin{tabular}{llp{9.4cm}}
+\toprule
+Rodada & Manifesto & O que muda em relação à anterior \\
+\midrule
+1 (coleta principal, 12--13/10) & v7 & refinador v1 (resume o enunciado); memória de trabalho entre ciclos; 40 turnos por ciclo; teto de 2 reprovações do revisor \\
+ablação do refinador (14/10) & v8 & desenvolvedor recebe o enunciado íntegro mais a intenção, 13 tarefas $\times$ 1 repetição \\
+2 (14/10) & v10 & refinador v2 (copia reprodução, saídas esperadas e restrições); validador executa os blocos de reprodução e entrega a saída real ao revisor; nota de ciclo escrita pelo desenvolvedor \\
+3 (14--15/10) & v11 & revisor coerente (aprovação com critério faltando é rebaixada); sem teto de reprovações \\
+4 (15/10) & v12 & volta ao teto 2; planejador (12 turnos de leitura, até 6 sub-tarefas, 1 replanejamento, 2 ciclos por sub-tarefa); blocos de reprodução executados de forma acumulada \\
+5 (15/10) & v13 & veredito da sub-tarefa por comparação determinística das saídas esperadas; comparação entregue ao revisor final com a regra ``não verificável não reprova''; trechos lidos pelo planejador entregues ao desenvolvedor (16.000 caracteres); planejador com 8 turnos e 3 sub-tarefas \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Duas mudanças foram decididas com dados antes de gastar. A execução acumulada dos blocos (rodada 4) veio da contagem, na rodada 3, de blocos que quebravam por falta do contexto do bloco anterior. A escolha de usar a comparação determinística como veredito da sub-tarefa e como subsídio ao revisor, e não como barreira na revisão final (rodada 5), veio de uma calibração \emph{offline}: a comparação foi aplicada às execuções já gravadas das rodadas 2 a 4 e cruzada com o oráculo, mostrando quantas execuções resolvidas uma barreira dura teria derrubado. % scripts/calibrar_comparacao.py; dados/coleta-r5/calibracao-offline.txt
+
+\subsubsection{Reprodução}
+
+Com o repositório, os espelhos e os ambientes virtuais preparados (\texttt{scripts/setup\_mirror.py <repositório>}), a validação de uma tarefa é \texttt{scripts/validate\_task.py tasks/<tarefa>}; uma coleta é \texttt{scripts/run\_collection.py --arms <braços> --repetitions 3 --out <diretório>}, com a política do braço orquestrado dada por variáveis de ambiente documentadas em \texttt{.env.example}; e a análise é \texttt{scripts/analyze\_results.py <diretório> --markdown}, complementada por \texttt{scripts/metrics\_appendix.py}. O manifesto de cada execução, os eventos e o \texttt{result.json} ficam no diretório da célula; os dados de cada rodada estão versionados no repositório do estudo.
+
+\subsection{Ambiente de desenvolvimento e de experimentos}
+\label{ssec:ambiente}
+
+Todas as execuções rodaram numa única máquina: processador AMD Ryzen 7 7800X3D (8 núcleos, 16 \emph{threads}), 7 GB de memória visíveis à máquina virtual, Ubuntu 26.04.1 LTS sob WSL2 (kernel 6.18.54), Python 3.12.14. O modelo de linguagem é servido remotamente; a máquina executa os agentes, as ferramentas, as suítes de teste e o avaliador. A Tabela~\ref{tab-parametros} lista as versões e os parâmetros, com a indicação de quais são o padrão da biblioteca e quais foram fixados pelo estudo. % uv.lock; src/config.py; src/budget.py; src/tools/base.py; src/runtime.py
+
+\begin{table}[ht!]
+\centering
+\caption{Software, modelo e parâmetros. ``Fixado'' indica valor escolhido pelo estudo; ``padrão'' indica o valor de fábrica da biblioteca.}
+\label{tab-parametros}
+\small
+\begin{tabular}{llp{6.6cm}}
+\toprule
+Componente & Valor & Observação \\
+\midrule
+LangGraph / LangChain & 1.2.0 / core 1.4.0, openai 1.2.1 & grafo do braço orquestrado; cliente do modelo \\
+openai (SDK) / pydantic & 2.37.0 / 2.13.4 & chamadas HTTP; esquemas de saída estruturada \\
+pytest / radon & 9.0.3 / 6.0.1 & suítes e oráculo; complexidade ciclomática \\
+Modelo & \texttt{qwen/qwen3-coder} & via OpenRouter, provedor pinado DeepInfra, chave própria do provedor (BYOK) \\
+Roteamento & \texttt{only}=[DeepInfra], sem \emph{fallback}, \texttt{require\_parameters}, sem coleta de dados & fixado: o provedor não pode mudar no meio da execução \\
+Temperatura / semente & 0 / $s_0 + k$ & fixado; semente igual nos dois braços na repetição $k$ \\
+Tokens de saída / tempo por chamada / tentativas & 8.192 / 90 s / 6 & fixado (o padrão do cliente é 2 tentativas) \\
+Orçamento por execução & 120 turnos; 8.000.000 tokens; 3.600 s & fixado, congelado antes da coleta \\
+Tempo por suíte & 120 s & fixado \\
+Chamadas de ferramenta por turno & 8 & fixado \\
+\texttt{read\_file} & 400 linhas; 20.000 caracteres & fixado \\
+\texttt{search\_code} / \texttt{list\_files} & 50 / 200 resultados & fixado \\
+Saída de ferramenta & 8.000 caracteres (2/3 do início, 1/3 do fim) & fixado; mesmo corte nos dois braços \\
+\texttt{run\_python} & 60 s & fixado \\
+Orquestrado: ciclo / teto de reprovações / clarificações & 40 turnos / 2 (0 na rodada 3) / 3 & fixado \\
+Orquestrado: planejador (rodadas 4 e 5) & 12 e 6; 8 e 3 (turnos; sub-tarefas) & fixado por rodada \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+O código do instrumento tem 694 testes automatizados, que cobrem o detector de trapaça, o oráculo, a guarda de caminho, o pino de provedor, a paridade entre os braços e cada política do braço orquestrado; a suíte roda verde antes de cada commit. % .venv/bin/python -m pytest -q, 15/10/2026
