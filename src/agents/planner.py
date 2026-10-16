@@ -42,6 +42,7 @@ from src.schemas.plan import (
 )
 from src.state import WorkflowState, parse_intent, parse_test_report, parse_validation
 from src.structured_llm import StructuredOutputError
+from src.verificacao import ENCONTRADA, comparar_saidas
 
 FERRAMENTAS_DE_LEITURA = ("list_files", "read_file", "search_code")
 
@@ -174,6 +175,29 @@ def _plano_unico(intent: Any) -> Plan:
     )
 
 
+def _saidas_ja_produzidas(state: WorkflowState, ctx: RunContext) -> tuple[list[int], list[dict[str, Any]]]:
+    """
+    Saídas esperadas que o código ORIGINAL já produz (decisão 39, 16/10/2026).
+
+    Os blocos de reprodução rodam no workspace ainda intocado (o planejador
+    é o primeiro nó a executar algo e só lê); toda saída esperada encontrada
+    nessa execução descreve o comportamento de antes da correção e não
+    verifica nada, como o teste oculto que precisa falhar no commit-base.
+    Na falsa partida da rodada 5 (`runs/coleta-r5-descartados`), o refinador
+    tinha copiado como "esperadas" as saídas atuais do enunciado; a
+    comparação as exigiu, e o developer desfez a correção certa.
+    """
+    from src.agents.validator import _executar_reproducao
+
+    intent = parse_intent(state)
+    esperadas = getattr(intent, "expected_outputs", None) or []
+    if not esperadas:
+        return [], []
+    execucoes = _executar_reproducao(state, ctx)
+    comparacoes = comparar_saidas(list(enumerate(esperadas, 1)), execucoes)
+    return [c["indice"] for c in comparacoes if c["estado"] == ENCONTRADA], execucoes
+
+
 def _guardar_leituras(ai: Any, respostas: list[BaseMessage], trechos: dict[str, list[str]]) -> None:
     """
     Conteúdo que `read_file` devolveu ao planejador, por arquivo e na ordem
@@ -210,6 +234,16 @@ def planner(state: WorkflowState) -> dict[str, Any]:
         k: [v] for k, v in ((state.get("plan") or {}).get("trechos") or {}).items()
     } if replanejar else {}
     cabecalho = ["Especificação da tarefa:", intent_as_text(intent)]
+    # Decisão 39: o que o código original já produz não entra em `expected`.
+    execucoes_base: list[dict[str, Any]] = []
+    if replanejar:
+        ja_na_base = [int(i) for i in ((state.get("plan") or {}).get("saidas_na_base") or [])]
+    else:
+        ja_na_base, execucoes_base = _saidas_ja_produzidas(state, ctx)
+    if ja_na_base:
+        cabecalho += ["", "Saídas esperadas que o código atual JÁ produz, antes de qualquer correção "
+                          "(descrevem o problema, não verificam a mudança; não as aponte em expected): "
+                          + ", ".join(str(i) for i in ja_na_base) + "."]
     if replanejar:
         cabecalho += ["", PEDIDO_DE_REPLANEJAMENTO, "", _contexto_de_replanejamento(state)]
     mensagens.append(HumanMessage(content="\n".join(cabecalho)))
@@ -272,7 +306,7 @@ def planner(state: WorkflowState) -> dict[str, Any]:
         n_rep = len(intent.reproduction) if isinstance(intent, StructuredIntentV2) else 0
         n_esp = len(intent.expected_outputs) if isinstance(intent, StructuredIntentV2) else 0
         plano = sanear(plano, n_criterios=n_crit, n_reproducao=n_rep, n_esperadas=n_esp,
-                       maximo=config.PLANNER_MAX_SUBTASKS)
+                       maximo=config.PLANNER_MAX_SUBTASKS, excluir_esperadas=ja_na_base)
         if not plano.subtasks and not replanejar:
             plano = _plano_unico(intent)
 
@@ -309,12 +343,14 @@ def planner(state: WorkflowState) -> dict[str, Any]:
             "replans": replans,
             # Só o tamanho: o conteúdo lido fica no estado, não no evento.
             "trechos_chars": {k: len(v) for k, v in trechos_texto.items()},
+            "saidas_na_base": ja_na_base,
+            "execucoes_base": execucoes_base,
         }
         ctx.telemetry.emit_plan(registro)
 
     out: dict[str, Any] = {
         "plan": {"rationale": plano.rationale, "subtasks": subtasks, "status": status,
-                 "trechos": trechos_texto},
+                 "trechos": trechos_texto, "saidas_na_base": ja_na_base},
         "subtask_current": atual,
         "subtask_review": None,
         "replan_requested": False,

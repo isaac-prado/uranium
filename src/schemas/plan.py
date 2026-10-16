@@ -10,7 +10,7 @@ reescrito pelo planejador.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Sequence
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -98,18 +98,22 @@ class Replan(Plan):
 
 
 def sanear(
-    plan: Plan, *, n_criterios: int, n_reproducao: int, maximo: int = 6, n_esperadas: int = 0
+    plan: Plan, *, n_criterios: int, n_reproducao: int, maximo: int = 6, n_esperadas: int = 0,
+    excluir_esperadas: Sequence[int] = (),
 ) -> Plan:
     """
     Garante que o plano só aponte para itens que existem na intent e que
-    não passe do tamanho máximo. Índices fora do intervalo são descartados;
-    o resto do plano fica como o planejador escreveu.
+    não passe do tamanho máximo. Índices fora do intervalo são descartados,
+    assim como as saídas esperadas que o código original já produz
+    (`excluir_esperadas`, decisão 39); o resto do plano fica como o
+    planejador escreveu.
     """
+    fora = set(excluir_esperadas)
     subtasks = plan.subtasks[:maximo]
     for s in subtasks:
         s.criteria = sorted({i for i in s.criteria if 1 <= i <= n_criterios})
         s.reproduction = sorted({i for i in s.reproduction if 1 <= i <= n_reproducao})
-        s.expected = sorted({i for i in s.expected if 1 <= i <= n_esperadas})
+        s.expected = sorted({i for i in s.expected if 1 <= i <= n_esperadas and i not in fora})
     return type(plan).model_construct(rationale=plan.rationale, subtasks=subtasks)
 
 

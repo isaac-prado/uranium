@@ -240,9 +240,18 @@ _ROTULOS_DA_COMPARACAO = {
 }
 
 
-def comparacao_de_saidas(comparacoes: list[dict[str, Any]], saida: str | None = None) -> list[str]:
-    """Uma linha por saída esperada apontada, mais a saída real quando dada."""
+def comparacao_de_saidas(
+    comparacoes: list[dict[str, Any]], saida: str | None = None, ja_na_base: list[int] | None = None,
+) -> list[str]:
+    """
+    Uma linha por saída esperada apontada, mais a saída real quando dada e,
+    quando houver, a lista das saídas esperadas que o código original já
+    produzia e por isso ficam fora da comparação (decisão 39).
+    """
     linhas: list[str] = []
+    if ja_na_base:
+        linhas.append("saídas esperadas que o código original já produzia, fora da comparação: "
+                      + ", ".join(str(i) for i in ja_na_base))
     for c in comparacoes:
         estado = str(c.get("estado", ""))
         linha = f"saída esperada {c.get('indice')}: {_ROTULOS_DA_COMPARACAO.get(estado, estado)}"

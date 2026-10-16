@@ -1,0 +1,35 @@
+{
+  "run_id": "attrs-0001-orchestration-r01-a01",
+  "arm": "orchestration",
+  "task_id": "attrs-0001",
+  "repetition": 1,
+  "attempt": 1,
+  "llm_seed": 20260821,
+  "topology": "multi_agent_roles",
+  "stop_reason": "budget: max_turns (120 >= 120)",
+  "lost": false,
+  "is_valid": false,
+  "changed_files": [
+    "src/attr/_funcs.py",
+    "src/attr/_make.py",
+    "temp_test_attrs_generic.py"
+  ],
+  "diff_stat": {
+    "files_changed": 2,
+    "insertions": 13,
+    "deletions": 1
+  },
+  "turns": 120,
+  "totals": {
+    "tokens_prompt": 906735,
+    "tokens_completion": 22788,
+    "tokens_reasoning": 0,
+    "tokens_total": 929523,
+    "cost_usd": 0.1315669,
+    "llm_calls": 131,
+    "tool_calls": 109,
+    "test_runs": 10,
+    "errors": 0
+  },
+  "out_dir": "runs/coleta-r5/attrs-0001/orchestration/rep01/attempt01"
+}

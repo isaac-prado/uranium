@@ -19,8 +19,8 @@ def _intent_v2() -> dict:
         context="c", goal="Levantar erro em array malformado e aceitar chave pontilhada.",
         phases=["a", "b"], is_ready=True,
         acceptance_criteria=["Array malformado levanta exceção", "Chave pontilhada é aceita", "Suíte continua verde"],
-        reproduction=["x = 2", "print('soma:', x + 2)"],
-        expected_outputs=["soma: 4", "nunca aparece"], constraints=[],
+        reproduction=["x = 2", "print('mudou:', 'nota do agente' in open('tomlkit/_utils.py').read(), x + 2)"],
+        expected_outputs=["mudou: True", "nunca aparece"], constraints=[],
     ).model_dump()
 
 
@@ -180,7 +180,7 @@ class TestDeveloperComSubtarefa:
         assert "- Array malformado levanta exceção" in texto and "Chave pontilhada é aceita" not in texto.split("Sub-tarefa atual")[1]
         assert "```\nx = 2\n```" in texto and "Pronto quando: exceção levantada" in texto
         # saída esperada apontada pelo planejador (rodada 5), copiada pelo índice
-        assert "Saídas esperadas desses exemplos depois da correção" in texto and "- soma: 4" in texto
+        assert "Saídas esperadas desses exemplos depois da correção" in texto and "- mudou: True" in texto
         assert "nunca aparece" not in texto.split("Sub-tarefa atual")[1]
 
     def test_parecer_da_subtarefa_entra_no_prompt(self, monkeypatch):
@@ -273,9 +273,9 @@ class TestExecucaoAcumulada:
         assert "NameError" in isolado[1]["saida"]
         monkeypatch.setattr(config, "REVIEW_EXECUTION", "cumulative")
         acumulado = _executar_reproducao(estado, _ctx(montar))
-        assert "soma: 4" in acumulado[1]["saida"] and acumulado[1]["acumulado"] is True and acumulado[0]["acumulado"] is False
+        assert "mudou: False 4" in acumulado[1]["saida"] and acumulado[1]["acumulado"] is True and acumulado[0]["acumulado"] is False
         so_o_2 = _executar_reproducao(estado, _ctx(montar), indices=[2])
-        assert [x["bloco"] for x in so_o_2] == [2] and "soma: 4" in so_o_2[0]["saida"]
+        assert [x["bloco"] for x in so_o_2] == [2] and "mudou: False 4" in so_o_2[0]["saida"]
 
 
 def _ctx(montar):
@@ -372,7 +372,7 @@ class TestVerificacaoDeterministicaDaSubtarefa:
         issues = out["subtask_review"]["issues"]
         assert any("saída esperada 1: encontrada" in x for x in issues)
         assert any("saída esperada 2: NÃO encontrada" in x and "nunca aparece" in x for x in issues)
-        assert any(x.startswith("saída real da execução:") and "soma: 4" in x for x in issues)
+        assert any(x.startswith("saída real da execução:") and "mudou: True" in x for x in issues)
         assert self._ultimo_evento_da_subtarefa(tel)["basis"] == "comparacao"
         texto = _build_prompt({**estado, **out})
         assert "saída esperada 2: NÃO encontrada" in texto
@@ -505,3 +505,60 @@ class TestTrechosDoPlanejador:
 
         assert "No máximo 3 sub-tarefas" in llm.chamadas[0][0].content
         assert '"expected": [int]' in llm.chamadas[1][-1].content
+
+
+@mirror_available
+class TestSaidasQueOCodigoOriginalJaProduz:
+    """Decisão 39 (16/10/2026): saída esperada presente na execução do código original não verifica nada."""
+
+    def test_planejador_executa_na_base_e_tira_essas_saidas_do_plano_e_do_prompt(self, ambiente, monkeypatch):
+        from src.agents.planner import planner
+
+        monkeypatch.setattr(config, "PLANNER", "on")
+        monkeypatch.setattr(config, "REVIEW_EXECUTION", "cumulative")
+        _, tel, montar = ambiente
+        llm = FakeToolCallingLLM([ai(content="x")])
+        montar(llm)
+        intent = {**_intent_v2(), "expected_outputs": ["mudou: True", "nunca aparece", "False 4"]}
+        plano = Plan(subtasks=[Subtask(id=1, title="t", objective="o", files=["tomlkit/parser.py"],
+                                       reproduction=[1, 2], expected=[1, 2, 3], done_when="d")])
+        monkeypatch.setattr("src.structured_llm.invoke_structured_raw", lambda *a, **k: (plano, None))
+
+        out = planner(_estado(intent=intent, turn_count=0, replans=0))
+
+        # "False 4" já sai do código original (bloco 2 imprime "mudou: False 4"): não discrimina
+        assert out["plan"]["saidas_na_base"] == [3]
+        assert out["plan"]["subtasks"][0]["expected"] == [1, 2]
+        cabecalho = llm.chamadas[0][1].content
+        assert "JÁ produz" in cabecalho and cabecalho.rstrip().endswith("3.")
+        ev = [e for e in read_events(tel.path) if e["event_type"] == "plan"][-1]["payload"]
+        assert ev["saidas_na_base"] == [3] and [x["bloco"] for x in ev["execucoes_base"]] == [1, 2]
+
+    def test_validador_ignora_essas_saidas_na_subtarefa_e_avisa_o_revisor(self, ambiente, monkeypatch):
+        from src.agents.validator import validator
+
+        monkeypatch.setattr(config, "PLANNER", "on")
+        monkeypatch.setattr(config, "REVIEW_EXECUTION", "cumulative")
+        monkeypatch.setattr(config, "SUBTASK_CHECK", "deterministic")
+        monkeypatch.setattr(config, "REVIEW_COMPARE", "advisory")
+        monkeypatch.setenv("SEMANTIC_REVIEW", "true")
+        ws, tel, montar = ambiente
+        _mudanca_benigna(ws)
+        montar(FakeToolCallingLLM([ai(content="x")]))
+        chamadas: list = []
+
+        def _estruturada(schema, messages, **k):
+            chamadas.append(messages)
+            return ValidationResult(is_valid=False, issues=["ainda falta"]), None
+        monkeypatch.setattr("src.structured_llm.invoke_structured_raw", _estruturada)
+        estado = _estado_com_plano(stop_reason="concluiu")
+        estado["plan"]["saidas_na_base"] = [2]
+        estado["plan"]["subtasks"][0]["expected"] = [1, 2]  # 2 não foi saneada: o validador filtra de novo
+
+        out = validator(estado)
+
+        assert out["plan"]["status"][0]["status"] == "feita"  # só a saída 1 conta, e ela aparece
+        usuario = chamadas[0][1][1]
+        assert "fora da comparação: 2" in usuario and "saída esperada 2:" not in usuario
+        ev = [e for e in read_events(tel.path) if e["event_type"] == "validation" and not e["payload"].get("scope")][-1]["payload"]
+        assert [c["indice"] for c in ev["comparisons"]] == [1]

@@ -240,7 +240,14 @@ def _esperadas_apontadas(state: WorkflowState) -> list[tuple[int, str]]:
                       if 1 <= int(i) <= n})
     if not indices:
         indices = list(range(1, n + 1))
-    return [(i, intent.expected_outputs[i - 1]) for i in indices]
+    # Decisão 39: o que o código original já produzia fica fora.
+    fora = _saidas_na_base(state)
+    return [(i, intent.expected_outputs[i - 1]) for i in indices if i not in fora]
+
+
+def _saidas_na_base(state: WorkflowState) -> set[int]:
+    """Índices das saídas esperadas que o código original já produzia (planejador, decisão 39)."""
+    return {int(i) for i in ((state.get("plan") or {}).get("saidas_na_base") or [])}
 
 
 def _comparar_esperadas(state: WorkflowState, execucoes: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -274,7 +281,8 @@ def _build_review_prompt(
             rotulo = f"[bloco {ex['bloco']}]" + (" (executado junto com os blocos anteriores)" if ex.get("acumulado") else "")
             partes += [rotulo, ex["saida"]]
     if comparacoes:
-        partes += ["", COMPARACAO_DE_SAIDAS, *(f"- {linha}" for linha in comparacao_de_saidas(comparacoes))]
+        partes += ["", COMPARACAO_DE_SAIDAS,
+                   *(f"- {linha}" for linha in comparacao_de_saidas(comparacoes, ja_na_base=sorted(_saidas_na_base(state))))]
     return "\n".join(partes)
 
 
@@ -338,8 +346,9 @@ def _verificar_subtarefa(
     intent = parse_intent(state)
     blocos = [int(i) for i in sub.get("reproduction") or []]
     esperadas_intent = intent.expected_outputs if isinstance(intent, StructuredIntentV2) else []
+    fora = _saidas_na_base(state)
     esperadas = [(int(i), esperadas_intent[int(i) - 1]) for i in sub.get("expected") or []
-                 if 1 <= int(i) <= len(esperadas_intent)]
+                 if 1 <= int(i) <= len(esperadas_intent) and int(i) not in fora]
     pronta_para_conferir = suite_verde and houve_mudanca
     execs = [e for e in execucoes if e.get("bloco") in blocos]
     if pronta_para_conferir and blocos and not execs:

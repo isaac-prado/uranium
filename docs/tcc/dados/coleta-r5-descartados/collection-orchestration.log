@@ -1,0 +1,44 @@
+tarefas   13  ×  1 braço(s) ['orchestration']  ×  3 repetição(ões)  =  39 células
+estado    0 concluídas, 39 pendentes  →  runs/coleta-r5
+modelo    qwen/qwen3-coder via DeepInfra
+orçamento {'max_tokens': 8000000, 'max_wall_seconds': 3600, 'max_turns': 120}
+workers   1   tentativas por célula 5
+
+  done    attrs-0001           orchestration  rep01  não resolveu  budget: max_turns (120 >= 120)
+  done    peewee-0001          orchestration  rep01  não resolveu  budget: max_turns (120 >= 120)
+  done    peewee-0002          orchestration  rep01  não resolveu  budget: max_turns (120 >= 120)
+  done    peewee-0003          orchestration  rep01  resolveu      concluiu
+Traceback (most recent call last):
+  File "/home/isaac/uranium/scripts/run_collection.py", line 111, in <module>
+    main()
+  File "/home/isaac/uranium/scripts/run_collection.py", line 89, in main
+    resultados = run_collection(
+                 ^^^^^^^^^^^^^^^
+  File "/home/isaac/uranium/src/arms/collection.py", line 241, in run_collection
+    registrar(run_cell(cell, out_root=out_root, **cell_kwargs))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/isaac/uranium/src/arms/collection.py", line 165, in run_cell
+    resultado = evaluate_run(run_dir, task, measure_quality=measure_quality)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/isaac/uranium/harness/evaluate.py", line 113, in evaluate_run
+    oraculo = evaluate_oracle(workspace, task, timeout_s=timeout_s)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/isaac/uranium/harness/oracle.py", line 140, in evaluate_oracle
+    p2p = run_pytest(repo, list(task.pass_to_pass), timeout_s=timeout_s,
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/isaac/uranium/harness/pytest_runner.py", line 141, in run_pytest
+    proc = subprocess.run(
+           ^^^^^^^^^^^^^^^
+  File "/home/isaac/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 550, in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/isaac/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 1209, in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/isaac/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 2115, in _communicate
+    ready = selector.select(timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/isaac/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/selectors.py", line 415, in select
+    fd_event_list = self._selector.poll(timeout)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt

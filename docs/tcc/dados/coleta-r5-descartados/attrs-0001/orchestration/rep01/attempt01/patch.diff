@@ -1,0 +1,36 @@
+diff --git a/src/attr/_funcs.py b/src/attr/_funcs.py
+index 518be16e..013cb1e9 100644
+--- a/src/attr/_funcs.py
++++ b/src/attr/_funcs.py
+@@ -296,6 +296,13 @@ def has(cls):
+ 
+     :rtype: bool
+     """
++    if not isinstance(cls, type):
++        # For generic aliases, get the origin class
++        origin = getattr(cls, '__origin__', None)
++        if origin is not None:
++            cls = origin
++        else:
++            return False  # Not a class and not a generic alias
+     return getattr(cls, "__attrs_attrs__", None) is not None
+ 
+ 
+diff --git a/src/attr/_make.py b/src/attr/_make.py
+index 014b7bc2..bfff7b63 100644
+--- a/src/attr/_make.py
++++ b/src/attr/_make.py
+@@ -1920,7 +1920,12 @@ def fields(cls):
+        by name.
+     """
+     if not isinstance(cls, type):
+-        raise TypeError("Passed object must be a class.")
++        # For generic aliases, get the origin class
++        origin = getattr(cls, '__origin__', None)
++        if origin is not None:
++            cls = origin
++        else:
++            raise TypeError("Passed object must be a class.")
+     attrs = getattr(cls, "__attrs_attrs__", None)
+     if attrs is None:
+         raise NotAnAttrsClassError(f"{cls!r} is not an attrs-decorated class.")
