@@ -1,0 +1,13 @@
+fumaça r6 começa 16/10 14:32:20
+tarefas   3  ×  1 braço(s) ['orchestration']  ×  1 repetição(ões)  =  3 células
+estado    0 concluídas, 3 pendentes  →  runs/fumaca-r6b
+modelo    qwen/qwen3-coder via DeepInfra
+orçamento {'max_tokens': 8000000, 'max_wall_seconds': 3600, 'max_turns': 120}
+workers   1   tentativas por célula 3
+
+  done    tomlkit-0003         orchestration  rep01  resolveu      concluiu
+  done    tomlkit-0001         orchestration  rep01  resolveu      concluiu
+  done    sqlite-utils-0003    orchestration  rep01  resolveu      budget: max_turns (120 >= 120)
+
+  3 concluídas, 0 perdidas  →  runs/fumaca-r6b/collection.json
+fumaça r6 terminou 16/10 14:53:53 exit=0

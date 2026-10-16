@@ -1,0 +1,223 @@
+diff --git a/sqlite_utils/cli.py b/sqlite_utils/cli.py
+index a30f79a..1a5a64e 100644
+--- a/sqlite_utils/cli.py
++++ b/sqlite_utils/cli.py
+@@ -5,6 +5,7 @@ import click
+ from click_default_group import DefaultGroup
+ from datetime import datetime, timezone
+ import hashlib
++import itertools
+ import pathlib
+ from runpy import run_module
+ import sqlite_utils
+@@ -18,6 +19,7 @@ from sqlite_utils.db import (
+     quote_identifier,
+ )
+ from sqlite_utils.plugins import ensure_plugins_loaded, pm, get_plugins
++from sqlite_utils.utils import dedupe_keys
+ from sqlite_utils.utils import maximize_csv_field_size_limit
+ from sqlite_utils import recipes
+ import textwrap
+@@ -2126,6 +2128,9 @@ def _execute_query(
+             cursor = [[cursor.rowcount]]
+         else:
+             headers = [c[0] for c in cursor.description]
++            # Apply deduplication to headers for JSON output (but not for CSV/TSV)
++            if not (csv or tsv or fmt or table or raw or raw_lines):
++                headers = dedupe_keys(headers)
+         cursor_or_rows: Any = cursor
+         if raw:
+             row = cursor_or_rows.fetchone()
+@@ -3499,6 +3504,8 @@ def output_rows(iterator, headers, nl, arrays, json_cols):
+     current_iter, next_iter = itertools.tee(iterator, 2)
+     next(next_iter, None)
+     first = True
++    # Apply deduplication to headers for JSON output
++    deduped_headers = dedupe_keys(headers) if not arrays else headers
+     for row, next_row in itertools.zip_longest(current_iter, next_iter):
+         is_last = next_row is None
+         data = row
+@@ -3506,7 +3513,7 @@ def output_rows(iterator, headers, nl, arrays, json_cols):
+             # Any value that is a valid JSON string should be treated as JSON
+             data = [maybe_json(value) for value in data]
+         if not arrays:
+-            data = dict(zip(headers, data))
++            data = dict(zip(deduped_headers, data))
+         line = "{firstchar}{serialized}{maybecomma}{lastchar}".format(
+             firstchar=("[" if first else " ") if not nl else "",
+             serialized=json.dumps(data, default=json_binary),
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 3f23c7d..67a83a3 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -1,5 +1,6 @@
+ from .utils import (
+     chunks,
++    dedupe_keys,
+     hash_record,
+     sqlite3,
+     OperationalError,
+@@ -787,7 +788,8 @@ class Database:
+             if cursor.description is None:
+                 raise ValueError(message)
+             keys = [d[0] for d in cursor.description]
+-            return (dict(zip(keys, row)) for row in cursor)
++            deduped_keys = dedupe_keys(keys)
++            return (dict(zip(deduped_keys, row)) for row in cursor)
+         # Execute inside a savepoint, so a statement that turns out not to
+         # return rows can be rolled back before the ValueError is raised
+         self.conn.execute('SAVEPOINT "sqlite_utils_query"')
+@@ -797,6 +799,8 @@ class Database:
+             if cursor.description is None:
+                 raise ValueError(message)
+             keys = [d[0] for d in cursor.description]
++            deduped_keys = dedupe_keys(keys)
++            key_mapping = dict(zip(keys, deduped_keys))
+             try:
+                 self.conn.execute('RELEASE "sqlite_utils_query"')
+                 released = True
+@@ -809,8 +813,8 @@ class Database:
+                 fetched = cursor.fetchall()
+                 self.conn.execute('RELEASE "sqlite_utils_query"')
+                 released = True
+-                return (dict(zip(keys, row)) for row in fetched)
+-            return (dict(zip(keys, row)) for row in cursor)
++                return (dict(zip(deduped_keys, row)) for row in fetched)
++            return (dict(zip(deduped_keys, row)) for row in cursor)
+         finally:
+             if not released:
+                 # An error occurred - undo anything the statement changed
+@@ -1866,8 +1870,9 @@ class Queryable:
+             sql += " offset {}".format(offset)
+         cursor = self.db.execute(sql, where_args or [])
+         columns = [c[0] for c in cursor.description]
++        deduped_columns = dedupe_keys(columns)
+         for row in cursor:
+-            yield dict(zip(columns, row))
++            yield dict(zip(deduped_columns, row))
+ 
+     def pks_and_rows_where(
+         self,
+@@ -3399,8 +3404,9 @@ class Table(Queryable):
+             args,
+         )
+         columns = [c[0] for c in cursor.description]
++        deduped_columns = dedupe_keys(columns)
+         for row in cursor:
+-            yield dict(zip(columns, row))
++            yield dict(zip(deduped_columns, row))
+ 
+     def value_or_default(self, key: str, value: Any) -> Any:
+         return self._defaults[key] if value is DEFAULT else value
+diff --git a/sqlite_utils/utils.py b/sqlite_utils/utils.py
+index 865ee79..070f74c 100644
+--- a/sqlite_utils/utils.py
++++ b/sqlite_utils/utils.py
+@@ -19,6 +19,7 @@ from typing import (
+     Iterator,
+     List,
+     Optional,
++    Sequence,
+     Set,
+     Tuple,
+     Type,
+@@ -328,7 +329,7 @@ def rows_from_file(
+ 
+     You can instead ignore the extra data by passing ``ignore_extras=True``.
+ 
+-    Or pass ``extras_key="rest"`` to put those additional values in a list in a key called ``rest``.
++    Or pass ``extras_key="rest"`` to put those additional values in a list with this key.
+ 
+     :param fp: a file-like object containing binary data
+     :param format: the format to use - omit this to detect the format
+@@ -404,26 +405,6 @@ def rows_from_file(
+ 
+ 
+ class TypeTracker:
+-    """
+-    Wrap an iterator of dictionaries and keep track of which SQLite column
+-    types are the most likely fit for each of their keys.
+-
+-    Example usage:
+-
+-    .. code-block:: python
+-
+-        from sqlite_utils.utils import TypeTracker
+-        import sqlite_utils
+-
+-        db = sqlite_utils.Database(memory=True)
+-        tracker = TypeTracker()
+-        rows = [{"id": "1", "name": "Cleo", "id": "2", "name": "Cardi"}]
+-        db["creatures"].insert_all(tracker.wrap(rows))
+-        print(tracker.types)
+-        # Outputs {'id': 'integer', 'name': 'text'}
+-        db["creatures"].transform(types=tracker.types)
+-    """
+-
+     def __init__(self) -> None:
+         self.trackers: Dict[str, "ValueTracker"] = {}
+ 
+@@ -582,7 +563,9 @@ def chunks(sequence: Iterable[T], size: int) -> Iterable[Iterable[T]]:
+         yield itertools.chain([item], itertools.islice(iterator, size - 1))
+ 
+ 
+-def hash_record(record: Dict[str, Any], keys: Optional[Iterable[str]] = None) -> str:
++def hash_record(
++    record: Dict[str, Any], keys: Optional[Iterable[str]] = None
++) -> str:
+     """
+     ``record`` should be a Python dictionary. Returns a sha1 hash of the
+     keys and values in that record.
+@@ -629,3 +612,51 @@ def flatten(row: Dict[str, Any]) -> Dict[str, Any]:
+     :param row: A Python dictionary, optionally with nested dictionaries
+     """
+     return dict(_flatten(row))
++
++
++def dedupe_keys(keys: List[str]) -> List[str]:
++    """
++    Resolve column name collisions by appending numeric suffixes (_2, _3, etc.)
++    to duplicate keys, ensuring all output keys are unique and do not conflict
++    with existing keys.
++
++    Examples:
++        ["id", "id"] -> ["id", "id_2"]
++        ["id", "id", "id_2"] -> ["id", "id_3", "id_2"]
++        ["id", "id_2", "id"] -> ["id", "id_2", "id_3"]
++
++    Args:
++        keys: A list of column names, potentially with duplicates.
++
++    Returns:
++        A list of unique column names derived from the input.
++    """
++    if not keys:
++        return []
++
++    result: List[str] = []
++    # Track what we've already added to the result
++    used_result_keys: Set[str] = set()
++    # Also track all original keys to avoid conflicts with them
++    original_keys: Set[str] = set(keys)
++    
++    # Process each key in order
++    for key in keys:
++        if key not in used_result_keys:
++            # First time seeing this key in result, use as-is
++            result.append(key)
++            used_result_keys.add(key)
++        else:
++            # Key already exists in result, need to add suffix
++            counter = 2
++            new_key = f"{key}_{counter}"
++            # Check against both original keys and result keys to avoid any conflict
++            while new_key in original_keys or new_key in used_result_keys:
++                counter += 1
++                new_key = f"{key}_{counter}"
++            result.append(new_key)
++            used_result_keys.add(new_key)
++            # Also add to original_keys to prevent future conflicts
++            original_keys.add(new_key)
++            
++    return result
+\ No newline at end of file

@@ -44,6 +44,18 @@ Fonte: `dados/fumaca-r6/*/orchestration/rep01/attempt01/{events.jsonl,result.jso
 
 Testes: `tests/test_planner.py::TestRodada6` (+2: bloco não executado e linha não verificável fora do prompt, com o evento completo; comparação final por sub-tarefa sem "NÃO encontrada" inventada, e com o bloco apontado continua "NÃO encontrada" de verdade). Decisão 43 (correção do instrumento, para o autor confirmar) em [09-decisoes-do-autor.md](09-decisoes-do-autor.md).
 
-### 3.2 Fumaça 2 (a preencher; `runs/fumaca-r6b`)
+### 3.2 Fumaça 2 (16/10/2026 14:32 a 14:54, `runs/fumaca-r6b`, dados em `dados/fumaca-r6b/`): critério atendido, 3 de 3
 
-## 4. Execução (a preencher)
+| tarefa | resultado | turnos | custo | tokens | o que aconteceu |
+|---|---|---|---|---|---|
+| tomlkit-0003 | **resolvida** (1/1) | 20 | US$ 0,036 | 226 mil | desta vez o refinador entregou o bloco íntegro; o revisor recebeu só a execução do bloco e aprovou no 1º ciclo a mesma correção reprovada 8× na fumaça 1. As duas saídas esperadas caíram no filtro da decisão 39 porque a saída esperada 2 (`repr(doc['tool'])`) é substring da 1 (`repr(doc)`), que o código original já imprime: limitação conhecida da comparação por substring, sem efeito aqui |
+| tomlkit-0001 | **resolvida** (1/1) | 27 | US$ 0,033 | 237 mil | plano de 1 sub-tarefa com os 6 blocos; aprovada no 1º ciclo (fumaça 1: 38 turnos; rodada 5 rep01: 5 ciclos) |
+| sqlite-utils-0003 | **resolvida** (12/12) | 120 (orçamento) | US$ 0,347 | 2,31 M | ciclo 1 quebrou a suíte (`suite_vermelha`, sem o modelo); ciclo 2 `dedupe_keys` pronta, sub-tarefa 1 feita por `revisao_do_modelo`; ciclo 3 `query/rows_where/search` corrigidos, sub-tarefa 2 feita por comparação (saída 1 encontrada); ciclo 4 CLI corrigida (o oráculo confirma: 12/12). Dali em diante a comparação disse "saída esperada 5: NÃO encontrada" 4 vezes e o revisor reprovou citando-a, até o orçamento: a saída 5 é a da CLI, e nenhum dos blocos 2 a 4 da sub-tarefa 3 exercita a CLI |
+
+Fonte: `dados/fumaca-r6b/*/orchestration/rep01/attempt01/{events.jsonl,result.json}`. Custo US$ 0,42. Nenhum erro do harness; mecanismos novos nos eventos (`revisao_do_modelo`, bloco fora do prompt, comparação por sub-tarefa, `strict_coerced` disponível). Critério atendido: rodada 6 lançada.
+
+**Limitação residual, registrada para o fechamento.** A comparação não distingue "saída esperada errada" de "saída esperada que nenhum bloco da sub-tarefa produz" quando os blocos rodam e compilam (sqlite-utils-0003: a saída 5 apontada à sub-tarefa 3, cujos blocos não chamam a CLI). O custo é em turnos e tokens, não em resolução (o estado certo ficou no workspace); a correção estrutural seria o planejador apontar, para cada saída esperada, o bloco que a imprime (`Subtask.expected` como pares bloco → saída), o que é mudança de esquema para uma rodada futura.
+
+## 4. Execução
+
+Lançada em 16/10/2026 às 14:55 (`runs/coleta-r6`, manifesto v15, 39 células, sementes da coleta principal, `--workers 1 --retry-delay 300 --max-attempts 5`); vigia em segundo plano para perda ou erro do harness. Fechamento: montar `runs/coleta-r6-analise` (cópia dos 39 runs + single-agent pareado da rodada 2), `analyze_results.py` e `metrics_appendix.py`, versionar em `dados/coleta-r6/`, tabela por tarefa contra as rodadas 2, 4 e 5, vereditos por base, aprovações erradas, coerções e blocos rotulados.
