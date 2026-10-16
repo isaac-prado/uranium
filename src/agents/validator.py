@@ -34,6 +34,9 @@ from src.state import WorkflowState, parse_intent
 from src.structured_llm import StructuredOutputError, invoke_structured
 from src.tools.base import truncate
 from src.tools.exec import run_pytest, run_python
+from src.verificacao import ENCONTRADA as ENCONTRADA_
+from src.verificacao import NAO_ENCONTRADA as NAO_ENCONTRADA_
+from src.verificacao import NAO_VERIFICAVEL as NAO_VERIFICAVEL_
 from src.verificacao import comparar_saidas, faltantes, verificaveis
 
 SYSTEM_PROMPT = """\
@@ -283,10 +286,40 @@ def _saidas_na_base(state: WorkflowState) -> set[int]:
 
 
 def _comparar_esperadas(state: WorkflowState, execucoes: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Comparação automática (decisão 35); vazia com `REVIEW_COMPARE=off` ou sem execução."""
+    """
+    Comparação automática (decisão 35); vazia com `REVIEW_COMPARE=off` ou
+    sem execução. Com plano, cada saída esperada é confrontada só com os
+    blocos da sub-tarefa que a aponta, como em `_verificar_subtarefa`
+    (correção após a fumaça da rodada 6, 16/10/2026): confrontada com a
+    saída de todos os blocos, uma saída esperada apontada por sub-tarefa
+    sem bloco de reprodução saía sempre "NÃO encontrada" (sqlite-utils-0003:
+    7 falsos negativos por revisão, e o revisor reprovando por eles). Sem
+    plano, ou com plano que não aponta nada, todas as esperadas contra
+    todas as execuções, como antes.
+    """
     if config.REVIEW_COMPARE == "off" or not execucoes:
         return []
-    return comparar_saidas(_esperadas_apontadas(state), execucoes)
+    intent = parse_intent(state)
+    if not isinstance(intent, StructuredIntentV2) or not intent.expected_outputs:
+        return []
+    n = len(intent.expected_outputs)
+    fora = _saidas_na_base(state)
+    subtasks = [s for s in (state.get("plan") or {}).get("subtasks") or [] if s.get("expected")]
+    if not subtasks:
+        return comparar_saidas(_esperadas_apontadas(state), execucoes)
+    ordem_estado = {ENCONTRADA_: 2, NAO_ENCONTRADA_: 1, NAO_VERIFICAVEL_: 0}
+    por_indice: dict[int, dict[str, Any]] = {}
+    for s in subtasks:
+        blocos = {int(i) for i in s.get("reproduction") or []}
+        esperadas = [(int(i), intent.expected_outputs[int(i) - 1]) for i in s.get("expected") or []
+                     if 1 <= int(i) <= n and int(i) not in fora]
+        execs = [e for e in execucoes if e.get("bloco") in blocos]
+        for c in comparar_saidas(esperadas, execs):
+            atual = por_indice.get(c["indice"])
+            # A mesma saída apontada por duas sub-tarefas fica com o melhor estado.
+            if atual is None or ordem_estado[c["estado"]] > ordem_estado[atual["estado"]]:
+                por_indice[c["indice"]] = c
+    return [por_indice[i] for i in sorted(por_indice)]
 
 
 def _build_review_prompt(
@@ -306,16 +339,35 @@ def _build_review_prompt(
         "Diff aplicado pelo agente (a suíte passou com ele):",
         diff or "(nenhuma alteração)",
     ]
+    execucoes = _evidencias(execucoes or [])
     if execucoes:
         partes += ["", "Execução dos exemplos de reprodução sobre o código atual "
                        "(saída real, para comparar com as saídas esperadas da tarefa):"]
         for ex in execucoes:
             rotulo = f"[bloco {ex['bloco']}]" + (" (executado junto com os blocos anteriores)" if ex.get("acumulado") else "")
             partes += [rotulo, ex["saida"]]
+    # Decisão 41, após a fumaça da rodada 6: em `neutral` só as linhas com
+    # fato (encontrada / NÃO encontrada) chegam ao revisor; "não verificável"
+    # virava motivo de reprovação (tomlkit-0003: 8 reprovações citando-a).
+    if comparacoes and config.REVIEW_COMPARE == "neutral":
+        comparacoes = verificaveis(comparacoes)
     if comparacoes:
         partes += ["", COMPARACAO_DE_SAIDAS,
                    *(f"- {linha}" for linha in comparacao_de_saidas(comparacoes, ja_na_base=sorted(_saidas_na_base(state))))]
     return "\n".join(partes)
+
+
+def _evidencias(execucoes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """
+    Execuções que entram nos prompts de revisão. Com a decisão 42 ligada, o
+    bloco que não executou (não é Python ou não compila) fica fora: na fumaça
+    da rodada 6 o rótulo "não é evidência" foi citado como motivo de
+    reprovação em 8 de 8 revisões da tomlkit-0003. O evento `validation`
+    continua registrando todas as execuções, rótulos inclusive.
+    """
+    if config.REPRODUCTION_COMPILE_CHECK != "on":
+        return execucoes
+    return [e for e in execucoes if e.get("executado")]
 
 
 # ------------------------------------------------------- plano (decisão 33)
@@ -351,6 +403,7 @@ def _build_subtask_review_prompt(
     if criterios:
         partes += ["", "Critérios desta sub-tarefa:", *(f"- {c}" for c in criterios)]
     partes += ["", "Diff atual do workspace:", diff or "(nenhuma alteração)"]
+    execucoes = _evidencias(execucoes or [])
     if execucoes:
         partes += ["", "Execução dos exemplos desta sub-tarefa sobre o código atual (saída real):"]
         for ex in execucoes:

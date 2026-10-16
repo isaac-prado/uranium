@@ -21,8 +21,29 @@ As demais chaves são as da rodada 5 (`INTENT_REFINER=v2`, `REVIEW_EXECUTION=cum
 
 Leitura prevista para o fechamento: tabela por tarefa contra as rodadas 2, 4 e 5 e o single-agent; vereditos de sub-tarefa por base (`comparacao`, `revisao_do_modelo`, `suite_vermelha`, `sem_mudanca`); aprovações finais erradas e no 1º ciclo; coerções (`strict_coerced`); blocos rotulados como não compiláveis e quantos runs tinham algum.
 
-## 3. Fumaça (a preencher)
+## 3. Fumaça
 
-Três tarefas, 1 repetição, `runs/fumaca-r6`: tomlkit-0003 (controle: continua resolvendo em ~20 turnos), tomlkit-0001 (blocos TOML e zero saídas esperadas: exercita as decisões 40 e 42), sqlite-utils-0003 (seis saídas esperadas e aprovação contraditória na rodada 5: exercita a decisão 41). Critério combinado com o autor: nenhum erro do harness, tomlkit-0003 resolve, e os mecanismos novos aparecem nos eventos (`basis=revisao_do_modelo`, bloco rotulado, `strict_coerced` quando couber).
+Três tarefas, 1 repetição: tomlkit-0003 (controle: continua resolvendo em ~20 turnos), tomlkit-0001 (blocos TOML e zero saídas esperadas: exercita as decisões 40 e 42), sqlite-utils-0003 (muitas saídas esperadas e aprovação contraditória na rodada 5: exercita a decisão 41). Critério: nenhum erro do harness, tomlkit-0003 resolve, e os mecanismos novos aparecem nos eventos.
+
+### 3.1 Fumaça 1 (16/10/2026 14:05 a 14:26, `runs/fumaca-r6`, dados em `dados/fumaca-r6/`): critério não atendido, dois defeitos do instrumento
+
+| tarefa | resultado | turnos | custo | o que aconteceu |
+|---|---|---|---|---|
+| tomlkit-0003 | **não resolvida** (0/1) | 120 | US$ 0,166 | o refinador entregou o bloco 1 corrompido (começa em `tool.poetry.foo]`, sem `import tomlkit` e `content = """`; a rodada 4 rep01 teve a mesma intent e levou 81 turnos). O rótulo da decisão 42 funcionou (bloco não rodou), mas o revisor final e o de sub-tarefa reprovaram 8 vezes em 8 citando "os exemplos contêm erro de sintaxe e não puderam ser executados"; o developer tinha no ciclo 1 a mesma correção que resolveu a tarefa na rodada 5 (`return repr(self._value)`) e terminou revertendo tudo (`sem_mudanca` no ciclo 8) |
+| tomlkit-0001 | **resolvida** (1/1) | 38 | US$ 0,073 | bloco único, zero saídas esperadas; revisão final aprovou no 2º ciclo (rodada 5 rep01: 5 ciclos) |
+| sqlite-utils-0003 | não resolvida (0/12) | 120 | US$ 0,395 | 13 saídas esperadas; as de 7 a 13 (tabela de `dedupe_keys`) apontadas por sub-tarefa **sem bloco de reprodução**, e as 5 e 6 por blocos de shell (`python -m sqlite_utils ...`), que não compilam. A comparação final as confrontava com a saída dos outros blocos e saía "NÃO encontrada" 9 vezes por revisão; o revisor reprovou em todos os ciclos por isso, e o developer quebrou a suíte no ciclo 7 (13 erros de coleta) |
+
+Fonte: `dados/fumaca-r6/*/orchestration/rep01/attempt01/{events.jsonl,result.json}`. Os mecanismos novos apareceram nos eventos (`basis=revisao_do_modelo` em 10 vereditos, blocos rotulados `nao_compila`, comparação por sub-tarefa, manifesto v15). Custo US$ 0,63.
+
+**Correções (executor, 16/10/2026 14:4x; mesma versão de manifesto, porque só o que chega ao modelo muda sob as chaves já registradas):**
+
+1. Com `REPRODUCTION_COMPILE_CHECK=on`, o bloco que não executou (não é Python ou não compila) **não aparece** nos prompts do revisor final nem do revisor de sub-tarefa (`validator._evidencias`); o evento `validation` continua registrando todas as execuções, rótulos inclusive. O rótulo "não é evidência" era lido como falha.
+2. Com `REVIEW_COMPARE=neutral`, só as linhas com fato (encontrada / NÃO encontrada) chegam ao revisor; "não verificável" fica só no evento.
+3. A comparação da revisão final passa a ser **por sub-tarefa**, como já era na sub-tarefa (`_comparar_esperadas`): cada saída esperada só é confrontada com os blocos da sub-tarefa que a aponta; sem plano, tudo contra tudo como antes.
+4. Em `src/verificacao.py::comparar_saidas`, um bloco do conjunto que **não rodou** conta como quebrado: saída que falta com bloco parado é "não verificável", nunca "NÃO encontrada" (regra que já valia para bloco que não compilou em execução).
+
+Testes: `tests/test_planner.py::TestRodada6` (+2: bloco não executado e linha não verificável fora do prompt, com o evento completo; comparação final por sub-tarefa sem "NÃO encontrada" inventada, e com o bloco apontado continua "NÃO encontrada" de verdade). Decisão 43 (correção do instrumento, para o autor confirmar) em [09-decisoes-do-autor.md](09-decisoes-do-autor.md).
+
+### 3.2 Fumaça 2 (a preencher; `runs/fumaca-r6b`)
 
 ## 4. Execução (a preencher)

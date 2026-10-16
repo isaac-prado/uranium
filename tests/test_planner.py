@@ -678,9 +678,40 @@ class TestRodada6:
         assert com[1]["executado"] is False and com[1]["nao_compila"] is True
         assert "não compila como Python" in com[1]["saida"] and "SyntaxError na linha 1" in com[1]["saida"]
         assert com[2]["executado"] is True and com[2]["acumulado"] is True and "soma: 4" in com[2]["saida"]
-        # a comparação só vê os blocos que rodaram: verificável, sem "não verificável" por tabela
-        assert [c["estado"] for c in comparar_saidas([(1, "soma: 4"), (2, "nunca")], com)] == ["encontrada", "nao_encontrada"]
+        # a comparação vê o que rodou; o que falta com um bloco do conjunto parado é não verificável, nunca "NÃO encontrada"
+        assert [c["estado"] for c in comparar_saidas([(1, "soma: 4"), (2, "nunca")], com)] == ["encontrada", "nao_verificavel"]
+        assert [c["estado"] for c in comparar_saidas([(1, "soma: 4"), (2, "nunca")], [com[0], com[2]])] == ["encontrada", "nao_encontrada"]
         assert [c["estado"] for c in comparar_saidas([(1, "soma: 4")], [com[1]])] == ["nao_verificavel"]
+
+    def test_bloco_nao_executado_e_linha_nao_verificavel_nao_chegam_ao_revisor(self, ambiente, monkeypatch):
+        estado = _estado_com_plano(stop_reason="concluiu")
+        estado["intent"]["reproduction"] = [
+            "x = 2", "a = [{a]", "print('mudou:', 'nota do agente' in open('tomlkit/_utils.py').read(), x + 2)",
+        ]
+        estado["plan"]["subtasks"][0].update(reproduction=[1, 2, 3], expected=[1, 2])
+        out, tel, chamadas = self._roda(ambiente, monkeypatch, estado, [ValidationResult(is_valid=False)])
+        usuario = chamadas[0][1][1]
+        assert "[bloco 1]" in usuario and "[bloco 3]" in usuario and "mudou: True" in usuario
+        assert "[bloco 2]" not in usuario and "não compila" not in usuario and "SyntaxError" not in usuario
+        assert "- saída esperada 1: encontrada" in usuario and "saída esperada 2" not in usuario
+        final = self._eventos(tel, None)[-1]
+        # o evento guarda tudo: as três execuções (uma rotulada) e os dois estados
+        assert [e["executado"] for e in final["executions"]] == [True, False, True]
+        assert [c["estado"] for c in final["comparisons"]] == ["encontrada", "nao_verificavel"]
+        assert out["plan"]["status"][0]["status"] == "feita"  # sub-tarefa fechou pela saída 1, encontrada
+
+    def test_comparacao_final_por_subtarefa_nao_inventa_nao_encontrada(self, ambiente, monkeypatch):
+        estado = _estado_com_plano(stop_reason="concluiu")
+        estado["plan"]["subtasks"][1]["reproduction"] = []  # saída 2 apontada por sub-tarefa sem bloco
+        _, tel, chamadas = self._roda(ambiente, monkeypatch, estado, [ValidationResult(is_valid=False)])
+        final = self._eventos(tel, None)[-1]
+        assert [(c["indice"], c["estado"]) for c in final["comparisons"]] == [(1, "encontrada"), (2, "nao_verificavel")]
+        assert "saída esperada 2" not in chamadas[0][1][1]
+        # com o bloco apontado, a saída 2 volta a ser "NÃO encontrada" de verdade (rodada 5 e `advisory` idem)
+        estado2 = _estado_com_plano(stop_reason="concluiu")
+        _, tel2, chamadas2 = self._roda(ambiente, monkeypatch, estado2, [ValidationResult(is_valid=False)])
+        assert [c["estado"] for c in self._eventos(tel2, None)[-1]["comparisons"]] == ["encontrada", "nao_encontrada"]
+        assert "- saída esperada 2: NÃO encontrada" in chamadas2[0][1][1]
 
     def test_manifesto_registra_a_rodada_6(self, monkeypatch):
         from src.arms.runner import _orchestration_policy

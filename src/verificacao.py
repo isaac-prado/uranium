@@ -100,14 +100,19 @@ def comparar_saidas(
     Compara cada saída esperada (índice na intent, texto) com a saída real
     das execuções dos blocos (formato de `validator._executar_reproducao`).
 
-    Estados: `encontrada`; `nao_encontrada` (toda execução compilou e o
-    texto não apareceu); `nao_verificavel` (nenhum bloco executou, algum
-    bloco não compilou e o texto não apareceu, ou a saída esperada não tem
-    linha comparável).
+    Estados: `encontrada`; `nao_encontrada` (todo bloco do conjunto rodou e
+    compilou, e o texto não apareceu); `nao_verificavel` (nenhum bloco
+    executou, algum bloco do conjunto não rodou ou não compilou e o texto
+    não apareceu, ou a saída esperada não tem linha comparável). Bloco que
+    não rodou (não é Python, ou não compila com a decisão 42 ligada) conta
+    como quebrado: a saída esperada pode ser justamente a dele (fumaça da
+    rodada 6, sqlite-utils-0003: blocos de shell apontados com a saída da
+    CLI saíam "NÃO encontrada").
     """
     executadas = [e for e in execucoes if e.get("executado")]
     saida = "\n".join(str(e.get("saida", "")) for e in executadas)
-    algum_quebrado = any(bloco_nao_compilou(str(e.get("saida", ""))) for e in executadas)
+    algum_quebrado = (any(bloco_nao_compilou(str(e.get("saida", ""))) for e in executadas)
+                      or any(not e.get("executado") for e in execucoes))
     resultado: list[dict[str, Any]] = []
     for indice, texto in esperadas:
         contem = saida_contem(texto, saida) if executadas else None
