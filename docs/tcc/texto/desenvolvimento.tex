@@ -10,6 +10,12 @@
 %   \usetikzlibrary{positioning,fit,backgrounds,arrows.meta}
 % Se booktabs não estiver no template, trocar \toprule/\midrule/\bottomrule
 % por \hline.
+%
+% O template é em DUAS COLUNAS: as tabelas largas, a figura e o Algoritmo 2
+% usam os ambientes com asterisco (table*, figure*, algorithm*), que ocupam
+% a largura da página e aceitam só as posições [t] e [p]. A tabela das
+% tarefas foi estreitada para caber numa coluna. Se o template oferecer
+% \paisagem{t}{...}, ele pode substituir qualquer table* mais larga.
 
 \section{Desenvolvimento}
 \label{desenvolvimento}
@@ -91,26 +97,26 @@ A Tabela~\ref{tab-tarefas} lista as treze tarefas do estudo. % 10-tarefas.md; ta
 
 \begin{table}[ht!]
 \centering
-\caption{As treze tarefas do estudo, por faixa. ``Arquivos'' e ``linhas'' referem-se ao \textit{patch} de referência do projeto; ``casos ocultos'' é o número de identificadores de teste do oráculo que falham no \textit{commit}-base e passam com a referência.}
+\caption{As treze tarefas do estudo, por faixa. O repositório é o prefixo do identificador. ``Arq.'' e ``linhas'' referem-se ao \textit{patch} de referência do projeto; ``ocultos'' é o número de identificadores de teste do oráculo que falham no \textit{commit}-base e passam com a referência.}
 \label{tab-tarefas}
-\small
-\begin{tabular}{llrrrl}
+\footnotesize
+\begin{tabular}{lrrrl}
 \toprule
-Tarefa & Repositório & Arquivos & Linhas & Casos ocultos & Faixa \\
+Tarefa & Arq. & Linhas & Ocultos & Faixa \\
 \midrule
-tomlkit-0002 & tomlkit & 4 & 163 & 1 & grande \\
-tomlkit-0003 & tomlkit & 4 & 169 & 1 & grande \\
-tomlkit-0004 & tomlkit & 3 & 101 & 7 & grande \\
-attrs-0001 & attrs & 3 & 46 & 3 & média \\
-peewee-0001 & peewee & 3 & 54 & 4 & média \\
-peewee-0002 & peewee & 6 & 72 & 6 & média \\
-sqlite-utils-0003 & sqlite-utils & 3 & 45 & 12 & média \\
-peewee-0003 & peewee & 2 & 11 & 1 & pequena \\
-pygments-0001 & pygments & 1 & 26 & 2 & pequena \\
-sqlite-utils-0001 & sqlite-utils & 1 & 34 & 5 & pequena \\
-sqlite-utils-0002 & sqlite-utils & 1 & 21 & 11 & pequena \\
-tomlkit-0001 & tomlkit & 1 & 9 & 1 & pequena \\
-tomlkit-0005 & tomlkit & 2 & 19 & 1 & pequena \\
+tomlkit-0002 & 4 & 163 & 1 & grande \\
+tomlkit-0003 & 4 & 169 & 1 & grande \\
+tomlkit-0004 & 3 & 101 & 7 & grande \\
+attrs-0001 & 3 & 46 & 3 & média \\
+peewee-0001 & 3 & 54 & 4 & média \\
+peewee-0002 & 6 & 72 & 6 & média \\
+sqlite-utils-0003 & 3 & 45 & 12 & média \\
+peewee-0003 & 2 & 11 & 1 & pequena \\
+pygments-0001 & 1 & 26 & 2 & pequena \\
+sqlite-utils-0001 & 1 & 34 & 5 & pequena \\
+sqlite-utils-0002 & 1 & 21 & 11 & pequena \\
+tomlkit-0001 & 1 & 9 & 1 & pequena \\
+tomlkit-0005 & 2 & 19 & 1 & pequena \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -120,7 +126,7 @@ tomlkit-0005 & tomlkit & 2 & 19 & 1 & pequena \\
 
 O Uranium é o aparato que executa os dois sistemas sobre as mesmas tarefas e os avalia por meio de um avaliador que não confia no relato de nenhum deles. A Figura~\ref{fig-arquitetura} resume a arquitetura: os dois braços compartilham o modelo de linguagem, as ferramentas, o enunciado, o \textit{prompt} de sistema, os limites e o avaliador, e diferem apenas em quem decide o próximo passo e com base em quê.
 
-\begin{figure}[ht!]
+\begin{figure*}[t]
     \centering
     \begin{tikzpicture}[
         font=\footnotesize,
@@ -161,7 +167,7 @@ O Uranium é o aparato que executa os dois sistemas sobre as mesmas tarefas e os
     \end{tikzpicture}
     \caption{Arquitetura do Uranium: os dois braços, o que é idêntico entre eles e o avaliador independente que julga o resultado de ambos.}
     \label{fig-arquitetura}
-\end{figure}
+\end{figure*}
 
 \subsubsection{Ferramentas, guardas e limites compartilhados}
 
@@ -219,7 +225,7 @@ O segundo braço é um grafo de estados (LangGraph) em que papéis especializado
 
 O Algoritmo~\ref{alg-orq} descreve o laço central na configuração da rodada 5.
 
-\begin{algorithm}[ht!]
+\begin{algorithm*}[t]
     \normalem
     \KwData{enunciado $E$, \textit{workspace} $W$, orçamento $B$, política $P$ (manifesto)}
     \KwResult{$W$ modificado e o motivo de parada}
@@ -244,18 +250,18 @@ O Algoritmo~\ref{alg-orq} descreve o laço central na configuração da rodada 5
     \Return{$W$, ``orçamento''}
     \caption{Braço orquestrado: laço desenvolvedor--validador com planejador e verificação determinística (configuração da rodada 5).}
     \label{alg-orq}
-\end{algorithm}
+\end{algorithm*}
 
 A linha 1 produz a especificação que o desenvolvedor recebe em lugar do enunciado original; trata-se de um traço do protótipo, declarado como parte do tratamento e medido por uma ablação. A linha 2 existe apenas com o planejador ativado. Entre as linhas 5 e 7, o desenvolvedor trabalha em \textbf{ciclos}: a cada 40 turnos, ou quando ele próprio encerra, a conversa é descartada e, no retorno, ele recebe a \textbf{memória de trabalho} (o registro determinístico do que fez e o \textit{diff} atual), nunca a transcrição anterior. As linhas 8 a 14 constituem o validador: a suíte decide (linha 8); o revisor só pode rebaixar um veredito verde, nunca promover um vermelho (linhas 11 e 12); e o teto de reprovações (linha 13) é o único critério de parada inexistente no outro braço, aplicado somente quando o desenvolvedor submeteu por decisão própria com o plano encerrado. A linha 15 é a esteira de sub-tarefas, cujo veredito é determinístico na rodada 5 e era emitido por um revisor na rodada 4. A linha 16 indica o que retorna ao desenvolvedor: o mesmo texto cru do \texttt{pytest} que o agente único recebe, acrescido do que existe apenas neste braço (o parecer do revisor e a comparação de saídas), que constitui a própria topologia.
 
 A Tabela~\ref{tab-papeis} resume o que cada papel recebe, produz e pode fazer. % src/agents/*.py; src/runtime.py (ferramentas por papel)
 
-\begin{table}[ht!]
+\begin{table*}[t]
 \centering
 \caption{Papéis do braço orquestrado na configuração da rodada 5.}
 \label{tab-papeis}
-\small
-\begin{tabular}{lp{4.2cm}p{4.6cm}p{2.6cm}l}
+\footnotesize
+\begin{tabular}{lp{3.6cm}p{4.4cm}p{2.4cm}p{2.6cm}}
 \toprule
 Papel & Recebe & Produz & Ferramentas & Chamadas \\
 \midrule
@@ -267,7 +273,7 @@ Validador & repositório; especificação; plano & relatório da suíte; saídas
 Gerador de testes & especificação; \textit{diff} & plano de testes, fora da medição & nenhuma & 1 \\
 \bottomrule
 \end{tabular}
-\end{table}
+\end{table*}
 
 \subsubsection{Paridade entre os braços}
 
@@ -325,12 +331,12 @@ O delineamento experimental é caracterizado pelos seguintes elementos:
 
 As variáveis de resposta são as sete métricas da Tabela~\ref{tab-metricas}, cada uma correspondente a uma pergunta que se faria de qualquer ferramenta desse tipo; nenhuma depende da arquitetura interna de um dos braços. Para cada tarefa e braço, o valor é a mediana das três repetições, e a comparação é sempre orquestração menos agente único. % docs/tcc/03-metricas.md
 
-\begin{table}[ht!]
+\begin{table*}[t]
 \centering
 \caption{Variáveis de resposta.}
 \label{tab-metricas}
 \small
-\begin{tabular}{clp{6.2cm}ll}
+\begin{tabular}{cp{2.6cm}p{5.6cm}lp{4.6cm}}
 \toprule
 \# & Métrica & Definição & Melhor & Análise \\
 \midrule
@@ -343,7 +349,7 @@ As variáveis de resposta são as sete métricas da Tabela~\ref{tab-metricas}, c
 7 & Violações & trapaça detectada ou tentativa de escrita em área protegida & menor & descritiva \\
 \bottomrule
 \end{tabular}
-\end{table}
+\end{table*}
 
 A hipótese é neutra e o teste, bilateral: $H_0$ afirma que a topologia não altera a taxa de resolução; $H_1$, que a altera, em qualquer direção. O teste do sinal considera apenas as tarefas em que os braços discordam; com 13 tarefas, ele é declarado \textit{a priori} e reportado mesmo quando não significativo, e a leitura substantiva recai sobre o custo e sobre as contagens por faixa. As métricas 2, 3 e 5 consideram apenas as tarefas resolvidas por ambos os braços, e a censura é declarada com a lista das tarefas excluídas, uma vez que uma execução cortada por limite custa o teto, e não o custo de resolver. Os dois testes são exatos, por enumeração, implementados em funções puras do próprio \textit{script} de análise, sem dependência de biblioteca estatística. % scripts/analyze_results.py (teste_sinal, wilcoxon)
 
@@ -372,12 +378,12 @@ Antes de admitir uma execução na análise, o avaliador confere os portões de 
 
 A coleta principal (rodada 1) mediu o protótipo do braço orquestrado tal como herdado do trabalho de graduação anterior, com a memória de trabalho entre ciclos e o teto de 40 turnos por ciclo já definidos nas execuções de fumaça. Em seguida, o braço orquestrado foi modificado em rodadas, cada uma com uma política registrada no manifesto e cada mudança com uma decisão numerada e aprovada por escrito; o agente único não foi alterado, e as rodadas 3 a 5 reutilizam, como referência pareada, as execuções do agente único da rodada 2, obtidas com as mesmas sementes. A Tabela~\ref{tab-rodadas} resume as configurações. Entre as rodadas 1 e 2 houve também correções do instrumento, válidas para os dois braços: a desmarcação de casos da suíte visível em três tarefas cujo \textit{patch} de teste original alterava testes visíveis, e a correção do diretório-raiz do \texttt{pytest} nos \textit{workspaces}, sem a qual a desmarcação não produzia efeito; as células afetadas foram descartadas e refeitas com a mesma semente. % 09-decisoes-do-autor.md, decisões 27 e 30; 16-ablacao-e-v2.md §4
 
-\begin{table}[ht!]
+\begin{table*}[t]
 \centering
 \caption{Configuração do braço orquestrado em cada rodada. Todas as chaves são registradas no manifesto (\texttt{orchestration\_policy}).}
 \label{tab-rodadas}
 \small
-\begin{tabular}{llp{9.4cm}}
+\begin{tabular}{p{3.4cm}lp{10.4cm}}
 \toprule
 Rodada & Manifesto & O que muda em relação à anterior \\
 \midrule
@@ -389,7 +395,7 @@ ablação do refinador (14/10) & v8 & desenvolvedor recebe o enunciado íntegro 
 5 (15--16/10) & v14 & veredito da sub-tarefa por comparação determinística das saídas esperadas; comparação entregue ao revisor final com a regra ``não verificável não reprova''; trechos lidos pelo planejador entregues ao desenvolvedor (16.000 caracteres); planejador com 8 turnos e 3 sub-tarefas; saídas esperadas já produzidas pelo código original ficam fora de toda comparação (relançada após uma falsa partida de 4 execuções, manifesto v13) \\
 \bottomrule
 \end{tabular}
-\end{table}
+\end{table*}
 
 Três mudanças foram decididas com base em dados, duas delas antes de qualquer gasto adicional: % scripts/calibrar_comparacao.py; dados/coleta-r5/calibracao-offline.txt; 09-decisoes-do-autor.md, decisão 39; runs/coleta-r5-descartados/README.md
 
@@ -417,12 +423,12 @@ O manifesto de cada execução, a trilha de eventos e o arquivo \texttt{result.j
 
 Todas as execuções ocorreram em uma única máquina: processador AMD Ryzen 7 7800X3D (8 núcleos e 16 \textit{threads}), 7 GB de memória visíveis à máquina virtual, Ubuntu 26.04.1 LTS sob WSL2 (\textit{kernel} 6.18.54) e Python 3.12.14. O modelo de linguagem é servido remotamente; a máquina executa os agentes, as ferramentas, as suítes de teste e o avaliador. A Tabela~\ref{tab-parametros} lista as versões e os parâmetros, indicando quais valores são o padrão da biblioteca e quais foram fixados pelo estudo. % uv.lock; src/config.py; src/budget.py; src/tools/base.py; src/runtime.py
 
-\begin{table}[ht!]
+\begin{table*}[t]
 \centering
 \caption{\textit{Software}, modelo e parâmetros. ``Fixado'' indica valor escolhido pelo estudo; ``padrão'' indica o valor de fábrica da biblioteca.}
 \label{tab-parametros}
 \small
-\begin{tabular}{llp{6.6cm}}
+\begin{tabular}{p{4.8cm}p{4.6cm}p{5.6cm}}
 \toprule
 Componente & Valor & Observação \\
 \midrule
@@ -444,6 +450,6 @@ Orquestrado: ciclo / teto de reprovações / clarificações & 40 turnos / 2 (0 
 Orquestrado: planejador (rodadas 4 e 5) & 12 e 6; 8 e 3 (turnos; sub-tarefas) & fixado por rodada \\
 \bottomrule
 \end{tabular}
-\end{table}
+\end{table*}
 
 O código do instrumento conta com 696 testes automatizados, que cobrem o detector de trapaça, o oráculo, a guarda de caminho, a fixação do provedor, a paridade entre os braços e cada política do braço orquestrado; a suíte é executada e deve estar verde antes de cada \textit{commit}. % .venv/bin/python -m pytest -q, 16/10/2026
