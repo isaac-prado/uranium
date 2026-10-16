@@ -36,6 +36,7 @@ from src.schemas.plan import (
     Plan,
     Replan,
     Subtask,
+    caminho_normalizado,
     estado_inicial,
     sanear,
 )
@@ -56,36 +57,47 @@ só com o que estiver escrito nela.
 Como planejar:
 1. Leia a especificação inteira. Localize no repositório onde cada critério
    de aceitação é decidido (arquivo, classe, função). Use as ferramentas para
-   confirmar nomes e caminhos; não adivinhe.
+   confirmar nomes e caminhos; não adivinhe. Os trechos que você ler com
+   read_file serão entregues ao desenvolvedor junto com a sub-tarefa que
+   cita o arquivo: leia o que ele vai precisar editar.
 2. Decida se vale fatiar. Fatie quando os critérios tocam partes diferentes
-   do código ou podem ser verificados separadamente. Não fatie quando a
-   mudança é uma só (um lugar, um comportamento): nesse caso entregue uma
-   única sub-tarefa.
+   do código e cada fatia pode ser verificada sozinha, por blocos de
+   reprodução e saídas esperadas próprios. Não fatie quando a mudança é uma
+   só (um lugar, um comportamento) ou quando as fatias não teriam como ser
+   verificadas separadamente: nesse caso entregue uma única sub-tarefa.
 3. Cada sub-tarefa diz: o que mudar e onde (arquivos e funções confirmados
    pela leitura), quais critérios da especificação ela cobre (índices, a
    partir de 1, na ordem da especificação), quais blocos de reprodução a
-   verificam (índices) e como saber que está pronta (done_when, observável
-   por execução).
-4. Ordene por dependência: a sub-tarefa de que as outras precisam vem antes.
-   Uma sub-tarefa tem de caber em cerca de 30 turnos de trabalho; se não
-   cabe, divida. No máximo 6 sub-tarefas.
-5. Todo critério da especificação precisa estar em alguma sub-tarefa. A
-   última pode ser "integração e regressão": rodar a suíte inteira e os
-   exemplos completos.
+   verificam (índices dos blocos), quais saídas esperadas esses blocos
+   imprimem literalmente depois da correção (índices da lista de saídas
+   esperadas) e como saber que está pronta (done_when, observável por
+   execução). O validador confere a sub-tarefa comparando a saída real dos
+   blocos com essas saídas esperadas, por texto, sem interpretar: aponte só
+   saídas literais que os blocos produzem; não aponte descrições em prosa,
+   saídas "atuais" (de antes da correção) nem entradas.
+4. Ordene por dependência e faça a primeira sub-tarefa carregar o núcleo da
+   mudança; as seguintes são complementos. No máximo {maximo} sub-tarefas.
+5. Todo critério da especificação precisa estar em alguma sub-tarefa.
 6. Não invente requisitos. Não escreva código. Não proponha editar testes:
    a área de testes é protegida.
 
 Quando terminar de explorar, responda sem chamar ferramentas; o plano será
 pedido em seguida, em JSON com rationale e subtasks (id, title, objective,
-files, criteria, reproduction, done_when).
+files, criteria, reproduction, expected, done_when).
 """
+
+
+def system_prompt() -> str:
+    """Prompt do planejador com o teto de sub-tarefas da política (rodada 5: 3)."""
+    return SYSTEM_PROMPT.format(maximo=config.PLANNER_MAX_SUBTASKS)
+
 
 PEDIDO_DO_PLANO = (
     "Com base na especificação e no que você leu do repositório, entregue agora "
     "o plano de sub-tarefas. Responda SÓ com um objeto JSON, sem texto em volta, "
     "no formato {\"rationale\": str, \"subtasks\": [{\"id\": int, \"title\": str, "
     "\"objective\": str, \"files\": [str], \"criteria\": [int], \"reproduction\": [int], "
-    "\"done_when\": str}]}."
+    "\"expected\": [int], \"done_when\": str}]}."
 )
 
 PEDIDO_DE_REPLANEJAMENTO = (
@@ -150,14 +162,36 @@ def _plano_unico(intent: Any) -> Plan:
     """Plano de uma sub-tarefa só, quando o modelo não conformou ao schema."""
     n_crit = len(getattr(intent, "acceptance_criteria", []) or [])
     n_rep = len(getattr(intent, "reproduction", []) or [])
+    n_esp = len(getattr(intent, "expected_outputs", []) or [])
     return Plan(
         rationale="fallback do harness: o planejador não devolveu um plano válido",
         subtasks=[Subtask(
             id=1, title="Tarefa inteira", objective=str(getattr(intent, "goal", "")),
             files=[], criteria=list(range(1, n_crit + 1)), reproduction=list(range(1, n_rep + 1)),
+            expected=list(range(1, n_esp + 1)),
             done_when="todos os critérios de aceitação verificados por execução",
         )],
     )
+
+
+def _guardar_leituras(ai: Any, respostas: list[BaseMessage], trechos: dict[str, list[str]]) -> None:
+    """
+    Conteúdo que `read_file` devolveu ao planejador, por arquivo e na ordem
+    das leituras (decisão 37, rodada 5). Vai ao developer com a sub-tarefa
+    que cita o arquivo, limitado por `PLANNER_CONTEXT_MAX_CHARS`. Erro e
+    recusa da ferramenta não são leitura.
+    """
+    chamadas = {c.get("id"): c for c in (getattr(ai, "tool_calls", None) or [])}
+    for msg in respostas:
+        chamada = chamadas.get(getattr(msg, "tool_call_id", None))
+        if not chamada or chamada.get("name") != "read_file":
+            continue
+        conteudo = str(msg.content)
+        if conteudo.startswith(("ERRO:", "RECUSADO:")):
+            continue
+        caminho = caminho_normalizado(str((chamada.get("args") or {}).get("path", "")))
+        if caminho:
+            trechos.setdefault(caminho, []).append(conteudo)
 
 
 def planner(state: WorkflowState) -> dict[str, Any]:
@@ -169,7 +203,12 @@ def planner(state: WorkflowState) -> dict[str, Any]:
 
     turno = state.get("turn_count", 0)
     stop_reason = state.get("stop_reason", "") if str(state.get("stop_reason", "")).startswith("budget") else ""
-    mensagens: list[BaseMessage] = [SystemMessage(content=SYSTEM_PROMPT)]
+    prompt_do_sistema = system_prompt()
+    mensagens: list[BaseMessage] = [SystemMessage(content=prompt_do_sistema)]
+    # Trechos lidos (decisão 37): no replanejamento, os do plano anterior ficam.
+    trechos: dict[str, list[str]] = {
+        k: [v] for k, v in ((state.get("plan") or {}).get("trechos") or {}).items()
+    } if replanejar else {}
     cabecalho = ["Especificação da tarefa:", intent_as_text(intent)]
     if replanejar:
         cabecalho += ["", PEDIDO_DE_REPLANEJAMENTO, "", _contexto_de_replanejamento(state)]
@@ -193,7 +232,9 @@ def planner(state: WorkflowState) -> dict[str, Any]:
             mensagens.append(ai)
             if not getattr(ai, "tool_calls", None):
                 break
-            mensagens.extend(ctx.executar_tool_calls(ai, permitidas=FERRAMENTAS_DE_LEITURA))
+            respostas = ctx.executar_tool_calls(ai, permitidas=FERRAMENTAS_DE_LEITURA)
+            mensagens.extend(respostas)
+            _guardar_leituras(ai, respostas, trechos)
 
         schema = Replan if replanejar else Plan
         # Plano, primeiro na própria conversa (o modelo acabou de ler os
@@ -220,7 +261,7 @@ def planner(state: WorkflowState) -> dict[str, Any]:
                 PEDIDO_DO_PLANO,
             ])
             try:
-                plano = ctx.invoke_structured(schema, [("system", SYSTEM_PROMPT), ("user", pedido)])
+                plano = ctx.invoke_structured(schema, [("system", prompt_do_sistema), ("user", pedido)])
             except StructuredOutputError as exc:
                 ctx.telemetry.emit_error(exc)
                 plano = None
@@ -229,7 +270,9 @@ def planner(state: WorkflowState) -> dict[str, Any]:
             plano = Replan(subtasks=[]) if replanejar else _plano_unico(intent)
         n_crit = len(intent.acceptance_criteria or [])
         n_rep = len(intent.reproduction) if isinstance(intent, StructuredIntentV2) else 0
-        plano = sanear(plano, n_criterios=n_crit, n_reproducao=n_rep, maximo=config.PLANNER_MAX_SUBTASKS)
+        n_esp = len(intent.expected_outputs) if isinstance(intent, StructuredIntentV2) else 0
+        plano = sanear(plano, n_criterios=n_crit, n_reproducao=n_rep, n_esperadas=n_esp,
+                       maximo=config.PLANNER_MAX_SUBTASKS)
         if not plano.subtasks and not replanejar:
             plano = _plano_unico(intent)
 
@@ -255,6 +298,7 @@ def planner(state: WorkflowState) -> dict[str, Any]:
             for s in status:
                 if s["id"] == atual:
                     s["status"] = STATUS_EM_ANDAMENTO
+        trechos_texto = {k: "\n".join(v) for k, v in trechos.items()}
         registro = {
             "evento": "replanejamento" if replanejar else "plano",
             "rationale": plano.rationale,
@@ -263,11 +307,14 @@ def planner(state: WorkflowState) -> dict[str, Any]:
             "turnos_de_exploracao": turnos_de_exploracao,
             "subtask_current": atual,
             "replans": replans,
+            # Só o tamanho: o conteúdo lido fica no estado, não no evento.
+            "trechos_chars": {k: len(v) for k, v in trechos_texto.items()},
         }
         ctx.telemetry.emit_plan(registro)
 
     out: dict[str, Any] = {
-        "plan": {"rationale": plano.rationale, "subtasks": subtasks, "status": status},
+        "plan": {"rationale": plano.rationale, "subtasks": subtasks, "status": status,
+                 "trechos": trechos_texto},
         "subtask_current": atual,
         "subtask_review": None,
         "replan_requested": False,

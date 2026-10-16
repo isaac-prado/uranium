@@ -1,0 +1,5 @@
+tentativas analisadas: 40 (docs/tcc/dados/coleta-r4, eventos tool_call de read_file)
+planner_read_file: total 365, média por tentativa 9.1
+planner_bytes: total 1469604, média por tentativa 36740.1
+developer_ciclo1_read_file: total 296, média por tentativa 7.4
+developer_ciclo1_bytes: total 480945, média por tentativa 12023.6

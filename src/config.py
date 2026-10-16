@@ -123,6 +123,31 @@ PLANNER_MAX_REPLANS = int(os.getenv("PLANNER_MAX_REPLANS", "1"))
 SUBTASK_MAX_CYCLES = int(os.getenv("SUBTASK_MAX_CYCLES", "2"))
 # Tamanho máximo do plano.
 PLANNER_MAX_SUBTASKS = int(os.getenv("PLANNER_MAX_SUBTASKS", "6"))
+# Rodada 5 (decisões 35 a 38, 15/10/2026, aprovadas por escrito).
+# Veredito da sub-tarefa: "llm" é a revisão de sub-tarefa da rodada 4
+# (reprovou 84 %); "deterministic" compara a saída real dos blocos da
+# sub-tarefa com as saídas esperadas que o planejador apontou
+# (src/verificacao.py), sem chamada ao modelo; quando nada é verificável,
+# vale a palavra do developer (encerrou o ciclo sem bater o teto).
+SUBTASK_CHECK_MODES = ("llm", "deterministic")
+SUBTASK_CHECK = os.getenv("SUBTASK_CHECK", "llm").strip().lower()
+if SUBTASK_CHECK not in SUBTASK_CHECK_MODES:
+    raise ValueError(f"SUBTASK_CHECK={SUBTASK_CHECK!r} inválido; use um de {SUBTASK_CHECK_MODES}")
+# Comparação automática na revisão final: "advisory" entrega ao revisor,
+# antes do veredito, qual saída esperada foi encontrada, não encontrada ou
+# não é verificável, e a regra de que não verificável não reprova;
+# "strict" reprova sem consultar o revisor quando uma saída verificável
+# falta (guardado: na calibração sobre a rodada 4 derrubaria 8 dos 22 runs
+# resolvidos); "off" é a rodada 4.
+REVIEW_COMPARE_MODES = ("off", "advisory", "strict")
+REVIEW_COMPARE = os.getenv("REVIEW_COMPARE", "off").strip().lower()
+if REVIEW_COMPARE not in REVIEW_COMPARE_MODES:
+    raise ValueError(f"REVIEW_COMPARE={REVIEW_COMPARE!r} inválido; use um de {REVIEW_COMPARE_MODES}")
+# Trechos que o planejador leu, entregues ao developer com a sub-tarefa
+# (decisão 37): teto de caracteres por sub-tarefa; 0 desliga (rodada 4).
+PLANNER_CONTEXT_MAX_CHARS = int(os.getenv("PLANNER_CONTEXT_MAX_CHARS", "0"))
+if PLANNER_CONTEXT_MAX_CHARS < 0:
+    raise ValueError("PLANNER_CONTEXT_MAX_CHARS não pode ser negativo (0 desliga)")
 DEVELOPER_INPUT_MODES = ("intent", "enunciado+intent")
 DEVELOPER_INPUT = os.getenv("DEVELOPER_INPUT", "intent").strip().lower()
 if DEVELOPER_INPUT not in DEVELOPER_INPUT_MODES:

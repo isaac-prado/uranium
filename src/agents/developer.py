@@ -34,6 +34,7 @@ from src.feedback import (
 from src.prompts import AGENT_SYSTEM_PROMPT
 from src.runtime import RunContext
 from src.schemas.intent import StructuredIntentV2, intent_as_text
+from src.schemas.plan import caminho_normalizado
 from src.state import WorkflowState, parse_intent, parse_test_report, parse_validation
 
 # Mesmo prompt do braço single-agent. A decomposição em papéis do
@@ -100,10 +101,37 @@ def _subtarefa(state: WorkflowState) -> str | None:
                      if 1 <= i <= len(intent.acceptance_criteria)]
         blocos_intent = intent.reproduction if isinstance(intent, StructuredIntentV2) else []
         blocos = [blocos_intent[i - 1] for i in sub.get("reproduction") or [] if 1 <= i <= len(blocos_intent)]
+        esperadas_intent = intent.expected_outputs if isinstance(intent, StructuredIntentV2) else []
+        esperadas = [esperadas_intent[i - 1] for i in sub.get("expected") or []
+                     if 1 <= i <= len(esperadas_intent)]
         posicao = next((k for k, s in enumerate(subtasks, 1) if s.get("id") == atual), 0)
         partes += ["", subtarefa_atual(sub, posicao=posicao, total=len(subtasks),
-                                       criterios=criterios, blocos=blocos)]
+                                       criterios=criterios, blocos=blocos, esperadas=esperadas,
+                                       trechos=_trechos_da_subtarefa(plano, sub))]
     return "\n".join(partes)
+
+
+def _trechos_da_subtarefa(plano: dict[str, Any], sub: dict[str, Any]) -> list[tuple[str, str]]:
+    """
+    Trechos que o planejador leu dos arquivos desta sub-tarefa (decisão 37),
+    na ordem em que ela os lista, até `PLANNER_CONTEXT_MAX_CHARS` no total;
+    o último que não cabe inteiro é cortado com marca. 0 desliga (rodada 4).
+    """
+    teto = config.PLANNER_CONTEXT_MAX_CHARS
+    lidos = plano.get("trechos") or {}
+    if teto <= 0 or not lidos:
+        return []
+    saida: list[tuple[str, str]] = []
+    restante = teto
+    for arquivo in sub.get("files") or []:
+        texto = lidos.get(caminho_normalizado(str(arquivo)))
+        if not texto or restante <= 0:
+            continue
+        if len(texto) > restante:
+            texto = texto[:restante] + "\n[... trecho cortado pelo teto da política ...]"
+        restante -= len(texto)
+        saida.append((str(arquivo), texto))
+    return saida
 
 
 def _revisao_da_subtarefa(state: WorkflowState) -> str | None:

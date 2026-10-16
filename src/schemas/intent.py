@@ -77,16 +77,33 @@ class StructuredIntentV2(StructuredIntent):
             itens.append(item)
         return itens
 
+    @field_validator("reproduction", mode="after")
+    @classmethod
+    def _desescapar_quebras(cls, blocos: list[str]) -> list[str]:
+        """
+        Bloco copiado numa linha só com as quebras escritas como `\\n` não
+        compila: na rodada 4 (sqlite-utils-0003 rep02) os cinco blocos
+        morreram em SyntaxError antes da primeira instrução e o revisor
+        ficou sem execução. Só quando não há quebra real e há mais de uma
+        escrita; `\\n` dentro de uma string de um bloco multilinha fica.
+        """
+        return [b.replace("\\n", "\n") if "\n" not in b and b.count("\\n") >= 2 else b for b in blocos]
+
     def to_markdown(self) -> str:
-        """Texto que o developer e o revisor recebem no lugar do JSON."""
+        """
+        Texto que o developer, o revisor e o planejador recebem no lugar do
+        JSON. Blocos e saídas esperadas numerados (rodada 5): o planejador
+        aponta sub-tarefas por esses índices e o validador compara por eles.
+        """
         partes = ["# Objetivo", self.goal.strip(), "", "# Contexto", self.context.strip()]
         if self.reproduction:
             partes += ["", "# Como reproduzir"]
-            for bloco in self.reproduction:
+            for i, bloco in enumerate(self.reproduction, 1):
                 b = bloco.strip()
-                partes += [b if b.startswith("```") else f"```\n{b}\n```", ""]
+                partes += [f"Bloco {i}:", b if b.startswith("```") else f"```\n{b}\n```", ""]
         if self.expected_outputs:
-            partes += ["", "# Saídas e valores esperados", *(f"- {x.strip()}" for x in self.expected_outputs)]
+            partes += ["", "# Saídas e valores esperados",
+                       *(f"{i}. {x.strip()}" for i, x in enumerate(self.expected_outputs, 1))]
         partes += ["", "# Critérios de aceitação",
                    *(f"{i}. {c.strip()}" for i, c in enumerate(self.acceptance_criteria, 1))]
         if self.phases:

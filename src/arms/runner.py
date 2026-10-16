@@ -60,7 +60,7 @@ from src.workspace import Workspace, WorkspaceSpec
 # 10 = rodada 2 (decisões 27 e 29, 14/10/2026): `visible_deselect` da tarefa
 # no manifesto (igual nos dois braços), `orchestration_policy.review_execution`
 # e `cycle_note`.
-MANIFEST_VERSION = 12
+MANIFEST_VERSION = 13
 
 # Chaves do manifesto que PODEM diferir entre os braços. Qualquer outra
 # divergência é violação do desenho experimental. Note que `repetition` NÃO
@@ -165,6 +165,13 @@ def _orchestration_policy() -> dict[str, Any]:
         "planner_max_replans": config.PLANNER_MAX_REPLANS,
         "planner_max_subtasks": config.PLANNER_MAX_SUBTASKS,
         "subtask_max_cycles": config.SUBTASK_MAX_CYCLES,
+        # Rodada 5 (decisões 35 a 38, manifesto v13): veredito determinístico
+        # da sub-tarefa, comparação automática na revisão final e trechos
+        # lidos pelo planejador entregues ao developer. "llm"/"off"/0 é a
+        # rodada 4.
+        "subtask_check": config.SUBTASK_CHECK,
+        "review_compare": config.REVIEW_COMPARE,
+        "planner_context_max_chars": config.PLANNER_CONTEXT_MAX_CHARS,
         "developer_input": config.DEVELOPER_INPUT,
         "developer_memory": config.DEVELOPER_MEMORY,
         "developer_memory_diff_max_chars": MEMORIA_DIFF_MAX_CHARS,

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from src import verificacao as _verificacao
 from src.schemas.test_report import TestReport
 from src.tools.base import truncate
 
@@ -164,10 +165,15 @@ def subtarefa_atual(
     total: int,
     criterios: list[str],
     blocos: list[str],
+    esperadas: list[str] | None = None,
+    trechos: list[tuple[str, str]] | None = None,
 ) -> str:
     """
-    Sub-tarefa que o developer deve atacar neste ciclo, com os critérios e os
-    blocos de reprodução da intent que ela cobre, copiados literalmente.
+    Sub-tarefa que o developer deve atacar neste ciclo, com os critérios, os
+    blocos de reprodução e as saídas esperadas da intent que ela cobre,
+    copiados literalmente, e (rodada 5, decisão 37) os trechos dos arquivos
+    dela como o planejador os leu: conteúdo de um papel do braço, que o
+    harness só emoldura.
     """
     partes = [
         f"Sub-tarefa atual ({posicao} de {total}): {sub.get('title', '')}",
@@ -178,6 +184,10 @@ def subtarefa_atual(
     arquivos = sub.get("files") or []
     if arquivos:
         partes += ["", "Arquivos prováveis: " + ", ".join(str(a) for a in arquivos)]
+    if trechos:
+        partes += ["", "Trechos desses arquivos, como o planejador os leu antes de qualquer edição:"]
+        for caminho, texto in trechos:
+            partes += ["", f"--- {caminho} ---", texto.rstrip()]
     if criterios:
         partes += ["", "Critérios desta sub-tarefa:"]
         partes += [f"- {c.strip()}" for c in criterios]
@@ -186,6 +196,9 @@ def subtarefa_atual(
         for b in blocos:
             b = b.strip()
             partes += [b if b.startswith("```") else f"```\n{b}\n```", ""]
+    if esperadas:
+        partes += ["", "Saídas esperadas desses exemplos depois da correção (o validador compara o texto):"]
+        partes += [f"- {x.strip()}" for x in esperadas]
     pronto = str(sub.get("done_when", "")).strip()
     if pronto:
         partes += ["", f"Pronto quando: {pronto}"]
@@ -205,3 +218,37 @@ def plano_em_andamento(subtasks: list[dict[str, Any]], status: list[dict[str, An
         st = por_id.get(sub["id"], {})
         partes.append(f"- [{st.get('status', '?')}] {sub['id']}. {sub.get('title', '')}")
     return "\n".join(partes)
+
+
+# ------------------------------------------- comparação de saídas (rodada 5)
+#
+# Relatório da verificação determinística (src/verificacao.py): vai ao
+# developer como parecer da sub-tarefa (decisão 36) e ao revisor final como
+# subsídio (decisão 35). Só o que a comparação mediu, saída esperada por
+# saída esperada, e a saída real truncada; nenhum diagnóstico.
+
+COMPARACAO_DE_SAIDAS = "Comparação automática das saídas esperadas com a execução dos exemplos:"
+
+# Mesmo teto da saída de cada bloco no evento `validation`
+# (src/agents/validator.py::MAX_SAIDA_EXECUCAO_CHARS).
+MAX_SAIDA_COMPARACAO_CHARS = 2_000
+
+_ROTULOS_DA_COMPARACAO = {
+    _verificacao.ENCONTRADA: "encontrada",
+    _verificacao.NAO_ENCONTRADA: "NÃO encontrada",
+    _verificacao.NAO_VERIFICAVEL: "não verificável (bloco não executou ou texto não comparável)",
+}
+
+
+def comparacao_de_saidas(comparacoes: list[dict[str, Any]], saida: str | None = None) -> list[str]:
+    """Uma linha por saída esperada apontada, mais a saída real quando dada."""
+    linhas: list[str] = []
+    for c in comparacoes:
+        estado = str(c.get("estado", ""))
+        linha = f"saída esperada {c.get('indice')}: {_ROTULOS_DA_COMPARACAO.get(estado, estado)}"
+        if estado == _verificacao.NAO_ENCONTRADA:
+            linha += f" (esperado: {truncate(str(c.get('esperada', '')), 300)})"
+        linhas.append(linha)
+    if saida:
+        linhas.append("saída real da execução:\n" + truncate(saida, MAX_SAIDA_COMPARACAO_CHARS))
+    return linhas

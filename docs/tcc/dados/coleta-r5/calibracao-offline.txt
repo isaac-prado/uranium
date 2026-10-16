@@ -1,0 +1,139 @@
+
+### docs/tcc/dados/coleta-r2
+última revisão final de cada run × oráculo:
+  alguma NÃO encontrada            não resolvido  11
+  alguma NÃO encontrada            resolvido      9
+  nada verificável                 resolvido      4
+  sem execução na revisão final    não resolvido  3
+  todas encontradas                não resolvido  2
+  todas encontradas                resolvido      10
+aprovações erradas do revisor que a barreira dura pegaria: 3; que escapariam: 2
+por run:
+  attrs-0001 rep01: oráculo=resolvido revisor=aprovou comparação=alguma NÃO encontrada (1/4 verificáveis encontradas, 4 esperadas)
+  attrs-0001 rep02: oráculo=resolvido revisor=aprovou comparação=alguma NÃO encontrada (1/4 verificáveis encontradas, 4 esperadas)
+  attrs-0001 rep03: oráculo=não revisor=reprovou comparação=alguma NÃO encontrada (2/4 verificáveis encontradas, 4 esperadas)
+  peewee-0001 rep01: oráculo=resolvido revisor=aprovou comparação=todas encontradas (3/3 verificáveis encontradas, 4 esperadas)
+  peewee-0001 rep02: oráculo=resolvido revisor=aprovou comparação=todas encontradas (3/3 verificáveis encontradas, 4 esperadas)
+  peewee-0001 rep03: oráculo=resolvido revisor=aprovou comparação=todas encontradas (3/3 verificáveis encontradas, 4 esperadas)
+  peewee-0002 rep01: oráculo=não revisor=aprovou comparação=alguma NÃO encontrada (1/6 verificáveis encontradas, 6 esperadas)
+  peewee-0002 rep02: oráculo=não revisor=reprovou comparação=alguma NÃO encontrada (3/6 verificáveis encontradas, 6 esperadas)
+  peewee-0002 rep03: oráculo=não revisor=reprovou comparação=alguma NÃO encontrada (0/6 verificáveis encontradas, 6 esperadas)
+  peewee-0003 rep01: oráculo=resolvido revisor=reprovou comparação=alguma NÃO encontrada (1/2 verificáveis encontradas, 2 esperadas)
+  peewee-0003 rep02: oráculo=resolvido revisor=aprovou comparação=todas encontradas (2/2 verificáveis encontradas, 2 esperadas)
+  peewee-0003 rep03: oráculo=resolvido revisor=aprovou comparação=alguma NÃO encontrada (1/2 verificáveis encontradas, 2 esperadas)
+  pygments-0001 rep01: oráculo=não revisor=reprovou comparação=alguma NÃO encontrada (0/1 verificáveis encontradas, 1 esperadas)
+  pygments-0001 rep02: oráculo=resolvido revisor=aprovou comparação=todas encontradas (1/1 verificáveis encontradas, 1 esperadas)
+  pygments-0001 rep03: oráculo=não revisor=aprovou comparação=alguma NÃO encontrada (0/17 verificáveis encontradas, 17 esperadas)
+  sqlite-utils-0001 rep01: oráculo=não revisor=aprovou comparação=alguma NÃO encontrada (0/1 verificáveis encontradas, 1 esperadas)
+  sqlite-utils-0001 rep02: oráculo=resolvido revisor=aprovou comparação=alguma NÃO encontrada (0/1 verificáveis encontradas, 1 esperadas)
+  sqlite-utils-0002 rep01: oráculo=resolvido revisor=aprovou comparação=alguma NÃO encontrada (0/5 verificáveis encontradas, 5 esperadas)
+  sqlite-utils-0002 rep02: oráculo=resolvido revisor=aprovou comparação=alguma NÃO encontrada (0/2 verificáveis encontradas, 2 esperadas)
+  sqlite-utils-0002 rep03: oráculo=resolvido revisor=aprovou comparação=alguma NÃO encontrada (0/5 verificáveis encontradas, 5 esperadas)
+  sqlite-utils-0003 rep01: oráculo=resolvido revisor=reprovou comparação=todas encontradas (1/1 verificáveis encontradas, 6 esperadas)
+  sqlite-utils-0003 rep02: oráculo=não revisor=aprovou comparação=todas encontradas (1/1 verificáveis encontradas, 6 esperadas)
+  sqlite-utils-0003 rep03: oráculo=não revisor=aprovou comparação=todas encontradas (4/4 verificáveis encontradas, 7 esperadas)
+  tomlkit-0001 rep01: oráculo=resolvido revisor=reprovou comparação=nada verificável (0/0 verificáveis encontradas, 0 esperadas)
+  tomlkit-0001 rep02: oráculo=resolvido revisor=reprovou comparação=nada verificável (0/0 verificáveis encontradas, 0 esperadas)
+  tomlkit-0001 rep03: oráculo=resolvido revisor=aprovou comparação=nada verificável (0/0 verificáveis encontradas, 0 esperadas)
+  tomlkit-0002 rep01: oráculo=resolvido revisor=reprovou comparação=alguma NÃO encontrada (2/3 verificáveis encontradas, 3 esperadas)
+  tomlkit-0002 rep02: oráculo=não revisor=reprovou comparação=alguma NÃO encontrada (0/3 verificáveis encontradas, 3 esperadas)
+  tomlkit-0003 rep01: oráculo=resolvido revisor=aprovou comparação=todas encontradas (2/2 verificáveis encontradas, 2 esperadas)
+  tomlkit-0003 rep02: oráculo=resolvido revisor=reprovou comparação=nada verificável (0/0 verificáveis encontradas, 2 esperadas)
+  tomlkit-0003 rep03: oráculo=resolvido revisor=aprovou comparação=todas encontradas (1/1 verificáveis encontradas, 1 esperadas)
+  tomlkit-0004 rep02: oráculo=não revisor=reprovou comparação=alguma NÃO encontrada (4/7 verificáveis encontradas, 7 esperadas)
+  tomlkit-0004 rep03: oráculo=não revisor=reprovou comparação=alguma NÃO encontrada (0/6 verificáveis encontradas, 7 esperadas)
+  tomlkit-0005 rep01: oráculo=resolvido revisor=aprovou comparação=todas encontradas (1/1 verificáveis encontradas, 1 esperadas)
+  tomlkit-0005 rep02: oráculo=não revisor=reprovou comparação=alguma NÃO encontrada (0/1 verificáveis encontradas, 1 esperadas)
+  tomlkit-0005 rep03: oráculo=resolvido revisor=aprovou comparação=todas encontradas (1/1 verificáveis encontradas, 1 esperadas)
+
+### docs/tcc/dados/coleta-r3
+última revisão final de cada run × oráculo:
+  alguma NÃO encontrada            não resolvido  13
+  alguma NÃO encontrada            resolvido      7
+  nada verificável                 não resolvido  1
+  nada verificável                 resolvido      3
+  sem execução na revisão final    não resolvido  3
+  todas encontradas                não resolvido  3
+  todas encontradas                resolvido      9
+aprovações erradas do revisor que a barreira dura pegaria: 4; que escapariam: 3
+por run:
+  attrs-0001 rep01: oráculo=resolvido revisor=aprovou comparação=alguma NÃO encontrada (2/4 verificáveis encontradas, 4 esperadas)
+  attrs-0001 rep02: oráculo=não revisor=aprovou comparação=alguma NÃO encontrada (1/4 verificáveis encontradas, 4 esperadas)
+  attrs-0001 rep03: oráculo=não revisor=aprovou comparação=todas encontradas (4/4 verificáveis encontradas, 4 esperadas)
+  peewee-0001 rep01: oráculo=resolvido revisor=aprovou comparação=todas encontradas (3/3 verificáveis encontradas, 4 esperadas)
+  peewee-0001 rep02: oráculo=resolvido revisor=aprovou comparação=todas encontradas (3/3 verificáveis encontradas, 4 esperadas)
+  peewee-0001 rep03: oráculo=resolvido revisor=aprovou comparação=alguma NÃO encontrada (2/3 verificáveis encontradas, 4 esperadas)
+  peewee-0002 rep01: oráculo=não revisor=reprovou comparação=alguma NÃO encontrada (3/6 verificáveis encontradas, 6 esperadas)
+  peewee-0002 rep02: oráculo=não revisor=reprovou comparação=alguma NÃO encontrada (9/15 verificáveis encontradas, 15 esperadas)
+  peewee-0002 rep03: oráculo=não revisor=reprovou comparação=alguma NÃO encontrada (1/6 verificáveis encontradas, 6 esperadas)
+  peewee-0003 rep01: oráculo=resolvido revisor=reprovou comparação=todas encontradas (1/1 verificáveis encontradas, 1 esperadas)
+  peewee-0003 rep02: oráculo=resolvido revisor=reprovou comparação=todas encontradas (3/3 verificáveis encontradas, 3 esperadas)
+  peewee-0003 rep03: oráculo=resolvido revisor=aprovou comparação=alguma NÃO encontrada (1/2 verificáveis encontradas, 2 esperadas)
+  pygments-0001 rep01: oráculo=não revisor=reprovou comparação=alguma NÃO encontrada (0/1 verificáveis encontradas, 1 esperadas)
+  pygments-0001 rep02: oráculo=não revisor=aprovou comparação=todas encontradas (1/1 verificáveis encontradas, 1 esperadas)
+  pygments-0001 rep03: oráculo=resolvido revisor=aprovou comparação=todas encontradas (1/1 verificáveis encontradas, 1 esperadas)
+  sqlite-utils-0001 rep01: oráculo=não revisor=aprovou comparação=alguma NÃO encontrada (0/1 verificáveis encontradas, 1 esperadas)
+  sqlite-utils-0001 rep02: oráculo=resolvido revisor=aprovou comparação=alguma NÃO encontrada (0/1 verificáveis encontradas, 1 esperadas)
+  sqlite-utils-0001 rep03: oráculo=não revisor=aprovou comparação=alguma NÃO encontrada (0/1 verificáveis encontradas, 1 esperadas)
+  sqlite-utils-0002 rep01: oráculo=resolvido revisor=aprovou comparação=alguma NÃO encontrada (0/2 verificáveis encontradas, 2 esperadas)
+  sqlite-utils-0002 rep03: oráculo=não revisor=aprovou comparação=alguma NÃO encontrada (5/6 verificáveis encontradas, 6 esperadas)
+  sqlite-utils-0003 rep02: oráculo=não revisor=aprovou comparação=todas encontradas (1/1 verificáveis encontradas, 7 esperadas)
+  sqlite-utils-0003 rep03: oráculo=resolvido revisor=aprovou comparação=todas encontradas (4/4 verificáveis encontradas, 13 esperadas)
+  tomlkit-0001 rep01: oráculo=resolvido revisor=aprovou comparação=nada verificável (0/0 verificáveis encontradas, 0 esperadas)
+  tomlkit-0001 rep02: oráculo=resolvido revisor=aprovou comparação=nada verificável (0/0 verificáveis encontradas, 0 esperadas)
+  tomlkit-0001 rep03: oráculo=resolvido revisor=aprovou comparação=todas encontradas (1/1 verificáveis encontradas, 1 esperadas)
+  tomlkit-0002 rep01: oráculo=resolvido revisor=reprovou comparação=alguma NÃO encontrada (2/3 verificáveis encontradas, 3 esperadas)
+  tomlkit-0002 rep02: oráculo=não revisor=reprovou comparação=alguma NÃO encontrada (0/3 verificáveis encontradas, 3 esperadas)
+  tomlkit-0002 rep03: oráculo=resolvido revisor=aprovou comparação=alguma NÃO encontrada (2/3 verificáveis encontradas, 3 esperadas)
+  tomlkit-0003 rep01: oráculo=resolvido revisor=aprovou comparação=todas encontradas (2/2 verificáveis encontradas, 2 esperadas)
+  tomlkit-0003 rep02: oráculo=resolvido revisor=reprovou comparação=nada verificável (0/0 verificáveis encontradas, 1 esperadas)
+  tomlkit-0003 rep03: oráculo=resolvido revisor=aprovou comparação=todas encontradas (2/2 verificáveis encontradas, 2 esperadas)
+  tomlkit-0004 rep01: oráculo=não revisor=reprovou comparação=nada verificável (0/0 verificáveis encontradas, 8 esperadas)
+  tomlkit-0004 rep02: oráculo=não revisor=reprovou comparação=alguma NÃO encontrada (0/8 verificáveis encontradas, 8 esperadas)
+  tomlkit-0005 rep01: oráculo=não revisor=reprovou comparação=alguma NÃO encontrada (0/1 verificáveis encontradas, 1 esperadas)
+  tomlkit-0005 rep02: oráculo=não revisor=reprovou comparação=alguma NÃO encontrada (0/1 verificáveis encontradas, 1 esperadas)
+  tomlkit-0005 rep03: oráculo=não revisor=reprovou comparação=alguma NÃO encontrada (0/1 verificáveis encontradas, 1 esperadas)
+
+### docs/tcc/dados/coleta-r4
+última revisão final de cada run × oráculo:
+  alguma NÃO encontrada            não resolvido  7
+  alguma NÃO encontrada            resolvido      4
+  nada verificável                 resolvido      5
+  sem execução na revisão final    não resolvido  6
+  todas encontradas                não resolvido  2
+  todas encontradas                resolvido      15
+aprovações erradas do revisor que a barreira dura pegaria: 1; que escapariam: 2
+por run:
+  attrs-0001 rep01: oráculo=resolvido revisor=aprovou comparação=alguma NÃO encontrada (2/5 verificáveis encontradas, 5 esperadas)
+  attrs-0001 rep02: oráculo=resolvido revisor=aprovou comparação=alguma NÃO encontrada (2/4 verificáveis encontradas, 4 esperadas)
+  peewee-0001 rep01: oráculo=resolvido revisor=aprovou comparação=todas encontradas (3/3 verificáveis encontradas, 4 esperadas)
+  peewee-0001 rep02: oráculo=resolvido revisor=aprovou comparação=todas encontradas (3/3 verificáveis encontradas, 4 esperadas)
+  peewee-0001 rep03: oráculo=resolvido revisor=aprovou comparação=todas encontradas (3/3 verificáveis encontradas, 3 esperadas)
+  peewee-0002 rep01: oráculo=não revisor=reprovou comparação=alguma NÃO encontrada (1/6 verificáveis encontradas, 6 esperadas)
+  peewee-0002 rep02: oráculo=não revisor=reprovou comparação=alguma NÃO encontrada (1/6 verificáveis encontradas, 6 esperadas)
+  peewee-0002 rep03: oráculo=não revisor=reprovou comparação=alguma NÃO encontrada (4/6 verificáveis encontradas, 6 esperadas)
+  peewee-0003 rep01: oráculo=resolvido revisor=aprovou comparação=todas encontradas (1/1 verificáveis encontradas, 1 esperadas)
+  peewee-0003 rep02: oráculo=resolvido revisor=aprovou comparação=todas encontradas (1/1 verificáveis encontradas, 1 esperadas)
+  peewee-0003 rep03: oráculo=resolvido revisor=aprovou comparação=todas encontradas (2/2 verificáveis encontradas, 2 esperadas)
+  pygments-0001 rep01: oráculo=resolvido revisor=aprovou comparação=todas encontradas (1/1 verificáveis encontradas, 1 esperadas)
+  pygments-0001 rep02: oráculo=resolvido revisor=aprovou comparação=alguma NÃO encontrada (0/2 verificáveis encontradas, 2 esperadas)
+  pygments-0001 rep03: oráculo=resolvido revisor=aprovou comparação=todas encontradas (1/1 verificáveis encontradas, 1 esperadas)
+  sqlite-utils-0001 rep02: oráculo=resolvido revisor=aprovou comparação=alguma NÃO encontrada (0/1 verificáveis encontradas, 1 esperadas)
+  sqlite-utils-0001 rep03: oráculo=não revisor=aprovou comparação=alguma NÃO encontrada (0/1 verificáveis encontradas, 1 esperadas)
+  sqlite-utils-0002 rep01: oráculo=resolvido revisor=aprovou comparação=todas encontradas (2/2 verificáveis encontradas, 2 esperadas)
+  sqlite-utils-0002 rep02: oráculo=resolvido revisor=aprovou comparação=todas encontradas (2/2 verificáveis encontradas, 2 esperadas)
+  sqlite-utils-0002 rep03: oráculo=não revisor=aprovou comparação=todas encontradas (1/1 verificáveis encontradas, 1 esperadas)
+  sqlite-utils-0003 rep01: oráculo=não revisor=aprovou comparação=todas encontradas (4/4 verificáveis encontradas, 6 esperadas)
+  sqlite-utils-0003 rep02: oráculo=resolvido revisor=aprovou comparação=nada verificável (0/0 verificáveis encontradas, 6 esperadas)
+  sqlite-utils-0003 rep03: oráculo=resolvido revisor=aprovou comparação=todas encontradas (4/4 verificáveis encontradas, 6 esperadas)
+  tomlkit-0001 rep01: oráculo=resolvido revisor=reprovou comparação=nada verificável (0/0 verificáveis encontradas, 0 esperadas)
+  tomlkit-0001 rep02: oráculo=resolvido revisor=aprovou comparação=todas encontradas (1/1 verificáveis encontradas, 1 esperadas)
+  tomlkit-0001 rep03: oráculo=resolvido revisor=aprovou comparação=nada verificável (0/0 verificáveis encontradas, 0 esperadas)
+  tomlkit-0002 rep02: oráculo=resolvido revisor=aprovou comparação=todas encontradas (3/3 verificáveis encontradas, 3 esperadas)
+  tomlkit-0002 rep03: oráculo=resolvido revisor=aprovou comparação=todas encontradas (3/3 verificáveis encontradas, 3 esperadas)
+  tomlkit-0003 rep01: oráculo=resolvido revisor=reprovou comparação=nada verificável (0/0 verificáveis encontradas, 1 esperadas)
+  tomlkit-0003 rep02: oráculo=resolvido revisor=reprovou comparação=nada verificável (0/0 verificáveis encontradas, 2 esperadas)
+  tomlkit-0003 rep03: oráculo=resolvido revisor=aprovou comparação=todas encontradas (2/2 verificáveis encontradas, 2 esperadas)
+  tomlkit-0005 rep01: oráculo=não revisor=reprovou comparação=alguma NÃO encontrada (0/2 verificáveis encontradas, 2 esperadas)
+  tomlkit-0005 rep02: oráculo=não revisor=reprovou comparação=alguma NÃO encontrada (0/1 verificáveis encontradas, 1 esperadas)
+  tomlkit-0005 rep03: oráculo=não revisor=reprovou comparação=alguma NÃO encontrada (0/1 verificáveis encontradas, 1 esperadas)

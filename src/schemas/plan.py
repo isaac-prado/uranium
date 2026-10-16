@@ -53,9 +53,15 @@ class Subtask(BaseModel):
         default_factory=list,
         description="Índices (a partir de 1) dos blocos de reprodução da especificação que verificam esta sub-tarefa",
     )
+    # Rodada 5 (decisão 36): o validador confere a sub-tarefa comparando a
+    # saída real dos blocos com estas saídas esperadas, por texto.
+    expected: list[int] = Field(
+        default_factory=list,
+        description="Índices (a partir de 1) das saídas esperadas da especificação que os blocos desta sub-tarefa imprimem literalmente depois da correção",
+    )
     done_when: str = Field(description="Como saber, por execução, que a sub-tarefa está pronta")
 
-    @field_validator("criteria", "reproduction", mode="before")
+    @field_validator("criteria", "reproduction", "expected", mode="before")
     @classmethod
     def _indices(cls, valor: Any) -> Any:
         return _inteiros(valor)
@@ -91,7 +97,9 @@ class Replan(Plan):
     subtasks: list[Subtask] = Field(default_factory=list)
 
 
-def sanear(plan: Plan, *, n_criterios: int, n_reproducao: int, maximo: int = 6) -> Plan:
+def sanear(
+    plan: Plan, *, n_criterios: int, n_reproducao: int, maximo: int = 6, n_esperadas: int = 0
+) -> Plan:
     """
     Garante que o plano só aponte para itens que existem na intent e que
     não passe do tamanho máximo. Índices fora do intervalo são descartados;
@@ -101,7 +109,16 @@ def sanear(plan: Plan, *, n_criterios: int, n_reproducao: int, maximo: int = 6) 
     for s in subtasks:
         s.criteria = sorted({i for i in s.criteria if 1 <= i <= n_criterios})
         s.reproduction = sorted({i for i in s.reproduction if 1 <= i <= n_reproducao})
+        s.expected = sorted({i for i in s.expected if 1 <= i <= n_esperadas})
     return type(plan).model_construct(rationale=plan.rationale, subtasks=subtasks)
+
+
+def caminho_normalizado(caminho: str) -> str:
+    """`./tomlkit/items.py`, `/tomlkit/items.py` e `tomlkit/items.py` são o mesmo arquivo."""
+    p = str(caminho).strip()
+    while p.startswith("./"):
+        p = p[2:]
+    return p.lstrip("/")
 
 
 def estado_inicial(plan: Plan) -> list[dict[str, Any]]:

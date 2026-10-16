@@ -29,6 +29,11 @@ class TestSchemaV2:
         assert i.reproduction == ["x = 1\nprint(x)", "y"]
         assert i.expected_outputs == [" 1 "]
 
+    def test_bloco_numa_linha_so_com_quebras_escritas_e_desescapado(self):
+        # sqlite-utils-0003 rep02 (rodada 4): os blocos vieram com `\\n` escrito e nenhum compilou
+        i = _v2(reproduction=["import x\\n\\ny = 1", "print('a\\nb')\nprint(2)", "s = 'a\\nb'"])
+        assert i.reproduction == ["import x\n\ny = 1", "print('a\\nb')\nprint(2)", "s = 'a\\nb'"]
+
     def test_item_que_nao_e_texto_continua_invalido(self):
         import pytest
         from pydantic import ValidationError
@@ -39,8 +44,8 @@ class TestSchemaV2:
     def test_markdown_carrega_reproducao_saidas_e_restricoes_literalmente(self):
         texto = _v2().to_markdown()
         assert texto.startswith("# Objetivo\nAceitar chaves pontilhadas.\n")
-        assert "# Como reproduzir\n```python\nimport tomlkit\nprint(tomlkit.parse('a.b = 1'))\n```" in texto
-        assert "# Saídas e valores esperados\n- {'a': {'b': 1}}" in texto
+        assert "# Como reproduzir\nBloco 1:\n```python\nimport tomlkit\nprint(tomlkit.parse('a.b = 1'))\n```" in texto
+        assert "# Saídas e valores esperados\n1. {'a': {'b': 1}}" in texto
         assert "# Critérios de aceitação\n1. parse('a.b = 1')['a']['b'] == 1" in texto
         assert "# Restrições do ambiente\n- A área de testes (tests/) é protegida; não escrever testes." in texto
         assert "Pontos em aberto" not in texto

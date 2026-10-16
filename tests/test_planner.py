@@ -19,17 +19,19 @@ def _intent_v2() -> dict:
         context="c", goal="Levantar erro em array malformado e aceitar chave pontilhada.",
         phases=["a", "b"], is_ready=True,
         acceptance_criteria=["Array malformado levanta exceção", "Chave pontilhada é aceita", "Suíte continua verde"],
-        reproduction=["x = 2", "print(x + 2)"],
-        expected_outputs=["4"], constraints=[],
+        reproduction=["x = 2", "print('soma:', x + 2)"],
+        expected_outputs=["soma: 4", "nunca aparece"], constraints=[],
     ).model_dump()
 
 
 def _plano(n: int = 2) -> Plan:
     subs = [
         Subtask(id=1, title="Parser de array", objective="Mudar tomlkit/parser.py::_parse_array",
-                files=["tomlkit/parser.py"], criteria=[1], reproduction=[1], done_when="exceção levantada"),
+                files=["tomlkit/parser.py"], criteria=[1], reproduction=[1, 2], expected=[1],
+                done_when="exceção levantada"),
         Subtask(id=2, title="Chave pontilhada", objective="Mudar tomlkit/container.py",
-                files=["tomlkit/container.py"], criteria=[2, 3], reproduction=[2], done_when="exemplo imprime 4"),
+                files=["tomlkit/container.py"], criteria=[2, 3], reproduction=[2], expected=[2],
+                done_when="exemplo imprime 4"),
     ]
     return Plan(rationale="duas partes independentes", subtasks=subs[:n])
 
@@ -59,6 +61,12 @@ class TestSchemaDoPlano:
         s = sanear(p, n_criterios=3, n_reproducao=2, maximo=6)
         assert len(s.subtasks) == 6
         assert s.subtasks[0].criteria == [1] and s.subtasks[0].reproduction == [2]
+
+    def test_sanear_limita_as_saidas_esperadas_apontadas(self):
+        p = Plan(subtasks=[Subtask(id=1, title="t", objective="o", expected=[0, 1, 2, 7], done_when="d")])
+        s = sanear(p, n_criterios=0, n_reproducao=0, n_esperadas=2)
+        assert s.subtasks[0].expected == [1, 2]
+        assert sanear(p, n_criterios=0, n_reproducao=0).subtasks[0].expected == []
 
 
 @mirror_available
@@ -171,6 +179,9 @@ class TestDeveloperComSubtarefa:
         assert "Sub-tarefa atual (1 de 2): Parser de array" in texto
         assert "- Array malformado levanta exceção" in texto and "Chave pontilhada é aceita" not in texto.split("Sub-tarefa atual")[1]
         assert "```\nx = 2\n```" in texto and "Pronto quando: exceção levantada" in texto
+        # saída esperada apontada pelo planejador (rodada 5), copiada pelo índice
+        assert "Saídas esperadas desses exemplos depois da correção" in texto and "- soma: 4" in texto
+        assert "nunca aparece" not in texto.split("Sub-tarefa atual")[1]
 
     def test_parecer_da_subtarefa_entra_no_prompt(self, monkeypatch):
         from src.agents.developer import _build_prompt
@@ -262,9 +273,9 @@ class TestExecucaoAcumulada:
         assert "NameError" in isolado[1]["saida"]
         monkeypatch.setattr(config, "REVIEW_EXECUTION", "cumulative")
         acumulado = _executar_reproducao(estado, _ctx(montar))
-        assert "4" in acumulado[1]["saida"] and acumulado[1]["acumulado"] is True and acumulado[0]["acumulado"] is False
+        assert "soma: 4" in acumulado[1]["saida"] and acumulado[1]["acumulado"] is True and acumulado[0]["acumulado"] is False
         so_o_2 = _executar_reproducao(estado, _ctx(montar), indices=[2])
-        assert [x["bloco"] for x in so_o_2] == [2] and "4" in so_o_2[0]["saida"]
+        assert [x["bloco"] for x in so_o_2] == [2] and "soma: 4" in so_o_2[0]["saida"]
 
 
 def _ctx(montar):
@@ -292,3 +303,205 @@ class TestRoteamentoEManifesto:
         pol = _orchestration_policy()
         assert pol["planner"] == "on" and pol["planner_max_turns"] == config.PLANNER_MAX_TURNS
         assert pol["subtask_max_cycles"] == config.SUBTASK_MAX_CYCLES and pol["planner_max_replans"] == config.PLANNER_MAX_REPLANS
+
+    def test_manifesto_registra_a_rodada_5(self, monkeypatch):
+        from src.arms.runner import _orchestration_policy
+
+        monkeypatch.setattr(config, "SUBTASK_CHECK", "deterministic")
+        monkeypatch.setattr(config, "REVIEW_COMPARE", "advisory")
+        monkeypatch.setattr(config, "PLANNER_CONTEXT_MAX_CHARS", 16_000)
+        pol = _orchestration_policy()
+        assert (pol["subtask_check"], pol["review_compare"], pol["planner_context_max_chars"]) == ("deterministic", "advisory", 16_000)
+
+
+# ------------------------------------------------------------ rodada 5
+
+
+@mirror_available
+class TestVerificacaoDeterministicaDaSubtarefa:
+    """Decisão 36 (rodada 5): o veredito da sub-tarefa sai da comparação de saídas, sem o modelo."""
+
+    def _roda(self, ambiente, monkeypatch, estado, vereditos_finais, *, mudanca=True):
+        from src.agents.validator import validator
+
+        monkeypatch.setattr(config, "PLANNER", "on")
+        monkeypatch.setattr(config, "REVIEW_EXECUTION", "cumulative")
+        monkeypatch.setattr(config, "SUBTASK_CHECK", "deterministic")
+        monkeypatch.setattr(config, "REVIEW_COMPARE", "off")
+        monkeypatch.setattr(config, "SUBTASK_MAX_CYCLES", 2)
+        monkeypatch.setattr(config, "PLANNER_MAX_REPLANS", 1)
+        monkeypatch.setenv("SEMANTIC_REVIEW", "true")
+        ws, tel, montar = ambiente
+        if mudanca:
+            _mudanca_benigna(ws)
+        montar(FakeToolCallingLLM([ai(content="x")]))
+        fila = iter(vereditos_finais)
+        chamadas: list = []
+
+        def _estruturada(schema, messages, **k):
+            chamadas.append(messages)
+            return next(fila), None
+        monkeypatch.setattr("src.structured_llm.invoke_structured_raw", _estruturada)
+        return validator(estado), tel, chamadas
+
+    @staticmethod
+    def _ultimo_evento_da_subtarefa(tel):
+        return [e for e in read_events(tel.path)
+                if e["event_type"] == "validation" and e["payload"].get("scope") == "subtask"][-1]["payload"]
+
+    def test_saida_esperada_encontrada_da_a_subtarefa_por_feita_sem_consultar_o_modelo(self, ambiente, monkeypatch):
+        estado = _estado_com_plano(stop_reason="concluiu")
+        out, tel, chamadas = self._roda(ambiente, monkeypatch, estado,
+                                        [ValidationResult(is_valid=False, issues=["falta a parte 2"])])
+        assert len(chamadas) == 1  # só a revisão final consultou o modelo
+        assert [s["status"] for s in out["plan"]["status"]] == ["feita", "em_andamento"]
+        assert out["subtask_current"] == 2 and out["subtask_review"] is None
+        ev = self._ultimo_evento_da_subtarefa(tel)
+        assert ev["deterministic"] is True and ev["basis"] == "comparacao"
+        assert [c["estado"] for c in ev["comparisons"]] == ["encontrada"]
+        # reaproveitou a execução da revisão final (blocos 1 e 2 da sub-tarefa): nada rodou de novo
+        assert [x["bloco"] for x in ev["executions"]] == [1, 2]
+
+    def test_saida_esperada_ausente_segura_a_subtarefa_e_o_developer_recebe_a_comparacao(self, ambiente, monkeypatch):
+        from src.agents.developer import _build_prompt
+
+        estado = _estado_com_plano(stop_reason="concluiu")
+        estado["plan"]["subtasks"][0]["expected"] = [1, 2]  # a saída 2 nunca aparece
+        out, tel, _ = self._roda(ambiente, monkeypatch, estado, [ValidationResult(is_valid=False)])
+        assert out["plan"]["status"][0]["status"] == "em_andamento" and out["subtask_current"] == 1
+        issues = out["subtask_review"]["issues"]
+        assert any("saída esperada 1: encontrada" in x for x in issues)
+        assert any("saída esperada 2: NÃO encontrada" in x and "nunca aparece" in x for x in issues)
+        assert any(x.startswith("saída real da execução:") and "soma: 4" in x for x in issues)
+        assert self._ultimo_evento_da_subtarefa(tel)["basis"] == "comparacao"
+        texto = _build_prompt({**estado, **out})
+        assert "saída esperada 2: NÃO encontrada" in texto
+
+    def test_sem_saida_verificavel_vale_a_palavra_do_developer(self, ambiente, monkeypatch):
+        estado = _estado_com_plano(stop_reason="concluiu")
+        estado["plan"]["subtasks"][0]["expected"] = []
+        out, tel, _ = self._roda(ambiente, monkeypatch, estado, [ValidationResult(is_valid=False)])
+        assert out["plan"]["status"][0]["status"] == "feita"
+        assert self._ultimo_evento_da_subtarefa(tel)["basis"] == "palavra_do_developer"
+        # bateu o teto do ciclo: a palavra não vale, e nada volta como parecer
+        estado2 = _estado_com_plano(stop_reason="cycle: max_turns_per_cycle (40 >= 40)")
+        estado2["plan"]["subtasks"][0]["expected"] = []
+        out2, _, _ = self._roda(ambiente, monkeypatch, estado2, [ValidationResult(is_valid=False)])
+        assert out2["plan"]["status"][0]["status"] == "em_andamento" and out2["subtask_review"] is None
+
+    def test_sem_mudanca_nao_ha_subtarefa_feita(self, ambiente, monkeypatch):
+        estado = _estado_com_plano(stop_reason="concluiu")
+        out, tel, _ = self._roda(ambiente, monkeypatch, estado, [ValidationResult(is_valid=True)], mudanca=False)
+        assert out["is_valid"] is False and out["plan"]["status"][0]["status"] == "em_andamento"
+        ev = self._ultimo_evento_da_subtarefa(tel)
+        assert ev["basis"] == "sem_mudanca" and ev["comparisons"] == [] and out["subtask_review"] is None
+
+
+@mirror_available
+class TestComparacaoNaRevisaoFinal:
+    """Decisão 35 (rodada 5): a comparação automática chega ao revisor; o modo estrito reprova sozinho."""
+
+    def _roda(self, ambiente, monkeypatch, modo, veredito, estado=None):
+        from src.agents.validator import validator
+
+        monkeypatch.setattr(config, "PLANNER", "on")
+        monkeypatch.setattr(config, "REVIEW_EXECUTION", "cumulative")
+        monkeypatch.setattr(config, "SUBTASK_CHECK", "deterministic")
+        monkeypatch.setattr(config, "REVIEW_COMPARE", modo)
+        monkeypatch.setenv("SEMANTIC_REVIEW", "true")
+        ws, tel, montar = ambiente
+        _mudanca_benigna(ws)
+        montar(FakeToolCallingLLM([ai(content="x")]))
+        chamadas: list = []
+
+        def _estruturada(schema, messages, **k):
+            chamadas.append(messages)
+            return veredito, None
+        monkeypatch.setattr("src.structured_llm.invoke_structured_raw", _estruturada)
+        return validator(estado or _estado_com_plano(stop_reason="concluiu")), tel, chamadas
+
+    @staticmethod
+    def _ultima_revisao_final(tel):
+        return [e for e in read_events(tel.path)
+                if e["event_type"] == "validation" and not e["payload"].get("scope")][-1]["payload"]
+
+    def test_advisory_leva_a_comparacao_e_a_regra_ao_revisor(self, ambiente, monkeypatch):
+        out, tel, chamadas = self._roda(ambiente, monkeypatch, "advisory", ValidationResult(is_valid=True))
+        assert out["is_valid"] is True and len(chamadas) == 1
+        sistema, usuario = chamadas[0][0][1], chamadas[0][1][1]
+        assert "não verificável não prova nada" in sistema
+        assert "Comparação automática das saídas esperadas" in usuario
+        assert "- saída esperada 1: encontrada" in usuario and "- saída esperada 2: NÃO encontrada" in usuario
+        ev = self._ultima_revisao_final(tel)
+        assert [c["estado"] for c in ev["comparisons"]] == ["encontrada", "nao_encontrada"]
+        assert "deterministic" not in ev
+
+    def test_off_reproduz_a_rodada_4(self, ambiente, monkeypatch):
+        _, tel, chamadas = self._roda(ambiente, monkeypatch, "off", ValidationResult(is_valid=True))
+        sistema, usuario = chamadas[0][0][1], chamadas[0][1][1]
+        assert "Comparação automática" not in usuario and "não verificável" not in sistema
+        assert self._ultima_revisao_final(tel)["comparisons"] == []
+
+    def test_strict_reprova_sem_consultar_o_revisor_quando_falta_saida_verificavel(self, ambiente, monkeypatch):
+        out, tel, chamadas = self._roda(ambiente, monkeypatch, "strict", ValidationResult(is_valid=True))
+        assert out["is_valid"] is False and chamadas == []
+        assert any("saída esperada 2: NÃO encontrada" in x for x in out["validation_result"]["issues"])
+        ev = self._ultima_revisao_final(tel)
+        assert ev["deterministic"] is True and ev["is_valid"] is False
+
+    def test_strict_consulta_o_revisor_quando_nada_verificavel_falta(self, ambiente, monkeypatch):
+        estado = _estado_com_plano(stop_reason="concluiu")
+        estado["plan"]["subtasks"][1]["expected"] = []  # só a saída 1 fica apontada no plano
+        out, _, chamadas = self._roda(ambiente, monkeypatch, "strict", ValidationResult(is_valid=True), estado=estado)
+        assert out["is_valid"] is True and len(chamadas) == 1
+
+
+@mirror_available
+class TestTrechosDoPlanejador:
+    """Decisão 37 (rodada 5): o que o planejador leu vai ao developer com a sub-tarefa."""
+
+    def test_planejador_guarda_as_leituras_e_o_developer_as_recebe_ate_o_teto(self, ambiente, monkeypatch):
+        from src.agents.developer import _build_prompt
+        from src.agents.planner import planner
+
+        monkeypatch.setattr(config, "PLANNER", "on")
+        _, tel, montar = ambiente
+        llm = FakeToolCallingLLM([
+            ai(tool_calls=[{"name": "read_file", "args": {"path": "./tomlkit/parser.py", "start_line": 1, "end_line": 20}},
+                           {"name": "read_file", "args": {"path": "nao/existe.py"}}]),
+            ai(content="explorei"),
+        ])
+        montar(llm)
+        monkeypatch.setattr("src.structured_llm.invoke_structured_raw", lambda *a, **k: (_plano(), None))
+
+        out = planner(_estado(intent=_intent_v2(), turn_count=0, replans=0))
+
+        trechos = out["plan"]["trechos"]
+        assert list(trechos) == ["tomlkit/parser.py"] and "linhas 1-20" in trechos["tomlkit/parser.py"]
+        ev = [e for e in read_events(tel.path) if e["event_type"] == "plan"][-1]["payload"]
+        assert ev["trechos_chars"] == {"tomlkit/parser.py": len(trechos["tomlkit/parser.py"])} and "trechos" not in ev
+
+        estado = {**_estado(intent=_intent_v2()), **out}
+        monkeypatch.setattr(config, "PLANNER_CONTEXT_MAX_CHARS", 0)
+        assert "Trechos desses arquivos" not in _build_prompt(estado)
+        monkeypatch.setattr(config, "PLANNER_CONTEXT_MAX_CHARS", 10_000)
+        texto = _build_prompt(estado)
+        assert "Trechos desses arquivos, como o planejador os leu" in texto
+        assert "--- tomlkit/parser.py ---" in texto and "tomlkit/parser.py (linhas 1-20" in texto
+        monkeypatch.setattr(config, "PLANNER_CONTEXT_MAX_CHARS", 120)
+        assert "[... trecho cortado pelo teto da política ...]" in _build_prompt(estado)
+
+    def test_prompt_do_planejador_leva_o_teto_de_subtarefas_e_pede_expected(self, ambiente, monkeypatch):
+        from src.agents.planner import planner
+
+        monkeypatch.setattr(config, "PLANNER", "on")
+        monkeypatch.setattr(config, "PLANNER_MAX_SUBTASKS", 3)
+        _, _, montar = ambiente
+        llm = FakeToolCallingLLM([ai(content="x")])
+        montar(llm)
+        monkeypatch.setattr("src.structured_llm.invoke_structured_raw", lambda *a, **k: (_plano(), None))
+
+        planner(_estado(intent=_intent_v2(), turn_count=0, replans=0))
+
+        assert "No máximo 3 sub-tarefas" in llm.chamadas[0][0].content
+        assert '"expected": [int]' in llm.chamadas[1][-1].content
