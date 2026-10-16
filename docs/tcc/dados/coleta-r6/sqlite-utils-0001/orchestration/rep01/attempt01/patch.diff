@@ -1,0 +1,37 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index d709fb9..4739398 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -2542,6 +2542,32 @@ class Table(Queryable):
+         """
+         if not self.exists():
+             raise ValueError("Cannot transform a table that doesn't exist yet")
++
++        # Check for destructive foreign key actions within an open transaction
++        pragma_foreign_keys_was_on = bool(
++            self.db.execute("PRAGMA foreign_keys").fetchone()[0]
++        )
++        already_in_transaction = self.db.conn.in_transaction
++        if pragma_foreign_keys_was_on and already_in_transaction:
++            # Get tables referencing this one with destructive actions
++            destructive_refs = []
++            for row in self.db.execute(
++                "PRAGMA foreign_key_list({})".format(quote_identifier(self.name))
++            ).fetchall():
++                id, seq, table_name, from_, to_, on_update, on_delete, match = row
++                if on_delete in ("CASCADE", "SET NULL", "SET DEFAULT"):
++                    destructive_refs.append((table_name, on_delete))
++            
++            if destructive_refs:
++                ref_details = ", ".join(
++                    f"'{table}' ({action})" for table, action in destructive_refs
++                )
++                raise TransactionError(
++                    f"Cannot transform table '{self.name}' within a transaction "
++                    f"while it is referenced by tables with ON DELETE actions "
++                    f"that may cause data loss: {ref_details}."
++                )
++
+         sqls = self.transform_sql(
+             types=types,
+             rename=rename,

@@ -1,0 +1,75 @@
+diff --git a/src/attr/_funcs.py b/src/attr/_funcs.py
+index 518be16e..792e5bc8 100644
+--- a/src/attr/_funcs.py
++++ b/src/attr/_funcs.py
+@@ -2,6 +2,8 @@
+ 
+ 
+ import copy
++import sys
++import types
+ 
+ from ._make import NOTHING, _obj_setattr, fields
+ from .exceptions import AttrsAttributeNotFoundError
+@@ -287,6 +289,23 @@ def astuple(
+     return rv if tuple_factory is list else tuple_factory(rv)
+ 
+ 
++def _is_generic_alias(obj):
++    """Check if an object is a GenericAlias."""
++    # Check for _GenericAlias first, as it's used in older versions and sometimes in newer ones
++    typing_module = sys.modules.get('typing')
++    if typing_module:
++        generic_alias_type = getattr(typing_module, '_GenericAlias', None)
++        if generic_alias_type:
++            if isinstance(obj, generic_alias_type):
++                return True
++    
++    if sys.version_info >= (3, 9):
++        if isinstance(obj, types.GenericAlias):
++            return True
++            
++    return False
++
++
+ def has(cls):
+     """
+     Check whether *cls* is a class with *attrs* attributes.
+@@ -296,6 +315,10 @@ def has(cls):
+ 
+     :rtype: bool
+     """
++    # Handle generic aliases by extracting the origin class
++    if _is_generic_alias(cls):
++        cls = cls.__origin__
++        
+     return getattr(cls, "__attrs_attrs__", None) is not None
+ 
+ 
+diff --git a/src/attr/_make.py b/src/attr/_make.py
+index 014b7bc2..527fe6af 100644
+--- a/src/attr/_make.py
++++ b/src/attr/_make.py
+@@ -1919,8 +1919,22 @@ def fields(cls):
+     .. versionchanged:: 16.2.0 Returned tuple allows accessing the fields
+        by name.
+     """
++    # Handle generic aliases by extracting the origin class before type check
++    # Check for _GenericAlias first, as it's used in older versions and sometimes in newer ones
++    typing_module = sys.modules.get('typing')
++    if typing_module:
++        generic_alias_type = getattr(typing_module, '_GenericAlias', None)
++        if generic_alias_type and isinstance(cls, generic_alias_type):
++            cls = cls.__origin__
++
++    # For Python 3.9+, check for types.GenericAlias
++    if sys.version_info >= (3, 9):
++        if isinstance(cls, types.GenericAlias):
++            cls = cls.__origin__
++
+     if not isinstance(cls, type):
+         raise TypeError("Passed object must be a class.")
++
+     attrs = getattr(cls, "__attrs_attrs__", None)
+     if attrs is None:
+         raise NotAnAttrsClassError(f"{cls!r} is not an attrs-decorated class.")

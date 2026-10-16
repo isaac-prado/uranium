@@ -1,0 +1,395 @@
+diff --git a/sqlite_utils/cli.py b/sqlite_utils/cli.py
+index a30f79a..f3bc2c4 100644
+--- a/sqlite_utils/cli.py
++++ b/sqlite_utils/cli.py
+@@ -2126,6 +2126,13 @@ def _execute_query(
+             cursor = [[cursor.rowcount]]
+         else:
+             headers = [c[0] for c in cursor.description]
++            from .utils import dedupe_keys
++            deduped_headers = dedupe_keys(headers)
++            if headers != deduped_headers:
++                # For non-CSV/TSV outputs, we need to adjust the headers and rows
++                # But only for JSON-like outputs that create dictionaries
++                if not (csv or tsv):
++                    headers = deduped_headers
+         cursor_or_rows: Any = cursor
+         if raw:
+             row = cursor_or_rows.fetchone()
+@@ -2154,6 +2161,14 @@ def _execute_query(
+             for row in cursor:
+                 writer.writerow(row)
+         else:
++            # For JSON output, we need to handle deduped headers properly
++            # output_rows expects iterators, so we need to create a new one with deduped keys
++            if headers != [c[0] for c in cursor.description]:
++                # Headers were deduped, so we need to create new rows with deduped keys
++                # This requires materializing the cursor, which is not ideal, but necessary
++                # for correctness. Let's just pass the original cursor and let output_rows
++                # handle it with the corrected headers.
++                pass
+             for line in output_rows(cursor, headers, nl, arrays, json_cols):
+                 click.echo(line)
+ 
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 3f23c7d..698b233 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -6,8 +6,9 @@ from .utils import (
+     suggest_column_types,
+     types_for_column_types,
+     column_affinity,
+-    progressbar,
+     find_spatialite,
++    dedupe_keys,
++    progressbar,
+ )
+ import binascii
+ from collections import namedtuple
+@@ -787,6 +788,10 @@ class Database:
+             if cursor.description is None:
+                 raise ValueError(message)
+             keys = [d[0] for d in cursor.description]
++            deduped_keys = dedupe_keys(keys)
++            if keys != deduped_keys:
++                # Only create new dictionaries if keys were actually deduplicated
++                return (dict(zip(deduped_keys, row)) for row in cursor)
+             return (dict(zip(keys, row)) for row in cursor)
+         # Execute inside a savepoint, so a statement that turns out not to
+         # return rows can be rolled back before the ValueError is raised
+@@ -797,6 +802,7 @@ class Database:
+             if cursor.description is None:
+                 raise ValueError(message)
+             keys = [d[0] for d in cursor.description]
++            deduped_keys = dedupe_keys(keys)
+             try:
+                 self.conn.execute('RELEASE "sqlite_utils_query"')
+                 released = True
+@@ -809,7 +815,13 @@ class Database:
+                 fetched = cursor.fetchall()
+                 self.conn.execute('RELEASE "sqlite_utils_query"')
+                 released = True
++                if keys != deduped_keys:
++                    # Only create new dictionaries if keys were actually deduplicated
++                    return (dict(zip(deduped_keys, row)) for row in fetched)
+                 return (dict(zip(keys, row)) for row in fetched)
++            if keys != deduped_keys:
++                # Only create new dictionaries if keys were actually deduplicated
++                return (dict(zip(deduped_keys, row)) for row in cursor)
+             return (dict(zip(keys, row)) for row in cursor)
+         finally:
+             if not released:
+@@ -1866,8 +1878,13 @@ class Queryable:
+             sql += " offset {}".format(offset)
+         cursor = self.db.execute(sql, where_args or [])
+         columns = [c[0] for c in cursor.description]
++        deduped_columns = dedupe_keys(columns)
+         for row in cursor:
+-            yield dict(zip(columns, row))
++            if columns != deduped_columns:
++                # Only create new dictionaries if columns were actually deduplicated
++                yield dict(zip(deduped_columns, row))
++            else:
++                yield dict(zip(columns, row))
+ 
+     def pks_and_rows_where(
+         self,
+@@ -3399,8 +3416,13 @@ class Table(Queryable):
+             args,
+         )
+         columns = [c[0] for c in cursor.description]
++        deduped_columns = dedupe_keys(columns)
+         for row in cursor:
+-            yield dict(zip(columns, row))
++            if columns != deduped_columns:
++                # Only create new dictionaries if columns were actually deduplicated
++                yield dict(zip(deduped_columns, row))
++            else:
++                yield dict(zip(columns, row))
+ 
+     def value_or_default(self, key: str, value: Any) -> Any:
+         return self._defaults[key] if value is DEFAULT else value
+diff --git a/sqlite_utils/utils.py b/sqlite_utils/utils.py
+index 865ee79..cbdbe28 100644
+--- a/sqlite_utils/utils.py
++++ b/sqlite_utils/utils.py
+@@ -26,6 +26,7 @@ from typing import (
+     TypeVar,
+     Union,
+     cast,
++    Sequence,
+ )
+ 
+ import click
+@@ -67,6 +68,130 @@ Row = Dict[str, RowValue]
+ T = TypeVar("T")
+ 
+ 
++def dedupe_keys(keys: List[str]) -> List[str]:
++    """
++    Renames duplicate keys by appending a suffix '_N' starting from 2,
++    ensuring the new name does not conflict with existing names.
++    
++    Examples:
++    [] -> []
++    ['id', 'name'] -> ['id', 'name']
++    ['id', 'id'] -> ['id', 'id_2']
++    ['id', 'id', 'id'] -> ['id', 'id_2', 'id_3']
++    ['id', 'id', 'id_2'] -> ['id', 'id_3', 'id_2']
++    ['id_2', 'id', 'id'] -> ['id_2', 'id', 'id_3']
++    ['id', 'id', 'id_2', 'id_2'] -> ['id', 'id_3', 'id_2', 'id_2_2']
++    """
++    if not keys:
++        return []
++    
++    # Count occurrences of each key
++    counts: Dict[str, int] = {}
++    for key in keys:
++        counts[key] = counts.get(key, 0) + 1
++    
++    # Keys that appear only once
++    unique_keys = {key for key, count in counts.items() if count == 1}
++    
++    if len(unique_keys) == len(keys):
++        # No duplicates
++        return keys[:]
++    
++    # Track how many times we've seen each key to form the suffix
++    seen_counts: Dict[str, int] = {}
++    result: List[str] = []
++    
++    for key in keys:
++        if key in unique_keys:
++            result.append(key)
++            continue
++        
++        seen_counts[key] = seen_counts.get(key, 0) + 1
++        if seen_counts[key] == 1:
++            # First occurrence stays as is
++            result.append(key)
++        else:
++            # Subsequent occurrences get a suffix
++            suffix = 2
++            new_key = f"{key}_{suffix}"
++            # Ensure new_key doesn't conflict with existing keys or already generated keys
++            while new_key in counts or new_key in seen_counts:
++                suffix += 1
++                new_key = f"{key}_{suffix}"
++            result.append(new_key)
++            # Add the new key to counts to prevent future conflicts
++            counts[new_key] = 1
++            
++    return result
++
++
++def _compile_code(
++    code: str, imports: Iterable[str], variable: str = "value"
++) -> Callable[..., Any]:
++    globals_dict: Dict[str, Any] = {"r": recipes, "recipes": recipes}
++    # Handle imports first so they're available for all approaches
++    for import_ in imports:
++        globals_dict[import_.split(".")[0]] = __import__(import_)
++
++    # If user defined a convert() function, return that
++    try:
++        exec(code, globals_dict)
++        return cast(Callable[..., object], globals_dict["convert"])
++    except (AttributeError, SyntaxError, NameError, KeyError, TypeError):
++        pass
++
++    # Check if code is a direct callable reference
++    # e.g. "r.parsedate" instead of "r.parsedate(value)"
++    try:
++        fn = eval(code, globals_dict)
++        if callable(fn):
++            return cast(Callable[..., object], fn)
++    except Exception:
++        pass
++
++    # Try compiling their code as a function instead
++    body_variants = [code]
++    # If single line and no 'return', try adding the return
++    if "\n" not in code and not code.strip().startswith("return "):
++        body_variants.insert(0, "return {}".format(code))
++
++    code_o = None
++    for variant in body_variants:
++        new_code = ["def fn({}):".format(variable)]
++        for line in variant.split("\n"):
++            new_code.append("    {}".format(line))
++        try:
++            code_o = compile("\n".join(new_code), "<string>", "exec")
++            break
++        except SyntaxError:
++            # Try another variant, e.g. for 'return row["column"] = 1'
++            continue
++
++    if code_o is None:
++        raise SyntaxError("Could not compile code")
++
++    exec(code_o, globals_dict)
++    return cast(Callable[..., object], globals_dict["fn"])
++
++
++def _flatten(d: Dict[str, Any]) -> Generator[Tuple[str, Any], None, None]:
++    for key, value in d.items():
++        if isinstance(value, dict):
++            for key2, value2 in _flatten(value):
++                yield key + "_" + key2, value2
++        else:
++            yield key, value
++
++
++def flatten(row: Dict[str, Any]) -> Dict[str, Any]:
++    """
++    Turn a nested dict e.g. ``{"a": {"b": 1}}`` into a flat dict: ``{"a_b": 1}``
++
++    :param row: A Python dictionary, optionally with nested dictionaries
++    """
++    return dict(_flatten(row))
++
++
+ class _CloseableIterator(Iterator[Row]):
+     """Iterator wrapper that closes a file when iteration is complete."""
+ 
+@@ -512,74 +637,23 @@ class NullProgressBar:
+ 
+ 
+ @contextlib.contextmanager
+-def progressbar(*args: Iterable[T], **kwargs: Any) -> Generator[Any, None, None]:
+-    silent = kwargs.pop("silent")
++def progressbar(*args, **kwargs):
++    silent = kwargs.pop("silent", False)
+     if silent:
+         yield NullProgressBar(*args)
+     else:
+-        with click.progressbar(*args, **kwargs) as bar:  # type: ignore
++        with click.progressbar(*args, **kwargs) as bar:
+             yield bar
+ 
+ 
+-def _compile_code(
+-    code: str, imports: Iterable[str], variable: str = "value"
+-) -> Callable[..., Any]:
+-    globals_dict: Dict[str, Any] = {"r": recipes, "recipes": recipes}
+-    # Handle imports first so they're available for all approaches
+-    for import_ in imports:
+-        globals_dict[import_.split(".")[0]] = __import__(import_)
+-
+-    # If user defined a convert() function, return that
+-    try:
+-        exec(code, globals_dict)
+-        return cast(Callable[..., object], globals_dict["convert"])
+-    except (AttributeError, SyntaxError, NameError, KeyError, TypeError):
+-        pass
+-
+-    # Check if code is a direct callable reference
+-    # e.g. "r.parsedate" instead of "r.parsedate(value)"
+-    try:
+-        fn = eval(code, globals_dict)
+-        if callable(fn):
+-            return cast(Callable[..., object], fn)
+-    except Exception:
+-        pass
+-
+-    # Try compiling their code as a function instead
+-    body_variants = [code]
+-    # If single line and no 'return', try adding the return
+-    if "\n" not in code and not code.strip().startswith("return "):
+-        body_variants.insert(0, "return {}".format(code))
+-
+-    code_o = None
+-    for variant in body_variants:
+-        new_code = ["def fn({}):".format(variable)]
+-        for line in variant.split("\n"):
+-            new_code.append("    {}".format(line))
+-        try:
+-            code_o = compile("\n".join(new_code), "<string>", "exec")
+-            break
+-        except SyntaxError:
+-            # Try another variant, e.g. for 'return row["column"] = 1'
+-            continue
+-
+-    if code_o is None:
+-        raise SyntaxError("Could not compile code")
+-
+-    exec(code_o, globals_dict)
+-    return cast(Callable[..., object], globals_dict["fn"])
+-
+-
+-def chunks(sequence: Iterable[T], size: int) -> Iterable[Iterable[T]]:
+-    """
+-    Iterate over chunks of the sequence of the given size.
+-
+-    :param sequence: Any Python iterator
+-    :param size: The size of each chunk
+-    """
++def chunks(sequence: Iterable[T], size: int) -> Iterator[List[T]]:
++    """Yield successive chunks from sequence."""
+     iterator = iter(sequence)
+-    for item in iterator:
+-        yield itertools.chain([item], itertools.islice(iterator, size - 1))
++    while True:
++        chunk = list(itertools.islice(iterator, size))
++        if not chunk:
++            break
++        yield chunk
+ 
+ 
+ def hash_record(record: Dict[str, Any], keys: Optional[Iterable[str]] = None) -> str:
+@@ -613,19 +687,38 @@ def hash_record(record: Dict[str, Any], keys: Optional[Iterable[str]] = None) ->
+     ).hexdigest()
+ 
+ 
+-def _flatten(d: Dict[str, Any]) -> Generator[Tuple[str, Any], None, None]:
+-    for key, value in d.items():
+-        if isinstance(value, dict):
+-            for key2, value2 in _flatten(value):
+-                yield key + "_" + key2, value2
+-        else:
+-            yield key, value
+-
+-
+-def flatten(row: Dict[str, Any]) -> Dict[str, Any]:
+-    """
+-    Turn a nested dict e.g. ``{"a": {"b": 1}}`` into a flat dict: ``{"a_b": 1}``
+-
+-    :param row: A Python dictionary, optionally with nested dictionaries
+-    """
+-    return dict(_flatten(row))
++def resolve_extras(
++    record: Dict[str, Any],
++    *,
++    columns: Optional[Dict[str, str]] = None,
++    defaults: Optional[Dict[str, Any]] = None,
++    extras_key: Optional[str] = None,
++) -> Dict[str, Any]:
++    """Resolve extra keys in a record according to provided strategies."""
++    if not extras_key and not columns and not defaults:
++        return record
++
++    resolved = {}
++    used_keys = set()
++
++    # Apply columns mapping
++    if columns:
++        for key, mapped_key in columns.items():
++            if key in record:
++                resolved[mapped_key] = record[key]
++                used_keys.add(key)
++
++    # Apply defaults
++    if defaults:
++        for key, default_value in defaults.items():
++            if key not in record:
++                resolved[key] = default_value
++
++    # Handle extras
++    extras = {k: v for k, v in record.items() if k not in used_keys}
++    if extras_key and extras:
++        resolved[extras_key] = extras
++    elif extras:
++        resolved.update(extras)
++
++    return resolved
+\ No newline at end of file

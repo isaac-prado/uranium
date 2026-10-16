@@ -1,0 +1,29 @@
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index b952b36..11a9b78 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -669,8 +669,23 @@ class Parser:
+                     elems.append(self._parse_value())
+                     prev_value = True
+                     continue
++                except InternalParserError:
++                    # An internal parser error is raised when the parser has successfully
++                    # started parsing an element but encountered a fatal problem mid-way.
++                    # For malformed elements inside an array, we should not silently discard them
++                    # but instead propagate the error to maintain data integrity.
++                    raise
+                 except UnexpectedCharError:
+-                    pass
++                    # When an unexpected character is found at the beginning of a potential value,
++                    # it's a syntax error for the whole document.
++                    # However, if _parse_value() started parsing a complex structure like an inline table
++                    # and failed partway through, we need to distinguish this case from a simple wrong char.
++                    # The safest way to ensure correctness without changing too much logic is to re-raise
++                    # if we are not at the start of a potential value (i.e., if prev_value was True or
++                    # if we just consumed some characters). Since the logic is tricky, we will simply
++                    # stop ignoring the error and let it bubble up, as any failure inside an array element
++                    # should make the entire parse fail.
++                    raise
+ 
+             # consume comma
+             if prev_value and self._current == ",":

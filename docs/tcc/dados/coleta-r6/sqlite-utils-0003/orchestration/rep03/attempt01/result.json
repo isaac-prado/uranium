@@ -1,0 +1,109 @@
+{
+  "result_schema_version": 2,
+  "harness_version": "1.0.0",
+  "evaluated_at": "2026-10-16T21:32:23+00:00",
+  "run_id": "sqlite-utils-0003-orchestration-r03-a01",
+  "arm": "orchestration",
+  "task_id": "sqlite-utils-0003",
+  "faixa": "media",
+  "repetition": 3,
+  "base_commit": "a00ed60efc3a242de38f666bc4ce1e431f86dcea",
+  "resolved": false,
+  "resolved_blocked_by_cheat": false,
+  "oracle": {
+    "f2p_total": 12,
+    "f2p_passed": 12,
+    "f2p": {
+      "exit_code": 0,
+      "passed": 12,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.44,
+      "failing_node_ids": [],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "p2p": {
+      "exit_code": 1,
+      "passed": 1198,
+      "failed": 1,
+      "errors": 0,
+      "skipped": 16,
+      "duration_s": 6.9,
+      "failing_node_ids": [
+        "tests/test_cli.py::test_query_csv_duplicate_columns_are_preserved"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "regression": {
+      "exit_code": 1,
+      "passed": 1198,
+      "failed": 1,
+      "errors": 0,
+      "skipped": 16,
+      "duration_s": 6.85,
+      "failing_node_ids": [
+        "tests/test_cli.py::test_query_csv_duplicate_columns_are_preserved"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    }
+  },
+  "cheat": {
+    "clean": true,
+    "critical_count": 0,
+    "warning_count": 0,
+    "signals": []
+  },
+  "quality": {
+    "mi_before": 11.988,
+    "mi_after": 11.449,
+    "mi_delta": -0.539,
+    "cc_mean_before": 5.011,
+    "cc_mean_after": 5.059,
+    "cc_mean_delta": 0.048,
+    "files_analyzed": 3,
+    "error": null
+  },
+  "cost": {
+    "tokens_prompt": 2797599,
+    "tokens_completion": 47241,
+    "tokens_reasoning": 0,
+    "tokens_total": 2844840,
+    "cost_usd": 0.3622839,
+    "llm_calls": 124,
+    "byok_calls": 124,
+    "tool_calls": 129,
+    "wall_seconds": 506.661
+  },
+  "process": {
+    "turns": 118,
+    "test_runs": 4,
+    "tool_denials": 0,
+    "errors": 0,
+    "circuit_breaks": 0,
+    "self_recoveries": 1,
+    "stop_reason": "concluiu"
+  },
+  "provenance": {
+    "model": "qwen/qwen3-coder",
+    "provider_requested": "DeepInfra",
+    "providers_served": [
+      "DeepInfra"
+    ],
+    "llm_seed": 20260823,
+    "topology": "multi_agent_roles"
+  },
+  "diff": {
+    "files_changed": 3,
+    "insertions": 205,
+    "deletions": 130,
+    "changed_files": [
+      "sqlite_utils/cli.py",
+      "sqlite_utils/db.py",
+      "sqlite_utils/utils.py"
+    ]
+  }
+}

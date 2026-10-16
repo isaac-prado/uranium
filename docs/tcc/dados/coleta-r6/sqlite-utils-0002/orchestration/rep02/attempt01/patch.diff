@@ -1,0 +1,44 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 48987a6..3d1f732 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -3103,10 +3103,38 @@ class Table(Queryable):
+         if "rowid" not in new_cols:
+             new_cols.insert(0, "rowid")
+             old_cols.insert(0, "rowid")
++        
++        # Apply NULLIF(column, '') for TEXT to numeric conversions
++        old_cols_processed = []
++        for i, col in enumerate(old_cols):
++            # Get the original column type and the target type
++            from_col = old_cols[i]
++            to_col = new_cols[i]
++            
++            # Find the original type of the column
++            original_type = self.columns_dict.get(from_col, "TEXT")  # Default to TEXT
++            
++            # Get the target type if it's being converted
++            target_type = types.get(from_col) if types else None
++            if target_type is None:
++                target_type = original_type
++                
++            # Check if converting from TEXT to a numeric type
++            from_type_mapped = COLUMN_TYPE_MAPPING.get(original_type, "TEXT")
++            to_type_mapped = COLUMN_TYPE_MAPPING.get(target_type, "TEXT")
++            
++            # Numeric types mapping
++            numeric_types = {"INTEGER", "REAL", "FLOAT"}
++            
++            if from_type_mapped == "TEXT" and to_type_mapped in numeric_types:
++                old_cols_processed.append(f"NULLIF({quote_identifier(col)}, '')")
++            else:
++                old_cols_processed.append(quote_identifier(col))
++                
+         copy_sql = "INSERT INTO {} ({new_cols})\n   SELECT {old_cols} FROM {};".format(
+             quote_identifier(new_table_name),
+             quote_identifier(self.name),
+-            old_cols=", ".join(quote_identifier(col) for col in old_cols),
++            old_cols=", ".join(old_cols_processed),
+             new_cols=", ".join(quote_identifier(col) for col in new_cols),
+         )
+         sqls.append(copy_sql)

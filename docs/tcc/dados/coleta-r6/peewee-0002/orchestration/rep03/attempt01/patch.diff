@@ -1,0 +1,91 @@
+diff --git a/peewee.py b/peewee.py
+index 6a666d5b..b2d3947c 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -2060,6 +2060,8 @@ class OnConflict(Node):
+         return ctx.state.conflict_statement(self, query)
+ 
+     def get_conflict_update(self, ctx, query):
++        if ctx.state is None:
++            raise InterfaceError('Cannot generate conflict update clause without a database being specified.')
+         return ctx.state.conflict_update(self, query)
+ 
+     @Node.copy
+@@ -2652,6 +2654,14 @@ class Select(SelectBase):
+ 
+     @Node.copy
+     def window(self, *windows):
++        # Check for duplicate window aliases
++        aliases = set()
++        for window in windows:
++            alias = getattr(window, '_alias', None)
++            if alias in aliases:
++                raise ValueError('Duplicate window alias: %s' % alias)
++            aliases.add(alias)
++        
+         self._windows = windows if windows else None
+ 
+     @Node.copy
+@@ -3039,6 +3049,8 @@ class Insert(_WriteQuery):
+                 self._query_type = Insert.MULTI
+ 
+             if self._on_conflict is not None:
++                if ctx.state is None:
++                    raise InterfaceError('Cannot generate conflict clause without a database being specified.')
+                 update = self._on_conflict.get_conflict_update(ctx, self)
+                 if update is not None:
+                     with ctx(subquery=True):
+@@ -4037,12 +4049,22 @@ class Database(_callable_context_manager):
+             self.cursor().execute('BEGIN')
+ 
+     def rollback(self):
+-        with __exception_wrapper__:
+-            self.cursor().execute('ROLLBACK')
++        was_closed = self.is_closed()
++        try:
++            with __exception_wrapper__:
++                self.cursor().execute('ROLLBACK')
++        finally:
++            if was_closed and not self.is_closed():
++                self.close()
+ 
+     def commit(self):
+-        with __exception_wrapper__:
+-            self.cursor().execute('COMMIT')
++        was_closed = self.is_closed()
++        try:
++            with __exception_wrapper__:
++                self.cursor().execute('COMMIT')
++        finally:
++            if was_closed and not self.is_closed():
++                self.close()
+ 
+     def batch_commit(self, it, n):
+         for group in chunked(it, n):
+@@ -4382,12 +4404,22 @@ class SqliteDatabase(Database):
+         self.execute_sql(statement)
+ 
+     def commit(self):
+-        with __exception_wrapper__:
+-            return self.execute_sql('COMMIT')
++        was_closed = self.is_closed()
++        try:
++            with __exception_wrapper__:
++                return self.execute_sql('COMMIT')
++        finally:
++            if was_closed and not self.is_closed():
++                self.close()
+ 
+     def rollback(self):
+-        with __exception_wrapper__:
+-            return self.execute_sql('ROLLBACK')
++        was_closed = self.is_closed()
++        try:
++            with __exception_wrapper__:
++                return self.execute_sql('ROLLBACK')
++        finally:
++            if was_closed and not self.is_closed():
++                self.close()
+ 
+     def get_tables(self, schema=None):
+         schema = qesc(schema or 'main')

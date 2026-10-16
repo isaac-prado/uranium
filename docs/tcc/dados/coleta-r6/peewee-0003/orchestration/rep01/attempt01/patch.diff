@@ -1,0 +1,39 @@
+diff --git a/playhouse/fields.py b/playhouse/fields.py
+index 5eefd0a6..8532000f 100644
+--- a/playhouse/fields.py
++++ b/playhouse/fields.py
+@@ -57,6 +57,12 @@ class PickleField(BlobField):
+             return self._constructor(pickled)
+ 
+ 
++class _AutoChoices(list):
++    """Special list that evaluates to False but contains automatic choices."""
++    def __bool__(self):
++        # Make it evaluate to False so pydantic_utils ignores it
++        return False
++
+ class EnumFieldMixin(object):
+     enum_value_type = None
+ 
+@@ -71,6 +77,21 @@ class EnumFieldMixin(object):
+         self.enum_class = enum_class
+         super(EnumFieldMixin, self).__init__(*args, **kwargs)
+ 
++    @property
++    def choices(self):
++        # If choices were explicitly set, return them
++        if hasattr(self, '_choices') and self._choices is not None:
++            return self._choices
++        # Otherwise, generate choices from enum members but make them falsy
++        # so pydantic_utils continues using the enum_class directly
++        auto_data = [(member.value, member.name) for member in self.enum_class]
++        return _AutoChoices(auto_data)
++    
++    @choices.setter
++    def choices(self, value):
++        # Store the explicitly provided choices
++        self._choices = value
++
+     def db_value(self, value):
+         if value is None:
+             return value

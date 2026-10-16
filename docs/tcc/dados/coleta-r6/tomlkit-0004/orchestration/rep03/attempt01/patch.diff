@@ -1,0 +1,309 @@
+diff --git a/tests/examples/example.toml b/tests/examples/example.toml
+index f599919..b77dcef 100644
+--- a/tests/examples/example.toml
++++ b/tests/examples/example.toml
+@@ -1,36 +1,36 @@
+ # This is a TOML document. Boom.
+ 
+-title = "TOML Example"
++title= "TOML Example"
+ 
+ [owner]
+-name = "Tom Preston-Werner"
+-organization = "GitHub"
+-bio = "GitHub Cofounder & CEO\nLikes tater tots and beer."
+-dob = 1979-05-27T07:32:00Z # First class dates? Why not?
++name= "Tom Preston-Werner"
++organization= "GitHub"
++bio= "GitHub Cofounder & CEO\nLikes tater tots and beer."
++dob= 1979-05-27T07:32:00Z # First class dates? Why not?
+ 
+ [database]
+-server = "192.168.1.1"
+-ports = [8001, 8001, 8002]
+-connection_max = 5000
+-enabled = true
++server= "192.168.1.1"
++ports= [8001, 8001, 8002]
++connection_max= 5000
++enabled= true
+ 
+ [servers]
+ 
+   # You can indent as you please. Tabs or spaces. TOML don't care.
+   [servers.alpha]
+-  ip = "10.0.0.1"
+-  dc = "eqdc10"
++  ip= "10.0.0.1"
++  dc= "eqdc10"
+ 
+   [servers.beta]
+-  ip = "10.0.0.2"
+-  dc = "eqdc10"
+-  country = "中国" # This should be parsed as UTF-8
++  ip= "10.0.0.2"
++  dc= "eqdc10"
++  country= "中国" # This should be parsed as UTF-8
+ 
+ [clients]
+-data = [["gamma", "delta"], [1, 2]] # just an update to make sure parsers support it
++data= [["gamma", "delta"], [1, 2]] # just an update to make sure parsers support it
+ 
+ # Line breaks are OK when inside arrays
+-hosts = [
++hosts= [
+   "alpha",
+   "omega"
+ ]
+@@ -38,14 +38,14 @@ hosts = [
+ # Products
+ 
+   [[products]]
+-  name = "Hammer"
+-  sku = 738594937
++  name= "Hammer"
++  sku= 738594937
+ 
+   [[products]]
+-  name = "Nail"
+-  sku = 284758393
+-  color = "gray"
++  name= "Nail"
++  sku= 284758393
++  color= "gray"
+ 
+-float = 3.14
+-date = 1979-05-27
+-time = 07:32:00
++float= 3.14
++date= 1979-05-27
++time= 07:32:00
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..9c394e9 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -132,7 +132,11 @@ class Parser:
+ 
+             key, value = item
+             if not self._merge_ws(value, body):
+-                body.append(key, value)
++                # Handle dotted keys by creating nested structure
++                if key is not None and self._is_dotted_key(key.key):
++                    self._handle_dotted_key(body, key, value)
++                else:
++                    body.append(key, value)
+ 
+             self.mark()
+ 
+@@ -147,6 +151,87 @@ class Parser:
+ 
+         return body
+ 
++    def _handle_dotted_key(self, body, key, value):
++        """Handle dotted key by creating nested table structure."""
++        from .api import table as make_table
++        
++        # Split the key properly, taking care of quoted parts
++        parts = self._split_dotted_key(key.key)
++        current_container = body
++        
++        # Navigate/create nested tables for all but the last part
++        for i, part in enumerate(parts[:-1]):
++            # Check if this part already exists
++            if part in current_container:
++                existing = current_container[part]
++                from .items import Table
++                if isinstance(existing, (dict, Table)) or hasattr(existing, 'append'):  # It's a table-like object
++                    current_container = existing
++                else:
++                    # If it's not a table, we need to create a new one
++                    # This handles cases where a key was previously defined as a value
++                    new_table = make_table()
++                    current_container = new_table
++            else:
++                # Create new table for this part
++                new_table = make_table()
++                current_container.append(part, new_table)
++                current_container = new_table
++        
++        # Add the final value to the deepest table
++        final_key = parts[-1]
++        current_container.append(final_key, value)
++    
++    def _is_dotted_key(self, key_str):
++        """Check if a key string represents a dotted key."""
++        # A dotted key must contain at least one dot not inside quotes
++        in_single_quote = False
++        in_double_quote = False
++        
++        for i, char in enumerate(key_str):
++            if char == "'" and not in_double_quote:
++                in_single_quote = not in_single_quote
++            elif char == '"' and not in_single_quote:
++                in_double_quote = not in_double_quote
++            elif char == '.' and not in_single_quote and not in_double_quote:
++                # Found a dot outside of quotes
++                return True
++                
++        return False
++    
++    def _split_dotted_key(self, key_str):
++        """Split a dotted key string into parts, respecting quoted sections."""
++        parts = []
++        current_part = ""
++        in_single_quote = False
++        in_double_quote = False
++        
++        i = 0
++        while i < len(key_str):
++            char = key_str[i]
++            
++            if char == "'" and not in_double_quote:
++                in_single_quote = not in_single_quote
++                current_part += char
++            elif char == '"' and not in_single_quote:
++                in_double_quote = not in_double_quote
++                current_part += char
++            elif char == '.' and not in_single_quote and not in_double_quote:
++                # End of a part
++                if current_part:
++                    parts.append(current_part)
++                    current_part = ""
++            else:
++                current_part += char
++            
++            i += 1
++        
++        # Add the last part
++        if current_part:
++            parts.append(current_part)
++            
++        return parts
++
+     def _merge_ws(self, item, container):  # type: (Item, Container) -> bool:
+         """
+         Merges the given Item with the last one currently in the given Container if
+@@ -362,7 +447,7 @@ class Parser:
+ 
+         indent = self.extract()
+ 
+-        # Key
++        # Key - parse as normal first
+         key = self._parse_key()
+         if not key.key.strip():
+             raise self.parse_error(EmptyKeyError)
+@@ -402,10 +487,75 @@ class Parser:
+         Parses a Key at the current position;
+         WS before the key must be exhausted first at the callsite.
+         """
+-        if self._current in "\"'":
++        # Check if this might be the start of a dotted key
++        # We'll look ahead to see if there are dots outside of quotes
++        if self._current not in "\"'":
++            # It's a bare key, check if it might be part of a dotted key
++            return self._parse_dotted_or_bare_key()
++        else:
+             return self._parse_quoted_key()
++    
++    def _parse_dotted_or_bare_key(self):  # type: () -> Key
++        """
++        Parses either a bare key or a dotted key.
++        """
++        # Save our current state in case we need to backtrack
++        original_idx = self._idx
++        original_marker = self._marker
++        original_current = self._current
++        
++        # Try to parse what could be a dotted key
++        self.mark()
++        key_parts = []
++        current_part = ""
++        
++        while True:
++            # Parse one part (bare or quoted)
++            if self._current in "\"'":
++                # Parse quoted part
++                quote_char = self._current
++                self.inc()  # Skip opening quote
++                self.mark()
++                while self._current != quote_char and self.inc():
++                    pass
++                part = self.extract()
++                self.inc()  # Skip closing quote
++                # Include the quotes in the final key part for proper reconstruction
++                current_part += quote_char + part + quote_char
++            else:
++                # Parse bare part
++                self.mark()
++                while self._current.is_bare_key_char() and self.inc():
++                    pass
++                part = self.extract()
++                current_part += part
++            
++            # Check for dot or end
++            while self._current.is_ws() and self.inc():
++                pass
++                
++            if self._current == ".":
++                # Continue with next part
++                key_parts.append(current_part)
++                current_part = ""
++                self.inc()  # Skip dot
++                # Skip whitespace after dot
++                while self._current.is_ws() and self.inc():
++                    pass
++                continue
++            else:
++                # End of key
++                key_parts.append(current_part)
++                break
++        
++        # If we only have one part, it's a simple key
++        if len(key_parts) == 1:
++            key = key_parts[0]
+         else:
+-            return self._parse_bare_key()
++            # It's a dotted key
++            key = ".".join(key_parts)
++            
++        return Key(key, sep=" = ")
+ 
+     def _parse_quoted_key(self):  # type: () -> Key
+         """
+@@ -434,15 +584,16 @@ class Parser:
+ 
+     def _parse_bare_key(self):  # type: () -> Key
+         """
+-        Parses a bare key.
++        Parses a bare key, including dotted keys.
+         """
+         self.mark()
+-        while self._current.is_bare_key_char() and self.inc():
++        # Allow dots in bare keys to support dotted key syntax
++        while (self._current.is_bare_key_char() or self._current == ".") and self.inc():
+             pass
+ 
+         key = self.extract()
+ 
+-        return Key(key, sep="")
++        return Key(key, sep=" = ")
+ 
+     def _parse_value(self):  # type: () -> Item
+         """
+diff --git a/tomlkit/toml_char.py b/tomlkit/toml_char.py
+index 8d8d660..2f4662a 100644
+--- a/tomlkit/toml_char.py
++++ b/tomlkit/toml_char.py
+@@ -16,6 +16,12 @@ class TOMLChar(unicode):
+         """
+         return self in string.ascii_letters + string.digits + "-" + "_"
+ 
++    def is_dotted_key_char(self):  # type: () -> bool
++        """
++        Whether the character is a valid dotted key character or not.
++        """
++        return self.is_bare_key_char() or self == "."
++
+     def is_kv_sep(self):  # type: () -> bool
+         """
+         Whether the character is a valid key/value separator ot not.

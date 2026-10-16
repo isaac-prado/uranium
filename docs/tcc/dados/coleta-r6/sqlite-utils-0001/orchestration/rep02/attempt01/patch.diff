@@ -1,0 +1,56 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index d709fb9..dc2e5ce 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -2318,6 +2318,27 @@ class Table(Queryable):
+             return None
+         return match.groupdict()["using"].upper()
+ 
++    def _get_destructive_references(self) -> List[Tuple[str, str]]:
++        """
++        Get list of (table_name, on_delete_action) for tables that reference 
++        this table with destructive foreign key actions (CASCADE, SET NULL, SET DEFAULT).
++        """
++        destructive_actions = {"CASCADE", "SET NULL", "SET DEFAULT"}
++        destructive_refs = []
++        
++        # Check all tables in the database
++        for table_name in self.db.table_names():
++            if table_name == self.name:
++                continue
++                
++            table_obj = self.db[table_name]
++            for fk in table_obj.foreign_keys:
++                if (fk.other_table == self.name and 
++                    fk.on_delete.upper() in destructive_actions):
++                    destructive_refs.append((table_name, fk.on_delete.upper()))
++                    
++        return destructive_refs
++
+     @property
+     def indexes(self) -> List[Index]:
+         "List of indexes defined on this table."
+@@ -2560,6 +2581,23 @@ class Table(Queryable):
+             self.db.execute("PRAGMA foreign_keys").fetchone()[0]
+         )
+         already_in_transaction = self.db.conn.in_transaction
++        
++        # Check for destructive foreign keys referencing this table within a transaction
++        # This check must happen before any database modification to ensure
++        # complete rollback if the condition is detected
++        if pragma_foreign_keys_was_on and already_in_transaction:
++            destructive_refs = self._get_destructive_references()
++            if destructive_refs:
++                ref_tables = ", ".join(ref[0] for ref in destructive_refs)
++                ref_actions = ", ".join(set(ref[1] for ref in destructive_refs))
++                raise TransactionError(
++                    f"Cannot transform table '{self.name}' inside a transaction "
++                    f"while it is referenced by tables [{ref_tables}] "
++                    f"with destructive foreign key actions [{ref_actions}]. "
++                    f"Either disable foreign keys, commit the transaction, "
++                    f"or use a non-destructive action like RESTRICT or NO ACTION."
++                )
++        
+         should_disable_foreign_keys = (
+             pragma_foreign_keys_was_on and not already_in_transaction
+         )

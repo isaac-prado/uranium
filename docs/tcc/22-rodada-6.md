@@ -58,4 +58,58 @@ Fonte: `dados/fumaca-r6b/*/orchestration/rep01/attempt01/{events.jsonl,result.js
 
 ## 4. Execução
 
-Lançada em 16/10/2026 às 14:55 (`runs/coleta-r6`, manifesto v15, 39 células, sementes da coleta principal, `--workers 1 --retry-delay 300 --max-attempts 5`); vigia em segundo plano para perda ou erro do harness. Fechamento: montar `runs/coleta-r6-analise` (cópia dos 39 runs + single-agent pareado da rodada 2), `analyze_results.py` e `metrics_appendix.py`, versionar em `dados/coleta-r6/`, tabela por tarefa contra as rodadas 2, 4 e 5, vereditos por base, aprovações erradas, coerções e blocos rotulados.
+Lançada em 16/10/2026 às 14:55 (`runs/coleta-r6`, manifesto v15, 39 células, sementes da coleta principal, `--workers 1 --retry-delay 300 --max-attempts 5`); vigia em segundo plano para perda ou erro do harness. **Interrupção externa (16:31):** o fechamento do VSCode derrubou o processo da coleta com 15 células fechadas; a célula em andamento (peewee-0002 rep02, attempt01, último evento 16:30:48, sem `summary.json`) conta como perdida pela regra de `harness/attempts.py` e é refeita como attempt02 com a mesma semente; coleta retomada às 16:3x com o mesmo comando, agora desacoplada do editor (`setsid nohup`). Mesmo tratamento da queda de energia da rodada 5 (decisão 14). Fechamento: montar `runs/coleta-r6-analise` (cópia dos 39 runs + single-agent pareado da rodada 2), `analyze_results.py` e `metrics_appendix.py`, versionar em `dados/coleta-r6/`, tabela por tarefa contra as rodadas 2, 4 e 5, vereditos por base, aprovações erradas, coerções e blocos rotulados.
+
+## 5. Resultados: a rodada 6 repete a rodada 5 e fica abaixo da rodada 4
+
+Fechada em 16/10/2026 às 18:45: 39 células, 0 perdidas, 1 tentativa interrompida pelo fechamento do editor (peewee-0002 rep02 attempt01, refeita). Fonte: `dados/coleta-r6/` (runs, `collection.json`, `analise-sete-metricas.{md,json}`, `apendice-metricas.md`); raiz pareada `runs/coleta-r6-analise/`.
+
+| | runs resolvidos (de 39) | tarefas (mediana, de 13) | por repetição | grande / média / pequena | custo | tokens | tokens por run (mediana) |
+|---|---|---|---|---|---|---|---|
+| single-agent pareado | 23 | 8 | 7, 10, 6 | 4/9, 10/12, 9/18 | US$ 8,44 | 72,4 M | 464 mil |
+| orquestrado, rodada 2 | 23 | 7 | 9, 8, 6 | 4/9, 6/12, 13/18 | US$ 4,72 | 33,4 M | 464 mil |
+| orquestrado, rodada 4 | 24 | 9 | 7, 10, 7 | 5/9, 7/12, 12/18 | US$ 5,67 | 37,9 M | 884 mil |
+| orquestrado, rodada 5 | 18 | 6 | 8, 5, 5 | 5/9, 4/12, 9/18 | US$ 5,61 | 42,1 M | 614 mil |
+| **orquestrado, rodada 6** | **19** | **6** | 6, 6, 7 | 4/9, 4/12, **11/18** | US$ 5,97 (+ 0,02 da tentativa interrompida) | 46,3 M | **1,30 M** |
+
+Por tarefa (✓ por repetição; rodadas anteriores em [21-rodada-5.md](21-rodada-5.md) §5):
+
+| tarefa | faixa | SA | r6 | r5 | r4 |
+|---|---|---|---|---|---|
+| attrs-0001 | média | ✓✓✓ | ✓✗✗ | ✓✗✗ | ✓✓✗ |
+| peewee-0001 | média | ✓✓✓ | ✓✓✓ | ✓✓✓ | ✓✓✓ |
+| peewee-0002 | média | ✓✓✗ | ✗✗✗ | ✗✗✗ | ✗✗✗ |
+| peewee-0003 | pequena | ✓✓✓ | ✓✓✓ | ✓✓✓ | ✓✓✓ |
+| pygments-0001 | pequena | ✗✓✓ | ✓✓✓ | ✓✓✗ | ✓✓✓ |
+| sqlite-utils-0001 | pequena | ✗✓✗ | ✗✗✗ | ✗✗✗ | ✗✓✗ |
+| sqlite-utils-0002 | pequena | ✗✗✗ | ✗✓✓ | ✓✗✗ | ✓✓✗ |
+| sqlite-utils-0003 | média | ✓✓✗ | ✗✗✗ | ✗✗✗ | ✗✓✓ |
+| tomlkit-0001 | pequena | ✓✓✓ | ✓✓✓ | ✓✗✓ | ✓✓✓ |
+| tomlkit-0002 | grande | ✗✓✗ | ✗✗✓ | ✓✓✗ | ✗✓✓ |
+| tomlkit-0003 | grande | ✓✓✓ | ✓✓✓ | ✓✓✓ | ✓✓✓ |
+| tomlkit-0004 | grande | ✗✗✗ | ✗✗✗ | ✗✗✗ | ✗✗✗ |
+| tomlkit-0005 | pequena | ✗✗✗ | ✗✗✗ | ✗✗✓ | ✗✗✗ |
+
+Sete métricas contra o single-agent pareado (`analise-sete-metricas.md`): tarefas 8/13 × 6/13 (sinal: 2 +OR, 4 −SA, 7 empates, p = 0,69); tokens nas 5 tarefas resolvidas por ambos 314 mil × 398 mil (p = 0,0625); tempo 179 × 254 s (p = 0,81); consistência 5/10 × 5/8; conclusão sem corte 29/39 × 23/39; violações 0; 0; 5 × 1; 0; 2 (a crítica: tomlkit-0004 rep03 alterou `tests/examples/example.toml`, arquivo protegido, num run que não resolveu de qualquer modo; aviso C6 na attrs-0001 rep03). Por faixa (apêndice B): grande 0 +OR / 0 −SA / 3 empates; média 0 / 3 / 1 (p = 0,25); pequena 2 / 1 / 3 (p = 1).
+
+### 5.1 O que os mecanismos fizeram (eventos de `dados/coleta-r6`)
+
+- **Revisão final:** 84 revisões, 62 reprovações, 22 aprovações (18 em runs resolvidos; 4 erradas, contra 7 na rodada 5 e 3 na 4): sqlite-utils-0001 rep01 (1/5 ocultos) e rep03 (4/5), sqlite-utils-0002 rep01 (5/11), sqlite-utils-0003 rep03 (12/12 ocultos, mas a CLI passou a desduplicar também a saída CSV, contra o critério 7, e `test_query_csv_duplicate_columns_are_preserved` falhou). 13 aprovações no 1º ciclo, 10 certas (rodada 5: 11 e 6; rodada 4: 7 e 6). A coerção do revisor coerente disparou 3 vezes.
+- **Sub-tarefas:** 91 vereditos: 37 por comparação (8 feitas, 29 não), 24 pela revisão do modelo (9 feitas, 15 não), 30 por suíte vermelha. "Feita" no mesmo ponto em que a revisão final reprovava: 17 (rodada 5: 37; rodada 4: 12). Blocos rotulados como não compiláveis: 34, em 8 runs.
+- **Custo do freio:** turnos por run (mediana) 90 (rodada 4: 73; rodada 5: 57), chamadas 101 (78; 65), tokens de prompt 1,27 M (860 mil; 599 mil), ciclos encerrados pelo teto de 40 turnos 31 (25; 25), runs cortados a 120 turnos 16 (13; 13). O developer fica mais tempo em cada sub-tarefa e cada reentrada carrega memória, trechos e sub-tarefa de novo.
+- **Oculto verde com regressão:** 3 runs (rodada 5: 1): sqlite-utils-0003 rep02 e rep03 (12/12 e 1 regressão cada, a CSV), tomlkit-0002 rep01 (1/1 e 29 regressões).
+
+### 5.2 Onde os runs se perderam em relação à rodada 4
+
+Seis perdidos (attrs-0001 rep02, sqlite-utils-0001 rep02, sqlite-utils-0002 rep01, sqlite-utils-0003 rep02 e rep03, tomlkit-0002 rep02) e um ganho (sqlite-utils-0002 rep03).
+
+- **attrs-0001 rep02: a saída esperada do enunciado não é o que o código certo imprime.** A intent trouxe `fields(Caixa[str]): (Field(name='conteudo', ...` (saída 4) e `NotAnAttrsClassError 'Comum[str]' is not an attrs-decorated class.` (saída 6). A biblioteca imprime `Attribute(...)`, não `Field(...)`, e o teste oculto exige `f"{B[str]!r} is not..."`, isto é, `__main__.Comum[str]` sem aspas. A comparação disse "saída 4 NÃO encontrada" nas 6 revisões (por texto, está certa), o revisor perseguiu `type=~T` e `Field`, e o developer, ao fazer a saída 6 ser "encontrada" (ciclo 3), passou a imprimir o texto do enunciado e reprovou no oráculo. Na rodada 4 a mesma tarefa fechou 2 de 3 com o revisor julgando pelos critérios.
+- **sqlite-utils-0001 rep02:** 12 ciclos, 12 reprovações (8 por comparação, 4 pelo modelo), orçamento, 0/5. **sqlite-utils-0002 rep01:** aprovação errada no 1º ciclo com 5/11, como na rep03 da rodada 5 e na rep03 da rodada 4 (tarefa com `visible_deselect`: a suíte visível não discrimina). **sqlite-utils-0003 rep02 e rep03:** 12/12 ocultos e a regressão da CSV. **tomlkit-0002 rep02:** suíte destruída (31 regressões), três ciclos de suíte vermelha.
+
+### 5.3 Leitura
+
+- A rodada 6 corrigiu o que mirou: aprovações erradas 7 → 4, bloco corrompido fora da evidência, comparação por sub-tarefa. A resolução não se moveu (19 × 18) e o custo dobrou (1,30 M tokens por run; 16 cortes por orçamento), porque o freio devolvido ao developer (revisão de sub-tarefa "não feita" em 15 de 24, revisor final coerente) o mantém ciclando.
+- A causa comum às rodadas 5 e 6 está no insumo da comparação: as saídas esperadas copiadas do enunciado **não são oráculo literal**. attrs-0001 (`Field` × `Attribute`, `'Comum[str]'` × `__main__.Comum[str]`), sqlite-utils-0003 (saída da CLI que nenhum bloco produz; CSV que deve ficar duplicada) e tomlkit-0003 (saída 2 substring da 1) mostram o padrão: o texto do enunciado descreve o comportamento, e a comparação por texto herda cada imprecisão. O revisor da rodada 4, julgando pelos critérios, era mais tolerante a isso e resolveu mais.
+- Três rodadas sucessivas de instrumentação do verificador (5, 6) não superaram a rodada 4 (24/39, 9/13): com este modelo e estes enunciados, a configuração final do orquestrado é a da rodada 4; as rodadas 5 e 6 entram no texto como resultados negativos informativos (o que a verificação determinística exige dos enunciados e o que custa em turnos). A faixa pequena foi a melhor da rodada 6 (11/18, SA 9/18); a média continua sendo onde o orquestrado perde (4/12 × 10/12).
+- Crédito restante estimado US$ 4,83 (18,78 − 5,61 − 0,90 − 0,40 − 0,63 − 0,42 − 5,99; fonte: `result.json` das fumaças e das rodadas): não cobre outra rodada (~US$ 6) nem a replicação com segundo modelo nos dois braços.
+- Para o autor: (a) declarar a rodada 4 como configuração final do orquestrado; (b) com crédito novo, replicar a rodada 4 e o single-agent com um segundo modelo (recomendação: Gemini Flash, temperatura e semente fixas); (c) correção futura, se houver nova rodada: `Subtask.expected` como pares bloco → saída e saída esperada tratada como indício, não como veredito.

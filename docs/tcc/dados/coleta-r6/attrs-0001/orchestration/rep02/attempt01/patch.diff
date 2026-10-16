@@ -1,0 +1,64 @@
+diff --git a/src/attr/_funcs.py b/src/attr/_funcs.py
+index 518be16e..18678e51 100644
+--- a/src/attr/_funcs.py
++++ b/src/attr/_funcs.py
+@@ -296,6 +296,9 @@ def has(cls):
+ 
+     :rtype: bool
+     """
++    # Handle generic aliases by checking the origin class
++    if hasattr(cls, '__origin__') and isinstance(cls.__origin__, type):
++        cls = cls.__origin__
+     return getattr(cls, "__attrs_attrs__", None) is not None
+ 
+ 
+diff --git a/src/attr/_make.py b/src/attr/_make.py
+index 014b7bc2..85c0ae98 100644
+--- a/src/attr/_make.py
++++ b/src/attr/_make.py
+@@ -1919,11 +1919,21 @@ def fields(cls):
+     .. versionchanged:: 16.2.0 Returned tuple allows accessing the fields
+        by name.
+     """
++    # Handle generic aliases by checking the origin class
++    original_cls = cls
++    if hasattr(cls, '__origin__'):
++        cls = cls.__origin__
+     if not isinstance(cls, type):
+         raise TypeError("Passed object must be a class.")
+     attrs = getattr(cls, "__attrs_attrs__", None)
+     if attrs is None:
+-        raise NotAnAttrsClassError(f"{cls!r} is not an attrs-decorated class.")
++        # Format the class name more cleanly for the error message
++        if hasattr(original_cls, '__origin__') and hasattr(original_cls.__origin__, '__name__'):
++            # For generic types like Comum[str], show as "Comum[str]" instead of "__main__.Comum[str]"
++            formatted_name = f"{original_cls.__origin__.__name__}{str(original_cls)[str(original_cls).find('['):]}"
++            raise NotAnAttrsClassError(f"'{formatted_name}' is not an attrs-decorated class.")
++        else:
++            raise NotAnAttrsClassError(f"{original_cls!r} is not an attrs-decorated class.")
+     return attrs
+ 
+ 
+@@ -1942,11 +1952,21 @@ def fields_dict(cls):
+ 
+     .. versionadded:: 18.1.0
+     """
++    # Handle generic aliases by checking the origin class
++    original_cls = cls
++    if hasattr(cls, '__origin__'):
++        cls = cls.__origin__
+     if not isinstance(cls, type):
+         raise TypeError("Passed object must be a class.")
+     attrs = getattr(cls, "__attrs_attrs__", None)
+     if attrs is None:
+-        raise NotAnAttrsClassError(f"{cls!r} is not an attrs-decorated class.")
++        # Format the class name more cleanly for the error message
++        if hasattr(original_cls, '__origin__') and hasattr(original_cls.__origin__, '__name__'):
++            # For generic types like Comum[str], show as "Comum[str]" instead of "__main__.Comum[str]"
++            formatted_name = f"{original_cls.__origin__.__name__}{str(original_cls)[str(original_cls).find('['):]}"
++            raise NotAnAttrsClassError(f"'{formatted_name}' is not an attrs-decorated class.")
++        else:
++            raise NotAnAttrsClassError(f"{original_cls!r} is not an attrs-decorated class.")
+     return {a.name: a for a in attrs}
+ 
+ 

@@ -1,0 +1,143 @@
+diff --git a/tomlkit/_types.py b/tomlkit/_types.py
+index 3585d56..fe33478 100644
+--- a/tomlkit/_types.py
++++ b/tomlkit/_types.py
+@@ -71,11 +71,11 @@ else:
+             self.update(other)
+             return self
+ 
+-    class _CustomInt(Integral, int):
+-        """Adds Integral mixin while pretending to be a builtin int"""
++    class _CustomInt(int):
++        """Pretends to be a builtin int"""
+ 
+-    class _CustomFloat(Real, float):
+-        """Adds Real mixin while pretending to be a builtin float"""
++    class _CustomFloat(float):
++        """Pretends to be a builtin float"""
+ 
+ 
+ def wrap_method(
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 4a24fc0..c0a0c9a 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -625,6 +625,11 @@ class Integer(Item, _CustomInt):
+         if re.match(r"^[+\-]\d+$", raw):
+             self._sign = True
+ 
++# Remove sequence methods from class to prevent PySequence_Check from returning 1
++for method_name in ('__getitem__', '__setitem__', '__delitem__', '__iter__'):
++    if method_name in Integer.__dict__:
++        delattr(Integer, method_name)
++
+     def unwrap(self) -> int:
+         return self._original
+ 
+@@ -879,6 +884,11 @@ class Float(Item, _CustomFloat):
+     def _getstate(self, protocol: int = 3) -> tuple[float, Trivia, str]:
+         return float(self), self._trivia, self._raw
+ 
++# Remove sequence methods from class to prevent PySequence_Check from returning 1
++for method_name in ('__getitem__', '__setitem__', '__delitem__', '__iter__'):
++    if method_name in Float.__dict__:
++        delattr(Float, method_name)
++
+     # float methods — explicit typed wrappers
+     def __abs__(self) -> Float:
+         return self._new(float.__abs__(self))
+@@ -996,6 +1006,18 @@ class Bool(Item):
+ 
+         self._value = bool(t)
+ 
++    def __getitem__(self, key):
++        raise TypeError(f"'{type(self).__name__}' object is not subscriptable")
++
++    def __setitem__(self, key, value):
++        raise TypeError(f"'{type(self).__name__}' object does not support item assignment")
++
++    def __delitem__(self, key):
++        raise TypeError(f"'{type(self).__name__}' object does not support item deletion")
++
++    def __iter__(self):
++        raise TypeError(f"'{type(self).__name__}' object is not iterable")
++
+     def unwrap(self) -> bool:
+         return bool(self)
+ 
+@@ -1081,6 +1103,18 @@ class DateTime(Item, datetime):
+ 
+         self._raw = raw or self.isoformat()
+ 
++    def __getitem__(self, key):
++        raise TypeError(f"'{type(self).__name__}' object is not subscriptable")
++
++    def __setitem__(self, key, value):
++        raise TypeError(f"'{type(self).__name__}' object does not support item assignment")
++
++    def __delitem__(self, key):
++        raise TypeError(f"'{type(self).__name__}' object does not support item deletion")
++
++    def __iter__(self):
++        raise TypeError(f"'{type(self).__name__}' object is not iterable")
++
+     def unwrap(self) -> datetime:
+         (
+             year,
+@@ -1219,6 +1253,18 @@ class Date(Item, date):
+ 
+         self._raw = raw
+ 
++    def __getitem__(self, key):
++        raise TypeError(f"'{type(self).__name__}' object is not subscriptable")
++
++    def __setitem__(self, key, value):
++        raise TypeError(f"'{type(self).__name__}' object does not support item assignment")
++
++    def __delitem__(self, key):
++        raise TypeError(f"'{type(self).__name__}' object does not support item deletion")
++
++    def __iter__(self):
++        raise TypeError(f"'{type(self).__name__}' object is not iterable")
++
+     def unwrap(self) -> date:
+         (year, month, day, _, _) = self._getstate()
+         return date(year, month, day)
+@@ -1302,6 +1348,18 @@ class Time(Item, time):
+ 
+         self._raw = raw
+ 
++    def __getitem__(self, key):
++        raise TypeError(f"'{type(self).__name__}' object is not subscriptable")
++
++    def __setitem__(self, key, value):
++        raise TypeError(f"'{type(self).__name__}' object does not support item assignment")
++
++    def __delitem__(self, key):
++        raise TypeError(f"'{type(self).__name__}' object does not support item deletion")
++
++    def __iter__(self):
++        raise TypeError(f"'{type(self).__name__}' object is not iterable")
++
+     def unwrap(self) -> time:
+         (hour, minute, second, microsecond, tzinfo, _, _) = self._getstate()
+         return time(hour, minute, second, microsecond, tzinfo)
+@@ -2212,6 +2270,18 @@ class String(str, Item):  # type: ignore[misc]
+         self._t = t
+         self._original = original
+ 
++    def __getitem__(self, key):
++        raise TypeError(f"'{type(self).__name__}' object is not subscriptable")
++
++    def __setitem__(self, key, value):
++        raise TypeError(f"'{type(self).__name__}' object does not support item assignment")
++
++    def __delitem__(self, key):
++        raise TypeError(f"'{type(self).__name__}' object does not support item deletion")
++
++    def __iter__(self):
++        raise TypeError(f"'{type(self).__name__}' object is not iterable")
++
+     def unwrap(self) -> str:
+         return str(self)
+ 

@@ -1,0 +1,34 @@
+diff --git a/tomlkit/api.py b/tomlkit/api.py
+index fd4b2f3..c1d6b99 100644
+--- a/tomlkit/api.py
++++ b/tomlkit/api.py
+@@ -1,4 +1,5 @@
+ import datetime as _datetime
++from typing import List, Union
+ 
+ from collections.abc import Mapping
+ from typing import IO
+@@ -12,6 +13,7 @@ from .items import Bool
+ from .items import Comment
+ from .items import Date
+ from .items import DateTime
++from .items import DottedKey
+ from .items import Float
+ from .items import InlineTable
+ from .items import Integer
+@@ -141,8 +143,13 @@ def aot() -> AoT:
+     return AoT([])
+ 
+ 
+-def key(k: str) -> Key:
+-    return SingleKey(k)
++def key(k: Union[str, List[str]]) -> Key:
++    if isinstance(k, str):
++        return SingleKey(k)
++    elif isinstance(k, list):
++        return DottedKey([SingleKey(_k) for _k in k], sep=" = ")
++    else:
++        raise TypeError(f"key() only accepts str or List[str], got {type(k)}")
+ 
+ 
+ def value(raw: str) -> _Item:

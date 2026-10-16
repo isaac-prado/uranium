@@ -1,0 +1,182 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index d709fb9..673dd4a 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -2500,6 +2500,7 @@ class Table(Queryable):
+             self.db.execute(sql)
+         return self.db.table(new_name)
+ 
++
+     def transform(
+         self,
+         *,
+@@ -2542,6 +2543,25 @@ class Table(Queryable):
+         """
+         if not self.exists():
+             raise ValueError("Cannot transform a table that doesn't exist yet")
++            
++        # Check for destructive foreign key references within transactions
++        pragma_foreign_keys_was_on = bool(
++            self.db.execute("PRAGMA foreign_keys").fetchone()[0]
++        )
++        already_in_transaction = self.db.conn.in_transaction
++        if pragma_foreign_keys_was_on and already_in_transaction:
++            destructive_refs = self._get_destructive_foreign_key_references()
++            if destructive_refs:
++                ref_details = ", ".join(
++                    f"'{table}' with ON DELETE {action}" 
++                    for table, action in destructive_refs
++                )
++                raise TransactionError(
++                    f"Cannot transform table '{self.name}' within a transaction "
++                    f"because it is referenced by tables with destructive foreign key actions: {ref_details}. "
++                    f"This could cause unintended data loss when the temporary table is dropped."
++                )
++                
+         sqls = self.transform_sql(
+             types=types,
+             rename=rename,
+@@ -2556,10 +2576,143 @@ class Table(Queryable):
+             keep_table=keep_table,
+             strict=strict,
+         )
++        should_disable_foreign_keys = (
++            pragma_foreign_keys_was_on and not already_in_transaction
++        )
++        should_defer_foreign_keys = (
++            pragma_foreign_keys_was_on and already_in_transaction
++        )
++        defer_foreign_keys_was_on = False
++        try:
++            if should_disable_foreign_keys:
++                self.db.execute("PRAGMA foreign_keys=0;")
++            elif should_defer_foreign_keys:
++                defer_foreign_keys_was_on = bool(
++                    self.db.execute("PRAGMA defer_foreign_keys").fetchone()[0]
++                )
++                if not defer_foreign_keys_was_on:
++                    self.db.execute("PRAGMA defer_foreign_keys=ON;")
++            with self.db.atomic():
++                for sql in sqls:
++                    self.db.execute(sql)
++                # Run the foreign_key_check before we commit
++                if pragma_foreign_keys_was_on:
++                    foreign_key_violations = self.db.execute(
++                        "PRAGMA foreign_key_check;"
++                    ).fetchall()
++                    if foreign_key_violations:
++                        raise sqlite3.IntegrityError("FOREIGN KEY constraint failed")
++        finally:
++            if should_defer_foreign_keys and not defer_foreign_keys_was_on:
++                self.db.execute("PRAGMA defer_foreign_keys=OFF;")
++            if should_disable_foreign_keys:
++                self.db.execute("PRAGMA foreign_keys=1;")
++        if strict is not None:
++            self._defaults["strict"] = strict
++        return self
++
++    def _get_destructive_foreign_key_references(self):
++        """
++        Get all foreign key references to this table that have destructive actions.
++        Returns a list of (referencing_table, action) tuples.
++        Destructive actions are: CASCADE, SET NULL, SET DEFAULT
++        """
++        destructive_actions = {"CASCADE", "SET NULL", "SET DEFAULT"}
++        destructive_refs = []
++        
++        # Get all tables in the database
++        tables = [row[0] for row in self.db.execute(
++            "SELECT name FROM sqlite_master WHERE type='table'"
++        ).fetchall()]
++        
++        # For each table, check its foreign keys
++        for table in tables:
++            if table == self.name:
++                continue
++                
++            # Get foreign keys for this table
++            table_obj = self.db[table]
++            for fk in table_obj.foreign_keys:
++                if fk.other_table == self.name and fk.on_delete in destructive_actions:
++                    destructive_refs.append((table, fk.on_delete))
++                    
++        return destructive_refs
++
++    def transform(
++        self,
++        *,
++        types: Optional[dict] = None,
++        rename: Optional[dict] = None,
++        drop: Optional[Iterable] = None,
++        pk: Optional[Any] = DEFAULT,
++        not_null: Optional[Iterable[str]] = None,
++        defaults: Optional[Dict[str, Any]] = None,
++        drop_foreign_keys: Optional[Iterable[str]] = None,
++        add_foreign_keys: Optional[ForeignKeysType] = None,
++        foreign_keys: Optional[ForeignKeysType] = None,
++        column_order: Optional[List[str]] = None,
++        keep_table: Optional[str] = None,
++        strict: Optional[bool] = None,
++    ) -> "Table":
++        """
++        Apply an advanced alter table, including operations that are not supported by
++        ``ALTER TABLE`` in SQLite itself.
++
++        See :ref:`python_api_transform` for full details.
++
++        :param types: Columns that should have their type changed, for example ``{"weight": float}``
++        :param rename: Columns to rename, for example ``{"headline": "title"}``
++        :param drop: Columns to drop
++        :param pk: New primary key for the table
++        :param not_null: Columns to set as ``NOT NULL``
++        :param defaults: Default values for columns
++        :param drop_foreign_keys: Foreign key constraints to remove - a column name
++          drops any foreign key that column participates in, a tuple of column names
++          drops the compound foreign key with exactly those columns
++        :param add_foreign_keys: List of foreign keys to add to the table
++        :param foreign_keys: List of foreign keys to set for the table, replacing any existing foreign keys
++        :param column_order: List of strings specifying a full or partial column order
++          to use when creating the table
++        :param keep_table: If specified, the existing table will be renamed to this and will not be
++          dropped
++        :param strict: Set to ``True`` to make the table strict or ``False`` to make it
++          non-strict. Defaults to ``None``, which preserves the existing strict mode.
++        """
++        if not self.exists():
++            raise ValueError("Cannot transform a table that doesn't exist yet")
++            
++        # Check for destructive foreign key references within transactions
+         pragma_foreign_keys_was_on = bool(
+             self.db.execute("PRAGMA foreign_keys").fetchone()[0]
+         )
+         already_in_transaction = self.db.conn.in_transaction
++        if pragma_foreign_keys_was_on and already_in_transaction:
++            destructive_refs = self._get_destructive_foreign_key_references()
++            if destructive_refs:
++                ref_details = ", ".join(
++                    f"'{table}' with ON DELETE {action}" 
++                    for table, action in destructive_refs
++                )
++                raise TransactionError(
++                    f"Cannot transform table '{self.name}' within a transaction "
++                    f"because it is referenced by tables with destructive foreign key actions: {ref_details}. "
++                    f"This could cause unintended data loss when the temporary table is dropped."
++                )
++                
++        sqls = self.transform_sql(
++            types=types,
++            rename=rename,
++            drop=drop,
++            pk=pk,
++            not_null=not_null,
++            defaults=defaults,
++            drop_foreign_keys=drop_foreign_keys,
++            add_foreign_keys=add_foreign_keys,
++            foreign_keys=foreign_keys,
++            column_order=column_order,
++            keep_table=keep_table,
++            strict=strict,
++        )
+         should_disable_foreign_keys = (
+             pragma_foreign_keys_was_on and not already_in_transaction
+         )

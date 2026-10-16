@@ -1,0 +1,348 @@
+diff --git a/peewee.py b/peewee.py
+index 13d2c8e9..44c77b94 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -3727,6 +3727,16 @@ class ConnectionContext(_callable_context_manager):
+         return type(self)(self.db)
+ 
+ 
++class QueryEvent:
++    """Representa um evento de consulta SQL executado."""
++    
++    def __init__(self, sql, params, duration, exception=None):
++        self.sql = sql
++        self.params = params
++        self.duration = duration
++        self.exception = exception
++
++
+ class Database(_callable_context_manager):
+     context_class = Context
+     field_types = {}
+@@ -3787,6 +3797,7 @@ class Database(_callable_context_manager):
+                            'database driver you are using.')
+ 
+         self.connect_params = {}
++        self.query_hooks = []
+         self.init(database, **kwargs)
+ 
+     def init(self, database, **kwargs):
+@@ -3890,11 +3901,39 @@ class Database(_callable_context_manager):
+         if logger.isEnabledFor(logging.DEBUG):
+             logger.debug((sql, params))
+ 
++    def _notify_query_hooks(self, sql, params, duration, exception=None):
++        """Notifica os ganchos registrados sobre a execução de uma consulta."""
++        if self.query_hooks:
++            event = QueryEvent(sql, params or (), duration, exception)
++            for hook in self.query_hooks:
++                hook(event)
++
+     def execute_sql(self, sql, params=None):
+         self._log_query(sql, params)
+-        with __exception_wrapper__:
+-            cursor = self.cursor()
+-            cursor.execute(sql, params or ())
++        start_time = time.time()
++        exception = None
++        
++        try:
++            with __exception_wrapper__:
++                cursor = self.cursor()
++                cursor.execute(sql, params or ())
++        except Exception as e:
++            exception = e
++            duration = time.time() - start_time
++            try:
++                self._notify_query_hooks(sql, params or (), duration, exception)
++            except Exception as hook_exc:
++                # Se houver exceção no gancho, propagamos ela em vez da original
++                raise hook_exc from e
++            raise
++        else:
++            duration = time.time() - start_time
++            try:
++                self._notify_query_hooks(sql, params or (), duration, exception)
++            except Exception as hook_exc:
++                # Se houver exceção no gancho, propagamos ela
++                raise hook_exc
++        
+         return cursor
+ 
+     def execute(self, query, **context_options):
+diff --git a/playhouse/postgres_ext.py b/playhouse/postgres_ext.py
+index 89eb017e..4631bc32 100644
+--- a/playhouse/postgres_ext.py
++++ b/playhouse/postgres_ext.py
+@@ -9,6 +9,7 @@ from peewee import Node
+ from peewee import NodeList
+ from peewee import Psycopg2Adapter
+ from peewee import Psycopg3Adapter
++from peewee import QueryEvent
+ from peewee import __exception_wrapper__
+ from playhouse.pool import _PooledPostgresqlDatabase
+ 
+@@ -727,9 +728,30 @@ class PostgresqlExtDatabase(PostgresqlDatabase):
+         if not named_cursor:
+             return super(PostgresqlExtDatabase, self).execute_sql(sql, params)
+         self._log_query(sql, params)
+-        with __exception_wrapper__:
+-            cursor = self.cursor(named_cursor=named_cursor)
+-            cursor.execute(sql, params or ())
++        start_time = time.time()
++        exception = None
++        
++        try:
++            with __exception_wrapper__:
++                cursor = self.cursor(named_cursor=named_cursor)
++                cursor.execute(sql, params or ())
++        except Exception as e:
++            exception = e
++            duration = time.time() - start_time
++            try:
++                self._notify_query_hooks(sql, params or (), duration, exception)
++            except Exception as hook_exc:
++                # Se houver exceção no gancho, propagamos ela em vez da original
++                raise hook_exc from e
++            raise
++        else:
++            duration = time.time() - start_time
++            try:
++                self._notify_query_hooks(sql, params or (), duration, exception)
++            except Exception as hook_exc:
++                # Se houver exceção no gancho, propagamos ela
++                raise hook_exc
++        
+         return cursor
+ 
+ 
+diff --git a/playhouse/pwasyncio.py b/playhouse/pwasyncio.py
+index f800353b..fd113b3f 100644
+--- a/playhouse/pwasyncio.py
++++ b/playhouse/pwasyncio.py
+@@ -12,6 +12,7 @@ from peewee import _atomic, _savepoint, _transaction
+ from peewee import _callable_context_manager
+ from peewee import __exception_wrapper__
+ from peewee import Psycopg3Adapter
++from peewee import QueryEvent
+ from playhouse.postgres_ext import Json
+ 
+ try:
+@@ -237,9 +238,27 @@ class AsyncDatabaseMixin(object):
+ 
+     async def aexecute_sql(self, sql, params=None):
+         self._log_query(sql, params)
++        start_time = time.time()
+         conn = await self.aconnect()
+-        with __exception_wrapper__:
+-            return await conn.execute(sql, params)
++        try:
++            with __exception_wrapper__:
++                result = await conn.execute(sql, params)
++        except Exception as e:
++            duration = time.time() - start_time
++            try:
++                self._notify_query_hooks(sql, params or (), duration, e)
++            except Exception as hook_exc:
++                # Se houver exceção no gancho, propagamos ela em vez da original
++                raise hook_exc from e
++            raise
++        else:
++            duration = time.time() - start_time
++            try:
++                self._notify_query_hooks(sql, params or (), duration, None)
++            except Exception as hook_exc:
++                # Se houver exceção no gancho, propagamos ela
++                raise hook_exc
++            return result
+ 
+     def connect(self):
+         return await_(self.aconnect())
+@@ -665,10 +684,27 @@ class AsyncConnectionWrapper(object):
+ 
+     async def execute(self, sql, params=None):
+         await self._acquire_lock()
++        start_time = time.time()
+         try:
+-            return await self._execute(sql, params)
+-        finally:
++            result = await self._execute(sql, params)
++        except Exception as e:
++            duration = time.time() - start_time
++            try:
++                self._notify_query_hooks(sql, params or (), duration, e)
++            except Exception as hook_exc:
++                # Se houver exceção no gancho, propagamos ela em vez da original
++                raise hook_exc from e
++            raise
++        else:
++            duration = time.time() - start_time
++            try:
++                self._notify_query_hooks(sql, params or (), duration, None)
++            except Exception as hook_exc:
++                # Se houver exceção no gancho, propagamos ela
++                raise hook_exc
+             self._lock.release()
++            return result
++        self._lock.release()
+ 
+     async def _execute(self, sql, params):
+         raise NotImplementedError('Subclasses must implement.')
+@@ -772,25 +808,55 @@ class AsyncSqliteConnection(AsyncConnectionWrapper):
+ 
+     async def _execute(self, sql, params=None):
+         params = params or ()
+-        cursor = await self.conn.execute(sql, params)
+-        rows = await cursor.fetchall()
+-        lastrowid = cursor.lastrowid
+-        rowcount = cursor.rowcount
+-        description = cursor.description
+-        await cursor.close()
+-        return CursorAdapter(rows, lastrowid=lastrowid, rowcount=rowcount,
+-                             description=description)
++        start_time = time.time()
++        try:
++            cursor = await self.conn.execute(sql, params)
++            rows = await cursor.fetchall()
++            lastrowid = cursor.lastrowid
++            rowcount = cursor.rowcount
++            description = cursor.description
++            await cursor.close()
++        except Exception as e:
++            duration = time.time() - start_time
++            try:
++                self._notify_query_hooks(sql, params, duration, e)
++            except Exception as hook_exc:
++                # Se houver exceção no gancho, propagamos ela em vez da original
++                raise hook_exc from e
++            raise
++        else:
++            duration = time.time() - start_time
++            try:
++                self._notify_query_hooks(sql, params, duration, None)
++            except Exception as hook_exc:
++                # Se houver exceção no gancho, propagamos ela
++                raise hook_exc
++            return CursorAdapter(rows, lastrowid=lastrowid, rowcount=rowcount,
++                                 description=description)
+ 
+     async def execute_iter(self, sql, params=None):
+         await self._acquire_lock()
+         self._streaming = True
++        start_time = time.time()
+         try:
+             cursor = await self.conn.execute(sql, params or ())
+-        except BaseException:
++        except BaseException as e:
+             self._streaming = False
++            duration = time.time() - start_time
++            try:
++                self._notify_query_hooks(sql, params or (), duration, e)
++            except Exception as hook_exc:
++                # Se houver exceção no gancho, propagamos ela em vez da original
++                raise hook_exc from e
+             self._lock.release()
+             raise
+ 
++        duration = time.time() - start_time
++        try:
++            self._notify_query_hooks(sql, params or (), duration, None)
++        except Exception as hook_exc:
++            # Se houver exceção no gancho, propagamos ela
++            raise hook_exc
+         lock = self._lock
+ 
+         async def fetch_many(count):
+@@ -891,6 +957,7 @@ class AsyncSqliteDatabase(AsyncDatabaseMixin, SqliteDatabase):
+ class AsyncMySQLConnection(AsyncConnectionWrapper):
+     async def _execute(self, sql, params=None):
+         params = params or ()
++        start_time = time.time()
+         cursor = await self.conn.cursor()
+         try:
+             await cursor.execute(sql, params)
+@@ -898,10 +965,25 @@ class AsyncMySQLConnection(AsyncConnectionWrapper):
+             lastrowid = cursor.lastrowid
+             rowcount = cursor.rowcount
+             description = cursor.description
+-        finally:
++        except Exception as e:
++            duration = time.time() - start_time
++            try:
++                self._notify_query_hooks(sql, params, duration, e)
++            except Exception as hook_exc:
++                # Se houver exceção no gancho, propagamos ela em vez da original
++                raise hook_exc from e
+             await cursor.close()
+-        return CursorAdapter(rows, lastrowid=lastrowid, rowcount=rowcount,
+-                             description=description)
++            raise
++        else:
++            duration = time.time() - start_time
++            try:
++                self._notify_query_hooks(sql, params, duration, None)
++            except Exception as hook_exc:
++                # Se houver exceção no gancho, propagamos ela
++                raise hook_exc
++            await cursor.close()
++            return CursorAdapter(rows, lastrowid=lastrowid, rowcount=rowcount,
++                                 description=description)
+ 
+     async def execute_iter(self, sql, params=None):
+         await self._acquire_lock()
+@@ -1024,23 +1106,39 @@ class AsyncPostgresqlConnection(AsyncConnectionWrapper):
+         if params:
+             sql = self._translate_placeholders(sql)
+ 
+-        stmt = await self.conn.prepare(sql)
+-        records = await stmt.fetch(*(params or ()))
+-        if records:
+-            description = [(k,) for k in records[0].keys()]
+-        else:
+-            description = []
+-
+-        # asyncpg exposes no rowcount, parse the command-status tail, e.g.
+-        # "UPDATE 3" / "DELETE 2" / "INSERT 0 3".
+-        status = (stmt.get_statusmsg() or '').rsplit(' ', 1)
+-        if len(status) == 2 and status[1].isdigit():
+-            rowcount = int(status[1])
++        start_time = time.time()
++        try:
++            stmt = await self.conn.prepare(sql)
++            records = await stmt.fetch(*(params or ()))
++            if records:
++                description = [(k,) for k in records[0].keys()]
++            else:
++                description = []
++
++            # asyncpg exposes no rowcount, parse the command-status tail, e.g.
++            # "UPDATE 3" / "DELETE 2" / "INSERT 0 3".
++            status = (stmt.get_statusmsg() or '').rsplit(' ', 1)
++            if len(status) == 2 and status[1].isdigit():
++                rowcount = int(status[1])
++            else:
++                rowcount = len(records)
++        except Exception as e:
++            duration = time.time() - start_time
++            try:
++                self._notify_query_hooks(sql, params or (), duration, e)
++            except Exception as hook_exc:
++                # Se houver exceção no gancho, propagamos ela em vez da original
++                raise hook_exc from e
++            raise
+         else:
+-            rowcount = len(records)
+-
+-        return CursorAdapter(records, rowcount=rowcount,
+-                             description=description)
++            duration = time.time() - start_time
++            try:
++                self._notify_query_hooks(sql, params or (), duration, None)
++            except Exception as hook_exc:
++                # Se houver exceção no gancho, propagamos ela
++                raise hook_exc
++            return CursorAdapter(records, rowcount=rowcount,
++                                 description=description)
+ 
+     async def execute_iter(self, sql, params=None):
+         if params:

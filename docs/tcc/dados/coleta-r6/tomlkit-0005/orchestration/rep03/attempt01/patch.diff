@@ -1,0 +1,120 @@
+diff --git a/tomlkit/_types.py b/tomlkit/_types.py
+index 3585d56..8846efb 100644
+--- a/tomlkit/_types.py
++++ b/tomlkit/_types.py
+@@ -44,8 +44,6 @@ if TYPE_CHECKING:  # pragma: no cover
+ else:
+     from collections.abc import MutableMapping
+     from collections.abc import MutableSequence
+-    from numbers import Integral
+-    from numbers import Real
+ 
+     class _CustomList(MutableSequence, list):
+         """Adds MutableSequence mixin while pretending to be a builtin list"""
+@@ -71,11 +69,11 @@ else:
+             self.update(other)
+             return self
+ 
+-    class _CustomInt(Integral, int):
+-        """Adds Integral mixin while pretending to be a builtin int"""
++    class _CustomInt(int):
++        """Pretending to be a builtin int"""
+ 
+-    class _CustomFloat(Real, float):
+-        """Adds Real mixin while pretending to be a builtin float"""
++    class _CustomFloat(float):
++        """Pretending to be a builtin float"""
+ 
+ 
+ def wrap_method(
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 4a24fc0..61e9493 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -540,6 +540,8 @@ class Item:
+     def __reduce_ex__(self, protocol: int) -> tuple[type, tuple[object, ...]]:  # type: ignore[override]
+         return self.__class__, self._getstate(protocol)
+ 
++    # These methods are only meant for container types
++    # Scalar types should override them to prevent being recognized as sequences
+     def __getitem__(self, key: Key | str | int) -> Any:
+         raise TypeError(f"{type(self).__name__} does not support item access")
+ 
+@@ -637,6 +639,17 @@ class Integer(Item, _CustomInt):
+     def discriminant(self) -> int:
+         return 2
+ 
++    # Override __getitem__ to prevent being recognized as sequence
++    def __getitem__(self, key):
++        raise TypeError(f"'{self.__class__.__name__}' object is not subscriptable")
++        
++    # Explicitly remove sequence protocol methods to prevent PySequence_Check from returning true
++    def __iter__(self):
++        raise TypeError(f"'{self.__class__.__name__}' object is not iterable")
++        
++    def __len__(self):
++        raise TypeError(f"'{self.__class__.__name__}' object has no len()")
++
+     @property
+     def value(self) -> int:
+         """The wrapped integer value"""
+@@ -645,6 +658,11 @@ class Integer(Item, _CustomInt):
+     def as_string(self) -> str:
+         return self._raw
+ 
++    # Remove sequence protocol methods to prevent PySequence_Check from returning true
++    delattr(Integer, '__getitem__')
++    delattr(Integer, '__iter__')
++    delattr(Integer, '__len__')
++
+     def _new(self, result: int) -> Integer:
+         raw = str(result)
+         if self._sign and result >= 0:
+@@ -860,6 +878,17 @@ class Float(Item, _CustomFloat):
+     def discriminant(self) -> int:
+         return 3
+ 
++    # Override __getitem__ to prevent being recognized as sequence
++    def __getitem__(self, key):
++        raise TypeError(f"'{self.__class__.__name__}' object is not subscriptable")
++        
++    # Explicitly remove sequence protocol methods to prevent PySequence_Check from returning true
++    def __iter__(self):
++        raise TypeError(f"'{self.__class__.__name__}' object is not iterable")
++        
++    def __len__(self):
++        raise TypeError(f"'{self.__class__.__name__}' object has no len()")
++
+     @property
+     def value(self) -> float:
+         """The wrapped float value"""
+@@ -868,6 +897,11 @@ class Float(Item, _CustomFloat):
+     def as_string(self) -> str:
+         return self._raw
+ 
++    # Remove sequence protocol methods to prevent PySequence_Check from returning true
++    delattr(Float, '__getitem__')
++    delattr(Float, '__iter__')
++    delattr(Float, '__len__')
++
+     def _new(self, result: float) -> Float:
+         raw = str(result)
+ 
+@@ -1197,6 +1231,17 @@ class Date(Item, date):
+     A date literal.
+     """
+ 
++    # Override __getitem__ to prevent being recognized as sequence
++    def __getitem__(self, key):
++        raise TypeError(f"'{self.__class__.__name__}' object is not subscriptable")
++        
++    # Explicitly remove sequence protocol methods to prevent PySequence_Check from returning true
++    def __iter__(self):
++        raise TypeError(f"'{self.__class__.__name__}' object is not iterable")
++        
++    def __len__(self):
++        raise TypeError(f"'{self.__class__.__name__}' object has no len()")
++
+     def __new__(
+         cls,
+         year: int,

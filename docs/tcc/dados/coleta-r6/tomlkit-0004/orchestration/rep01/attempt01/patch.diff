@@ -1,0 +1,137 @@
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index 777d96a..812e274 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -46,7 +46,12 @@ class Container(dict):
+                 v = v.value
+ 
+             if k in d:
+-                d[k].update(v)
++                # Only update if both values are dictionaries
++                if isinstance(d[k], dict) and isinstance(v, dict):
++                    d[k].update(v)
++                else:
++                    # If there's a conflict, keep the latest value
++                    d[k] = v
+             else:
+                 d[k] = v
+ 
+@@ -70,6 +75,7 @@ class Container(dict):
+ 
+     def append(self, key, item):  # type: (Key, Item) -> None
+         from .api import item as _item
++        from .api import table as _table
+ 
+         if not isinstance(key, Key) and key is not None:
+             key = Key(key)
+@@ -77,6 +83,46 @@ class Container(dict):
+         if not isinstance(item, Item):
+             item = _item(item)
+ 
++        # Handle dotted keys by creating nested structure
++        if key is not None and "." in key.key:
++            parts = key.key.split(".")
++            current_container = self
++            
++            # Navigate/create nested tables
++            for i, part in enumerate(parts[:-1]):
++                if part in current_container:
++                    existing = current_container[part]
++                    if not isinstance(existing, dict) or not hasattr(existing, 'append'):
++                        # Convert existing value to table if needed
++                        new_table = _table()
++                        new_table[parts[i+1]] = item.value if i == len(parts) - 2 else {}
++                        current_container[part] = new_table
++                        if hasattr(current_container, '_body'):
++                            # Update the body entry too
++                            for j, (k, v) in enumerate(current_container._body):
++                                if k and k.key == part:
++                                    current_container._body[j] = (k, new_table)
++                                    break
++                        return
++                    current_container = existing
++                else:
++                    # Create new table for this part
++                    new_table = _table()
++                    current_container[part] = new_table
++                    # Also add to body if this is a Container
++                    if hasattr(current_container, '_body'):
++                        from .items import Key as KeyItem
++                        current_container._body.append((KeyItem(part), new_table))
++                    current_container = new_table
++            
++            # Set the final value
++            final_part = parts[-1]
++            current_container[final_part] = item.value
++            if hasattr(current_container, '_body'):
++                from .items import Key as KeyItem
++                current_container._body.append((KeyItem(final_part), item))
++            return
++
+         if isinstance(item, (AoT, Table)) and item.name is None:
+             item.name = key.key
+ 
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index c88637a..bd51c5d 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -45,7 +45,7 @@ class Trivia:
+         self.comment = comment or ""
+         # Trailing newline.
+         if trail is None:
+-            trail = "\n"
++            trail = ""
+ 
+         self.trail = trail
+ 
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..7a72a42 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -402,6 +402,46 @@ class Parser:
+         Parses a Key at the current position;
+         WS before the key must be exhausted first at the callsite.
+         """
++        # Look ahead to see if this is a dotted key
++        saved_idx = self._save_idx()
++        
++        # Collect the full key string including dots and quoted sections
++        key_chars = []
++        try:
++            while not self._current.is_kv_sep() and not self._current.is_nl() and not self.end():
++                if self._current in "\"'":
++                    # Handle quoted section
++                    quote_char = self._current
++                    self.inc()  # skip opening quote
++                    quoted_content = []
++                    while self._current != quote_char and not self.end():
++                        quoted_content.append(self._current)
++                        self.inc()
++                    if self._current == quote_char:
++                        self.inc()  # skip closing quote
++                    # Add the quoted part to our key
++                    key_chars.append('"{}"'.format(''.join(quoted_content)))
++                elif self._current.is_bare_key_char() or self._current == ".":
++                    key_chars.append(self._current)
++                    self.inc()
++                elif self._current in " \t":
++                    # Whitespace could be part of key-value separator
++                    break
++                else:
++                    break
++                    
++            full_key = "".join(key_chars)
++            if "." in full_key and full_key != ".":
++                # This is a dotted key
++                return Key(full_key, sep="")
++            else:
++                # Not dotted, restore and parse normally
++                self._restore_idx(*saved_idx)
++        except:
++            # If lookahead fails, restore and parse normally
++            self._restore_idx(*saved_idx)
++            
++        # Parse as normal key
+         if self._current in "\"'":
+             return self._parse_quoted_key()
+         else:

@@ -1,0 +1,45 @@
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 26b8f9f..18a55f6 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -2,6 +2,7 @@ from __future__ import unicode_literals
+ 
+ import re
+ import string
++from collections import OrderedDict
+ 
+ from datetime import date
+ from datetime import datetime
+@@ -1045,7 +1046,31 @@ class Table(Item, dict):
+         self.remove(key)
+ 
+     def __repr__(self):
+-        return super(Table, self).__repr__()
++        # Build an OrderedDict to preserve the order of keys as defined in _body
++        # and ensure all sub-tables from multiple headers are included.
++        od = OrderedDict()
++        for key, item in self._value.body:
++            if key is None:
++                continue
++            key_str = key.key
++            # For nested tables, use their 'value' which is a Container.
++            # The Container's 'value' property handles merging out-of-order definitions.
++            if isinstance(item, Table):
++                # This will recursively call Table.__repr__ if needed, but more importantly,
++                # it uses the Container's logic for merging.
++                od[key_str] = item.value
++            elif isinstance(item, AoT):
++                # AoT's value is already a list of dicts/values
++                od[key_str] = item.value
++            elif hasattr(item, 'value'):
++                # For other items like Array, Integer etc.
++                od[key_str] = item.value
++            else:
++                # Fallback, though unlikely
++                od[key_str] = item
++        # Convert to a regular dict to match the repr style of standard dicts
++        # while preserving the order during construction.
++        return repr(dict(od))
+ 
+     def __str__(self):
+         return str(self.value)

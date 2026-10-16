@@ -1,0 +1,66 @@
+diff --git a/peewee.py b/peewee.py
+index 13d2c8e9..84c878a2 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -3727,6 +3727,15 @@ class ConnectionContext(_callable_context_manager):
+         return type(self)(self.db)
+ 
+ 
++class QueryEvent:
++    """Representa um evento de consulta SQL executado."""
++    def __init__(self, sql, params, duration, exception=None):
++        self.sql = sql
++        self.params = params or ()
++        self.duration = duration
++        self.exception = exception
++
++
+ class Database(_callable_context_manager):
+     context_class = Context
+     field_types = {}
+@@ -3787,6 +3796,7 @@ class Database(_callable_context_manager):
+                            'database driver you are using.')
+ 
+         self.connect_params = {}
++        self.query_hooks = []
+         self.init(database, **kwargs)
+ 
+     def init(self, database, **kwargs):
+@@ -3890,11 +3900,34 @@ class Database(_callable_context_manager):
+         if logger.isEnabledFor(logging.DEBUG):
+             logger.debug((sql, params))
+ 
++    def _call_query_hooks(self, sql, params, duration, exception=None):
++        if not self.query_hooks:
++            return
++            
++        event = QueryEvent(sql, params, duration, exception)
++        for hook in self.query_hooks:
++            try:
++                hook(event)
++            except Exception:
++                # Se um gancho levantar exceção, deixamos propagar
++                raise
++
+     def execute_sql(self, sql, params=None):
+         self._log_query(sql, params)
+-        with __exception_wrapper__:
+-            cursor = self.cursor()
+-            cursor.execute(sql, params or ())
++        start_time = time.time()
++        exception = None
++        
++        try:
++            with __exception_wrapper__:
++                cursor = self.cursor()
++                cursor.execute(sql, params or ())
++        except Exception as exc:
++            exception = exc
++            raise
++        finally:
++            duration = time.time() - start_time
++            self._call_query_hooks(sql, params, duration, exception)
++            
+         return cursor
+ 
+     def execute(self, query, **context_options):

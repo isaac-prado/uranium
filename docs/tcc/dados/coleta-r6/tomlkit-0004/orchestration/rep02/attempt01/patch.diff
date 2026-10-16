@@ -1,0 +1,326 @@
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index 777d96a..ae05ae1 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -241,14 +241,69 @@ class Container(dict):
+         if not isinstance(key, Key):
+             key = Key(key)
+ 
++        # Check if key exists directly
+         idx = self._map.get(key, None)
+-        if idx is None:
+-            raise NonExistentKey(key)
+-
+-        item = self._body[idx][1]
+-        value = item.value
++        if idx is not None:
++            item = self._body[idx][1]
++            value = item.value
++            return value
++
++        # If not found, check if it's a dotted key that needs to be resolved
++        key_str = key.key
++        if "." in key_str:
++            parts = key_str.split(".")
++            # Try to find nested structure
++            current = self
++            for i, part in enumerate(parts):
++                try:
++                    # Try to get the part as a direct key first
++                    part_key = Key(part)
++                    if part_key in current._map:
++                        idx = current._map[part_key]
++                        item = current._body[idx][1]
++                        if hasattr(item, 'value') and isinstance(item.value, Container):
++                            current = item.value
++                        elif i == len(parts) - 1:
++                            # This is the final part, return the value
++                            return item.value
++                        else:
++                            # Intermediate part is not a container, so key doesn't exist
++                            # But maybe the full remaining path exists as a composite key
++                            remaining_parts = parts[i:]
++                            composite_key_str = ".".join(remaining_parts)
++                            composite_key = Key(composite_key_str)
++                            if composite_key in current._map:
++                                idx = current._map[composite_key]
++                                item = current._body[idx][1]
++                                return item.value
++                            raise NonExistentKey(key)
++                    else:
++                        # Part not found, check if remaining parts form a composite key
++                        remaining_parts = parts[i:]
++                        composite_key_str = ".".join(remaining_parts)
++                        composite_key = Key(composite_key_str)
++                        if composite_key in current._map:
++                            idx = current._map[composite_key]
++                            item = current._body[idx][1]
++                            return item.value
++                        else:
++                            raise NonExistentKey(key)
++                except NonExistentKey:
++                    # Check if there's a composite key that matches the remaining path
++                    remaining_parts = parts[i:]
++                    composite_key_str = ".".join(remaining_parts)
++                    composite_key = Key(composite_key_str)
++                    if composite_key in current._map:
++                        idx = current._map[composite_key]
++                        item = current._body[idx][1]
++                        return item.value
++                    else:
++                        raise NonExistentKey(key)
++            
++            # If we get here, we've traversed all parts
++            return current
+ 
+-        return value
++        raise NonExistentKey(key)
+ 
+     def __setitem__(self, key, value):  # type: (Union[Key, str], Any) -> None
+         if key is not None and key in self:
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..62dc89e 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -132,7 +132,11 @@ class Parser:
+ 
+             key, value = item
+             if not self._merge_ws(value, body):
+-                body.append(key, value)
++                # Handle dotted keys by creating nested structure
++                if "." in key.key:
++                    self._append_dotted_key(body, key, value)
++                else:
++                    body.append(key, value)
+ 
+             self.mark()
+ 
+@@ -169,6 +173,71 @@ class Parser:
+ 
+         return True
+ 
++    def _append_dotted_key(self, container, key, value):  # type: (Container, Key, Item) -> None
++        """
++        Appends a dotted key to the container by creating nested structures.
++        """
++        from .items import Table
++        from .api import item as _item
++        
++        # Split the dotted key into parts
++        key_parts = []
++        current_part = ""
++        in_quotes = False
++        quote_char = None
++        
++        key_str = key.key
++        i = 0
++        while i < len(key_str):
++            char = key_str[i]
++            
++            if not in_quotes and (char == '"' or char == "'"):
++                in_quotes = True
++                quote_char = char
++                current_part += char
++            elif in_quotes and char == quote_char:
++                # Check if it's escaped
++                if i > 0 and key_str[i-1] == '\\':
++                    current_part += char
++                else:
++                    in_quotes = False
++                    quote_char = None
++                    current_part += char
++            elif not in_quotes and char == '.':
++                if current_part:
++                    key_parts.append(current_part)
++                    current_part = ""
++            else:
++                current_part += char
++                
++            i += 1
++            
++        if current_part:
++            key_parts.append(current_part)
++        
++        # Create nested structure
++        current_container = container
++        for i, part in enumerate(key_parts[:-1]):  # All parts except the last one
++            # Check if part already exists
++            try:
++                existing_item = current_container[part]
++                if hasattr(existing_item, 'value') and isinstance(existing_item.value, dict):
++                    current_container = existing_item.value
++                else:
++                    # Convert to table
++                    new_table = Table(Container(), existing_item.trivia)
++                    current_container[part] = new_table
++                    current_container = new_table.value
++            except:
++                # Part doesn't exist, create new table
++                new_table = Table(Container(), Trivia("", "", "", ""))
++                current_container.append(part, new_table)
++                current_container = new_table.value
++        
++        # Add the final value to the deepest container
++        last_part = key_parts[-1]
++        current_container.append(last_part, value)
++
+     def parse_error(self, kind=ParseError, args=None):  # type: () -> None
+         """
+         Creates a generic "parse error" at the current position.
+@@ -277,12 +346,44 @@ class Parser:
+                 return
+             else:
+                 # Begining of a KV pair.
++                # Check if it might be a dotted key by looking ahead
++                lookahead_idx, lookahead_current = self._idx, self._current
++                has_dot = False
++                temp_chars = self._save_idx()[0]  # Get a copy of the iterator
++                
++                # Look ahead to see if there's a dot in the key
++                temp_src = self._src[lookahead_idx:]
++                for i, char in enumerate(temp_src):
++                    if char == "=":
++                        break
++                    if char == ".":
++                        has_dot = True
++                        break
++                    if char in " \t\n\r" and not has_dot:
++                        break
++                
+                 # Return to beginning of whitespace so it gets included
+                 # as indentation for the KV about to be parsed.
+                 self._restore_idx(*saved_idx)
+-                key, value = self._parse_key_value(True)
+-
+-                return key, value
++                
++                if has_dot:
++                    # This is likely a dotted key
++                    keys, value = self._parse_dotted_key_value(True)
++                    
++                    # For now, return the first key and value, but we'll need to handle
++                    # the nested structure creation elsewhere
++                    if keys:
++                        # Create a composite key for now
++                        composite_key_str = ".".join([k.key for k in keys])
++                        composite_key = Key(composite_key_str, sep="")
++                        return composite_key, value
++                    else:
++                        # Fallback to regular parsing
++                        key, value = self._parse_key_value(True)
++                        return key, value
++                else:
++                    key, value = self._parse_key_value(True)
++                    return key, value
+ 
+     def _save_idx(self):  # type: () -> Tuple[Iterator, int, str]
+         if PY2:
+@@ -407,6 +508,90 @@ class Parser:
+         else:
+             return self._parse_bare_key()
+ 
++    def _parse_dotted_key_value(self, parse_comment=False, inline=True):  # type: (bool, bool) -> Tuple[List[Key], Item]
++        """
++        Parses a dotted key-value pair and returns a list of keys and the item.
++        This creates nested structures as needed.
++        """
++        # Save initial state to restore if needed
++        saved_idx = self._save_idx()
++        
++        # Parse the key parts
++        keys = []
++        current_key_parts = []
++        
++        self.mark()
++        while not self.end() and (self._current.is_bare_key_char() or self._current in ".\"'"):
++            if self._current in "\"'":
++                # Handle quoted key part
++                quote_char = self._current
++                self.inc()  # Skip opening quote
++                quoted_start = self._idx
++                while not self.end() and self._current != quote_char:
++                    if self._current == "\\":
++                        self.inc()  # Skip escaped character
++                    self.inc()
++                if self.end():
++                    raise self.parse_error(UnexpectedEofError)
++                quoted_content = self._src[quoted_start:self._idx]
++                self.inc()  # Skip closing quote
++                current_key_parts.append(quoted_content)
++            elif self._current == ".":
++                # End of current key part
++                if current_key_parts:
++                    key_part = "".join(current_key_parts)
++                    keys.append(Key(key_part, sep=""))
++                    current_key_parts = []
++                else:
++                    # Bare key part
++                    key_part = self.extract()
++                    if key_part:  # Only if there's content
++                        keys.append(Key(key_part, sep=""))
++                    self.mark()  # Mark for next part
++                self.inc()  # Skip the dot
++                self.mark()  # Mark for next part
++            else:
++                # Regular character in bare key
++                current_key_parts.append(str(self._current))
++                self.inc()
++        
++        # Add the last key part
++        if current_key_parts:
++            key_part = "".join(current_key_parts)
++            keys.append(Key(key_part, sep=""))
++        else:
++            key_part = self.extract()
++            if key_part:  # Only if there's content
++                keys.append(Key(key_part, sep=""))
++        
++        # Now parse the equals sign and value
++        self.mark()
++        found_equals = self._current == "="
++        while self._current.is_kv_sep() and self.inc():
++            if self._current == "=":
++                if found_equals:
++                    raise self.parse_error(UnexpectedCharError, ("=",))
++                else:
++                    found_equals = True
++            pass
++            
++        sep = self.extract()
++        
++        # Value
++        val = self._parse_value()
++        
++        # Comment
++        if parse_comment:
++            cws, comment, trail = self._parse_comment_trail()
++            meta = val.trivia
++            meta.comment_ws = cws
++            meta.comment = comment
++            meta.trail = trail
++        else:
++            val.trivia.trail = ""
++            
++        return keys, val
++
+     def _parse_quoted_key(self):  # type: () -> Key
+         """
+         Parses a key enclosed in either single or double quotes.
+@@ -855,6 +1040,17 @@ class Parser:
+             if name_parts:
+                 key = name_parts[0]
+ 
++        # Consume any trailing whitespace immediately after table header, but don't add it to the container
++        # This fixes the issue where '\n' after '[table]' was being added to the table contents
++        while not self.end() and self._current.is_ws():
++            if self._current == "\n":
++                # Consume the newline but don't add it to the container
++                self.inc()
++                break
++            else:
++                # Consume other whitespace
++                self.inc()
++
+         while not self.end():
+             item = self._parse_item()
+             if item:

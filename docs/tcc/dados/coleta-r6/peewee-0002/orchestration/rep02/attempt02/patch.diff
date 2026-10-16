@@ -1,0 +1,113 @@
+diff --git a/peewee.py b/peewee.py
+index 6a666d5b..afc8b3ab 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -2652,6 +2652,13 @@ class Select(SelectBase):
+ 
+     @Node.copy
+     def window(self, *windows):
++        # Verificar se há aliases duplicados
++        aliases = []
++        for window in windows:
++            alias = getattr(window, '_alias', 'w')
++            if alias in aliases:
++                raise ValueError('Window aliases must be unique, but multiple windows share the alias "%s".' % alias)
++            aliases.append(alias)
+         self._windows = windows if windows else None
+ 
+     @Node.copy
+@@ -3017,6 +3024,9 @@ class Insert(_WriteQuery):
+         with ctx.scope_values():
+             stmt = None
+             if self._on_conflict is not None:
++                # Verificar se há banco de dados associado quando há on_conflict
++                if not self._database:
++                    raise InterfaceError('Cannot generate SQL for INSERT with on_conflict() when database is not associated.')
+                 stmt = self._on_conflict.get_conflict_statement(ctx, self)
+ 
+             (ctx
+@@ -3783,7 +3793,12 @@ class Database(_callable_context_manager):
+             self.connect()
+         ctx = self.atomic()
+         self._state.ctx.append(ctx)
+-        ctx.__enter__()
++        try:
++            ctx.__enter__()
++        except:
++            # Se ocorrer uma exceção em __enter__, removemos o contexto
++            self._state.ctx.pop()
++            raise
+         return self
+ 
+     def __exit__(self, exc_type, exc_val, exc_tb):
+@@ -4037,10 +4052,14 @@ class Database(_callable_context_manager):
+             self.cursor().execute('BEGIN')
+ 
+     def rollback(self):
++        if self.is_closed():
++            raise InterfaceError('Rollback failed, database connection is closed.')
+         with __exception_wrapper__:
+             self.cursor().execute('ROLLBACK')
+ 
+     def commit(self):
++        if self.is_closed():
++            raise InterfaceError('Commit failed, database connection is closed.')
+         with __exception_wrapper__:
+             self.cursor().execute('COMMIT')
+ 
+@@ -4382,10 +4401,14 @@ class SqliteDatabase(Database):
+         self.execute_sql(statement)
+ 
+     def commit(self):
++        if self.is_closed():
++            raise InterfaceError('Commit failed, database connection is closed.')
+         with __exception_wrapper__:
+             return self.execute_sql('COMMIT')
+ 
+     def rollback(self):
++        if self.is_closed():
++            raise InterfaceError('Rollback failed, database connection is closed.')
+         with __exception_wrapper__:
+             return self.execute_sql('ROLLBACK')
+ 
+@@ -5245,7 +5268,10 @@ class _atomic(object):
+         return self._helper.__enter__()
+ 
+     def __exit__(self, exc_type, exc_val, exc_tb):
+-        return self._helper.__exit__(exc_type, exc_val, exc_tb)
++        if hasattr(self, '_helper'):
++            return self._helper.__exit__(exc_type, exc_val, exc_tb)
++        # Se _helper não foi criado, não fazemos nada no exit
++        return False
+ 
+ 
+ class _transaction(object):
+diff --git a/playhouse/migrate.py b/playhouse/migrate.py
+index ace5375a..c3401778 100644
+--- a/playhouse/migrate.py
++++ b/playhouse/migrate.py
+@@ -175,7 +175,7 @@ def make_index_name(table_name, columns):
+     index_name = '_'.join((table_name,) + tuple(columns))
+     if len(index_name) > 64:
+         index_hash = hashlib.md5(index_name.encode('utf-8')).hexdigest()
+-        index_name = '%s_%s' % (index_name[:51], index_hash[:12])
++        index_name = '%s_%s' % (index_name[:56], index_hash[:7])
+     return index_name
+ 
+ 
+diff --git a/playhouse/reflection.py b/playhouse/reflection.py
+index d2192fbb..279a57cc 100644
+--- a/playhouse/reflection.py
++++ b/playhouse/reflection.py
+@@ -184,6 +184,11 @@ class Metadata(object):
+     # e.g. VARCHAR(255), NUMERIC(1, 2)
+     re_type_params = re.compile(r'^\s*[\w ]+\(\s*(\d+)\s*(?:,\s*(\d+))?\s*\)')
+ 
++    def __init__(self, database):
++        self.database = database
++        self.column_map = {}  # Inicializar como instância própria
++        self.requires_extension = False
++
+     def __init__(self, database):
+         self.database = database
+         self.requires_extension = False

@@ -1,0 +1,427 @@
+diff --git a/sqlite_utils/cli.py b/sqlite_utils/cli.py
+index a30f79a..958b9fb 100644
+--- a/sqlite_utils/cli.py
++++ b/sqlite_utils/cli.py
+@@ -2126,6 +2126,10 @@ def _execute_query(
+             cursor = [[cursor.rowcount]]
+         else:
+             headers = [c[0] for c in cursor.description]
++            from .utils import dedupe_keys
++            deduped_headers = dedupe_keys(headers)
++            if headers != deduped_headers:
++                headers = deduped_headers
+         cursor_or_rows: Any = cursor
+         if raw:
+             row = cursor_or_rows.fetchone()
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 3f23c7d..7a5a0fb 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -8,6 +8,7 @@ from .utils import (
+     column_affinity,
+     progressbar,
+     find_spatialite,
++    dedupe_keys,
+ )
+ import binascii
+ from collections import namedtuple
+@@ -787,6 +788,9 @@ class Database:
+             if cursor.description is None:
+                 raise ValueError(message)
+             keys = [d[0] for d in cursor.description]
++            deduped_keys = dedupe_keys(keys)
++            if keys != deduped_keys:
++                keys = deduped_keys
+             return (dict(zip(keys, row)) for row in cursor)
+         # Execute inside a savepoint, so a statement that turns out not to
+         # return rows can be rolled back before the ValueError is raised
+@@ -797,6 +801,9 @@ class Database:
+             if cursor.description is None:
+                 raise ValueError(message)
+             keys = [d[0] for d in cursor.description]
++            deduped_keys = dedupe_keys(keys)
++            if keys != deduped_keys:
++                keys = deduped_keys
+             try:
+                 self.conn.execute('RELEASE "sqlite_utils_query"')
+                 released = True
+@@ -1866,6 +1873,10 @@ class Queryable:
+             sql += " offset {}".format(offset)
+         cursor = self.db.execute(sql, where_args or [])
+         columns = [c[0] for c in cursor.description]
++        from .utils import dedupe_keys
++        deduped_columns = dedupe_keys(columns)
++        if columns != deduped_columns:
++            columns = deduped_columns
+         for row in cursor:
+             yield dict(zip(columns, row))
+ 
+@@ -3399,6 +3410,10 @@ class Table(Queryable):
+             args,
+         )
+         columns = [c[0] for c in cursor.description]
++        from .utils import dedupe_keys
++        deduped_columns = dedupe_keys(columns)
++        if columns != deduped_columns:
++            columns = deduped_columns
+         for row in cursor:
+             yield dict(zip(columns, row))
+ 
+diff --git a/sqlite_utils/utils.py b/sqlite_utils/utils.py
+index 865ee79..708817c 100644
+--- a/sqlite_utils/utils.py
++++ b/sqlite_utils/utils.py
+@@ -243,6 +243,27 @@ def file_progress(
+             yield UpdateWrapper(file, bar.update)
+ 
+ 
++class NullProgressBar:
++    def __init__(self, *args: Iterable[T]) -> None:
++        self.args = args
++
++    def __iter__(self) -> Iterator[T]:
++        yield from self.args[0]  # type: ignore
++
++    def update(self, value: int) -> None:
++        pass
++
++
++@contextlib.contextmanager
++def progressbar(*args: Iterable[T], **kwargs: Any) -> Generator[Any, None, None]:
++    silent = kwargs.pop("silent")
++    if silent:
++        yield NullProgressBar(*args)
++    else:
++        with click.progressbar(*args, **kwargs) as bar:  # type: ignore
++            yield bar
++
++
+ class Format(enum.Enum):
+     CSV = 1
+     TSV = 2
+@@ -403,124 +424,6 @@ def rows_from_file(
+         raise RowsFromFileError("Bad format")
+ 
+ 
+-class TypeTracker:
+-    """
+-    Wrap an iterator of dictionaries and keep track of which SQLite column
+-    types are the most likely fit for each of their keys.
+-
+-    Example usage:
+-
+-    .. code-block:: python
+-
+-        from sqlite_utils.utils import TypeTracker
+-        import sqlite_utils
+-
+-        db = sqlite_utils.Database(memory=True)
+-        tracker = TypeTracker()
+-        rows = [{"id": "1", "name": "Cleo", "id": "2", "name": "Cardi"}]
+-        db["creatures"].insert_all(tracker.wrap(rows))
+-        print(tracker.types)
+-        # Outputs {'id': 'integer', 'name': 'text'}
+-        db["creatures"].transform(types=tracker.types)
+-    """
+-
+-    def __init__(self) -> None:
+-        self.trackers: Dict[str, "ValueTracker"] = {}
+-
+-    def wrap(self, iterator: Iterable[Dict[str, Any]]) -> Iterable[Dict[str, Any]]:
+-        """
+-        Use this to loop through an existing iterator, tracking the column types
+-        as part of the iteration.
+-
+-        :param iterator: The iterator to wrap
+-        """
+-        for row in iterator:
+-            for key, value in row.items():
+-                tracker = self.trackers.setdefault(key, ValueTracker())
+-                tracker.evaluate(value)
+-            yield row
+-
+-    @property
+-    def types(self) -> Dict[str, str]:
+-        """
+-        A dictionary mapping column names to their detected types. This can be passed
+-        to the ``db[table_name].transform(types=tracker.types)`` method.
+-        """
+-        return {key: tracker.guessed_type for key, tracker in self.trackers.items()}
+-
+-
+-class ValueTracker:
+-    couldbe: Dict[str, Callable[[object], bool]]
+-
+-    def __init__(self) -> None:
+-        self.couldbe = {key: getattr(self, "test_" + key) for key in self.get_tests()}
+-
+-    @classmethod
+-    def get_tests(cls) -> List[str]:
+-        return [
+-            key.split("test_")[-1]
+-            for key in cls.__dict__.keys()
+-            if key.startswith("test_")
+-        ]
+-
+-    def test_integer(self, value: object) -> bool:
+-        try:
+-            int(cast(Any, value))
+-            return True
+-        except (ValueError, TypeError):
+-            return False
+-
+-    def test_float(self, value: object) -> bool:
+-        try:
+-            float(cast(Any, value))
+-            return True
+-        except (ValueError, TypeError):
+-            return False
+-
+-    def __repr__(self) -> str:
+-        return self.guessed_type + ": possibilities = " + repr(self.couldbe)
+-
+-    @property
+-    def guessed_type(self) -> str:
+-        options = set(self.couldbe.keys())
+-        # Return based on precedence
+-        for key in self.get_tests():
+-            if key in options:
+-                return key
+-        return "text"
+-
+-    def evaluate(self, value: object) -> None:
+-        if not value or not self.couldbe:
+-            return
+-        not_these: List[str] = []
+-        for name, test in self.couldbe.items():
+-            if not test(value):
+-                not_these.append(name)
+-        for key in not_these:
+-            del self.couldbe[key]
+-
+-
+-class NullProgressBar:
+-    def __init__(self, *args: Iterable[T]) -> None:
+-        self.args = args
+-
+-    def __iter__(self) -> Iterator[T]:
+-        yield from self.args[0]  # type: ignore
+-
+-    def update(self, value: int) -> None:
+-        pass
+-
+-
+-@contextlib.contextmanager
+-def progressbar(*args: Iterable[T], **kwargs: Any) -> Generator[Any, None, None]:
+-    silent = kwargs.pop("silent")
+-    if silent:
+-        yield NullProgressBar(*args)
+-    else:
+-        with click.progressbar(*args, **kwargs) as bar:  # type: ignore
+-            yield bar
+-
+-
+ def _compile_code(
+     code: str, imports: Iterable[str], variable: str = "value"
+ ) -> Callable[..., Any]:
+@@ -574,14 +477,39 @@ def chunks(sequence: Iterable[T], size: int) -> Iterable[Iterable[T]]:
+     """
+     Iterate over chunks of the sequence of the given size.
+ 
+-    :param sequence: Any Python iterator
+-    :param size: The size of each chunk
++    Example usage::
++
++        from sqlite_utils.utils import chunks
++
++        for chunk in chunks(range(30), 5):
++            print(list(chunk))
++
++    :param sequence: An iterable
++    :param size: Size of each chunk
+     """
+     iterator = iter(sequence)
+     for item in iterator:
+         yield itertools.chain([item], itertools.islice(iterator, size - 1))
+ 
+ 
++def _flatten(d: Dict[str, Any]) -> Generator[Tuple[str, Any], None, None]:
++    for key, value in d.items():
++        if isinstance(value, dict):
++            for key2, value2 in _flatten(value):
++                yield key + "_" + key2, value2
++        else:
++            yield key, value
++
++
++def flatten(row: Dict[str, Any]) -> Dict[str, Any]:
++    """
++    Turn a nested dict e.g. ``{"a": {"b": 1}}`` into a flat dict: ``{"a_b": 1}``
++
++    :param row: A Python dictionary, optionally with nested dictionaries
++    """
++    return dict(_flatten(row))
++
++
+ def hash_record(record: Dict[str, Any], keys: Optional[Iterable[str]] = None) -> str:
+     """
+     ``record`` should be a Python dictionary. Returns a sha1 hash of the
+@@ -613,19 +541,147 @@ def hash_record(record: Dict[str, Any], keys: Optional[Iterable[str]] = None) ->
+     ).hexdigest()
+ 
+ 
+-def _flatten(d: Dict[str, Any]) -> Generator[Tuple[str, Any], None, None]:
+-    for key, value in d.items():
+-        if isinstance(value, dict):
+-            for key2, value2 in _flatten(value):
+-                yield key + "_" + key2, value2
++def dedupe_keys(keys: List[str]) -> List[str]:
++    """
++    Renames duplicate keys by appending a suffix '_N' where N is the occurrence count,
++    ensuring uniqueness. The first occurrence remains unchanged.
++    
++    Examples:
++        [] -> []
++        ['id', 'name'] -> ['id', 'name']
++        ['id', 'id'] -> ['id', 'id_2']
++        ['id', 'id', 'id'] -> ['id', 'id_2', 'id_3']
++        ['id', 'id', 'id_2'] -> ['id', 'id_3', 'id_2']
++        ['id_2', 'id', 'id'] -> ['id_2', 'id', 'id_3']
++        ['id', 'id', 'id_2', 'id_2'] -> ['id', 'id_3', 'id_2', 'id_2_2']
++    """
++    if not keys:
++        return []
++        
++    # Count occurrences of each key
++    counts: Dict[str, int] = {}
++    # Track the order and original keys
++    result: List[str] = []
++    seen_counts: Dict[str, int] = {}
++    
++    for key in keys:
++        counts[key] = counts.get(key, 0) + 1
++        
++    for key in keys:
++        if counts[key] == 1:
++            # Unique key, no change needed
++            result.append(key)
+         else:
+-            yield key, value
++            # Duplicate key, need to rename
++            seen_counts[key] = seen_counts.get(key, 0) + 1
++            if seen_counts[key] == 1:
++                # First occurrence stays as is
++                result.append(key)
++            else:
++                # Subsequent occurrences get renamed
++                new_key = f"{key}_{seen_counts[key]}"
++                # Handle potential conflicts (e.g., if 'id_2' already exists)
++                counter = seen_counts[key]
++                while new_key in counts or new_key in result:
++                    counter += 1
++                    new_key = f"{key}_{counter}"
++                result.append(new_key)
++                
++    return result
+ 
+ 
+-def flatten(row: Dict[str, Any]) -> Dict[str, Any]:
++class TypeTracker:
+     """
+-    Turn a nested dict e.g. ``{"a": {"b": 1}}`` into a flat dict: ``{"a_b": 1}``
++    Wrap an iterator of dictionaries and keep track of which SQLite column
++    types are the most likely fit for each of their keys.
+ 
+-    :param row: A Python dictionary, optionally with nested dictionaries
++    Example usage:
++
++    .. code-block:: python
++
++        from sqlite_utils.utils import TypeTracker
++        import sqlite_utils
++
++        db = sqlite_utils.Database(memory=True)
++        tracker = TypeTracker()
++        rows = [{"id": "1", "name": "Cleo", "id": "2", "name": "Cardi"}]
++        db["creatures"].insert_all(tracker.wrap(rows))
++        print(tracker.types)
++        # Outputs {'id': 'integer', 'name': 'text'}
++        db["creatures"].transform(types=tracker.types)
+     """
+-    return dict(_flatten(row))
++
++    def __init__(self) -> None:
++        self.trackers: Dict[str, "ValueTracker"] = {}
++
++    def wrap(self, iterator: Iterable[Dict[str, Any]]) -> Iterable[Dict[str, Any]]:
++        """
++        Use this to loop through an existing iterator, tracking the column types
++        as part of the iteration.
++
++        :param iterator: The iterator to wrap
++        """
++        for row in iterator:
++            for key, value in row.items():
++                tracker = self.trackers.setdefault(key, ValueTracker())
++                tracker.evaluate(value)
++            yield row
++
++    @property
++    def types(self) -> Dict[str, str]:
++        """
++        A dictionary mapping column names to their detected types. This can be passed
++        to the ``db[table_name].transform(types=tracker.types)`` method.
++        """
++        return {key: tracker.guessed_type for key, tracker in self.trackers.items()}
++
++
++class ValueTracker:
++    couldbe: Dict[str, Callable[[object], bool]]
++
++    def __init__(self) -> None:
++        self.couldbe = {key: getattr(self, "test_" + key) for key in self.get_tests()}
++
++    @classmethod
++    def get_tests(cls) -> List[str]:
++        return [
++            key.split("test_")[-1]
++            for key in cls.__dict__.keys()
++            if key.startswith("test_")
++        ]
++
++    def test_integer(self, value: object) -> bool:
++        try:
++            int(cast(Any, value))
++            return True
++        except (ValueError, TypeError):
++            return False
++
++    def test_float(self, value: object) -> bool:
++        try:
++            float(cast(Any, value))
++            return True
++        except (ValueError, TypeError):
++            return False
++
++    def __repr__(self) -> str:
++        return self.guessed_type + ": possibilities = " + repr(self.couldbe)
++
++    @property
++    def guessed_type(self) -> str:
++        options = set(self.couldbe.keys())
++        # Return based on precedence
++        for key in self.get_tests():
++            if key in options:
++                return key
++        return "text"
++
++    def evaluate(self, value: object) -> None:
++        if not value or not self.couldbe:
++            return
++        not_these: List[str] = []
++        for name, test in self.couldbe.items():
++            if not test(value):
++                not_these.append(name)
++        for key in not_these:
++            del self.couldbe[key]
+\ No newline at end of file

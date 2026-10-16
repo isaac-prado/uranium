@@ -1,0 +1,483 @@
+diff --git a/sqlite_utils/cli.py b/sqlite_utils/cli.py
+index a30f79a..c34a4cc 100644
+--- a/sqlite_utils/cli.py
++++ b/sqlite_utils/cli.py
+@@ -2126,6 +2126,8 @@ def _execute_query(
+             cursor = [[cursor.rowcount]]
+         else:
+             headers = [c[0] for c in cursor.description]
++            from .utils import dedupe_keys
++            json_headers = dedupe_keys(headers)
+         cursor_or_rows: Any = cursor
+         if raw:
+             row = cursor_or_rows.fetchone()
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 3f23c7d..f876eea 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -787,6 +787,8 @@ class Database:
+             if cursor.description is None:
+                 raise ValueError(message)
+             keys = [d[0] for d in cursor.description]
++            from .utils import dedupe_keys
++            keys = dedupe_keys(keys)
+             return (dict(zip(keys, row)) for row in cursor)
+         # Execute inside a savepoint, so a statement that turns out not to
+         # return rows can be rolled back before the ValueError is raised
+@@ -797,6 +799,8 @@ class Database:
+             if cursor.description is None:
+                 raise ValueError(message)
+             keys = [d[0] for d in cursor.description]
++            from .utils import dedupe_keys
++            keys = dedupe_keys(keys)
+             try:
+                 self.conn.execute('RELEASE "sqlite_utils_query"')
+                 released = True
+diff --git a/sqlite_utils/utils.py b/sqlite_utils/utils.py
+index 865ee79..bf9be7a 100644
+--- a/sqlite_utils/utils.py
++++ b/sqlite_utils/utils.py
+@@ -26,6 +26,7 @@ from typing import (
+     TypeVar,
+     Union,
+     cast,
++    Sequence,
+ )
+ 
+ import click
+@@ -67,6 +68,187 @@ Row = Dict[str, RowValue]
+ T = TypeVar("T")
+ 
+ 
++def chunks(sequence: Sequence[T], size: int) -> Iterator[Sequence[T]]:
++    """Yield successive chunks of a sequence in smaller sequences of max `size`."""
++    # Convert to list if it's not already indexable
++    if not hasattr(sequence, '__getitem__'):
++        sequence = list(sequence)
++    
++    # Now we can safely calculate length and iterate
++    seq_len = len(sequence)
++    batch_count = (seq_len + size - 1) // size  # Ceiling division
++    for i in range(batch_count):
++        yield sequence[i * size : min((i + 1) * size, seq_len)]
++
++
++def hash_record(record: Dict[str, Any], keys: Optional[List[str]] = None) -> str:
++    """
++    ``record`` should be a Python dictionary. Returns a sha1 hash of the
++    keys and values in that record.
++
++    If ``keys=`` is provided, uses just those keys to generate the hash.
++
++    Example usage::
++
++        from sqlite_utils.utils import hash_record
++
++        hashed = hash_record({"name": "Cleo", "twitter": "CleoPaws"})
++        # Or with the keys= option:
++        hashed = hash_record(
++            {"name": "Cleo", "twitter": "CleoPaws", "age": 7},
++            keys=["name", "twitter"]
++        )
++
++    :param record: Record to generate a hash for
++    :param keys: Subset of keys to use for that hash
++    """
++    to_hash: Dict[str, Any] = record
++    if keys is not None:
++        to_hash = {key: record[key] for key in keys}
++    return hashlib.sha1(
++        json.dumps(to_hash, separators=(",", ":"), sort_keys=True, default=repr).encode(
++            "utf8"
++        )
++    ).hexdigest()
++
++
++@contextlib.contextmanager
++def progressbar(*args: Iterable[T], **kwargs: Any) -> Generator[Any, None, None]:
++    silent = kwargs.pop("silent")
++    if silent:
++        yield NullProgressBar(*args)
++    else:
++        with click.progressbar(*args, **kwargs) as bar:  # type: ignore
++            yield bar
++
++
++def dedupe_keys(keys: List[str]) -> List[str]:
++    """
++    Given a list of column names (potentially with duplicates), return a new
++    list where the duplicates have been given unique names by appending a
++    suffix '_N' starting from 2. The first occurrence remains unchanged.
++    
++    The renaming ensures the new name does not conflict with any existing key
++    in the original list.
++    
++    Examples:
++        [] -> []
++        ["id", "name"] -> ["id", "name"]
++        ["id", "id"] -> ["id", "id_2"]
++        ["id", "id", "id"] -> ["id", "id_2", "id_3"]
++        ["id", "id", "id_2"] -> ["id", "id_3", "id_2"]
++        ["id_2", "id", "id"] -> ["id_2", "id", "id_3"]
++        ["id", "id", "id_2", "id_2"] -> ["id", "id_3", "id_2", "id_2_2"]
++    """
++    if not keys:
++        return []
++    
++    # Count occurrences of each key
++    counts: Dict[str, int] = {}
++    for key in keys:
++        counts[key] = counts.get(key, 0) + 1
++    
++    # If no duplicates, return original list
++    if all(count == 1 for count in counts.values()):
++        return keys[:]
++    
++    # Set of all original keys to avoid conflicts
++    original_keys = set(keys)
++    result: List[str] = []
++    seen_counts: Dict[str, int] = {}
++    
++    for key in keys:
++        if counts[key] == 1:
++            # No duplicates for this key, keep as is
++            result.append(key)
++            seen_counts[key] = seen_counts.get(key, 0) + 1
++        else:
++            # There are duplicates, need to rename
++            seen_count = seen_counts.get(key, 0)
++            if seen_count == 0:
++                # First occurrence, keep original name
++                result.append(key)
++            else:
++                # Subsequent occurrence, generate a new unique name
++                counter = seen_count + 1
++                new_key = f"{key}_{counter}"
++                # Ensure new_key doesn't conflict with any original key
++                while new_key in original_keys:
++                    counter += 1
++                    new_key = f"{key}_{counter}"
++                result.append(new_key)
++            seen_counts[key] = seen_count + 1
++            
++    return result
++
++
++def _compile_code(
++    code: str, imports: Iterable[str], variable: str = "value"
++) -> Callable[..., Any]:
++    globals_dict: Dict[str, Any] = {"r": recipes, "recipes": recipes}
++    # Handle imports first so they're available for all approaches
++    for import_ in imports:
++        globals_dict[import_.split(".")[0]] = __import__(import_)
++
++    # If user defined a convert() function, return that
++    try:
++        exec(code, globals_dict)
++        return cast(Callable[..., object], globals_dict["convert"])
++    except (AttributeError, SyntaxError, NameError, KeyError, TypeError):
++        pass
++
++    # Check if code is a direct callable reference
++    # e.g. "r.parsedate" instead of "r.parsedate(value)"
++    try:
++        fn = eval(code, globals_dict)
++        if callable(fn):
++            return cast(Callable[..., object], fn)
++    except Exception:
++        pass
++
++    # Try compiling their code as a function instead
++    body_variants = [code]
++    # If single line and no 'return', try adding the return
++    if "\n" not in code and not code.strip().startswith("return "):
++        body_variants.insert(0, "return {}".format(code))
++
++    code_o = None
++    for variant in body_variants:
++        new_code = ["def fn({}):".format(variable)]
++        for line in variant.split("\n"):
++            new_code.append("    {}".format(line))
++        try:
++            code_o = compile("\n".join(new_code), "<string>", "exec")
++            break
++        except SyntaxError:
++            # Try another variant, e.g. for 'return row["column"] = 1'
++            continue
++
++    if code_o is None:
++        raise SyntaxError("Could not compile code")
++
++    exec(code_o, globals_dict)
++    return cast(Callable[..., object], globals_dict["fn"])
++
++
++def _flatten(d: Dict[str, Any]) -> Generator[Tuple[str, Any], None, None]:
++    for key, value in d.items():
++        if isinstance(value, dict):
++            for key2, value2 in _flatten(value):
++                yield key + "_" + key2, value2
++        else:
++            yield key, value
++
++
++def flatten(row: Dict[str, Any]) -> Dict[str, Any]:
++    """
++    Turn a nested dict e.g. ``{"a": {"b": 1}}`` into a flat dict: ``{"a_b": 1}``
++
++    :param row: A Python dictionary, optionally with nested dictionaries
++    """
++    return dict(_flatten(row))
++
++
+ class _CloseableIterator(Iterator[Row]):
+     """Iterator wrapper that closes a file when iteration is complete."""
+ 
+@@ -420,212 +602,44 @@ class TypeTracker:
+         rows = [{"id": "1", "name": "Cleo", "id": "2", "name": "Cardi"}]
+         db["creatures"].insert_all(tracker.wrap(rows))
+         print(tracker.types)
+-        # Outputs {'id': 'integer', 'name': 'text'}
+-        db["creatures"].transform(types=tracker.types)
+-    """
+-
+-    def __init__(self) -> None:
+-        self.trackers: Dict[str, "ValueTracker"] = {}
++        # Outputs {'id': <class 'int'>, 'name': <class 'str'>}
+ 
+-    def wrap(self, iterator: Iterable[Dict[str, Any]]) -> Iterable[Dict[str, Any]]:
+-        """
+-        Use this to loop through an existing iterator, tracking the column types
+-        as part of the iteration.
++    This works by creating a generator that yields each row in turn,
++    keeping track of the types observed for each key as it does so.
+ 
+-        :param iterator: The iterator to wrap
+-        """
+-        for row in iterator:
+-            for key, value in row.items():
+-                tracker = self.trackers.setdefault(key, ValueTracker())
+-                tracker.evaluate(value)
+-            yield row
+-
+-    @property
+-    def types(self) -> Dict[str, str]:
+-        """
+-        A dictionary mapping column names to their detected types. This can be passed
+-        to the ``db[table_name].transform(types=tracker.types)`` method.
+-        """
+-        return {key: tracker.guessed_type for key, tracker in self.trackers.items()}
++    After all rows have been processed, the ``.types`` property will contain
++    a dictionary mapping keys to the most suitable SQLite column type for
++    that key.
+ 
+-
+-class ValueTracker:
+-    couldbe: Dict[str, Callable[[object], bool]]
+-
+-    def __init__(self) -> None:
+-        self.couldbe = {key: getattr(self, "test_" + key) for key in self.get_tests()}
+-
+-    @classmethod
+-    def get_tests(cls) -> List[str]:
+-        return [
+-            key.split("test_")[-1]
+-            for key in cls.__dict__.keys()
+-            if key.startswith("test_")
+-        ]
+-
+-    def test_integer(self, value: object) -> bool:
+-        try:
+-            int(cast(Any, value))
+-            return True
+-        except (ValueError, TypeError):
+-            return False
+-
+-    def test_float(self, value: object) -> bool:
+-        try:
+-            float(cast(Any, value))
+-            return True
+-        except (ValueError, TypeError):
+-            return False
+-
+-    def __repr__(self) -> str:
+-        return self.guessed_type + ": possibilities = " + repr(self.couldbe)
+-
+-    @property
+-    def guessed_type(self) -> str:
+-        options = set(self.couldbe.keys())
+-        # Return based on precedence
+-        for key in self.get_tests():
+-            if key in options:
+-                return key
+-        return "text"
+-
+-    def evaluate(self, value: object) -> None:
+-        if not value or not self.couldbe:
+-            return
+-        not_these: List[str] = []
+-        for name, test in self.couldbe.items():
+-            if not test(value):
+-                not_these.append(name)
+-        for key in not_these:
+-            del self.couldbe[key]
+-
+-
+-class NullProgressBar:
+-    def __init__(self, *args: Iterable[T]) -> None:
+-        self.args = args
+-
+-    def __iter__(self) -> Iterator[T]:
+-        yield from self.args[0]  # type: ignore
+-
+-    def update(self, value: int) -> None:
+-        pass
+-
+-
+-@contextlib.contextmanager
+-def progressbar(*args: Iterable[T], **kwargs: Any) -> Generator[Any, None, None]:
+-    silent = kwargs.pop("silent")
+-    if silent:
+-        yield NullProgressBar(*args)
+-    else:
+-        with click.progressbar(*args, **kwargs) as bar:  # type: ignore
+-            yield bar
+-
+-
+-def _compile_code(
+-    code: str, imports: Iterable[str], variable: str = "value"
+-) -> Callable[..., Any]:
+-    globals_dict: Dict[str, Any] = {"r": recipes, "recipes": recipes}
+-    # Handle imports first so they're available for all approaches
+-    for import_ in imports:
+-        globals_dict[import_.split(".")[0]] = __import__(import_)
+-
+-    # If user defined a convert() function, return that
+-    try:
+-        exec(code, globals_dict)
+-        return cast(Callable[..., object], globals_dict["convert"])
+-    except (AttributeError, SyntaxError, NameError, KeyError, TypeError):
+-        pass
+-
+-    # Check if code is a direct callable reference
+-    # e.g. "r.parsedate" instead of "r.parsedate(value)"
+-    try:
+-        fn = eval(code, globals_dict)
+-        if callable(fn):
+-            return cast(Callable[..., object], fn)
+-    except Exception:
+-        pass
+-
+-    # Try compiling their code as a function instead
+-    body_variants = [code]
+-    # If single line and no 'return', try adding the return
+-    if "\n" not in code and not code.strip().startswith("return "):
+-        body_variants.insert(0, "return {}".format(code))
+-
+-    code_o = None
+-    for variant in body_variants:
+-        new_code = ["def fn({}):".format(variable)]
+-        for line in variant.split("\n"):
+-            new_code.append("    {}".format(line))
+-        try:
+-            code_o = compile("\n".join(new_code), "<string>", "exec")
+-            break
+-        except SyntaxError:
+-            # Try another variant, e.g. for 'return row["column"] = 1'
+-            continue
+-
+-    if code_o is None:
+-        raise SyntaxError("Could not compile code")
+-
+-    exec(code_o, globals_dict)
+-    return cast(Callable[..., object], globals_dict["fn"])
+-
+-
+-def chunks(sequence: Iterable[T], size: int) -> Iterable[Iterable[T]]:
+-    """
+-    Iterate over chunks of the sequence of the given size.
+-
+-    :param sequence: Any Python iterator
+-    :param size: The size of each chunk
+-    """
+-    iterator = iter(sequence)
+-    for item in iterator:
+-        yield itertools.chain([item], itertools.islice(iterator, size - 1))
+-
+-
+-def hash_record(record: Dict[str, Any], keys: Optional[Iterable[str]] = None) -> str:
++    :param records: An iterable of dictionaries representing records
+     """
+-    ``record`` should be a Python dictionary. Returns a sha1 hash of the
+-    keys and values in that record.
+-
+-    If ``keys=`` is provided, uses just those keys to generate the hash.
+-
+-    Example usage::
+-
+-        from sqlite_utils.utils import hash_record
+-
+-        hashed = hash_record({"name": "Cleo", "twitter": "CleoPaws"})
+-        # Or with the keys= option:
+-        hashed = hash_record(
+-            {"name": "Cleo", "twitter": "CleoPaws", "age": 7},
+-            keys=("name", "twitter")
+-        )
+-
+-    :param record: Record to generate a hash for
+-    :param keys: Subset of keys to use for that hash
+-    """
+-    to_hash: Dict[str, Any] = record
+-    if keys is not None:
+-        to_hash = {key: record[key] for key in keys}
+-    return hashlib.sha1(
+-        json.dumps(to_hash, separators=(",", ":"), sort_keys=True, default=repr).encode(
+-            "utf8"
+-        )
+-    ).hexdigest()
+-
+-
+-def _flatten(d: Dict[str, Any]) -> Generator[Tuple[str, Any], None, None]:
+-    for key, value in d.items():
+-        if isinstance(value, dict):
+-            for key2, value2 in _flatten(value):
+-                yield key + "_" + key2, value2
+-        else:
+-            yield key, value
+ 
++    def __init__(self) -> None:
++        self.types: Dict[str, type] = {}
+ 
+-def flatten(row: Dict[str, Any]) -> Dict[str, Any]:
+-    """
+-    Turn a nested dict e.g. ``{"a": {"b": 1}}`` into a flat dict: ``{"a_b": 1}``
++    def wrap(self, records: Iterable[Dict[str, Any]]) -> Iterable[Dict[str, Any]]:
++        """
++        Wrap an iterable of dictionaries, tracking the types of values for each key.
+ 
+-    :param row: A Python dictionary, optionally with nested dictionaries
+-    """
+-    return dict(_flatten(row))
++        :param records: An iterable of dictionaries representing records
++        :return: A generator that yields the same dictionaries while tracking types
++        """
++        for record in records:
++            for key, value in record.items():
++                if key not in self.types:
++                    self.types[key] = type(value)
++                elif self.types[key] is not type(value):
++                    # Handle type conflicts by finding a more general type
++                    current_type = self.types[key]
++                    new_type = type(value)
++                    
++                    # Special handling for numeric types
++                    if {current_type, new_type} == {int, bool}:
++                        self.types[key] = int
++                    elif {current_type, new_type} <= {int, float, bool}:
++                        self.types[key] = float
++                    elif {current_type, new_type} <= {str, bytes}:
++                        self.types[key] = bytes if current_type is bytes or new_type is bytes else str
++                    else:
++                        self.types[key] = str
++            yield record
+\ No newline at end of file
