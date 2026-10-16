@@ -1,0 +1,104 @@
+{
+  "result_schema_version": 2,
+  "harness_version": "1.0.0",
+  "evaluated_at": "2026-10-16T02:28:10+00:00",
+  "run_id": "tomlkit-0002-orchestration-r01-a01",
+  "arm": "orchestration",
+  "task_id": "tomlkit-0002",
+  "faixa": "grande",
+  "repetition": 1,
+  "base_commit": "b5da6c945aa00bf818f89d2fbd434bc3c2c949e2",
+  "resolved": true,
+  "resolved_blocked_by_cheat": false,
+  "oracle": {
+    "f2p_total": 1,
+    "f2p_passed": 1,
+    "f2p": {
+      "exit_code": 0,
+      "passed": 1,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.23,
+      "failing_node_ids": [],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "p2p": {
+      "exit_code": 0,
+      "passed": 744,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 3.18,
+      "failing_node_ids": [],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "regression": {
+      "exit_code": 0,
+      "passed": 744,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 3.0,
+      "failing_node_ids": [],
+      "timed_out": false,
+      "network_isolated": true
+    }
+  },
+  "cheat": {
+    "clean": true,
+    "critical_count": 0,
+    "warning_count": 0,
+    "signals": []
+  },
+  "quality": {
+    "mi_before": 33.901,
+    "mi_after": 33.492,
+    "mi_delta": -0.409,
+    "cc_mean_before": 1.641,
+    "cc_mean_after": 1.684,
+    "cc_mean_delta": 0.043,
+    "files_analyzed": 2,
+    "error": null
+  },
+  "cost": {
+    "tokens_prompt": 332220,
+    "tokens_completion": 6864,
+    "tokens_reasoning": 0,
+    "tokens_total": 339084,
+    "cost_usd": 0.06893,
+    "llm_calls": 47,
+    "byok_calls": 47,
+    "tool_calls": 50,
+    "wall_seconds": 478.885
+  },
+  "process": {
+    "turns": 44,
+    "test_runs": 1,
+    "tool_denials": 0,
+    "errors": 0,
+    "circuit_breaks": 0,
+    "self_recoveries": 0,
+    "stop_reason": "concluiu"
+  },
+  "provenance": {
+    "model": "qwen/qwen3-coder",
+    "provider_requested": "DeepInfra",
+    "providers_served": [
+      "DeepInfra"
+    ],
+    "llm_seed": 20260821,
+    "topology": "multi_agent_roles"
+  },
+  "diff": {
+    "files_changed": 2,
+    "insertions": 6,
+    "deletions": 3,
+    "changed_files": [
+      "tomlkit/api.py",
+      "tomlkit/items.py"
+    ]
+  }
+}

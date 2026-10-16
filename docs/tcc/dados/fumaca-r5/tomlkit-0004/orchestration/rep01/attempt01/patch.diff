@@ -1,0 +1,116 @@
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..b46af58 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -132,7 +132,38 @@ class Parser:
+ 
+             key, value = item
+             if not self._merge_ws(value, body):
+-                body.append(key, value)
++                # Only handle key-value pairs (key is not None)
++                if key is not None:
++                    # Handle dotted keys - but only for bare keys, not quoted ones
++                    # Quoted keys with dots should remain as single keys
++                    import tomlkit.items
++                    if '.' in key.key and key.t == tomlkit.items.KeyType.Bare:
++                        # This is a dotted key, split and create nested structure
++                        parts = key.key.split('.')
++                        current_container = body
++                        
++                        # Navigate/create nested tables
++                        for i, part in enumerate(parts[:-1]):
++                            if part in current_container:
++                                existing = current_container[part]
++                                if not isinstance(existing, Table):
++                                    raise self.parse_error(ParseError, "Cannot create nested table structure: key conflicts with non-table value")
++                                current_container = existing
++                            else:
++                                # Create new table for this part
++                                from .api import table
++                                new_table = table()
++                                new_table.name = part
++                                current_container.append(part, new_table)
++                                current_container = new_table
++                                
++                        # Insert the value in the final table
++                        final_key = parts[-1]
++                        current_container.append(final_key, value)
++                    else:
++                        body.append(key, value)
++                else:
++                    body.append(key, value)
+ 
+             self.mark()
+ 
+@@ -405,7 +436,7 @@ class Parser:
+         if self._current in "\"'":
+             return self._parse_quoted_key()
+         else:
+-            return self._parse_bare_key()
++            return self._parse_dotted_key_or_bare_key()
+ 
+     def _parse_quoted_key(self):  # type: () -> Key
+         """
+@@ -432,17 +463,54 @@ class Parser:
+ 
+         return Key(key, key_type, "")
+ 
+-    def _parse_bare_key(self):  # type: () -> Key
++    def _parse_dotted_key_or_bare_key(self):  # type: () -> Key
+         """
+-        Parses a bare key.
++        Parses a dotted key or bare key.
+         """
+         self.mark()
+-        while self._current.is_bare_key_char() and self.inc():
+-            pass
+-
+-        key = self.extract()
+-
+-        return Key(key, sep="")
++        
++        # Collect the entire key including dots and quoted sections
++        key_chars = []
++        in_quotes = False
++        quote_char = None
++        
++        while not self.end():
++            char = self._current
++            
++            # Handle quotes
++            if char in '"\'' and not in_quotes:
++                in_quotes = True
++                quote_char = char
++            elif char == quote_char and in_quotes:
++                in_quotes = False
++                quote_char = None
++            elif not in_quotes and (char.isspace() or char in '=#[\n'):
++                # End of key when hitting whitespace, equals, comment, or end of line
++                break
++                
++            key_chars.append(char)
++            if not self.inc():
++                break
++        
++        key_str = ''.join(key_chars)
++        
++        # Determine key type based on content
++        # If it has special characters other than dots, underscores, hyphens, it's quoted
++        # Otherwise it's bare
++        import string
++        allowed_chars = string.ascii_letters + string.digits + "-" + "_" + "."
++        has_special_chars = any(c not in allowed_chars for c in key_str)
++        
++        if has_special_chars:
++            # This includes quoted keys or keys with other special chars
++            key_type = KeyType.Basic
++        else:
++            # This is a bare key (can include dots for dotted keys)
++            key_type = KeyType.Bare
++        
++        # If it contains unquoted dots, it's a dotted key
++        # We'll handle the splitting logic elsewhere
++        return Key(key_str, t=key_type, sep="")
+ 
+     def _parse_value(self):  # type: () -> Item
+         """

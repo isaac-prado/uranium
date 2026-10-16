@@ -34,6 +34,16 @@ Para a decisão 37: na rodada 4 o planejador leu 36,7 mil caracteres por tentati
 - Se a comparação no prompt reduz os dois erros do revisor (rodada 4: 66 reprovações em 90 revisões; 3 aprovações com oráculo vermelho), lendo `validation.comparisons` ao lado de `is_valid`.
 - As sete métricas de sempre contra o single-agent pareado da rodada 2.
 
-## 4. Fumaça (a preencher)
+## 4. Fumaça (15/10/2026 22:3x a 23:37, `dados/fumaca-r5/`)
+
+Três tarefas grandes, 1 repetição, configuração da rodada 5, US$ 0,40 no total (`result.json` de cada run):
+
+| tarefa | resultado | turnos (planejador + pedido do plano + developer) | custo | tokens | plano | o que aconteceu |
+|---|---|---|---|---|---|---|
+| tomlkit-0003 | **resolvida** (1/1) | 21 (8 + 1 + 12) | US$ 0,042 | 164 mil | 2 sub-tarefas, ambas em `items.py`; trechos de `items.py` (3,9 mil) e `container.py` (4,2 mil) | developer editou `items.py` e encerrou no primeiro ciclo; revisão final aprovou com as saídas esperadas 1 e 2 encontradas. Fumaça da rodada 4: 41 turnos, US$ 0,06 |
+| tomlkit-0002 | **resolvida** (1/1) | 44 (8 + 1 + 35) | US$ 0,069 | 339 mil | 2 sub-tarefas (`api.py`; `container.py` + `items.py`); trechos de 0,4 mil, 11,4 mil e 8,8 mil | developer escreveu `api.py` e `items.py` no primeiro ciclo; revisão final aprovou com as saídas 1 a 3 encontradas. Fumaça da rodada 4: 102 turnos, US$ 0,14 |
+| tomlkit-0004 | não resolvida (0/7) | 120 (orçamento) | US$ 0,285 | 2,28 M | 2 sub-tarefas (`parser.py`; `items.py` + `container.py`); trechos de 25,8 mil (cortado a 16 mil), 14,0 mil e 9,3 mil | ciclo 1 (41 turnos, teto): suíte vermelha, sub-tarefa 1 não feita (`basis=suite_vermelha`); ciclo 2 (41): suíte verde, revisor reprova com a comparação mostrando a saída esperada 1 NÃO encontrada, sub-tarefa 1 não feita por comparação e adiada; ciclo 3 (29, orçamento): sub-tarefa 2, suíte verde, revisor reprova, `basis=palavra_do_developer` negativo porque o ciclo acabou pelo orçamento. Igual às 0/19 anteriores |
+
+Leitura: as duas resolvidas fecharam em menos da metade dos turnos da fumaça da rodada 4, no primeiro ciclo, com os trechos do planejador na mão; os três estados do veredito determinístico (`suite_vermelha`, `comparacao`, `palavra_do_developer`) e o avanço do plano (adiada → próxima) apareceram na tomlkit-0004 sem erro do harness; a comparação chegou ao revisor e o parecer dele foi coerente com ela. Critério combinado com o autor atendido (0003 continua resolvendo, 0002 não piorou): rodada 5 lançada às 23:4x em `runs/coleta-r5`.
 
 ## 5. Resultados (a preencher)
