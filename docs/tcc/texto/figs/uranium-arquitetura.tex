@@ -1,0 +1,49 @@
+% Figura da arquitetura do Uranium, compilável sozinha:
+%   pdflatex uranium-arquitetura.tex   ->  uranium-arquitetura.pdf
+% No capítulo, trocar o tikzpicture por:
+%   \includegraphics[width=\textwidth]{figs/uranium-arquitetura.pdf}
+\documentclass[tikz,border=4pt]{standalone}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[brazil]{babel}
+\usetikzlibrary{positioning,fit,backgrounds,arrows.meta}
+\newlength{\larguratexto}\setlength{\larguratexto}{160mm}
+\begin{document}
+\begin{tikzpicture}[
+        font=\footnotesize,
+        caixa/.style={draw, rounded corners=2pt, align=center, inner sep=4pt, minimum height=2em},
+        papel/.style={caixa, fill=black!8, text width=46mm},
+        comum/.style={caixa, fill=black!18},
+        grupo/.style={draw, dashed, rounded corners=3pt, inner sep=6pt},
+        seta/.style={-{Stealth[length=2mm]}, semithick},
+        dupla/.style={{Stealth[length=2mm]}-{Stealth[length=2mm]}, semithick},
+        node distance=5mm and 10mm,
+    ]
+        \node[comum, text width=0.88\larguratexto] (comum) {\textbf{Idêntico nos dois braços:} modelo (\texttt{qwen/qwen3-coder}, provedor fixado, temperatura 0, semente $s_0 + k$) $\cdot$ sete ferramentas e guarda de caminho $\cdot$ \textit{prompt} de sistema $\cdot$ enunciado $\cdot$ tetos (120 turnos, 8 milhões de \textit{tokens}, 3.600 s) $\cdot$ mensagens de protocolo};
+
+        \node[papel, below=14mm of comum.south, anchor=north, xshift=-38mm] (agente) {Agente único\\LLM com as sete ferramentas; conversa inteira a cada turno};
+        \node[caixa, below=of agente, text width=46mm] (operador) {Operador determinístico\\sem modelo: executa a suíte e devolve a saída crua do \texttt{pytest}};
+        \draw[dupla] (agente) -- (operador);
+
+        \node[papel, below=14mm of comum.south, anchor=north, xshift=38mm] (refinador) {Refinador de intenção\\(+ clarificador, até 3 vezes)};
+        \node[papel, below=of refinador] (planejador) {Planejador\\somente leitura; sub-tarefas; executa os exemplos no código original};
+        \node[papel, below=of planejador] (dev) {Desenvolvedor\\mesmo \textit{prompt} e ferramentas; ciclos de 40 turnos com memória de trabalho};
+        \node[papel, below=of dev] (validador) {Validador\\suíte, execução dos exemplos, comparação, revisor};
+        \node[papel, below=of validador] (tg) {Gerador de testes (fora da medição)};
+        \draw[seta] (refinador) -- (planejador);
+        \draw[seta] (planejador) -- (dev);
+        \draw[dupla] (dev) -- (validador);
+        \draw[seta] (validador) -- (tg);
+
+        \begin{scope}[on background layer]
+            \node[grupo, fit=(agente) (operador), label={[font=\footnotesize\bfseries]above:Braço 1: agente único}] (g1) {};
+            \node[grupo, fit=(refinador) (tg), label={[font=\footnotesize\bfseries]above:Braço 2: orquestração}] (g2) {};
+        \end{scope}
+
+        \node[caixa, below=10mm of g2.south, anchor=north, xshift=-38mm, text width=0.6\larguratexto] (ws) {\textit{Workspace} por execução: clone do espelho do repositório e ambiente virtual próprio; área de testes protegida; trilha de eventos e manifesto};
+        \node[comum, below=of ws, text width=0.88\larguratexto] (aval) {\textbf{Avaliador independente} (nunca lê o relato dos agentes): oráculo oculto (\textit{fail-to-pass}, \textit{pass-to-pass}, regressão) $\cdot$ detector de trapaça, regras C1 a C6 $\cdot$ complexidade ciclomática $\cdot$ custo por chamada};
+        \draw[seta] (g1.south) -- (ws.north -| g1.south);
+        \draw[seta] (g2.south) -- (ws.north -| g2.south);
+        \draw[seta] (ws) -- (aval);
+    \end{tikzpicture}
+\end{document}
