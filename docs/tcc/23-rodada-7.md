@@ -19,6 +19,7 @@ Comando: `INTENT_REFINER=v2 REVIEW_EXECUTION=cumulative CYCLE_NOTE=on PLANNER=on
 - Se liberar a sub-tarefa travada após um ciclo devolve os turnos que a peewee-0002 e os 31 runs cortados com sub-tarefa pendente perderam, sem tirar das tarefas que a rodada 4 resolvia.
 - Se executar os blocos de CLI fecha a sqlite-utils-0003 (média), onde o estado certo chegou a existir em 5 de 9 runs.
 - Critério de decisiva: 10 ou mais tarefas de 13 (rodada 4: 9) sem perder na faixa grande (5/9). Custo esperado próximo ao da rodada 4 (US$ 5,67).
+- Primeira coleta com `payload.tokens_cached` em cada `llm_call` (decisão 46, 22/10/2026): a fração do prompt lida do cache da DeepInfra passa a ser medida, não inferida do custo (rodada 4: 82,5 % inferida; [08-escolha-modelo.md](08-escolha-modelo.md) §10.2). `scripts/cache_fraction.py` imprime as duas lado a lado para conferir a inferência das rodadas anteriores.
 
 ## 3. Fumaça (a preencher)
 

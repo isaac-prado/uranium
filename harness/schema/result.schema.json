@@ -79,6 +79,7 @@
         "tokens_completion": { "type": "integer", "minimum": 0 },
         "tokens_reasoning":  { "type": "integer", "minimum": 0 },
         "tokens_total":      { "type": "integer", "minimum": 0 },
+        "tokens_cached":     { "type": "integer", "minimum": 0 },
         "cost_usd":          { "type": "number", "minimum": 0 },
         "llm_calls":         { "type": "integer", "minimum": 0 },
         "tool_calls":        { "type": "integer", "minimum": 0 },

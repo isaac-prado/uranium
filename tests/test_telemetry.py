@@ -147,6 +147,7 @@ class TestAtalhosTipados:
                 "token_usage": {
                     "prompt_tokens": 1200, "completion_tokens": 80, "total_tokens": 1280,
                     "cost": 0.0042, "completion_tokens_details": {"reasoning_tokens": 15},
+                    "prompt_tokens_details": {"cached_tokens": 1100},
                 },
             },
             tool_calls=[{"name": "search_code", "args": {}}],
@@ -159,6 +160,10 @@ class TestAtalhosTipados:
         assert evento["cost_usd"] == 0.0042
         assert evento["tokens_reasoning"] == 15
         assert evento["payload"]["tool_calls_requested"] == ["search_code"]
+        # tokens em cache vão ao payload (esquema do envelope inalterado) e aos totais
+        assert evento["payload"]["tokens_cached"] == 1100
+        assert writer.totals.tokens_cached == 1100
+        assert evento["tokens_prompt"] == 1200
 
     def test_tool_call_a_partir_do_record(self, writer, validator):
         record = ToolCallRecord(
@@ -189,10 +194,11 @@ class TestAtalhosTipados:
 
 
 class TestTotais:
-    def _llm(self, tokens: int, custo: float):
+    def _llm(self, tokens: int, custo: float, em_cache: int = 0):
         return _FakeMessage({"token_usage": {
             "prompt_tokens": tokens, "completion_tokens": 0,
             "total_tokens": tokens, "cost": custo,
+            "prompt_tokens_details": {"cached_tokens": em_cache},
         }})
 
     def test_soma_tokens_e_custo(self, writer):
@@ -203,14 +209,16 @@ class TestTotais:
         assert writer.totals.llm_calls == 2
 
     def test_totais_batem_com_a_reagregacao_do_arquivo(self, writer):
-        writer.emit_llm_call(self._llm(1000, 0.01))
+        writer.emit_llm_call(self._llm(1000, 0.01, em_cache=0))
         writer.emit_tool_call(ToolCallRecord("read_file", "h", 5))
-        writer.emit_llm_call(self._llm(700, 0.007))
+        writer.emit_llm_call(self._llm(700, 0.007, em_cache=650))
 
         custo = aggregate_cost(read_events(writer.path))
         assert custo["tokens_total"] == writer.totals.tokens_total
         assert custo["cost_usd"] == pytest.approx(writer.totals.cost_usd)
         assert custo["llm_calls"] == 2 and custo["tool_calls"] == 1
+        assert custo["tokens_cached"] == writer.totals.tokens_cached == 650
+        assert writer.totals.as_dict()["tokens_cached"] == 650
 
     def test_run_end_carrega_os_totais(self, writer):
         writer.emit_llm_call(self._llm(100, 0.001))

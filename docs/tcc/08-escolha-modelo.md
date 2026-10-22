@@ -306,3 +306,29 @@ Há. Os que se apresentam como modelos de código ou de agentes de código, e qu
 **Recomendação revista.** Replicação principal com **DeepSeek-V3.2 não-pensante** (critério iii mais forte). Se houver duas replicações, a segunda é **Devstral 2**: é o "Coder" de outra grande empresa, com a mesma especialização do modelo atual e sem raciocínio, o que torna a comparação de perfil de treino limpa; o número independente mais baixo entra declarado. Os pensantes ficam registrados como trabalho futuro ("topologia × raciocínio"), com os números acima. Custo das duas replicações: US$ 15 a 29 (DeepSeek, DeepInfra) mais US$ 8 a 46 (Devstral, Mistral via OpenRouter, crédito do OpenRouter ou chave Mistral em BYOK); com o cache que a DeepInfra mostrou, o provável fica entre US$ 25 e 40.
 
 **Fontes adicionais (22/10/2026).** Devstral 2: [anúncio da Mistral](https://mistral.ai/news/devstral-2-vibe-cli/), [cobertura](https://venturebeat.com/ai/mistral-launches-powerful-devstral-2-coding-model-including-open-source). GLM-5 e GLM-4.7: [ficha no Hugging Face](https://huggingface.co/zai-org/GLM-5), [artigo arXiv 2602.15763](https://arxiv.org/html/2602.15763v1), [documentação da Z.ai](https://docs.z.ai/guides/llm/glm-5). MiniMax M2.5: [ficha no Hugging Face](https://huggingface.co/MiniMaxAI/MiniMax-M2.5), [nota da DeepInfra](https://deepinfra.com/blog/minimax-m2-5-api-benchmarks), [Unsloth](https://unsloth.ai/docs/models/tutorials/minimax-m25). Qwen3-Coder-Next: [relatório técnico arXiv 2603.00729](https://arxiv.org/html/2603.00729v1). Kimi K2.7 Code, Devstral 2, GLM, MiniMax no mesmo harness: [vals.ai, SWE-bench Verified](https://www.vals.ai/benchmarks/swebench). Endpoints, preços e parâmetros: API pública do OpenRouter, 22/10/2026.
+
+### 10.2 Com ou sem cache? Fração medida por braço e o que ela muda na projeção (22/10/2026)
+
+**Pergunta do autor.** "Estamos rodando com ou sem cache?"
+
+**Resposta.** Com cache, e ele é automático: nada no harness pede cache; a DeepInfra aplica o cache de prefixo no endpoint e cobra a parte repetida do prompt ao preço `input_cache_read` (US$ 0,10/M para o `qwen/qwen3-coder`, contra 0,30 de entrada). Como os dois braços constroem o prompt por acréscimo, quase todo prompt de uma chamada é prefixo da seguinte. Até 22/10/2026 a telemetria não gravava tokens em cache; a fração era inferida do custo pago contra o preço de tabela (a primeira chamada de cada run bate o preço cheio ao centavo, o que confirma a tabela). Desde a decisão 46 ([09-decisoes-do-autor.md](09-decisoes-do-autor.md)) cada `llm_call` traz `payload.tokens_cached`, lido de `usage.prompt_tokens_details.cached_tokens`, e a sonda de duas chamadas em [dados/sondagens/cache-deepinfra-2026-10-22.txt](dados/sondagens/cache-deepinfra-2026-10-22.txt) mostra o campo chegando (5.664 de 5.696 tokens em cache na segunda chamada) e o custo fechando com os dois preços.
+
+**Fração inferida por coleta** (`scripts/cache_fraction.py`, preços 0,30 / 1,00 / 0,10; [dados/sondagens/fracao-cache-por-coleta-2026-10-22.txt](dados/sondagens/fracao-cache-por-coleta-2026-10-22.txt); "arquivos" conta os `events.jsonl`, inclusive tentativas interrompidas):
+
+| coleta | chamadas | prompt (M) | saída (M) | pago (US$) | tabela sem cache (US$) | fração em cache | chamadas a preço cheio |
+|---|---|---|---|---|---|---|---|
+| single-agent pareado (`runs/coleta-r2-analise/*/single-agent`) | 2.549 | 72,44 | 0,61 | 8,52 | 22,34 | **95,4 %** | 37 |
+| orquestrado rodada 6 | 3.254 | 45,66 | 0,72 | 5,99 | 14,42 | 92,4 % | 154 |
+| orquestrado rodada 5 | 2.998 | 42,85 | 0,82 | 5,83 | 13,67 | 91,5 % | 130 |
+| orquestrado rodada 4 | 3.353 | 38,08 | 0,65 | 5,79 | 12,08 | **82,5 %** | 481 |
+
+O orquestrado aproveita menos cache que o single-agent, e a rodada 4 menos que as seguintes: cada troca de nó (developer → validador → developer) e cada ciclo novo do developer (memória de trabalho e sub-tarefa atualizadas) mudam o prefixo, e o prompt recomeça do zero com mais frequência (481 chamadas a preço cheio na rodada 4, 37 no single-agent); o single-agent só acrescenta. Isso é uma propriedade da topologia sobre o endpoint, não do modelo, e entra no texto quando o custo em dólares for reportado: a métrica primária continua em tokens.
+
+**O que muda na projeção da replicação (78 runs).** A seção 10 aplicou uma fração única de 96 % a todo o prompt. Refazendo com a fração medida de cada braço (orquestrado da rodada 4, que é a base da rodada 7, e single-agent pareado), com os tokens da tabela acima e os preços da seção 10 (DeepSeek-V3.2 na DeepInfra 0,26 / 0,38 / 0,13; Devstral 2 na Mistral 0,40 / 2,00 / 0,04), custo = prompt × ((1 − f) × entrada + f × cache) + saída × preço de saída, por braço:
+
+| modelo | hipótese 96 % (seção 10) | fração medida por braço | sem cache |
+|---|---|---|---|
+| DeepSeek-V3.2, DeepInfra | 15 | **16** (orquestrado 6 + single-agent 10) | 29 |
+| Devstral 2, Mistral | 8 | **10,5** (orquestrado 5 + single-agent 5) | 47 |
+
+Para o DeepSeek a fração deve transferir, porque o cache é do provedor e a DeepInfra é a mesma. Para o Devstral a Mistral publica preço de cache, mas se o endpoint pega o prefixo inteiro só a fumaça da replicação vai dizer, agora com o campo gravado em vez de inferido. As colunas "sem cache" continuam sendo o teto para reservar crédito; a recomendação de pagamento da decisão 45 não muda.

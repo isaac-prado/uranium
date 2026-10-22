@@ -1,0 +1,15 @@
+Sonda de cache de prefixo: qwen/qwen3-coder pinado na DeepInfra (BYOK), OpenRouter, 22/10/2026.
+Duas chamadas com o mesmo prefixo longo (system de ~5,7 k tokens) e perguntas diferentes.
+Script: scripts/cache_probe.py (versão de 22/10/2026). Custo das duas chamadas: US$ 0,0023.
+Preço de tabela da DeepInfra para o modelo: 0,30 entrada / 1,00 saída / 0,10 leitura em cache (US$/M).
+
+--- chamada 1 (1.2s) provedor=DeepInfra byok=True
+usage cru: {"completion_tokens": 4, "prompt_tokens": 5695, "total_tokens": 5699, "completion_tokens_details": {"accepted_prediction_tokens": null, "audio_tokens": 0, "reasoning_tokens": 0, "rejected_prediction_tokens": null, "image_tokens": 0}, "prompt_tokens_details": {"audio_tokens": 0, "cached_tokens": 0, "cache_write_tokens": 0, "video_tokens": 0}, "cost": 0, "is_byok": true, "cost_details": {"upstream_inference_cost": 0.0017125, "upstream_inference_prompt_cost": 0.0017085, "upstream_inference_completions_cost": 4e-06}}
+tokens_prompt=5695 tokens_cached=0 completion=4 cost_usd=0.0017125 resposta='tomlkit'
+--- chamada 2 (0.4s) provedor=DeepInfra byok=True
+usage cru: {"completion_tokens": 4, "prompt_tokens": 5696, "total_tokens": 5700, "completion_tokens_details": {"accepted_prediction_tokens": null, "audio_tokens": 0, "reasoning_tokens": 0, "rejected_prediction_tokens": null, "image_tokens": 0}, "prompt_tokens_details": {"audio_tokens": 0, "cached_tokens": 5664, "cache_write_tokens": 0, "video_tokens": 0}, "cost": 0, "is_byok": true, "cost_details": {"upstream_inference_cost": 0.00058, "upstream_inference_prompt_cost": 0.000576, "upstream_inference_completions_cost": 4e-06}}
+tokens_prompt=5696 tokens_cached=5664 completion=4 cost_usd=0.0005800 resposta='160'
+
+Conferência do preço:
+  chamada 1: 5695 × 0,30/10^6 + 4 × 1,00/10^6 = 0,0017085 + 0,000004 = 0,0017125  (igual ao cobrado)
+  chamada 2: 32 × 0,30/10^6 + 5664 × 0,10/10^6 + 4 × 1,00/10^6 = 0,0000096 + 0,0005664 + 0,000004 = 0,000580  (igual ao cobrado)

@@ -31,6 +31,14 @@ def aggregate_cost(events: list[dict[str, Any]]) -> dict[str, Any]:
         "tokens_completion": sum(e.get("tokens_completion", 0) for e in events),
         "tokens_reasoning": sum(e.get("tokens_reasoning", 0) for e in events),
         "tokens_total": sum(e.get("tokens_total", 0) for e in events),
+        # tokens do prompt lidos do cache de prefixo do provedor, somados do
+        # payload dos llm_call; subconjunto de tokens_prompt. A fração
+        # tokens_cached / tokens_prompt é o que explica a diferença entre o
+        # custo pago e o preço de tabela (docs/tcc/08-escolha-modelo.md, seção 10)
+        "tokens_cached": sum(
+            int((e.get("payload") or {}).get("tokens_cached") or 0)
+            for e in events if e.get("event_type") == "llm_call"
+        ),
         "cost_usd": round(sum(float(e.get("cost_usd", 0.0)) for e in events), 8),
         "llm_calls": sum(1 for e in events if e.get("event_type") == "llm_call"),
         # chamadas servidas pela chave própria do provedor (BYOK): na coleta

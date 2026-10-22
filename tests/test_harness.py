@@ -90,8 +90,8 @@ class TestParsePytest:
 
 class TestAgregacao:
     EVENTOS = [
-        {"event_type": "llm_call", "tokens_total": 100, "cost_usd": 0.01, "turn": 1,
-         "provider_served": "DeepInfra"},
+        {"event_type": "llm_call", "tokens_total": 100, "tokens_prompt": 90, "cost_usd": 0.01,
+         "turn": 1, "provider_served": "DeepInfra", "payload": {"tokens_cached": 72}},
         {"event_type": "tool_call", "tool_denied": True, "turn": 1},
         {"event_type": "test_run", "turn": 2, "payload": {"green": False}},
         {"event_type": "test_run", "turn": 3, "payload": {"green": True}},
@@ -102,6 +102,7 @@ class TestAgregacao:
         c = aggregate_cost(self.EVENTOS)
         assert c["tokens_total"] == 100 and c["cost_usd"] == 0.01
         assert c["llm_calls"] == 1 and c["tool_calls"] == 1
+        assert c["tokens_cached"] == 72  # só dos llm_call, lido do payload
         assert c["wall_seconds"] == 45.0
 
     def test_processo(self):

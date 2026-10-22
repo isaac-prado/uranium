@@ -1,0 +1,5 @@
+preços US$/M: entrada 0.3 saída 1.0 cache 0.1
+orquestrado r4               arquivos= 40 chamadas= 3353 prompt=  38.08M saída= 0.65M pago=US$  5.79 tabela=US$ 12.08 fração gravada=0.0 inferida=0.825 preço cheio=481
+orquestrado r5               arquivos= 41 chamadas= 2998 prompt=  42.85M saída= 0.82M pago=US$  5.83 tabela=US$ 13.67 fração gravada=0.0 inferida=0.915 preço cheio=130
+orquestrado r6               arquivos= 40 chamadas= 3254 prompt=  45.66M saída= 0.72M pago=US$  5.99 tabela=US$ 14.42 fração gravada=0.0 inferida=0.924 preço cheio=154
+single-agent pareado         arquivos= 40 chamadas= 2549 prompt=  72.44M saída= 0.61M pago=US$  8.52 tabela=US$ 22.34 fração gravada=0.0 inferida=0.954 preço cheio=37

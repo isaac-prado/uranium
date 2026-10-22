@@ -327,3 +327,29 @@ class TestCustoComChavePropria:
         monkeypatch.setenv("OPENROUTER_API_KEY", "sk-teste")
         m = extract_call_metrics(mensagem_como_em_producao(RESPOSTA_OPENROUTER))
         assert m.is_byok is None and m.cost_usd == 0.000123
+
+
+class TestTokensEmCache:
+    """
+    O OpenRouter devolve os tokens do prompt lidos do cache de prefixo do
+    provedor em `usage.prompt_tokens_details.cached_tokens`. Até a rodada 7 a
+    fração em cache era inferida do custo pago contra o preço de tabela
+    (docs/tcc/08-escolha-modelo.md, seção 10); desde 22/10/2026 ela é gravada.
+    """
+
+    def _msg(self, usage):
+        resposta = {**RESPOSTA_OPENROUTER, "usage": {**RESPOSTA_OPENROUTER["usage"], **usage}}
+        return mensagem_como_em_producao(resposta)
+
+    def test_le_cached_tokens_do_prompt_tokens_details(self, monkeypatch):
+        monkeypatch.setenv("OPENROUTER_API_KEY", "sk-teste")
+        m = extract_call_metrics(self._msg({
+            "prompt_tokens": 1400, "prompt_tokens_details": {"cached_tokens": 1280, "audio_tokens": 0},
+        }))
+        assert m.tokens_prompt == 1400 and m.tokens_cached == 1280
+
+    def test_sem_o_detalhe_fica_zero(self, monkeypatch):
+        monkeypatch.setenv("OPENROUTER_API_KEY", "sk-teste")
+        assert extract_call_metrics(mensagem_como_em_producao(RESPOSTA_OPENROUTER)).tokens_cached == 0
+        assert extract_call_metrics(self._msg({"prompt_tokens_details": {"audio_tokens": 0}})).tokens_cached == 0
+        assert extract_call_metrics(self._msg({"prompt_tokens_details": None})).tokens_cached == 0

@@ -106,6 +106,9 @@ class Totals:
     tokens_completion: int = 0
     tokens_reasoning: int = 0
     tokens_total: int = 0
+    # tokens do prompt lidos do cache do provedor (payload.tokens_cached dos
+    # llm_call); subconjunto de tokens_prompt, não entra em tokens_total
+    tokens_cached: int = 0
     cost_usd: float = 0.0
     llm_calls: int = 0
     tool_calls: int = 0
@@ -118,6 +121,7 @@ class Totals:
             "tokens_completion": self.tokens_completion,
             "tokens_reasoning": self.tokens_reasoning,
             "tokens_total": self.tokens_total,
+            "tokens_cached": self.tokens_cached,
             "cost_usd": round(self.cost_usd, 8),
             "llm_calls": self.llm_calls,
             "tool_calls": self.tool_calls,
@@ -260,6 +264,7 @@ class TelemetryWriter:
         match event["event_type"]:
             case "llm_call":
                 t.llm_calls += 1
+                t.tokens_cached += int((event.get("payload") or {}).get("tokens_cached") or 0)
             case "tool_call":
                 t.tool_calls += 1
             case "test_run":
@@ -291,6 +296,9 @@ class TelemetryWriter:
             "is_byok": m.is_byok,
             "cost_openrouter_usd": m.cost_openrouter_usd,
             "cost_upstream_usd": m.cost_upstream_usd,
+            # tokens do prompt cobrados como leitura em cache do provedor
+            # (`prompt_tokens_details.cached_tokens`); subconjunto de tokens_prompt
+            "tokens_cached": m.tokens_cached,
         }
         if prompt is not None:
             payload["prompt_bytes"] = prompt_composition(prompt)
@@ -408,6 +416,10 @@ def aggregate_cost(events: list[dict[str, Any]]) -> dict[str, Any]:
         "tokens_completion": sum(e.get("tokens_completion", 0) for e in events),
         "tokens_reasoning": sum(e.get("tokens_reasoning", 0) for e in events),
         "tokens_total": sum(e.get("tokens_total", 0) for e in events),
+        "tokens_cached": sum(
+            int((e.get("payload") or {}).get("tokens_cached") or 0)
+            for e in events if e.get("event_type") == "llm_call"
+        ),
         "cost_usd": round(sum(e.get("cost_usd", 0.0) for e in events), 8),
         "llm_calls": sum(1 for e in events if e.get("event_type") == "llm_call"),
         "tool_calls": sum(1 for e in events if e.get("event_type") == "tool_call"),

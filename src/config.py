@@ -476,6 +476,14 @@ class LLMCallMetrics:
     tokens_completion: int = 0
     tokens_reasoning: int = 0
     tokens_total: int = 0
+    # Tokens do prompt lidos do cache de prefixo do provedor
+    # (`usage.prompt_tokens_details.cached_tokens`). Já estão contados em
+    # `tokens_prompt`; o campo só diz quantos deles foram cobrados ao preço
+    # de leitura em cache. Zero quando o provedor não informa. Até a rodada 7
+    # a fração em cache era inferida do custo pago contra o preço de tabela
+    # (docs/tcc/08-escolha-modelo.md, seção 10); aprovado pelo autor em
+    # 22/10/2026 gravar o número que o OpenRouter devolve.
+    tokens_cached: int = 0
     # Custo TOTAL pago pela chamada, em dólares: o que o OpenRouter cobra
     # (`usage.cost`) mais, quando a chamada saiu pela chave própria do
     # provedor (BYOK), o que o provedor cobrou
@@ -506,6 +514,7 @@ def extract_call_metrics(message: Any) -> LLMCallMetrics:
     meta: dict[str, Any] = getattr(message, "response_metadata", None) or {}
     usage: dict[str, Any] = meta.get("token_usage") or {}
     completion_details = usage.get("completion_tokens_details") or {}
+    prompt_details = usage.get("prompt_tokens_details") or {}
     cost_details = usage.get("cost_details") or {}
     is_byok = usage.get("is_byok")
     cost_openrouter = float(usage.get("cost") or 0.0)
@@ -519,6 +528,7 @@ def extract_call_metrics(message: Any) -> LLMCallMetrics:
         tokens_completion=int(usage.get("completion_tokens") or 0),
         tokens_reasoning=int(completion_details.get("reasoning_tokens") or 0),
         tokens_total=int(usage.get("total_tokens") or 0),
+        tokens_cached=int(prompt_details.get("cached_tokens") or 0),
         cost_usd=cost_openrouter + (cost_upstream if is_byok else 0.0),
         cost_openrouter_usd=cost_openrouter,
         cost_upstream_usd=cost_upstream,
