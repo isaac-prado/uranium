@@ -16,6 +16,10 @@ from __future__ import annotations
 
 import os
 import re
+import shlex
+import subprocess
+import time
+from pathlib import Path
 from typing import Any
 
 from src import config
@@ -33,7 +37,7 @@ from src.schemas.validation_result import ValidationResult
 from src.state import WorkflowState, parse_intent
 from src.structured_llm import StructuredOutputError, invoke_structured
 from src.tools.base import truncate
-from src.tools.exec import run_pytest, run_python
+from src.tools.exec import _build_env, run_pytest, run_python
 from src.verificacao import ENCONTRADA as ENCONTRADA_
 from src.verificacao import NAO_ENCONTRADA as NAO_ENCONTRADA_
 from src.verificacao import NAO_VERIFICAVEL as NAO_VERIFICAVEL_
@@ -196,6 +200,81 @@ def _codigo_python(bloco: str) -> str | None:
     return m.group(2) if linguagem in ("", "python", "py", "python3") else None
 
 
+# Rodada 7 (decisão 44): bloco de reprodução que é linha de comando. Só
+# programas conhecidos, sem shell: o Python do venv da tarefa (`python`,
+# `python3`) ou um script de console instalado nesse venv (`sqlite-utils`).
+_PROGRAMAS_PYTHON = ("python", "python3")
+# Operadores de shell que, como token separado, indicariam pipe, redirecionamento
+# ou encadeamento; dentro de aspas (`python -c "a; b"`) não são operadores.
+_OPERADORES_SHELL = {"|", "||", "&", "&&", ";", ">", ">>", "<", "<<", "2>", "2>>", "&>"}
+_CERCAS_SHELL = ("", "bash", "sh", "shell", "console", "zsh", "text")
+
+
+def _comando_shell(bloco: str, python_bin: str) -> list[list[str]] | None:
+    """
+    Comandos (argv prontos) de um bloco de reprodução escrito como linha de
+    comando, ou None quando o bloco não é isso. Com `$ ` no início das
+    linhas, só essas são comandos e as demais são saída copiada; sem o
+    prefixo, toda linha precisa ser um comando reconhecido. Linha com
+    metacaractere de shell, ou programa fora do venv da tarefa, invalida o
+    bloco inteiro: é melhor não rodar do que rodar outra coisa.
+    """
+    m = _CERCA.match(bloco.strip())
+    if m and (m.group(1) or "").lower() not in _CERCAS_SHELL:
+        return None
+    texto = m.group(2) if m else bloco
+    linhas = [l.strip() for l in texto.splitlines() if l.strip()]
+    if not linhas:
+        return None
+    com_prompt = [l for l in linhas if l.startswith("$ ")]
+    candidatas = [l[2:].strip() for l in com_prompt] if com_prompt else linhas
+    bin_dir = Path(python_bin).parent
+    comandos: list[list[str]] = []
+    for linha in candidatas:
+        try:
+            argv = shlex.split(linha)
+        except ValueError:
+            return None
+        if not argv or any(tok in _OPERADORES_SHELL or tok.startswith(("`", "$(")) for tok in argv):
+            return None
+        programa = argv[0]
+        if programa in _PROGRAMAS_PYTHON:
+            argv[0] = python_bin
+        elif "/" not in programa and (bin_dir / programa).is_file():
+            argv[0] = str(bin_dir / programa)
+        else:
+            return None
+        comandos.append(argv)
+    return comandos or None
+
+
+def _executar_comandos(ctx: RunContext, comandos: list[list[str]], timeout_s: int) -> str:
+    """Roda os comandos em sequência no workspace, como `run_python` roda um trecho: mesma guarda de arquivo protegido."""
+    ws = ctx.workspace
+    partes: list[str] = []
+    for argv in comandos:
+        mostrado = " ".join(shlex.quote(a) for a in [Path(argv[0]).name, *argv[1:]])
+        inicio = time.perf_counter()
+        try:
+            proc = subprocess.run(argv, cwd=ws.root, capture_output=True, text=True,
+                                  env=_build_env(ws), timeout=timeout_s)
+            saida, codigo, estourou = (proc.stdout + proc.stderr).strip(), proc.returncode, False
+        except subprocess.TimeoutExpired:
+            saida, codigo, estourou = "", -1, True
+        duracao = time.perf_counter() - inicio
+        violados = ws.protected_touched()
+        if violados:
+            for rel in violados:
+                subprocess.run(["git", "checkout", "--", rel], cwd=ws.root, capture_output=True)
+            partes.append(f"$ {mostrado}\nRECUSADO: o comando alterou arquivo protegido ({', '.join(violados)}). A alteração foi revertida.")
+            break
+        if estourou:
+            partes.append(f"$ {mostrado}\nTIMEOUT: o comando excedeu {timeout_s}s e foi interrompido.")
+            break
+        partes.append(f"$ {mostrado}\nexit={codigo} em {duracao:.2f}s\n{saida or '(sem saída)'}")
+    return "\n".join(partes)
+
+
 # Rodada 6 (decisão 42): rótulo do bloco que não compila sozinho. Vai ao
 # revisor e ao developer no lugar de um traceback de SyntaxError, que na
 # rodada 5 foi lido como falha do código.
@@ -227,7 +306,13 @@ def _executar_reproducao(
     intent = parse_intent(state)
     if config.REVIEW_EXECUTION == "off" or not isinstance(intent, StructuredIntentV2):
         return []
-    codigos = {i: _codigo_python(b) for i, b in enumerate(intent.reproduction, 1)}
+    # Decisão 44 (rodada 7): bloco que é linha de comando roda como processo
+    # e fica fora da cadeia Python (não é Python).
+    python_bin = ctx.workspace.spec.seed_repo.python_bin
+    shell = ({i: _comando_shell(b, python_bin) for i, b in enumerate(intent.reproduction, 1)}
+             if config.REPRODUCTION_SHELL == "on" else {})
+    shell = {i: c for i, c in shell.items() if c}
+    codigos = {i: (None if i in shell else _codigo_python(b)) for i, b in enumerate(intent.reproduction, 1)}
     # Decisão 42 (rodada 6): o bloco que não compila sozinho não roda e não
     # entra na cadeia acumulada; na rodada 5 (tomlkit-0001) cinco blocos
     # eram texto TOML e o SyntaxError do 2º apagava a saída dos seguintes.
@@ -238,6 +323,11 @@ def _executar_reproducao(
     saidas: list[dict[str, Any]] = []
     for i in selecionados:
         codigo = codigos[i]
+        if i in shell:
+            saida = _executar_comandos(ctx, shell[i], timeout_s=min(60, ctx.test_timeout_s))
+            saidas.append({"bloco": i, "executado": True, "shell": True, "acumulado": False,
+                           "saida": truncate(saida, MAX_SAIDA_EXECUCAO_CHARS)})
+            continue
         if codigo is None or not codigo.strip():
             saidas.append({"bloco": i, "executado": False, "saida": "(não executado: não é Python)"})
             continue

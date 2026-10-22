@@ -161,6 +161,18 @@ if PLANNER_CONTEXT_MAX_CHARS < 0:
 # rodada 5 (tomlkit-0001 rep02) cinco dos seis blocos eram TOML: o
 # SyntaxError do 2º apagava a saída dos seguintes e o revisor reprovou a
 # correção certa três vezes. "off" reproduz as rodadas 4 e 5.
+# Rodada 7 (decisão 44, 22/10/2026): com "on", um bloco de reprodução que é
+# linha de comando (`python -m pacote ...`, `$ sqlite-utils ...`) roda como
+# processo no workspace, com o Python do venv da tarefa ou o script de
+# console instalado nele, sem shell (sem pipe, redirecionamento ou
+# encadeamento), e a saída entra na revisão e na comparação como a de um
+# bloco Python. Na sqlite-utils-0003, 5 dos 9 runs das rodadas 4 a 6
+# passaram os 12 ocultos e perderam pela saída CSV da CLI, cujos blocos
+# nunca rodavam. "off" reproduz as rodadas anteriores.
+REPRODUCTION_SHELL_MODES = ("on", "off")
+REPRODUCTION_SHELL = os.getenv("REPRODUCTION_SHELL", "off").strip().lower()
+if REPRODUCTION_SHELL not in REPRODUCTION_SHELL_MODES:
+    raise ValueError(f"REPRODUCTION_SHELL={REPRODUCTION_SHELL!r} inválido; use um de {REPRODUCTION_SHELL_MODES}")
 REPRODUCTION_COMPILE_CHECK_MODES = ("on", "off")
 REPRODUCTION_COMPILE_CHECK = os.getenv("REPRODUCTION_COMPILE_CHECK", "off").strip().lower()
 if REPRODUCTION_COMPILE_CHECK not in REPRODUCTION_COMPILE_CHECK_MODES:

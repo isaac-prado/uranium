@@ -723,3 +723,71 @@ class TestRodada6:
         pol = _orchestration_policy()
         assert (pol["subtask_check"], pol["review_compare"], pol["review_strict"], pol["reproduction_compile_check"]) \
             == ("hybrid", "neutral", "on", "on")
+
+
+# ------------------------------------------------------------ rodada 7
+
+
+@mirror_available
+class TestRodada7:
+    """Decisão 44 (22/10/2026): blocos de reprodução em linha de comando rodam no validador."""
+
+    def _py(self, montar):
+        montar(FakeToolCallingLLM([ai(content="x")]))
+        return _ctx(montar).workspace.spec.seed_repo.python_bin
+
+    def test_reconhece_so_programas_do_venv_sem_shell(self, ambiente, monkeypatch):
+        from src.agents.validator import _comando_shell
+
+        _, _, montar = ambiente
+        py = self._py(montar)
+        assert _comando_shell("python -c \"print(1)\"", py) == [[py, "-c", "print(1)"]]
+        assert _comando_shell("$ python -m json.tool --help\nusage: ...", py) == [[py, "-m", "json.tool", "--help"]]
+        assert _comando_shell("```bash\npython3 -m json.tool --help\n```", py) == [[py, "-m", "json.tool", "--help"]]
+        assert _comando_shell("python -c \"print(1)\" | head", py) is None  # metacaractere
+        assert _comando_shell("rm -rf tomlkit", py) is None  # programa fora do venv
+        assert _comando_shell("curl http://x", py) is None
+        assert _comando_shell("```python\nprint(1)\n```", py) is None  # cerca python nunca é shell
+        assert _comando_shell("a = [{a]", py) is None  # texto TOML
+        assert _comando_shell("x = 2", py) is None
+
+    def test_bloco_de_comando_roda_fora_da_cadeia_e_entra_na_comparacao(self, ambiente, monkeypatch):
+        from src.agents.validator import _executar_reproducao
+        from src.verificacao import comparar_saidas
+
+        _, _, montar = ambiente
+        montar(FakeToolCallingLLM([ai(content="x")]))
+        intent = _intent_v2()
+        intent["reproduction"] = ["x = 2", "$ python -c \"print('cli:', 21 * 2)\"\ncli: 42", "print('mudou:', x + 2)"]
+        estado = _estado(intent=intent)
+        monkeypatch.setattr(config, "REVIEW_EXECUTION", "cumulative")
+        monkeypatch.setattr(config, "REPRODUCTION_COMPILE_CHECK", "on")
+        monkeypatch.setattr(config, "REPRODUCTION_SHELL", "off")
+        sem = _executar_reproducao(estado, _ctx(montar))
+        assert sem[1]["executado"] is False and sem[1].get("nao_compila") is True  # rodada 6: rotulado e fora
+        monkeypatch.setattr(config, "REPRODUCTION_SHELL", "on")
+        com = _executar_reproducao(estado, _ctx(montar))
+        assert com[1]["executado"] is True and com[1]["shell"] is True and "cli: 42" in com[1]["saida"]
+        assert com[1]["saida"].startswith("$ python -c") and "exit=0" in com[1]["saida"]
+        assert com[2]["executado"] is True and "mudou: 4" in com[2]["saida"]  # cadeia pulou o bloco de comando
+        assert [c["estado"] for c in comparar_saidas([(1, "cli: 42"), (2, "mudou: 4")], com)] == ["encontrada", "encontrada"]
+
+    def test_comando_que_falha_ou_estoura_registra_sem_derrubar(self, ambiente, monkeypatch):
+        from src.agents.validator import _executar_reproducao
+
+        _, _, montar = ambiente
+        montar(FakeToolCallingLLM([ai(content="x")]))
+        intent = _intent_v2()
+        intent["reproduction"] = ["python -c \"import sys; print('erro'); sys.exit(3)\""]
+        monkeypatch.setattr(config, "REVIEW_EXECUTION", "on")
+        monkeypatch.setattr(config, "REPRODUCTION_SHELL", "on")
+        out = _executar_reproducao(_estado(intent=intent), _ctx(montar))
+        assert out[0]["executado"] is True and "exit=3" in out[0]["saida"] and "erro" in out[0]["saida"]
+
+    def test_manifesto_registra_a_rodada_7(self, monkeypatch):
+        from src.arms.runner import _orchestration_policy
+
+        monkeypatch.setattr(config, "REPRODUCTION_SHELL", "on")
+        monkeypatch.setattr(config, "SUBTASK_MAX_CYCLES", 1)
+        pol = _orchestration_policy()
+        assert pol["reproduction_shell"] == "on" and pol["subtask_max_cycles"] == 1
