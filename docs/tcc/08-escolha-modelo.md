@@ -251,7 +251,7 @@ Depois de aprovado, grave `OPENROUTER_MODEL_NAME` e `OPENROUTER_PROVIDER` no `.e
 4. **Decidir se um modelo com raciocínio vira objeto de estudo.** Hoje a resposta deste documento é não, por cronograma. Se virar, é uma etapa nova com custo de tempo, não uma troca de variável de ambiente.
 5. **Autorizar o gasto do passo 2 e do passo 3 da seção 8**, abaixo de US$ 0,01 somados.
 
-## 8. Segundo modelo para a replicação (consulta de 22/10/2026)
+## 10. Segundo modelo para a replicação (consulta de 22/10/2026)
 
 **Pergunta do autor.** Os candidatos ao segundo modelo são "conceitualmente superiores" ao `qwen/qwen3-coder`? Em quê? Qual deles justifica cientificamente a replicação?
 
