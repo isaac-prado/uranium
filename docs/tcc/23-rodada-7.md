@@ -21,11 +21,23 @@ Comando: `INTENT_REFINER=v2 REVIEW_EXECUTION=cumulative CYCLE_NOTE=on PLANNER=on
 - Critério de decisiva: 10 ou mais tarefas de 13 (rodada 4: 9) sem perder na faixa grande (5/9). Custo esperado próximo ao da rodada 4 (US$ 5,67).
 - Primeira coleta com `payload.tokens_cached` em cada `llm_call` (decisão 46, 22/10/2026): a fração do prompt lida do cache da DeepInfra passa a ser medida, não inferida do custo (rodada 4: 82,5 % inferida; [08-escolha-modelo.md](08-escolha-modelo.md) §10.2). `scripts/cache_fraction.py` imprime as duas lado a lado para conferir a inferência das rodadas anteriores.
 
-## 3. Fumaça (a preencher)
+## 3. Fumaça (22/10/2026, 19:42 a 19:57, US$ 0,44)
 
 peewee-0002, sqlite-utils-0003 e tomlkit-0003 (controle), 1 repetição, `runs/fumaca-r7`. Esperado nos eventos: sub-tarefa adiada após um ciclo e o developer passando à seguinte (peewee-0002); blocos de CLI com `shell: true` e a saída da CLI na revisão (sqlite-utils-0003); tomlkit-0003 resolvendo em ~20 turnos.
 
-## 4. Execução (a preencher)
+**Resultado** ([dados/fumaca-r7/](dados/fumaca-r7/), eventos sem os workspaces; custo pela soma dos `llm_call`): 3 células, 0 perdidas, 1 de 3 resolvida. Os três mecanismos apareceram nos eventos, que era o critério da fumaça; o desfecho das duas não resolvidas é da mesma classe das perdas das rodadas 4 a 6, e é o que os 39 runs vão medir.
+
+| tarefa | desfecho | turnos | o que os eventos mostram | cache | custo |
+|---|---|---|---|---|---|
+| tomlkit-0003 (controle) | **resolvida**, `concluiu` | 44 (rodada 6, fumaça 2: 20) | revisão final única e aprovada; o bloco 1 da reprodução não compila, ficou fora da cadeia e a revisão não o citou (`nao_compila: true`, `executado: false`) | 94,3 % | 0,121 |
+| sqlite-utils-0003 (blocos de CLI) | não resolvida, `concluiu` aos 61 turnos: ocultos 10/12 (faltam `test_fts::test_search_duplicate_columns_are_deduped` e `test_rows::test_rows_where_duplicate_select_columns_are_deduped`) e regressão em `test_cli::test_query_csv_duplicate_columns_are_preserved` | 61 | o bloco 5 (`$ python -m sqlite_utils memory 'select 1 as id, 2 as id, …'`) rodou como processo nas duas revisões finais (`shell: true`): na 1ª mostrou o bug (`[{"id": 2, "value": "y"}]`) e a revisão reprovou com critérios 1 a 5 e 7 faltando; na 2ª mostrou a correção (`[{"id": 1, "id_2": 2, "value": "x", "value_2": "y"}]`) e a revisão aprovou. Plano de 5 sub-tarefas com 1 feita e 3 pendentes: o developer corrigiu além da sub-tarefa corrente e a revisão final aprovou com o plano aberto. Nenhum bloco da intent exercita `rows_where`/`search` com colunas duplicadas nem o CSV, então a revisão não tinha como ver as duas faltas e a regressão: a mesma perda das rodadas 5 e 6 nesta tarefa | 88,6 % | 0,151 |
+| peewee-0002 (teto de 1 ciclo) | não resolvida, orçamento (120 turnos): ocultos 3/6 (passam os das sub-tarefas 1 a 3; faltam `make_index_name_long`, `column_map_not_shared_with_class`, `on_conflict unbound_error`) | 120 | plano de 6 sub-tarefas: 1, 2 e 3 **feitas** aos 181 s, 341 s e 457 s (um ciclo cada); 4 **adiada** após um ciclo aos 544 s, 5 **adiada** aos 599 s, 6 em andamento no corte. Nas rodadas 4 a 6 o developer gastava 53 a 82 turnos na sub-tarefa 1 e nenhum dos 9 runs passou dela; agora três sub-tarefas fecharam e o orçamento acabou nas três mais difíceis | 92,3 % | 0,169 |
+
+Leitura: o teto de um ciclo liberou a peewee-0002 (3 de 6 ocultos, contra 0 de 6 habitual), mas não a fecha com 120 turnos; a execução dos blocos de CLI entrega ao revisor exatamente a saída que a tarefa descreve, e a perda restante está no que a intent não exercita (CSV, `rows_where`, `search`), que nenhuma execução de reprodução alcança. Primeira coleta com `tokens_cached` gravado: 88,6 a 94,3 % do prompt em cache (decisão 46), na faixa inferida para as rodadas 5 e 6.
+
+## 4. Execução (em andamento)
+
+Lançada em 22/10/2026 às 19:58, desacoplada do editor (`setsid nohup bash fila-r7.sh`), 39 células em `runs/coleta-r7`, um run por vez, vigia a cada 5 minutos; saldo estimado na DeepInfra antes do lançamento: US$ 9,1 (9,5 menos a fumaça). Fechamento: raiz pareada `runs/coleta-r7-analise` (orquestrado r7 + single-agent da coleta principal), sete métricas e apêndice em `dados/coleta-r7/`, resultado aqui e no registro da decisão 44.
 
 ## 5. Depois da rodada 7: replicação final (decisão 45)
 

@@ -395,7 +395,7 @@ Relatório em [07-e4-fumaca.md](07-e4-fumaca.md): 4 células (`tomlkit-0002` gra
 
 **Teste que prova.** `tests/test_planner.py::TestRodada7` (+4: reconhecimento só de programas do venv e sem operadores, inclusive `;` dentro de aspas; bloco de comando roda fora da cadeia e entra na comparação, com a rodada 6 reproduzida com a chave em `off`; comando que falha registra `exit` sem derrubar; manifesto), `tests/test_arm_parity.py` e `tests/test_rodada2.py` (manifesto 16). Suíte: ver fechamento.
 
-**Execução.** Aguarda o "pode ir" do autor: fumaça em `runs/fumaca-r7` (peewee-0002, sqlite-utils-0003, tomlkit-0003), depois os 39 runs em `runs/coleta-r7` com o comando de [23-rodada-7.md](23-rodada-7.md) §1, desacoplado do editor (`setsid nohup`).
+**Execução.** Autor: "PODE IR!" (22/10/2026). Fumaça em `runs/fumaca-r7` das 19:42 às 19:57 (US$ 0,44; [dados/fumaca-r7/](dados/fumaca-r7/)): 1 de 3 resolvida (tomlkit-0003 em 44 turnos), mas os três mecanismos confirmados nos eventos: sub-tarefas 4 e 5 da peewee-0002 adiadas após um ciclo e 3 de 6 ocultos passando (habitual 0 de 6); bloco de CLI da sqlite-utils-0003 executado como processo (`shell: true`) com a saída na revisão; bloco que não compila fora da evidência na tomlkit-0003; `tokens_cached` em 88,6 a 94,3 %. Detalhe em [23-rodada-7.md](23-rodada-7.md) §3. Coleta de 39 runs lançada às 19:58 em `runs/coleta-r7`, desacoplada do editor.
 
 **Impacto em docs.** Decisões 44 e 45 e registro em [09-decisoes-do-autor.md](09-decisoes-do-autor.md); [23-rodada-7.md](23-rodada-7.md); [22-rodada-6.md](22-rodada-6.md) §5.3 (decisão do autor); [08-escolha-modelo.md](08-escolha-modelo.md) §10 e §10.1; `CLAUDE.md`; `.env.example`.
 

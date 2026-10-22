@@ -1,0 +1,143 @@
+diff --git a/sqlite_utils/__init__.py b/sqlite_utils/__init__.py
+index 58ee7ab..ba4b337 100644
+--- a/sqlite_utils/__init__.py
++++ b/sqlite_utils/__init__.py
+@@ -1,7 +1,7 @@
+-from .utils import suggest_column_types
++from .utils import suggest_column_types, dedupe_keys
+ from .hookspecs import hookimpl
+ from .hookspecs import hookspec
+ from .db import Database
+ from .migrations import Migrations
+ 
+-__all__ = ["Database", "Migrations", "suggest_column_types", "hookimpl", "hookspec"]
++__all__ = ["Database", "Migrations", "suggest_column_types", "dedupe_keys", "hookimpl", "hookspec"]
+diff --git a/sqlite_utils/cli.py b/sqlite_utils/cli.py
+index a30f79a..c9b78e3 100644
+--- a/sqlite_utils/cli.py
++++ b/sqlite_utils/cli.py
+@@ -18,7 +18,7 @@ from sqlite_utils.db import (
+     quote_identifier,
+ )
+ from sqlite_utils.plugins import ensure_plugins_loaded, pm, get_plugins
+-from sqlite_utils.utils import maximize_csv_field_size_limit
++from sqlite_utils.utils import maximize_csv_field_size_limit, dedupe_keys
+ from sqlite_utils import recipes
+ import textwrap
+ import inspect
+@@ -2125,7 +2125,8 @@ def _execute_query(
+             headers = ["rows_affected"]
+             cursor = [[cursor.rowcount]]
+         else:
+-            headers = [c[0] for c in cursor.description]
++            original_headers = [c[0] for c in cursor.description]
++            headers = dedupe_keys(original_headers)
+         cursor_or_rows: Any = cursor
+         if raw:
+             row = cursor_or_rows.fetchone()
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 3f23c7d..1529d9b 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -4,6 +4,7 @@ from .utils import (
+     sqlite3,
+     OperationalError,
+     suggest_column_types,
++    dedupe_keys,
+     types_for_column_types,
+     column_affinity,
+     progressbar,
+@@ -787,7 +788,8 @@ class Database:
+             if cursor.description is None:
+                 raise ValueError(message)
+             keys = [d[0] for d in cursor.description]
+-            return (dict(zip(keys, row)) for row in cursor)
++            deduped_keys = dedupe_keys(keys)
++            return (dict(zip(deduped_keys, row)) for row in cursor)
+         # Execute inside a savepoint, so a statement that turns out not to
+         # return rows can be rolled back before the ValueError is raised
+         self.conn.execute('SAVEPOINT "sqlite_utils_query"')
+@@ -809,8 +811,10 @@ class Database:
+                 fetched = cursor.fetchall()
+                 self.conn.execute('RELEASE "sqlite_utils_query"')
+                 released = True
+-                return (dict(zip(keys, row)) for row in fetched)
+-            return (dict(zip(keys, row)) for row in cursor)
++                deduped_keys = dedupe_keys(keys)
++                return (dict(zip(deduped_keys, row)) for row in fetched)
++            deduped_keys = dedupe_keys(keys)
++            return (dict(zip(deduped_keys, row)) for row in cursor)
+         finally:
+             if not released:
+                 # An error occurred - undo anything the statement changed
+diff --git a/sqlite_utils/utils.py b/sqlite_utils/utils.py
+index 865ee79..6f3a957 100644
+--- a/sqlite_utils/utils.py
++++ b/sqlite_utils/utils.py
+@@ -67,6 +67,66 @@ Row = Dict[str, RowValue]
+ T = TypeVar("T")
+ 
+ 
++def dedupe_keys(keys: List[str]) -> List[str]:
++    """
++    Given a list of column names, return a new list where any duplicates are renamed
++    with a numeric suffix to ensure uniqueness. The first occurrence remains unchanged,
++    subsequent ones get a suffix like '_2', '_3', etc. The suffix is chosen to avoid
++    conflicts with existing column names.
++
++    Examples:
++        [] -> []
++        ["id", "name"] -> ["id", "name"]
++        ["id", "id"] -> ["id", "id_2"]
++        ["id", "id", "id"] -> ["id", "id_2", "id_3"]
++        ["id", "id", "id_2"] -> ["id", "id_3", "id_2"]
++        ["id_2", "id", "id"] -> ["id_2", "id", "id_3"]
++        ["id", "id", "id_2", "id_2"] -> ["id", "id_3", "id_2", "id_2_2"]
++
++    :param keys: A list of column names (strings)
++    :return: A new list of unique column names
++    """
++    if not keys:
++        return []
++
++    # Count occurrences of each key to know which ones are duplicated
++    key_counts = {}
++    for key in keys:
++        key_counts[key] = key_counts.get(key, 0) + 1
++
++    # Track which new names we've already used to avoid conflicts
++    used_names = set(keys)  # Start with all original names as used
++    result = []
++
++    # Keep track of how many times we've seen each base key for suffixing
++    suffix_counters = {}
++
++    for key in keys:
++        if key_counts[key] == 1:
++            # Unique key, no change needed
++            result.append(key)
++        else:
++            # Duplicate key, check if it's the first occurrence
++            count_so_far = suffix_counters.get(key, 0)
++            if count_so_far == 0:
++                # First occurrence of a duplicate key, keep as-is
++                result.append(key)
++                suffix_counters[key] = 1
++            else:
++                # Subsequent occurrence, add a suffix
++                counter = count_so_far + 1
++                new_key = f"{key}_{counter}"
++                # Keep incrementing until we find a name not in use
++                while new_key in used_names:
++                    counter += 1
++                    new_key = f"{key}_{counter}"
++                result.append(new_key)
++                used_names.add(new_key)
++                suffix_counters[key] = counter
++                
++    return result
++
++
+ class _CloseableIterator(Iterator[Row]):
+     """Iterator wrapper that closes a file when iteration is complete."""
+ 

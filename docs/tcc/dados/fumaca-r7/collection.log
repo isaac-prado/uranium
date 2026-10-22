@@ -1,0 +1,13 @@
+fumaça r7 começa 22/10 19:42:13
+tarefas   3  ×  1 braço(s) ['orchestration']  ×  1 repetição(ões)  =  3 células
+estado    0 concluídas, 3 pendentes  →  runs/fumaca-r7
+modelo    qwen/qwen3-coder via DeepInfra
+orçamento {'max_tokens': 8000000, 'max_wall_seconds': 3600, 'max_turns': 120}
+workers   1   tentativas por célula 3
+
+  done    tomlkit-0003         orchestration  rep01  resolveu      concluiu
+  done    sqlite-utils-0003    orchestration  rep01  não resolveu  concluiu
+  done    peewee-0002          orchestration  rep01  não resolveu  budget: max_turns (120 >= 120)
+
+  3 concluídas, 0 perdidas  →  runs/fumaca-r7/collection.json
+fumaça r7 terminou 22/10 19:57:13 exit=0

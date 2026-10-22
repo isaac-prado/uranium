@@ -1,0 +1,38 @@
+[
+  {
+    "task_id": "tomlkit-0003",
+    "arm": "orchestration",
+    "repetition": 1,
+    "status": "done",
+    "attempts": 1,
+    "lost_attempts": 0,
+    "run_dir": "runs/fumaca-r7/tomlkit-0003/orchestration/rep01/attempt01",
+    "stop_reason": "concluiu",
+    "resolved": true,
+    "evaluation_error": null
+  },
+  {
+    "task_id": "sqlite-utils-0003",
+    "arm": "orchestration",
+    "repetition": 1,
+    "status": "done",
+    "attempts": 1,
+    "lost_attempts": 0,
+    "run_dir": "runs/fumaca-r7/sqlite-utils-0003/orchestration/rep01/attempt01",
+    "stop_reason": "concluiu",
+    "resolved": false,
+    "evaluation_error": null
+  },
+  {
+    "task_id": "peewee-0002",
+    "arm": "orchestration",
+    "repetition": 1,
+    "status": "done",
+    "attempts": 1,
+    "lost_attempts": 0,
+    "run_dir": "runs/fumaca-r7/peewee-0002/orchestration/rep01/attempt01",
+    "stop_reason": "budget: max_turns (120 >= 120)",
+    "resolved": false,
+    "evaluation_error": null
+  }
+]
