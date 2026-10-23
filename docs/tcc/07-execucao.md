@@ -440,3 +440,13 @@ Relatório em [07-e4-fumaca.md](07-e4-fumaca.md): 4 células (`tomlkit-0002` gra
 **Calibração.** [24-rodada-8.md](24-rodada-8.md) §5: em 164 runs gravados a barreira derrubaria 0 resolvidos, pegaria 2 aprovações erradas e deixaria escapar 15, que nenhum exemplo do enunciado exercita.
 
 **Impacto em docs.** [24-rodada-8.md](24-rodada-8.md) §2, §3 e §5; decisão 48 (complemento) e registro em [09-decisoes-do-autor.md](09-decisoes-do-autor.md); `CLAUDE.md`; `.env.example`.
+
+## Rodada 8: fumaça em `strict` e lançamento dos 39 runs (23/10/2026, decisão 48)
+
+**O que rodou.** Fumaça de 2 células em `BLOCK_EXPECTED=strict` (`runs/fumaca-r8-strict`, US$ 0,36, dados em [dados/fumaca-r8-strict/](dados/fumaca-r8-strict/)): sqlite-utils-0003 resolvida (12/12, 0 regressões), tomlkit-0002 orçamento com o teste oculto passando e 2 módulos de teste sem importar (developer reescreveu `api.py` com `write_file`). A comparação por exemplo do enunciado apareceu nos eventos e nas reprovações; `strict_coerced` não disparou. Com isso, os 39 runs foram lançados às 08:06 em `runs/coleta-r8` (manifesto v17, `block_expected: strict`).
+
+**Diff resumido.** Só código de medição: `scripts/subtarefa_suite_vermelha.py` (novo; conta, por coleta, sub-tarefas aprovadas com a suíte visível vermelha, porque em `SUBTASK_CHECK=llm` o revisor de sub-tarefa não recebe o resultado da suíte). Nenhuma mudança em `src/`.
+
+**Teste que prova.** Suíte completa verde (732) antes do lançamento; o manifesto do primeiro run confere a política.
+
+**Impacto em docs.** [24-rodada-8.md](24-rodada-8.md) §3.1 e §4; decisão 48 (decidido em 23/10) e registro (fumaça `strict`, lançamento) em [09-decisoes-do-autor.md](09-decisoes-do-autor.md); `CLAUDE.md`.

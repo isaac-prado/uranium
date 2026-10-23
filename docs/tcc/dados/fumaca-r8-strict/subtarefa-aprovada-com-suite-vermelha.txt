@@ -1,0 +1,9 @@
+# scripts/subtarefa_suite_vermelha.py, 23/10/2026 (rodadas em SUBTASK_CHECK=llm)
+runs/coleta-r4: runs=40 revisões de sub-tarefa=84 aprovadas=14 aprovadas com suíte vermelha=1 em 1 run(s) (1 não resolvido(s))
+    runs/coleta-r4/tomlkit-0002/orchestration/rep01/attempt01  resolvido=False
+runs/coleta-r7: runs=41 revisões de sub-tarefa=76 aprovadas=26 aprovadas com suíte vermelha=3 em 1 run(s) (1 não resolvido(s))
+    runs/coleta-r7/tomlkit-0005/orchestration/rep02/attempt01  resolvido=False
+runs/fumaca-r8: runs=8 revisões de sub-tarefa=19 aprovadas=7 aprovadas com suíte vermelha=1 em 1 run(s) (0 não resolvido(s))
+    runs/fumaca-r8/attrs-0001/orchestration/rep01/attempt01  resolvido=True
+runs/fumaca-r8-strict: runs=2 revisões de sub-tarefa=5 aprovadas=2 aprovadas com suíte vermelha=2 em 1 run(s) (1 não resolvido(s))
+    runs/fumaca-r8-strict/tomlkit-0002/orchestration/rep01/attempt01  resolvido=False
