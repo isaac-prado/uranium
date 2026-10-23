@@ -30,10 +30,26 @@ Pareamento nos 13 enunciados (`tests/test_enunciado.py::test_enunciados_reais`):
 
 Comando: `INTENT_REFINER=v2 REVIEW_EXECUTION=cumulative CYCLE_NOTE=on PLANNER=on PLANNER_MAX_TURNS=12 PLANNER_MAX_SUBTASKS=6 SUBTASK_CHECK=llm REVIEW_COMPARE=off PLANNER_CONTEXT_MAX_CHARS=0 SUBTASK_MAX_CYCLES=2 REPRODUCTION_COMPILE_CHECK=on REPRODUCTION_SHELL=on REPRODUCTION_SOURCE=statement BLOCK_EXPECTED=statement MAX_SEMANTIC_REJECTIONS=2 REVIEW_STRICT=off DEVELOPER_INPUT=intent .venv/bin/python scripts/run_collection.py --arms orchestration ...` (manifesto v17).
 
-## 3. Fumaças (a preencher)
+## 3. Fumaças (22/10/2026, 23:29 a 23:51, US$ 0,82)
 
-`runs/fumaca-r8`: tomlkit-0002 (2 repetições: a tarefa que decide a faixa grande), tomlkit-0003 (controle, bloco com lista), sqlite-utils-0001 (aprovação às cegas na rodada 7, 0/1 verificável), sqlite-utils-0003 (aprovação errada com saída literal), attrs-0001 (aprovação errada; sem saída esperada no enunciado, mede o item 1 sozinho), tomlkit-0001 (5 blocos que não compilavam) e tomlkit-0005 (saída esperada pareada, nunca resolvida). O que conferir nos eventos: `fonte: cerca | enunciado` nas execuções; `comparacao_enunciado` por bloco; se o revisor cita as linhas; desfecho contra a rodada 7.
+`runs/fumaca-r8`, dados sem workspaces em [dados/fumaca-r8/](dados/fumaca-r8/) (custo pela soma dos `llm_call`). 8 células, 0 perdidas: **5 resolvidas, 3 cortadas por orçamento, 0 aprovações erradas.** As mesmas 7 tarefas na rodada 7 (21 runs, `dados/coleta-r7/`): 13 resolvidas, 5 aprovações erradas, 4 cortes.
+
+| tarefa | rodada 7 (3 reps) | fumaça r8 | o que os eventos mostram |
+|---|---|---|---|
+| attrs-0001 | 2/3, 1 aprovação errada | **1/1**, 81 turnos, 3/3 ocultos | sem saída esperada no enunciado (só "Saída hoje"): mede o item 1 sozinho; os 2 blocos rodaram |
+| sqlite-utils-0001 | 2/3, 1 aprovação às cegas (0/1 verificável) | **1/1**, 35 turnos, 5/5 | bloco rodou; sem saída esperada pareada |
+| sqlite-utils-0003 | 2/3, 1 aprovação errada (9/12 + regressão no CSV) | 0/1, orçamento, **11/12 ocultos, 0 regressões** | 9 reprovações finais, 5 citando as linhas esperadas; a comparação por bloco mostrou sempre 1 de 4 linhas encontrada (faltam `{'id': 1, 'id_3': 2, 'id_2': 3}`, `Cleo`, `tanuki`); o developer não fechou a última |
+| tomlkit-0001 | 3/3 | **1/1**, 30 turnos | 1 bloco não compila: é TOML, correto |
+| tomlkit-0002 | 1/3, 2 aprovações erradas (`foo.bar=1`) | **1/2**: rep01 resolvida em 56 turnos; rep02 orçamento | rep01: 1ª revisão reprovou, 2ª aprovou com as 4 linhas `'foo.bar = 1\n'` **encontradas**. rep02: 2 reprovações citando "esperava `'foo.bar = 1\n'`, obteve `'foo.bar=1\n'`"; o developer, em vez de passar o separador, reescreveu `items.py` e `container.py` (70 linhas) no 3º ciclo e quebrou 49 testes; não recuperou |
+| tomlkit-0003 | 3/3 | **1/1**, 30 turnos (rodada 7: 45 a 57) | 2 linhas esperadas encontradas na 1ª revisão |
+| tomlkit-0005 | 0/3, 3 cortes | 0/1, orçamento | 3 reprovações, todas citando `PySequence_Check = 0` não encontrado; ninguém resolve esta tarefa |
+
+**Mecanismo 1 (cópia consertada pelo enunciado).** Não foi exercitado: nas 8 células nenhuma cópia do refinador precisou de conserto (`fonte` ausente em todas as execuções; na rodada 7 foram 7 blocos deturpados em 39 runs, cerca de 1 a cada 5 runs). Inócuo quando não é preciso; a prova fica para os 39 runs.
+
+**Mecanismo 2 (saída esperada por bloco).** Apareceu nas 5 tarefas com par no enunciado (tomlkit-0002, 0003, 0005, sqlite-utils-0003; attrs-0001 e sqlite-utils-0001 não têm). O revisor citou as linhas esperadas em 9 das 14 reprovações finais dessas tarefas (sqlite-utils-0003 5 de 9, tomlkit-0002 rep02 1 de 2, tomlkit-0005 3 de 3) e não aprovou nenhuma vez com linha "NÃO encontrada"; aprovou a tomlkit-0002 rep01 na revisão em que as 4 linhas passaram a "encontrada". As revisões de sub-tarefa também levaram as linhas (tomlkit-0002 rep02 4 de 4, tomlkit-0005 4 de 4, sqlite-utils-0003 2 de 9, porque só a sub-tarefa 1 apontava o bloco pareado).
+
+**Leitura (insight mínimo, 8 runs).** As aprovações erradas da rodada 7 eram um problema de evidência, não de juízo: com a saída esperada do enunciado ao lado da saída real, por bloco e por linha, o revisor foi consistente nas 8 células, inclusive nas 5 tarefas onde a rodada 7 aprovou errado. O custo é que a perda muda de lugar: em vez de aprovar errado, o run vai ao orçamento (3 de 8), e resolver passa a depender de o developer fechar a diferença que o revisor nomeia. Na tomlkit-0002 isso aconteceu 1 vez em 2 (na outra o developer reescreveu demais); na sqlite-utils-0003 chegou a 11 de 12 sem a regressão do CSV que perdia a rodada 7. Se isso dá mais tarefas que a rodada 4 só os 39 runs dizem (cerca de US$ 5; saldo após a fumaça ≈ US$ 3,9). Cache gravado: 86 a 92 %.
 
 ## 4. Execução dos 39 runs
 
-Depende de crédito novo (cerca de US$ 5 mais US$ 0,6 de margem).
+Depende de crédito novo: cerca de US$ 5 para os 39 runs, saldo após a fumaça ≈ US$ 3,9 (DeepInfra). Aguarda o autor.

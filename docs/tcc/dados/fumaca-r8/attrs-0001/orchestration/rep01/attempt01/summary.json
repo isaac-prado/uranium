@@ -1,0 +1,37 @@
+{
+  "run_id": "attrs-0001-orchestration-r01-a01",
+  "arm": "orchestration",
+  "task_id": "attrs-0001",
+  "repetition": 1,
+  "attempt": 1,
+  "llm_seed": 20260821,
+  "topology": "multi_agent_roles",
+  "stop_reason": "concluiu",
+  "lost": false,
+  "is_valid": true,
+  "changed_files": [
+    "src/attr/_compat.py",
+    "src/attr/_compat.py.original_content",
+    "src/attr/_funcs.py",
+    "src/attr/_make.py"
+  ],
+  "diff_stat": {
+    "files_changed": 3,
+    "insertions": 20,
+    "deletions": 4
+  },
+  "turns": 81,
+  "totals": {
+    "tokens_prompt": 794410,
+    "tokens_completion": 13267,
+    "tokens_reasoning": 0,
+    "tokens_total": 807677,
+    "tokens_cached": 732896,
+    "cost_usd": 0.1050108,
+    "llm_calls": 85,
+    "tool_calls": 88,
+    "test_runs": 2,
+    "errors": 1
+  },
+  "out_dir": "runs/fumaca-r8/attrs-0001/orchestration/rep01/attempt01"
+}

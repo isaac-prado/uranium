@@ -1,0 +1,27 @@
+fumaça r8 começa 22/10 23:29:14
+tarefas   7  ×  1 braço(s) ['orchestration']  ×  1 repetição(ões)  =  7 células
+estado    0 concluídas, 7 pendentes  →  runs/fumaca-r8
+modelo    qwen/qwen3-coder via DeepInfra
+orçamento {'max_tokens': 8000000, 'max_wall_seconds': 3600, 'max_turns': 120}
+workers   1   tentativas por célula 3
+
+  done    tomlkit-0002         orchestration  rep01  resolveu      concluiu
+  done    tomlkit-0003         orchestration  rep01  resolveu      concluiu
+  done    sqlite-utils-0001    orchestration  rep01  resolveu      concluiu
+  done    sqlite-utils-0003    orchestration  rep01  não resolveu  budget: max_turns (120 >= 120)
+  done    attrs-0001           orchestration  rep01  resolveu      concluiu
+  done    tomlkit-0001         orchestration  rep01  resolveu      concluiu
+  done    tomlkit-0005         orchestration  rep01  não resolveu  budget: max_turns (120 >= 120)
+
+  7 concluídas, 0 perdidas  →  runs/fumaca-r8/collection.json
+tarefas   1  ×  1 braço(s) ['orchestration']  ×  2 repetição(ões)  =  2 células
+estado    1 concluídas, 1 pendentes  →  runs/fumaca-r8
+modelo    qwen/qwen3-coder via DeepInfra
+orçamento {'max_tokens': 8000000, 'max_wall_seconds': 3600, 'max_turns': 120}
+workers   1   tentativas por célula 3
+
+  done    tomlkit-0002         orchestration  rep01  resolveu      concluiu
+  done    tomlkit-0002         orchestration  rep02  não resolveu  budget: max_turns (120 >= 120)
+
+  2 concluídas, 0 perdidas  →  runs/fumaca-r8/collection.json
+fumaça r8 terminou 22/10 23:51:05 exit=0
