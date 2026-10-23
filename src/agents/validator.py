@@ -37,7 +37,7 @@ from src.schemas.validation_result import ValidationResult
 from src.state import WorkflowState, parse_intent
 from src.structured_llm import StructuredOutputError, invoke_structured
 from src.tools.base import truncate
-from src.enunciado import comparar_bloco, esperado_do_bloco, reparar_blocos
+from src.enunciado import anotar_comparacoes, reparar_blocos
 from src.tools.exec import _build_env, reverter_protegidos, run_pytest, run_python
 from src.verificacao import ENCONTRADA as ENCONTRADA_
 from src.verificacao import NAO_ENCONTRADA as NAO_ENCONTRADA_
@@ -144,6 +144,17 @@ def validator(state: WorkflowState) -> dict[str, Any]:
                     )
                     if coagida:
                         semantic = semantic.model_copy(update={"is_valid": False})
+                    # Rodada 8, modo guardado (decisão 48): aprovar com linha
+                    # esperada do enunciado NÃO encontrada em exemplo executado
+                    # é contradição com um fato; o harness rebaixa com as
+                    # próprias linhas como motivo, nunca promove.
+                    faltam_por_exemplo = _linhas_nao_encontradas(execucoes)
+                    if config.BLOCK_EXPECTED == "strict" and semantic.is_valid and faltam_por_exemplo:
+                        semantic = semantic.model_copy(update={
+                            "is_valid": False,
+                            "issues": [*semantic.issues, COMPARACAO_POR_BLOCO, *faltam_por_exemplo],
+                        })
+                        coagida = True
                     # O veredito vai à telemetria: na fumaça D de 09/10 o revisor
                     # reprovou um patch com a suíte verde e nada registrava o motivo.
                     ctx.telemetry.emit_validation(
@@ -352,14 +363,12 @@ def _executar_reproducao(
                                     "saida": truncate(saida, MAX_SAIDA_EXECUCAO_CHARS)}
         if i in fontes:
             registro["fonte"] = fontes[i]
-        # Rodada 8 (decisão 48): saída esperada do enunciado amarrada a este
-        # bloco (não à cadeia), comparada linha a linha com a saída real.
-        if config.BLOCK_EXPECTED == "statement":
-            esperado = esperado_do_bloco(codigos[i], enunciado)
-            if esperado is not None:
-                registro["esperado_enunciado"] = esperado
-                registro["comparacao_enunciado"] = comparar_bloco(esperado, registro["saida"])
         saidas.append(registro)
+    # Rodada 8 (decisão 48): saída esperada do enunciado amarrada ao exemplo
+    # de que cada bloco é cópia ou pedaço, comparada linha a linha com a
+    # junção das saídas dos blocos daquele exemplo.
+    if config.BLOCK_EXPECTED in ("statement", "strict"):
+        anotar_comparacoes(saidas, codigos, enunciado)
     return saidas
 
 
@@ -464,6 +473,15 @@ def _build_review_prompt(
         partes += ["", COMPARACAO_DE_SAIDAS,
                    *(f"- {linha}" for linha in comparacao_de_saidas(comparacoes, ja_na_base=sorted(_saidas_na_base(state))))]
     return "\n".join(partes)
+
+
+def _linhas_nao_encontradas(execucoes: list[dict[str, Any]]) -> list[str]:
+    """Linhas da comparação por exemplo do enunciado com estado NÃO encontrada (rodada 8, modo strict)."""
+    so_faltantes = [
+        {**ex, "comparacao_enunciado": [c for c in ex.get("comparacao_enunciado") or [] if c.get("estado") == NAO_ENCONTRADA_]}
+        for ex in execucoes
+    ]
+    return comparacao_por_bloco(so_faltantes)
 
 
 def _evidencias(execucoes: list[dict[str, Any]]) -> list[dict[str, Any]]:

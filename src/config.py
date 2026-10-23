@@ -210,7 +210,12 @@ if REPRODUCTION_SOURCE not in REPRODUCTION_SOURCE_MODES:
 # informação, não regra: na calibração offline da rodada 7 uma barreira dura
 # pegaria 4 das 6 aprovações erradas e derrubaria 5 runs resolvidos
 # (docs/tcc/23-rodada-7.md §4). "off" reproduz as rodadas anteriores.
-BLOCK_EXPECTED_MODES = ("off", "statement")
+# BLOCK_EXPECTED=strict (guardado; só com aprovação do autor): além das linhas,
+# o revisor não pode aprovar enquanto houver linha esperada NÃO encontrada em
+# exemplo executado: a aprovação é rebaixada (evento `validation` com
+# `strict_coerced`), nunca promovida. Só vale depois da calibração offline
+# mostrar que não derruba run resolvido (docs/tcc/24-rodada-8.md §3).
+BLOCK_EXPECTED_MODES = ("off", "statement", "strict")
 BLOCK_EXPECTED = os.getenv("BLOCK_EXPECTED", "off").strip().lower()
 if BLOCK_EXPECTED not in BLOCK_EXPECTED_MODES:
     raise ValueError(f"BLOCK_EXPECTED={BLOCK_EXPECTED!r} inválido; use um de {BLOCK_EXPECTED_MODES}")

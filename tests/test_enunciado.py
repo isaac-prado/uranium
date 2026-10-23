@@ -5,7 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from src.enunciado import (
+    anotar_comparacoes,
     blocos_python,
+    exemplo_do_bloco,
     comparar_bloco,
     esperado_do_bloco,
     pares_esperados,
@@ -13,7 +15,7 @@ from src.enunciado import (
     sem_cercas,
     similaridade,
 )
-from src.verificacao import ENCONTRADA, NAO_ENCONTRADA
+from src.verificacao import ENCONTRADA, NAO_ENCONTRADA, NAO_VERIFICAVEL
 
 ENUNCIADO = """# Bug
 
@@ -104,3 +106,49 @@ class TestSaidaEsperadaPorBloco:
         assert len(pares("tomlkit-0003")) == 1 and "'tool'" in pares("tomlkit-0003")[0][1]
         assert pares("attrs-0001") == []  # só "Saída hoje"
         assert len(pares("sqlite-utils-0003")) == 1 and pares("sqlite-utils-0003")[0][1].startswith("[{'id': 1, 'id_2': 2")
+
+
+class TestExemploFatiado:
+    ENUNCIADO = """Rode:
+
+```python
+import sqlite_utils
+db = sqlite_utils.Database(memory=True)
+print(list(db.query("select 1 as id, 2 as id")))
+print(list(db.query("select 1 as id, 2 as id, 3 as id_2")))
+```
+
+Para o trecho acima, a saída esperada é:
+
+```
+[{'id': 1, 'id_2': 2}]
+[{'id': 1, 'id_3': 2, 'id_2': 3}]
+```
+"""
+
+    def test_pedacos_de_um_exemplo_sao_comparados_juntos(self):
+        codigos = {1: 'import sqlite_utils\ndb = sqlite_utils.Database(memory=True)\nprint(list(db.query("select 1 as id, 2 as id")))',
+                   2: 'print(list(db.query("select 1 as id, 2 as id, 3 as id_2")))'}
+        assert exemplo_do_bloco(codigos[1], self.ENUNCIADO) == 1 and exemplo_do_bloco(codigos[2], self.ENUNCIADO) == 1
+        execs = [{"bloco": 1, "executado": True, "saida": "exit=0 em 0.01s\n[{'id': 1, 'id_2': 2}]"},
+                 {"bloco": 2, "executado": True, "saida": "exit=0 em 0.01s\n[{'id': 1, 'id_3': 2, 'id_2': 3}]"}]
+        anotar_comparacoes(execs, codigos, self.ENUNCIADO)
+        assert "comparacao_enunciado" not in execs[0]
+        assert execs[1]["exemplo"] == 1 and execs[1]["blocos_do_exemplo"] == [1, 2]
+        assert [c["estado"] for c in execs[1]["comparacao_enunciado"]] == [ENCONTRADA, ENCONTRADA]
+
+    def test_bloco_de_outro_exemplo_sem_saida_esperada_nao_e_pareado(self):
+        enunciado = ENUNCIADO  # tem 2 exemplos Python; só o 1º tem saída esperada
+        assert exemplo_do_bloco('print("isolado")', enunciado) == 2
+        execs = [{"bloco": 1, "executado": True, "saida": "x"}]
+        anotar_comparacoes(execs, {1: 'print("isolado")'}, enunciado)
+        assert "comparacao_enunciado" not in execs[0]
+
+    def test_exemplo_que_nao_terminou_bem_vira_nao_verificavel(self):
+        codigos = {1: 'import sqlite_utils\ndb = sqlite_utils.Database(memory=True)\nprint(list(db.query("select 1 as id, 2 as id")))'}
+        execs = [{"bloco": 1, "executado": True, "saida": "exit=1 em 0.01s\nTraceback (most recent call last):\n  ..."}]
+        anotar_comparacoes(execs, codigos, self.ENUNCIADO)
+        assert execs[0]["comparacao_enunciado"] and all(c["estado"] == NAO_VERIFICAVEL for c in execs[0]["comparacao_enunciado"])
+        execs = [{"bloco": 1, "executado": True, "saida": "RECUSADO: o trecho alterou arquivo protegido (x_test.py)."}]
+        anotar_comparacoes(execs, codigos, self.ENUNCIADO)
+        assert all(c["estado"] == NAO_VERIFICAVEL for c in execs[0]["comparacao_enunciado"])

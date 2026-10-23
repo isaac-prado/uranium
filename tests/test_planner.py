@@ -842,7 +842,7 @@ class TestRodada8:
         depois = _executar_reproducao(estado, _ctx(montar))
         assert depois[0]["executado"] and depois[0]["fonte"] == "cerca"
         assert depois[1]["executado"] and depois[1]["fonte"] == "enunciado" and "mudou: False 4" in depois[1]["saida"]
-        assert depois[1]["esperado_enunciado"] == "mudou: False 4"
+        assert depois[1]["esperado_enunciado"] == "mudou: False 4" and depois[1]["exemplo"] == 2
         assert depois[1]["comparacao_enunciado"] == [{"linha": "mudou: False 4", "estado": "encontrada"}]
         assert "comparacao_enunciado" not in depois[0]  # bloco sem saída esperada no enunciado
 
@@ -856,13 +856,13 @@ class TestRodada8:
         self._ligar(monkeypatch)
         execs = _executar_reproducao(estado, _ctx(montar))
         prompt = _build_review_prompt(estado, _ctx(montar), execs)
-        assert COMPARACAO_POR_BLOCO in prompt and "- bloco 2, esperada «mudou: False 4»: encontrada" in prompt
+        assert COMPARACAO_POR_BLOCO in prompt and "- exemplo 2 do enunciado (bloco 2), esperada «mudou: False 4»: encontrada" in prompt
         sub = {"id": 1, "title": "t", "objective": "o", "done_when": "d", "criteria": [1], "reproduction": [2]}
-        assert "- bloco 2, esperada «mudou: False 4»: encontrada" in _build_subtask_review_prompt(estado, _ctx(montar), sub, execs)
+        assert "- exemplo 2 do enunciado (bloco 2), esperada «mudou: False 4»: encontrada" in _build_subtask_review_prompt(estado, _ctx(montar), sub, execs)
         # saída errada vira "NÃO encontrada", sem regra junto
         execs[1]["comparacao_enunciado"] = [{"linha": "mudou: False 4", "estado": "nao_encontrada"}]
         prompt2 = _build_review_prompt(estado, _ctx(montar), execs)
-        assert "- bloco 2, esperada «mudou: False 4»: NÃO encontrada" in prompt2 and "não reprova" not in prompt2
+        assert "- exemplo 2 do enunciado (bloco 2), esperada «mudou: False 4»: NÃO encontrada" in prompt2 and "não reprova" not in prompt2
         self._ligar(monkeypatch, block="off")
         assert COMPARACAO_POR_BLOCO not in _build_review_prompt(estado, _ctx(montar), _executar_reproducao(estado, _ctx(montar)))
 
@@ -874,3 +874,50 @@ class TestRodada8:
         pol = _orchestration_policy()
         assert MANIFEST_VERSION == 17
         assert pol["reproduction_source"] == "statement" and pol["block_expected"] == "statement"
+
+
+@mirror_available
+class TestRodada8Strict:
+    """Modo guardado BLOCK_EXPECTED=strict: aprovar contra linha NÃO encontrada é rebaixado; nunca promove."""
+
+    def _roda(self, ambiente, monkeypatch, estado, vereditos, *, modo):
+        from src.agents.validator import validator
+
+        monkeypatch.setattr(config, "PLANNER", "off")
+        monkeypatch.setattr(config, "REVIEW_EXECUTION", "cumulative")
+        monkeypatch.setattr(config, "REPRODUCTION_COMPILE_CHECK", "on")
+        monkeypatch.setattr(config, "REPRODUCTION_SOURCE", "statement")
+        monkeypatch.setattr(config, "BLOCK_EXPECTED", modo)
+        monkeypatch.setattr(config, "REVIEW_STRICT", "off")
+        monkeypatch.setenv("SEMANTIC_REVIEW", "true")
+        ws, tel, montar = ambiente
+        _mudanca_benigna(ws)
+        montar(FakeToolCallingLLM([ai(content="x")]))
+        it = iter(vereditos)
+        monkeypatch.setattr("src.structured_llm.invoke_structured_raw", lambda *a, **k: (next(it), None))
+        return validator(estado), tel
+
+    def _estado(self, esperado):
+        intent = _intent_v2()
+        intent["reproduction"] = ["x = 2", "print('mudou:', 'nota do agente' in open('tomlkit/_utils.py').read(), x + 2)"]
+        return _estado(intent=intent, raw_request=ENUNCIADO_R8.replace("mudou: False 4", esperado))
+
+    def _ultima_validacao(self, tel):
+        from src.telemetry import read_events
+        return [e for e in read_events(tel.path) if e["event_type"] == "validation"][-1]
+
+    def test_aprovacao_contra_linha_nao_encontrada_e_rebaixada_com_as_linhas_como_motivo(self, ambiente, monkeypatch):
+        out, tel = self._roda(ambiente, monkeypatch, self._estado("mudou: True 99"), [ValidationResult(is_valid=True)], modo="strict")
+        assert out["is_valid"] is False
+        ev = self._ultima_validacao(tel)["payload"]
+        assert ev["strict_coerced"] is True and ev["is_valid"] is False
+        assert any("esperada «mudou: True 99»: NÃO encontrada" in i for i in ev["issues"])
+
+    def test_com_todas_encontradas_a_aprovacao_fica(self, ambiente, monkeypatch):
+        # _mudanca_benigna escreve a nota em tomlkit/_utils.py, então a saída real é "mudou: True 4"
+        out, tel = self._roda(ambiente, monkeypatch, self._estado("mudou: True 4"), [ValidationResult(is_valid=True)], modo="strict")
+        assert out["is_valid"] is True and self._ultima_validacao(tel)["payload"]["strict_coerced"] is False
+
+    def test_em_statement_a_linha_nao_encontrada_so_informa(self, ambiente, monkeypatch):
+        out, tel = self._roda(ambiente, monkeypatch, self._estado("mudou: True 99"), [ValidationResult(is_valid=True)], modo="statement")
+        assert out["is_valid"] is True and self._ultima_validacao(tel)["payload"]["strict_coerced"] is False

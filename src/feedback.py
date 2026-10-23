@@ -240,9 +240,14 @@ def comparacao_por_bloco(execucoes: list[dict[str, Any]]) -> list[str]:
     """Uma linha por linha esperada de cada bloco executado que tem saída esperada no enunciado."""
     linhas: list[str] = []
     for ex in execucoes:
-        for c in ex.get("comparacao_enunciado") or []:
+        comparacoes = ex.get("comparacao_enunciado") or []
+        if not comparacoes:
+            continue
+        blocos = ex.get("blocos_do_exemplo") or [ex.get("bloco")]
+        onde = f"bloco {blocos[0]}" if len(blocos) == 1 else f"blocos {blocos[0]} a {blocos[-1]}"
+        for c in comparacoes:
             rotulo = _ROTULOS_DA_COMPARACAO.get(str(c.get("estado", "")), str(c.get("estado", "")))
-            linhas.append(f"- bloco {ex.get('bloco')}, esperada «{truncate(str(c.get('linha', '')), 300)}»: {rotulo}")
+            linhas.append(f"- exemplo {ex.get('exemplo', '?')} do enunciado ({onde}), esperada «{truncate(str(c.get('linha', '')), 300)}»: {rotulo}")
     return linhas
 
 # Mesmo teto da saída de cada bloco no evento `validation`

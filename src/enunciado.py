@@ -21,7 +21,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from src.verificacao import ENCONTRADA, NAO_ENCONTRADA, saida_contem
+from src.verificacao import ENCONTRADA, NAO_ENCONTRADA, NAO_VERIFICAVEL, saida_contem
 
 _CERCA = re.compile(r"```([\w+-]*)[ \t]*\n(.*?)```", re.S)
 _CERCA_ABERTURA = re.compile(r"^```[\w+-]*[ \t]*\n")
@@ -138,19 +138,57 @@ def pares_esperados(enunciado: str) -> list[tuple[str, str]]:
     return pares
 
 
+def _contido(parte: str, todo: str) -> float:
+    """Fração dos tokens de `parte` presentes em `todo` (1,0 quando `parte` é um pedaço de `todo`)."""
+    tp, tt = _tokens(parte), _tokens(todo)
+    return len(tp & tt) / len(tp) if tp else 0.0
+
+
+def exemplo_do_bloco(codigo: str | None, enunciado: str) -> int | None:
+    """
+    Índice (1-based) do bloco Python do enunciado de que `codigo` é cópia ou
+    pedaço: o mais parecido entre TODOS os blocos Python do enunciado, tenham
+    ou não saída esperada, se a parecença (Jaccard ≥ 0,5) ou a contenção
+    (≥ 0,8 dos tokens do bloco estão no exemplo) bastar. Escolher entre todos
+    evita amarrar um exemplo sem saída esperada ao exemplo vizinho.
+    """
+    if not codigo or not codigo.strip():
+        return None
+    exemplos = blocos_python(enunciado)
+    if not exemplos:
+        return None
+    melhor = max(range(len(exemplos)), key=lambda k: max(similaridade(codigo, exemplos[k]), _contido(codigo, exemplos[k])))
+    pontuacao = max(similaridade(codigo, exemplos[melhor]), _contido(codigo, exemplos[melhor]))
+    return melhor + 1 if pontuacao >= SIMILARIDADE_MINIMA else None
+
+
+def esperado_do_exemplo(k: int, enunciado: str) -> str | None:
+    """Saída esperada que o enunciado escreve logo depois do k-ésimo bloco Python, se houver."""
+    exemplos = blocos_python(enunciado)
+    if not 1 <= k <= len(exemplos):
+        return None
+    for bloco, esperado in pares_esperados(enunciado):
+        if bloco == exemplos[k - 1]:
+            return esperado
+    return None
+
+
 def esperado_do_bloco(codigo: str | None, enunciado: str) -> str | None:
-    """Saída esperada do enunciado para o bloco mais parecido com `codigo`, se houver."""
-    pares = pares_esperados(enunciado)
-    if not pares or not codigo or not codigo.strip():
-        return None
-    parecido = bloco_mais_parecido(codigo, [b for b, _ in pares])
-    if parecido is None:
-        return None
-    return next(e for b, e in pares if b == parecido)
+    """Saída esperada do enunciado para o exemplo de que `codigo` é cópia ou pedaço, se houver."""
+    k = exemplo_do_bloco(codigo, enunciado)
+    return esperado_do_exemplo(k, enunciado) if k else None
+
+
+_EXIT_ZERO = re.compile(r"(?:^|\n)exit=0 em ")
+
+
+def execucao_terminou_bem(saida: str) -> bool:
+    """A saída de `run_python`/`_executar_comandos` traz `exit=0` e não foi recusada nem estourou."""
+    return bool(_EXIT_ZERO.search(saida)) and not saida.lstrip().startswith(("RECUSADO", "TIMEOUT"))
 
 
 def comparar_bloco(esperado: str, saida: str) -> list[dict[str, Any]]:
-    """Linha a linha da saída esperada contra a saída real do bloco (mesma normalização de `src.verificacao`)."""
+    """Linha a linha da saída esperada contra a saída real (mesma normalização de `src.verificacao`)."""
     resultado: list[dict[str, Any]] = []
     for linha in esperado.splitlines():
         veredito = saida_contem(linha, saida)
@@ -158,3 +196,40 @@ def comparar_bloco(esperado: str, saida: str) -> list[dict[str, Any]]:
             continue
         resultado.append({"linha": linha.strip(), "estado": ENCONTRADA if veredito else NAO_ENCONTRADA})
     return resultado
+
+
+def anotar_comparacoes(execucoes: list[dict[str, Any]], codigos: dict[int, str | None], enunciado: str) -> None:
+    """
+    Amarra as execuções aos exemplos do enunciado e grava, na ÚLTIMA execução
+    de cada exemplo, `exemplo`, `blocos_do_exemplo`, `esperado_enunciado` e
+    `comparacao_enunciado`. A saída comparada é a junção das saídas de todos
+    os blocos do exemplo: o refinador costuma fatiar um exemplo do enunciado
+    em vários blocos (sqlite-utils-0003: 1 exemplo com 4 saídas esperadas
+    virou 4 blocos), e comparar as 4 linhas só com o 1º bloco dava 3 "NÃO
+    encontrada" falsas (fumaça da rodada 8).
+    """
+    por_exemplo: dict[int, list[dict[str, Any]]] = {}
+    for ex in execucoes:
+        if not ex.get("executado") or ex.get("shell"):
+            continue
+        k = exemplo_do_bloco(codigos.get(ex.get("bloco")), enunciado)
+        if k is not None:
+            por_exemplo.setdefault(k, []).append(ex)
+    for k, lista in por_exemplo.items():
+        esperado = esperado_do_exemplo(k, enunciado)
+        if esperado is None:
+            continue
+        saida = "\n".join(str(ex.get("saida") or "") for ex in lista)
+        ultimo = lista[-1]
+        ultimo["exemplo"] = k
+        ultimo["blocos_do_exemplo"] = [ex["bloco"] for ex in lista]
+        ultimo["esperado_enunciado"] = esperado
+        comparacao = comparar_bloco(esperado, saida)
+        # Exemplo que não terminou bem (exit != 0, RECUSADO, TIMEOUT) não diz
+        # nada sobre a linha esperada: na rodada 4 (sqlite-utils-0003 rep02) a
+        # execução da revisão final morreu em exit=1 num run que o oráculo
+        # resolveu; "NÃO encontrada" ali seria falsa e uma barreira dura o
+        # derrubaria.
+        if any(not execucao_terminou_bem(str(ex.get("saida") or "")) for ex in lista):
+            comparacao = [{**c, "estado": NAO_VERIFICAVEL} for c in comparacao]
+        ultimo["comparacao_enunciado"] = comparacao

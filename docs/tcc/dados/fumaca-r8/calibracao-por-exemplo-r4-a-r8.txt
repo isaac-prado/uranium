@@ -1,0 +1,99 @@
+=================== runs/coleta-r4
+  sqlite-utils-0003 rep01: oráculo=NÃO aprovou linhas=0 encontradas / 4 faltam
+  sqlite-utils-0003 rep02: oráculo=resolvido aprovou linhas=0 encontradas / 4 faltam
+  sqlite-utils-0003 rep03: oráculo=resolvido aprovou linhas=0 encontradas / 4 faltam
+  tomlkit-0002 rep02: oráculo=resolvido aprovou linhas=2 encontradas / 0 faltam
+  tomlkit-0002 rep03: oráculo=resolvido aprovou linhas=2 encontradas / 0 faltam
+  tomlkit-0003 rep01: oráculo=resolvido reprovou classe=nao verificavel
+  tomlkit-0003 rep02: oráculo=resolvido reprovou classe=nao verificavel
+  tomlkit-0003 rep03: oráculo=resolvido aprovou linhas=2 encontradas / 0 faltam
+  tomlkit-0005 rep01: oráculo=NÃO reprovou classe=faltam
+  tomlkit-0005 rep02: oráculo=NÃO reprovou classe=faltam
+  tomlkit-0005 rep03: oráculo=NÃO reprovou classe=faltam
+--- totais (oráculo, revisor, linhas pareadas):
+   ('NÃO', 'aprovou', 'nao verificavel') 1
+   ('NÃO', 'aprovou', 'sem par') 2
+   ('NÃO', 'reprovou', 'faltam') 3
+   ('NÃO', 'reprovou', 'sem par') 3
+   ('resolvido', 'aprovou', 'nao verificavel') 2
+   ('resolvido', 'aprovou', 'sem par') 16
+   ('resolvido', 'aprovou', 'todas') 3
+   ('resolvido', 'reprovou', 'nao verificavel') 2
+   ('resolvido', 'reprovou', 'sem par') 1
+BARREIRA DURA: derrubaria 0 run(s) resolvido(s); pegaria 0 aprovação(ões) errada(s); escapariam 2
+=================== docs/tcc/dados/coleta-r5
+  sqlite-utils-0003 rep02: oráculo=NÃO aprovou linhas=0 encontradas / 4 faltam
+  sqlite-utils-0003 rep03: oráculo=NÃO aprovou linhas=0 encontradas / 4 faltam
+  tomlkit-0002 rep01: oráculo=resolvido aprovou linhas=2 encontradas / 0 faltam
+  tomlkit-0002 rep02: oráculo=resolvido aprovou linhas=2 encontradas / 0 faltam
+  tomlkit-0002 rep03: oráculo=NÃO reprovou classe=faltam
+  tomlkit-0003 rep01: oráculo=resolvido aprovou linhas=2 encontradas / 0 faltam
+  tomlkit-0003 rep02: oráculo=resolvido aprovou linhas=2 encontradas / 0 faltam
+  tomlkit-0003 rep03: oráculo=resolvido reprovou classe=nao verificavel
+  tomlkit-0005 rep02: oráculo=NÃO reprovou classe=faltam
+  tomlkit-0005 rep03: oráculo=resolvido aprovou linhas=4 encontradas / 0 faltam
+--- totais (oráculo, revisor, linhas pareadas):
+   ('NÃO', 'aprovou', 'nao verificavel') 2
+   ('NÃO', 'aprovou', 'sem par') 5
+   ('NÃO', 'reprovou', 'faltam') 2
+   ('NÃO', 'reprovou', 'sem par') 6
+   ('resolvido', 'aprovou', 'sem par') 8
+   ('resolvido', 'aprovou', 'todas') 5
+   ('resolvido', 'reprovou', 'nao verificavel') 1
+   ('resolvido', 'reprovou', 'sem par') 4
+BARREIRA DURA: derrubaria 0 run(s) resolvido(s); pegaria 0 aprovação(ões) errada(s); escapariam 5
+=================== docs/tcc/dados/coleta-r6
+  sqlite-utils-0003 rep02: oráculo=NÃO reprovou classe=faltam
+  sqlite-utils-0003 rep03: oráculo=NÃO aprovou linhas=4 encontradas / 0 faltam
+  tomlkit-0002 rep01: oráculo=NÃO reprovou classe=todas
+  tomlkit-0002 rep03: oráculo=resolvido aprovou linhas=2 encontradas / 0 faltam
+  tomlkit-0004 rep02: oráculo=NÃO reprovou classe=faltam
+  tomlkit-0005 rep01: oráculo=NÃO reprovou classe=faltam
+  tomlkit-0005 rep03: oráculo=NÃO reprovou classe=nao verificavel
+--- totais (oráculo, revisor, linhas pareadas):
+   ('NÃO', 'aprovou', 'sem par') 3
+   ('NÃO', 'aprovou', 'todas') 1
+   ('NÃO', 'reprovou', 'faltam') 3
+   ('NÃO', 'reprovou', 'nao verificavel') 1
+   ('NÃO', 'reprovou', 'sem par') 6
+   ('NÃO', 'reprovou', 'todas') 1
+   ('resolvido', 'aprovou', 'sem par') 17
+   ('resolvido', 'aprovou', 'todas') 1
+   ('resolvido', 'reprovou', 'sem par') 1
+BARREIRA DURA: derrubaria 0 run(s) resolvido(s); pegaria 0 aprovação(ões) errada(s); escapariam 4
+=================== runs/coleta-r7
+  sqlite-utils-0003 rep01: oráculo=resolvido aprovou linhas=4 encontradas / 0 faltam
+  sqlite-utils-0003 rep02: oráculo=NÃO aprovou linhas=3 encontradas / 1 faltam
+  sqlite-utils-0003 rep03: oráculo=resolvido reprovou classe=todas
+  tomlkit-0002 rep01: oráculo=resolvido aprovou linhas=2 encontradas / 0 faltam
+  tomlkit-0002 rep03: oráculo=NÃO aprovou linhas=0 encontradas / 2 faltam
+  tomlkit-0003 rep01: oráculo=resolvido aprovou linhas=2 encontradas / 0 faltam
+  tomlkit-0003 rep03: oráculo=resolvido aprovou linhas=2 encontradas / 0 faltam
+  tomlkit-0004 rep01: oráculo=NÃO reprovou classe=nao verificavel
+  tomlkit-0004 rep02: oráculo=NÃO reprovou classe=nao verificavel
+  tomlkit-0004 rep03: oráculo=NÃO reprovou classe=faltam
+  tomlkit-0005 rep01: oráculo=NÃO reprovou classe=faltam
+  tomlkit-0005 rep02: oráculo=NÃO reprovou classe=faltam
+--- totais (oráculo, revisor, linhas pareadas):
+   ('NÃO', 'aprovou', 'faltam') 2
+   ('NÃO', 'aprovou', 'sem par') 4
+   ('NÃO', 'reprovou', 'faltam') 3
+   ('NÃO', 'reprovou', 'nao verificavel') 2
+   ('NÃO', 'reprovou', 'sem par') 3
+   ('resolvido', 'aprovou', 'sem par') 16
+   ('resolvido', 'aprovou', 'todas') 4
+   ('resolvido', 'reprovou', 'sem par') 2
+   ('resolvido', 'reprovou', 'todas') 1
+BARREIRA DURA: derrubaria 0 run(s) resolvido(s); pegaria 2 aprovação(ões) errada(s); escapariam 4
+=================== runs/fumaca-r8
+  sqlite-utils-0003 rep01: oráculo=NÃO reprovou classe=todas
+  tomlkit-0002 rep01: oráculo=resolvido aprovou linhas=2 encontradas / 0 faltam
+  tomlkit-0002 rep02: oráculo=NÃO reprovou classe=faltam
+  tomlkit-0003 rep01: oráculo=resolvido aprovou linhas=2 encontradas / 0 faltam
+  tomlkit-0005 rep01: oráculo=NÃO reprovou classe=faltam
+--- totais (oráculo, revisor, linhas pareadas):
+   ('NÃO', 'reprovou', 'faltam') 2
+   ('NÃO', 'reprovou', 'todas') 1
+   ('resolvido', 'aprovou', 'sem par') 3
+   ('resolvido', 'aprovou', 'todas') 2
+BARREIRA DURA: derrubaria 0 run(s) resolvido(s); pegaria 0 aprovação(ões) errada(s); escapariam 0

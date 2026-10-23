@@ -23,6 +23,8 @@ Três tarefas grandes (tomlkit-0002, 0003 e 0004), 9 runs por lado ([23-rodada-7
 |---|---|---|---|---|
 | 1. cópia dos blocos de reprodução | `REPRODUCTION_SOURCE` | `intent` (cópia do refinador) | `statement`: cerca perdida removida; bloco que não compila trocado pelo bloco Python mais parecido do enunciado (sobreposição de tokens ≥ 0,5); `fonte` no evento `validation` | `src/enunciado.py::reparar_blocos`; `validator._executar_reproducao` |
 | 2. saída esperada por bloco | `BLOCK_EXPECTED` | `off` | `statement`: bloco Python amarrado à "saída esperada" escrita logo depois dele no enunciado ("hoje"/"atual" fora); revisor final e de sub-tarefa recebem, por bloco e por linha, encontrada / NÃO encontrada; informação, sem regra | `pares_esperados`, `esperado_do_bloco`, `comparar_bloco`; `feedback.COMPARACAO_POR_BLOCO` |
+| 2a. correção após a fumaça (23/10/2026) | idem | | a comparação é por **exemplo do enunciado**, não por bloco da intent: o refinador costuma fatiar um exemplo em vários blocos (sqlite-utils-0003: 1 exemplo com 4 saídas esperadas virou 4 blocos), e comparar as 4 linhas só com o 1º bloco dava 3 "NÃO encontrada" falsas; agora os blocos de um mesmo exemplo são agregados e a linha vai ao revisor como "exemplo k do enunciado (blocos a a b)". Exemplo cuja execução não terminou bem (`exit≠0`, `RECUSADO`, `TIMEOUT`) vira "não verificável", não "NÃO encontrada" (na rodada 4 a execução da revisão final da sqlite-utils-0003 rep02 morreu em `exit=1` num run resolvido) | `anotar_comparacoes`, `exemplo_do_bloco`, `execucao_terminou_bem` |
+| 2b. modo guardado | `BLOCK_EXPECTED=strict` | | o revisor não pode aprovar com linha esperada **NÃO encontrada** em exemplo executado: a aprovação é rebaixada com as próprias linhas como motivo (`strict_coerced`), nunca promovida; "não verificável" não rebaixa. Só com aprovação do autor, depois da calibração da seção 5 | `validator._linhas_nao_encontradas` |
 | herdados da rodada 7 | `REPRODUCTION_COMPILE_CHECK`, `REPRODUCTION_SHELL` | off | on | decisões 42 e 44 |
 | não herdado | `SUBTASK_MAX_CYCLES` | 2 | 2 (a rodada 7 usou 1: mais barato, sem tarefa nova) | decisão 44 |
 
@@ -48,8 +50,25 @@ Comando: `INTENT_REFINER=v2 REVIEW_EXECUTION=cumulative CYCLE_NOTE=on PLANNER=on
 
 **Mecanismo 2 (saída esperada por bloco).** Apareceu nas 5 tarefas com par no enunciado (tomlkit-0002, 0003, 0005, sqlite-utils-0003; attrs-0001 e sqlite-utils-0001 não têm). O revisor citou as linhas esperadas em 9 das 14 reprovações finais dessas tarefas (sqlite-utils-0003 5 de 9, tomlkit-0002 rep02 1 de 2, tomlkit-0005 3 de 3) e não aprovou nenhuma vez com linha "NÃO encontrada"; aprovou a tomlkit-0002 rep01 na revisão em que as 4 linhas passaram a "encontrada". As revisões de sub-tarefa também levaram as linhas (tomlkit-0002 rep02 4 de 4, tomlkit-0005 4 de 4, sqlite-utils-0003 2 de 9, porque só a sub-tarefa 1 apontava o bloco pareado).
 
+**Correção da leitura (23/10/2026).** Na sqlite-utils-0003 as 3 linhas "NÃO encontrada" eram falsas: o refinador fatiou o único exemplo do enunciado em 4 blocos e a comparação, então por bloco, cobrava as 4 saídas do 1º bloco. Recalculada por exemplo ([dados/fumaca-r8/calibracao-por-exemplo-r4-a-r8.txt](dados/fumaca-r8/calibracao-por-exemplo-r4-a-r8.txt)), a última reprovação desse run tinha as 4 linhas **encontradas**: o revisor reprovou um estado com 11 de 12 ocultos citando, em parte, linhas falsas; o que de fato faltava (o caso `--csv` da linha de comando) nenhum exemplo Python cobre. As reprovações da tomlkit-0002 rep02 e da tomlkit-0005 continuam com linhas faltando de verdade.
+
 **Leitura (insight mínimo, 8 runs).** As aprovações erradas da rodada 7 eram um problema de evidência, não de juízo: com a saída esperada do enunciado ao lado da saída real, por bloco e por linha, o revisor foi consistente nas 8 células, inclusive nas 5 tarefas onde a rodada 7 aprovou errado. O custo é que a perda muda de lugar: em vez de aprovar errado, o run vai ao orçamento (3 de 8), e resolver passa a depender de o developer fechar a diferença que o revisor nomeia. Na tomlkit-0002 isso aconteceu 1 vez em 2 (na outra o developer reescreveu demais); na sqlite-utils-0003 chegou a 11 de 12 sem a regressão do CSV que perdia a rodada 7. Se isso dá mais tarefas que a rodada 4 só os 39 runs dizem (cerca de US$ 5; saldo após a fumaça ≈ US$ 3,9). Cache gravado: 86 a 92 %.
 
 ## 4. Execução dos 39 runs
 
 Depende de crédito novo: cerca de US$ 5 para os 39 runs, saldo após a fumaça ≈ US$ 3,9 (DeepInfra). Aguarda o autor.
+
+## 5. Calibração da barreira por exemplo (23/10/2026)
+
+`scripts/calibrar_por_exemplo.py` sobre a última revisão final de cada run gravado, com o pareamento por exemplo e a regra "execução que não terminou bem é não verificável" ([dados/fumaca-r8/calibracao-por-exemplo-r4-a-r8.txt](dados/fumaca-r8/calibracao-por-exemplo-r4-a-r8.txt)). Pergunta: se o revisor fosse impedido de aprovar com linha NÃO encontrada (`BLOCK_EXPECTED=strict`), quantos runs resolvidos cairiam e quantas aprovações erradas seriam pegas?
+
+| coleta | runs | derrubaria resolvidos | pegaria aprovações erradas | aprovações erradas que escapam (sem exemplo que as cubra) |
+|---|---|---|---|---|
+| rodada 4 | 39 | 0 | 0 | 2 |
+| rodada 5 | 39 | 0 | 0 | 5 |
+| rodada 6 | 39 | 0 | 0 | 4 |
+| rodada 7 | 39 | 0 | 2 (sqlite-utils-0003 rep02, tomlkit-0002 rep03) | 4 |
+| fumaça r8 | 8 | 0 | 0 | 0 |
+| **total** | **164** | **0** | **2** | **15** |
+
+Leitura: a barreira é segura (nenhum run resolvido cairia em 164) e pequena (pega 2 das 17 aprovações erradas das cinco coletas). As outras 15 são aprovações de código que nenhum exemplo do enunciado exercita (CSV e `rows_where`/`search` da sqlite-utils-0003, `transform` da sqlite-utils-0001/0002, `Field`/`Attribute` da attrs-0001): o revisor só pode errar sobre o que não roda, e isso é o limite da revisão por execução, não um defeito do revisor. Decisão para o autor: rodar os 39 runs da rodada 8 com `statement` (só informa) ou `strict` (impede a contradição).
