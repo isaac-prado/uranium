@@ -176,7 +176,7 @@ class TestManifestoRegistraOQueAfetaOOrchestration:
 
     def test_manifest_version_subiu(self, tmp_path):
         """A forma do manifesto mudou (novas chaves): a versão precisa acompanhar."""
-        assert _spec("orchestration", tmp_path).manifest("t")["manifest_version"] == 16
+        assert _spec("orchestration", tmp_path).manifest("t")["manifest_version"] == 17
 
     def test_mudar_intent_refiner_muda_o_manifesto(self, tmp_path, monkeypatch):
         """Refinador v2 (decisão 28): a versão do refinador é política do braço."""
@@ -810,6 +810,9 @@ class TestMensagensDeProtocoloSaoUnicas:
             "SUBTAREFA_CONCLUIDA_NAO", "subtarefa_atual", "plano_em_andamento",
             # Rodada 5 (decisões 35 e 36): relatório da comparação de saídas.
             "COMPARACAO_DE_SAIDAS", "MAX_SAIDA_COMPARACAO_CHARS", "comparacao_de_saidas",
+            # Rodada 8 (decisão 48): saída esperada do enunciado amarrada ao bloco,
+            # só no revisor (final e de sub-tarefa); o developer não a recebe.
+            "COMPARACAO_POR_BLOCO", "comparacao_por_bloco",
         }
 
     def test_memoria_de_trabalho_so_tem_moldura(self):

@@ -791,3 +791,86 @@ class TestRodada7:
         monkeypatch.setattr(config, "SUBTASK_MAX_CYCLES", 1)
         pol = _orchestration_policy()
         assert pol["reproduction_shell"] == "on" and pol["subtask_max_cycles"] == 1
+
+
+ENUNCIADO_R8 = """# Bug
+
+Rode a partir da raiz do repositório:
+
+```python
+x = 2
+```
+
+```python
+print('mudou:', 'nota do agente' in open('tomlkit/_utils.py').read(), x + 2)
+```
+
+Saída esperada depois da mudança:
+
+```
+mudou: False 4
+```
+"""
+
+
+@mirror_available
+class TestRodada8:
+    """Decisão 48: blocos consertados pelo enunciado e saída esperada amarrada ao bloco."""
+
+    def _ligar(self, monkeypatch, *, source="statement", block="statement"):
+        monkeypatch.setattr(config, "REVIEW_EXECUTION", "cumulative")
+        monkeypatch.setattr(config, "REPRODUCTION_COMPILE_CHECK", "on")
+        monkeypatch.setattr(config, "REPRODUCTION_SOURCE", source)
+        monkeypatch.setattr(config, "BLOCK_EXPECTED", block)
+
+    def _estado_deturpado(self):
+        intent = _intent_v2()
+        # cópia do refinador: cerca dentro do 1º bloco e 2º bloco que não compila
+        intent["reproduction"] = ["```python\nx = 2", "print('mudou:', 'nota do agente' in open('tomlkit/_utils.py').read(), x + 2"]
+        return _estado(intent=intent, raw_request=ENUNCIADO_R8)
+
+    def test_bloco_deturpado_roda_com_o_texto_do_enunciado(self, ambiente, monkeypatch):
+        from src.agents.validator import _executar_reproducao
+
+        _, _, montar = ambiente
+        montar(FakeToolCallingLLM([ai(content="x")]))
+        estado = self._estado_deturpado()
+        self._ligar(monkeypatch, source="intent", block="off")
+        antes = _executar_reproducao(estado, _ctx(montar))
+        assert antes[1]["executado"] is False and antes[1].get("nao_compila") is True
+        self._ligar(monkeypatch)
+        depois = _executar_reproducao(estado, _ctx(montar))
+        assert depois[0]["executado"] and depois[0]["fonte"] == "cerca"
+        assert depois[1]["executado"] and depois[1]["fonte"] == "enunciado" and "mudou: False 4" in depois[1]["saida"]
+        assert depois[1]["esperado_enunciado"] == "mudou: False 4"
+        assert depois[1]["comparacao_enunciado"] == [{"linha": "mudou: False 4", "estado": "encontrada"}]
+        assert "comparacao_enunciado" not in depois[0]  # bloco sem saída esperada no enunciado
+
+    def test_revisor_recebe_a_comparacao_por_bloco(self, ambiente, monkeypatch):
+        from src.agents.validator import _build_review_prompt, _build_subtask_review_prompt, _executar_reproducao
+        from src.feedback import COMPARACAO_POR_BLOCO
+
+        _, _, montar = ambiente
+        montar(FakeToolCallingLLM([ai(content="x")]))
+        estado = self._estado_deturpado()
+        self._ligar(monkeypatch)
+        execs = _executar_reproducao(estado, _ctx(montar))
+        prompt = _build_review_prompt(estado, _ctx(montar), execs)
+        assert COMPARACAO_POR_BLOCO in prompt and "- bloco 2, esperada «mudou: False 4»: encontrada" in prompt
+        sub = {"id": 1, "title": "t", "objective": "o", "done_when": "d", "criteria": [1], "reproduction": [2]}
+        assert "- bloco 2, esperada «mudou: False 4»: encontrada" in _build_subtask_review_prompt(estado, _ctx(montar), sub, execs)
+        # saída errada vira "NÃO encontrada", sem regra junto
+        execs[1]["comparacao_enunciado"] = [{"linha": "mudou: False 4", "estado": "nao_encontrada"}]
+        prompt2 = _build_review_prompt(estado, _ctx(montar), execs)
+        assert "- bloco 2, esperada «mudou: False 4»: NÃO encontrada" in prompt2 and "não reprova" not in prompt2
+        self._ligar(monkeypatch, block="off")
+        assert COMPARACAO_POR_BLOCO not in _build_review_prompt(estado, _ctx(montar), _executar_reproducao(estado, _ctx(montar)))
+
+    def test_manifesto_registra_a_rodada_8(self, monkeypatch):
+        from src.arms.runner import MANIFEST_VERSION, _orchestration_policy
+
+        monkeypatch.setattr(config, "REPRODUCTION_SOURCE", "statement")
+        monkeypatch.setattr(config, "BLOCK_EXPECTED", "statement")
+        pol = _orchestration_policy()
+        assert MANIFEST_VERSION == 17
+        assert pol["reproduction_source"] == "statement" and pol["block_expected"] == "statement"

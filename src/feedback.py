@@ -229,6 +229,22 @@ def plano_em_andamento(subtasks: list[dict[str, Any]], status: list[dict[str, An
 
 COMPARACAO_DE_SAIDAS = "Comparação automática das saídas esperadas com a execução dos exemplos:"
 
+# Rodada 8 (decisão 48): saída esperada amarrada ao bloco, lida do enunciado
+# por código (src/enunciado.py), comparada linha a linha com a saída real
+# daquele bloco. Só fato (encontrada / NÃO encontrada); nenhuma regra.
+COMPARACAO_POR_BLOCO = ("Comparação automática, por bloco, da saída esperada que o enunciado escreve "
+                        "logo depois do exemplo com a saída real daquele bloco, linha a linha:")
+
+
+def comparacao_por_bloco(execucoes: list[dict[str, Any]]) -> list[str]:
+    """Uma linha por linha esperada de cada bloco executado que tem saída esperada no enunciado."""
+    linhas: list[str] = []
+    for ex in execucoes:
+        for c in ex.get("comparacao_enunciado") or []:
+            rotulo = _ROTULOS_DA_COMPARACAO.get(str(c.get("estado", "")), str(c.get("estado", "")))
+            linhas.append(f"- bloco {ex.get('bloco')}, esperada «{truncate(str(c.get('linha', '')), 300)}»: {rotulo}")
+    return linhas
+
 # Mesmo teto da saída de cada bloco no evento `validation`
 # (src/agents/validator.py::MAX_SAIDA_EXECUCAO_CHARS).
 MAX_SAIDA_COMPARACAO_CHARS = 2_000

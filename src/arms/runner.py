@@ -64,7 +64,7 @@ from src.workspace import Workspace, WorkspaceSpec
 # "hybrid", `review_compare` ganha "neutral" e entra
 # `reproduction_compile_check`.
 # 16 = rodada 7 (decisão 44, 22/10/2026): entra `reproduction_shell`.
-MANIFEST_VERSION = 16
+MANIFEST_VERSION = 17
 
 # Chaves do manifesto que PODEM diferir entre os braços. Qualquer outra
 # divergência é violação do desenho experimental. Note que `repetition` NÃO
@@ -187,6 +187,11 @@ def _orchestration_policy() -> dict[str, Any]:
         # Rodada 7 (decisão 44, manifesto v16): blocos de linha de comando
         # do enunciado executados pelo validador. "off" é a rodada 6.
         "reproduction_shell": config.REPRODUCTION_SHELL,
+        # Rodada 8 (decisão 48, manifesto v17): blocos de reprodução consertados
+        # pelo enunciado e saída esperada amarrada ao bloco. "intent"/"off" é a
+        # rodada 7.
+        "reproduction_source": config.REPRODUCTION_SOURCE,
+        "block_expected": config.BLOCK_EXPECTED,
         "developer_input": config.DEVELOPER_INPUT,
         "developer_memory": config.DEVELOPER_MEMORY,
         "developer_memory_diff_max_chars": MEMORIA_DIFF_MAX_CHARS,

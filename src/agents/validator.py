@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from src import config
-from src.feedback import COMPARACAO_DE_SAIDAS, comparacao_de_saidas
+from src.feedback import COMPARACAO_DE_SAIDAS, COMPARACAO_POR_BLOCO, comparacao_de_saidas, comparacao_por_bloco
 from src.runtime import RunContext
 from src.schemas.intent import StructuredIntentV2, intent_as_text
 from src.schemas.plan import (
@@ -37,6 +37,7 @@ from src.schemas.validation_result import ValidationResult
 from src.state import WorkflowState, parse_intent
 from src.structured_llm import StructuredOutputError, invoke_structured
 from src.tools.base import truncate
+from src.enunciado import comparar_bloco, esperado_do_bloco, reparar_blocos
 from src.tools.exec import _build_env, reverter_protegidos, run_pytest, run_python
 from src.verificacao import ENCONTRADA as ENCONTRADA_
 from src.verificacao import NAO_ENCONTRADA as NAO_ENCONTRADA_
@@ -312,6 +313,12 @@ def _executar_reproducao(
              if config.REPRODUCTION_SHELL == "on" else {})
     shell = {i: c for i, c in shell.items() if c}
     codigos = {i: (None if i in shell else _codigo_python(b)) for i, b in enumerate(intent.reproduction, 1)}
+    # Rodada 8 (decisão 48): a cópia do refinador é consertada pelo enunciado
+    # (cerca perdida; bloco que não compila trocado pelo mais parecido).
+    enunciado = str(state.get("raw_request") or "")
+    fontes: dict[int, str] = {}
+    if config.REPRODUCTION_SOURCE == "statement":
+        codigos, fontes = reparar_blocos(codigos, enunciado)
     # Decisão 42 (rodada 6): o bloco que não compila sozinho não roda e não
     # entra na cadeia acumulada; na rodada 5 (tomlkit-0001) cinco blocos
     # eram texto TOML e o SyntaxError do 2º apagava a saída dos seguintes.
@@ -341,8 +348,18 @@ def _executar_reproducao(
                           if codigos[j] and codigos[j].strip() and j not in nao_compila]
             codigo = "\n\n".join(anteriores + [codigo])
         saida = run_python(ctx.workspace, codigo, timeout_s=min(60, ctx.test_timeout_s))
-        saidas.append({"bloco": i, "executado": True, "acumulado": acumulado and i > 1,
-                       "saida": truncate(saida, MAX_SAIDA_EXECUCAO_CHARS)})
+        registro: dict[str, Any] = {"bloco": i, "executado": True, "acumulado": acumulado and i > 1,
+                                    "saida": truncate(saida, MAX_SAIDA_EXECUCAO_CHARS)}
+        if i in fontes:
+            registro["fonte"] = fontes[i]
+        # Rodada 8 (decisão 48): saída esperada do enunciado amarrada a este
+        # bloco (não à cadeia), comparada linha a linha com a saída real.
+        if config.BLOCK_EXPECTED == "statement":
+            esperado = esperado_do_bloco(codigos[i], enunciado)
+            if esperado is not None:
+                registro["esperado_enunciado"] = esperado
+                registro["comparacao_enunciado"] = comparar_bloco(esperado, registro["saida"])
+        saidas.append(registro)
     return saidas
 
 
@@ -435,6 +452,9 @@ def _build_review_prompt(
         for ex in execucoes:
             rotulo = f"[bloco {ex['bloco']}]" + (" (executado junto com os blocos anteriores)" if ex.get("acumulado") else "")
             partes += [rotulo, ex["saida"]]
+        por_bloco = comparacao_por_bloco(execucoes)
+        if por_bloco:
+            partes += ["", COMPARACAO_POR_BLOCO, *por_bloco]
     # Decisão 41, após a fumaça da rodada 6: em `neutral` só as linhas com
     # fato (encontrada / NÃO encontrada) chegam ao revisor; "não verificável"
     # virava motivo de reprovação (tomlkit-0003: 8 reprovações citando-a).
@@ -498,6 +518,9 @@ def _build_subtask_review_prompt(
         for ex in execucoes:
             rotulo = f"[bloco {ex['bloco']}]" + (" (executado junto com os blocos anteriores)" if ex.get("acumulado") else "")
             partes += [rotulo, ex["saida"]]
+        por_bloco = comparacao_por_bloco(execucoes)
+        if por_bloco:
+            partes += ["", COMPARACAO_POR_BLOCO, *por_bloco]
     return "\n".join(partes)
 
 

@@ -189,6 +189,31 @@ if DEVELOPER_MEMORY not in DEVELOPER_MEMORY_MODES:
     raise ValueError(
         f"DEVELOPER_MEMORY={DEVELOPER_MEMORY!r} inválido; use um de {DEVELOPER_MEMORY_MODES}"
     )
+# Rodada 8 (decisão 48, 22/10/2026). REPRODUCTION_SOURCE=statement: o validador
+# conserta a cópia que o refinador fez dos blocos de reprodução usando o
+# enunciado (`raw_request`), por código: tira cerca de markdown perdida dentro
+# do bloco e, se o bloco ainda não compila, usa o bloco Python do enunciado
+# mais parecido (sobreposição de tokens). Na rodada 7, 7 dos 23 blocos que não
+# compilavam eram cópias deturpadas de blocos válidos do enunciado (cerca
+# dentro do código; `["a", "b", "c"]` virou `["a\nb\nc`), e sem bloco o revisor
+# aprova às cegas (tomlkit-0002 rep02). O developer continua recebendo só a
+# intent. "intent" reproduz as rodadas anteriores.
+REPRODUCTION_SOURCE_MODES = ("intent", "statement")
+REPRODUCTION_SOURCE = os.getenv("REPRODUCTION_SOURCE", "intent").strip().lower()
+if REPRODUCTION_SOURCE not in REPRODUCTION_SOURCE_MODES:
+    raise ValueError(f"REPRODUCTION_SOURCE={REPRODUCTION_SOURCE!r} inválido; use um de {REPRODUCTION_SOURCE_MODES}")
+# BLOCK_EXPECTED=statement: cada bloco de reprodução é amarrado, por código, à
+# "saída esperada" que o enunciado escreve logo depois dele (bloco sem cerca
+# precedido de "esperada"; "hoje"/"atual" é o comportamento com o bug e fica de
+# fora), e o revisor (final e de sub-tarefa) recebe, por bloco e por linha
+# esperada, "encontrada" ou "NÃO encontrada" na saída real daquele bloco. É
+# informação, não regra: na calibração offline da rodada 7 uma barreira dura
+# pegaria 4 das 6 aprovações erradas e derrubaria 5 runs resolvidos
+# (docs/tcc/23-rodada-7.md §4). "off" reproduz as rodadas anteriores.
+BLOCK_EXPECTED_MODES = ("off", "statement")
+BLOCK_EXPECTED = os.getenv("BLOCK_EXPECTED", "off").strip().lower()
+if BLOCK_EXPECTED not in BLOCK_EXPECTED_MODES:
+    raise ValueError(f"BLOCK_EXPECTED={BLOCK_EXPECTED!r} inválido; use um de {BLOCK_EXPECTED_MODES}")
 
 
 class ConfigError(RuntimeError):
