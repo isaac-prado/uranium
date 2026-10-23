@@ -1,0 +1,35 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 48987a6..ab44ef0 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -3103,11 +3103,27 @@ class Table(Queryable):
+         if "rowid" not in new_cols:
+             new_cols.insert(0, "rowid")
+             old_cols.insert(0, "rowid")
+-        copy_sql = "INSERT INTO {} ({new_cols})\n   SELECT {old_cols} FROM {};".format(
++        # Modify the SELECT clause to handle empty strings for numeric types
++        def is_numeric_type(type_):
++            mapped_type = COLUMN_TYPE_MAPPING.get(type_)
++            return mapped_type in ("INTEGER", "REAL", "FLOAT")
++
++        select_parts = []
++        for i, from_col in enumerate(old_cols):
++            to_col = new_cols[i]
++            # Check if this column is being converted to a numeric type
++            original_name = next((k for k, v in copy_from_to.items() if v == to_col), to_col)
++            if original_name in types and is_numeric_type(types[original_name]):
++                # Wrap in NULLIF to convert empty strings to NULL
++                select_parts.append(f'NULLIF({quote_identifier(from_col)}, "") AS {quote_identifier(to_col)}')
++            else:
++                select_parts.append(quote_identifier(from_col))
++
++        copy_sql = "INSERT INTO {} ({})\n   SELECT {} FROM {};".format(
+             quote_identifier(new_table_name),
++            ", ".join(quote_identifier(col) for col in new_cols),
++            ", ".join(select_parts),
+             quote_identifier(self.name),
+-            old_cols=", ".join(quote_identifier(col) for col in old_cols),
+-            new_cols=", ".join(quote_identifier(col) for col in new_cols),
+         )
+         sqls.append(copy_sql)
+         # Capture indexes before the old table is changed. Simple indexes that

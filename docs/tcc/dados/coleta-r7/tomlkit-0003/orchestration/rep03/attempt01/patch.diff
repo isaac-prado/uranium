@@ -1,0 +1,42 @@
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 26b8f9f..26502c6 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -860,7 +860,17 @@ class Array(Item, list):
+         )
+ 
+     def __repr__(self):
+-        return str(self)
++        # To ensure the dict representation is in sync with the container's value,
++        # we clear and repopulate it based on the container's body.
++        # This is crucial for tables that are extended by multiple headers.
++        dict_self = {}
++        for k, v in self._value.body:
++            if k is not None:
++                dict_self[k.key] = v
++        super(Table, self).clear()
++        super(Table, self).update(dict_self)
++        
++        return str(self._value.value)
+ 
+     def _getstate(self, protocol=3):
+         return self._value, self._trivia
+@@ -1045,10 +1055,17 @@ class Table(Item, dict):
+         self.remove(key)
+ 
+     def __repr__(self):
++        # To ensure the dict representation is in sync with the container's value,
++        # we clear and repopulate it based on the container's body.
++        # This is crucial for tables that are extended by multiple headers.
++        self.clear()
++        for k, v in self._value.body:
++            if k is not None:
++                self[k.key] = v
+         return super(Table, self).__repr__()
+ 
+     def __str__(self):
+-        return str(self.value)
++        return str(self._value.value)
+ 
+     def _getstate(self, protocol=3):
+         return (

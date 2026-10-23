@@ -1,0 +1,29 @@
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index 6386e73..0b45ae4 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -58,7 +58,10 @@ class Container(dict):
+                 v = v.value
+ 
+             if k in d:
+-                merge_dicts(d[k], v)
++                if isinstance(d[k], dict) and isinstance(v, dict):
++                    merge_dicts(d[k], v)
++                else:
++                    d[k] = v
+             else:
+                 d[k] = v
+ 
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 26b8f9f..d3efb87 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -1045,7 +1045,7 @@ class Table(Item, dict):
+         self.remove(key)
+ 
+     def __repr__(self):
+-        return super(Table, self).__repr__()
++        return repr(self.value)
+ 
+     def __str__(self):
+         return str(self.value)

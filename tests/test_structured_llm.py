@@ -154,6 +154,34 @@ class TestFalhaDeInfraestrutura:
         assert not is_provider_error(RuntimeError("erro"))
         assert not is_provider_error(ValueError("schema"))
 
+    def test_erro_do_provedor_no_corpo_da_resposta_200_e_infra(self):
+        """
+        O OpenRouter pode responder 200 com `{"error": {...}}` no corpo; o
+        cliente do LangChain levanta `ValueError(dict)`. Na rodada 7
+        (22/10/2026) dois runs morreram com `code: 502,
+        error_type: provider_unavailable` da DeepInfra e foram contados como
+        terminados (`error:`) em vez de perdidos (`infra_error:`).
+        """
+        from src.config import is_fatal_provider_error, is_provider_error
+
+        corpo_502 = {"message": "Upstream error from DeepInfra: Response payload is not completed",
+                     "code": 502, "metadata": {"error_type": "provider_unavailable"}}
+        assert is_provider_error(ValueError(corpo_502))
+        assert is_provider_error(ValueError({"message": "x", "code": 429}))
+        assert is_provider_error(ValueError({"message": "x", "metadata": {"error_type": "provider_unavailable"}}))
+        assert not is_provider_error(ValueError({"message": "bad request", "code": 400}))
+        assert not is_provider_error(ValueError({"message": "sem código"}))
+        assert not is_fatal_provider_error(ValueError(corpo_502))
+        assert is_fatal_provider_error(ValueError({"message": "crédito", "code": 402}))
+
+    def test_stop_reason_do_erro_no_corpo_e_perda(self):
+        from src.arms.runner import LOST_PREFIXES, stop_reason_for
+
+        motivo = stop_reason_for(ValueError({"message": "x", "code": 502,
+                                             "metadata": {"error_type": "provider_unavailable"}}))
+        assert motivo.startswith(LOST_PREFIXES) and motivo == "infra_error: ValueError"
+        assert stop_reason_for(ValueError("schema")) == "error: ValueError"
+
     @pytest.mark.parametrize("status", [401, 429])
     def test_falha_de_provedor_nao_e_retentada_aqui(self, llm_mock, monkeypatch, status):
         """

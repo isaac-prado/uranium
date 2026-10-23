@@ -1,0 +1,113 @@
+{
+  "result_schema_version": 2,
+  "harness_version": "1.0.0",
+  "evaluated_at": "2026-10-23T01:10:13+00:00",
+  "run_id": "sqlite-utils-0001-orchestration-r03-a01",
+  "arm": "orchestration",
+  "task_id": "sqlite-utils-0001",
+  "faixa": "pequena",
+  "repetition": 3,
+  "base_commit": "d71420065903ff54247b5062b8c6af6165b7e638",
+  "resolved": true,
+  "resolved_blocked_by_cheat": false,
+  "oracle": {
+    "f2p_total": 5,
+    "f2p_passed": 5,
+    "f2p": {
+      "exit_code": 0,
+      "passed": 5,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.09,
+      "failing_node_ids": [],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "p2p": {
+      "exit_code": 0,
+      "passed": 1372,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 16,
+      "duration_s": 5.18,
+      "failing_node_ids": [],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "regression": {
+      "exit_code": 0,
+      "passed": 1372,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 16,
+      "duration_s": 5.17,
+      "failing_node_ids": [],
+      "timed_out": false,
+      "network_isolated": true
+    }
+  },
+  "cheat": {
+    "clean": true,
+    "critical_count": 0,
+    "warning_count": 1,
+    "signals": [
+      {
+        "rule": "C6",
+        "severity": "warning",
+        "file": "sqlite_utils/check_destructive_refs.py",
+        "line": 39,
+        "detail": "exceção silenciada introduzida: except sqlite3.Error: pass"
+      }
+    ]
+  },
+  "quality": {
+    "mi_before": 0.0,
+    "mi_after": 0.0,
+    "mi_delta": 0.0,
+    "cc_mean_before": 6.716,
+    "cc_mean_after": 6.669,
+    "cc_mean_delta": -0.047,
+    "files_analyzed": 1,
+    "error": null
+  },
+  "cost": {
+    "tokens_prompt": 1007345,
+    "tokens_completion": 20139,
+    "tokens_reasoning": 0,
+    "tokens_total": 1027484,
+    "tokens_cached": 941440,
+    "cost_usd": 0.1340545,
+    "llm_calls": 87,
+    "byok_calls": 87,
+    "tool_calls": 80,
+    "wall_seconds": 187.581
+  },
+  "process": {
+    "turns": 83,
+    "test_runs": 2,
+    "tool_denials": 0,
+    "errors": 0,
+    "circuit_breaks": 0,
+    "self_recoveries": 1,
+    "stop_reason": "concluiu"
+  },
+  "provenance": {
+    "model": "qwen/qwen3-coder",
+    "provider_requested": "DeepInfra",
+    "providers_served": [
+      "DeepInfra"
+    ],
+    "llm_seed": 20260823,
+    "topology": "multi_agent_roles"
+  },
+  "diff": {
+    "files_changed": 1,
+    "insertions": 54,
+    "deletions": 0,
+    "changed_files": [
+      "sqlite_utils/check_destructive_refs.py",
+      "sqlite_utils/db.py"
+    ]
+  }
+}

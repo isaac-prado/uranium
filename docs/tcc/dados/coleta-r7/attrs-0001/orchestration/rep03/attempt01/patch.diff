@@ -1,0 +1,47 @@
+diff --git a/src/attr/_funcs.py b/src/attr/_funcs.py
+index 518be16e..dabcc5fa 100644
+--- a/src/attr/_funcs.py
++++ b/src/attr/_funcs.py
+@@ -3,6 +3,7 @@
+ 
+ import copy
+ 
++from ._generic_helpers import get_generic_base_or_self
+ from ._make import NOTHING, _obj_setattr, fields
+ from .exceptions import AttrsAttributeNotFoundError
+ 
+@@ -296,7 +297,8 @@ def has(cls):
+ 
+     :rtype: bool
+     """
+-    return getattr(cls, "__attrs_attrs__", None) is not None
++    cls_to_check = get_generic_base_or_self(cls)
++    return getattr(cls_to_check, "__attrs_attrs__", None) is not None
+ 
+ 
+ def assoc(inst, **changes):
+diff --git a/src/attr/_make.py b/src/attr/_make.py
+index 014b7bc2..7baa66bd 100644
+--- a/src/attr/_make.py
++++ b/src/attr/_make.py
+@@ -13,6 +13,7 @@ from operator import itemgetter
+ # having the thread-local in the globals here.
+ from . import _compat, _config, setters
+ from ._compat import PY310, _AnnotationExtractor, set_closure_cell
++from ._generic_helpers import get_generic_base_or_self
+ from .exceptions import (
+     DefaultAlreadySetError,
+     FrozenInstanceError,
+@@ -1919,9 +1920,10 @@ def fields(cls):
+     .. versionchanged:: 16.2.0 Returned tuple allows accessing the fields
+        by name.
+     """
+-    if not isinstance(cls, type):
++    cls_to_check = get_generic_base_or_self(cls)
++    if not isinstance(cls_to_check, type):
+         raise TypeError("Passed object must be a class.")
+-    attrs = getattr(cls, "__attrs_attrs__", None)
++    attrs = getattr(cls_to_check, "__attrs_attrs__", None)
+     if attrs is None:
+         raise NotAnAttrsClassError(f"{cls!r} is not an attrs-decorated class.")
+     return attrs

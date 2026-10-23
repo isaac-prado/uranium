@@ -1,0 +1,132 @@
+diff --git a/sqlite_utils/cli.py b/sqlite_utils/cli.py
+index a30f79a..55dc40e 100644
+--- a/sqlite_utils/cli.py
++++ b/sqlite_utils/cli.py
+@@ -2125,7 +2125,9 @@ def _execute_query(
+             headers = ["rows_affected"]
+             cursor = [[cursor.rowcount]]
+         else:
++            from sqlite_utils.utils import dedupe_keys
+             headers = [c[0] for c in cursor.description]
++            headers = dedupe_keys(headers)
+         cursor_or_rows: Any = cursor
+         if raw:
+             row = cursor_or_rows.fetchone()
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 3f23c7d..207ce33 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -786,8 +786,10 @@ class Database:
+                     cursor = self.conn.execute(sql, *args)
+             if cursor.description is None:
+                 raise ValueError(message)
++            from .utils import dedupe_keys
+             keys = [d[0] for d in cursor.description]
+-            return (dict(zip(keys, row)) for row in cursor)
++            deduped_keys = dedupe_keys(keys)
++            return (dict(zip(deduped_keys, row)) for row in cursor)
+         # Execute inside a savepoint, so a statement that turns out not to
+         # return rows can be rolled back before the ValueError is raised
+         self.conn.execute('SAVEPOINT "sqlite_utils_query"')
+@@ -806,11 +808,15 @@ class Database:
+                 # with unfetched rows. Fetch them so the write completes, then
+                 # release again - committing the write immediately, unless an
+                 # outer transaction is open
++                from .utils import dedupe_keys
+                 fetched = cursor.fetchall()
+                 self.conn.execute('RELEASE "sqlite_utils_query"')
+                 released = True
+-                return (dict(zip(keys, row)) for row in fetched)
+-            return (dict(zip(keys, row)) for row in cursor)
++                deduped_keys = dedupe_keys(keys)
++                return (dict(zip(deduped_keys, row)) for row in fetched)
++            from .utils import dedupe_keys
++            deduped_keys = dedupe_keys(keys)
++            return (dict(zip(deduped_keys, row)) for row in cursor)
+         finally:
+             if not released:
+                 # An error occurred - undo anything the statement changed
+@@ -1866,8 +1872,10 @@ class Queryable:
+             sql += " offset {}".format(offset)
+         cursor = self.db.execute(sql, where_args or [])
+         columns = [c[0] for c in cursor.description]
++        from .utils import dedupe_keys
++        deduped_columns = dedupe_keys(columns)
+         for row in cursor:
+-            yield dict(zip(columns, row))
++            yield dict(zip(deduped_columns, row))
+ 
+     def pks_and_rows_where(
+         self,
+@@ -3399,8 +3407,10 @@ class Table(Queryable):
+             args,
+         )
+         columns = [c[0] for c in cursor.description]
++        from .utils import dedupe_keys
++        deduped_columns = dedupe_keys(columns)
+         for row in cursor:
+-            yield dict(zip(columns, row))
++            yield dict(zip(deduped_columns, row))
+ 
+     def value_or_default(self, key: str, value: Any) -> Any:
+         return self._defaults[key] if value is DEFAULT else value
+diff --git a/sqlite_utils/utils.py b/sqlite_utils/utils.py
+index 865ee79..52b2f98 100644
+--- a/sqlite_utils/utils.py
++++ b/sqlite_utils/utils.py
+@@ -67,6 +67,48 @@ Row = Dict[str, RowValue]
+ T = TypeVar("T")
+ 
+ 
++def dedupe_keys(keys: List[str]) -> List[str]:
++    """
++    Resolve duplicate column names by applying numeric suffixes (_2, _3, etc.)
++    to ensure all names are unique while preserving order.
++
++    The first occurrence of a name remains unchanged. Subsequent duplicates
++    are suffixed with the lowest integer that makes them unique.
++
++    Example:
++        >>> dedupe_keys(["id", "name", "id", "id"])
++        ["id", "name", "id_2", "id_3"]
++
++    :param keys: A list of column names, potentially with duplicates.
++    :return: A list of unique column names derived from the input.
++    """
++    if not keys:
++        return []
++
++    # Track the set of names already used to avoid conflicts
++    used_names: Set[str] = set()
++    result: List[str] = []
++
++    for key in keys:
++        # If the key is already unique, use it directly
++        if key not in used_names:
++            result.append(key)
++            used_names.add(key)
++        else:
++            # Start checking for the next available suffix
++            suffix = 2
++            new_key = f"{key}_{suffix}"
++            # Keep incrementing until we find a unique name
++            while new_key in used_names:
++                suffix += 1
++                new_key = f"{key}_{suffix}"
++            
++            result.append(new_key)
++            used_names.add(new_key)
++            
++    return result
++
++
+ class _CloseableIterator(Iterator[Row]):
+     """Iterator wrapper that closes a file when iteration is complete."""
+ 
+@@ -628,4 +670,4 @@ def flatten(row: Dict[str, Any]) -> Dict[str, Any]:
+ 
+     :param row: A Python dictionary, optionally with nested dictionaries
+     """
+-    return dict(_flatten(row))
++    return dict(_flatten(row))
+\ No newline at end of file

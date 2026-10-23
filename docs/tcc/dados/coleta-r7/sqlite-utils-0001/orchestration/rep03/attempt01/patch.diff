@@ -1,0 +1,79 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index d709fb9..b7e3691 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -594,6 +594,14 @@ class Database:
+         "Close the SQLite connection, and the underlying database file"
+         self.conn.close()
+ 
++    def is_in_transaction(self) -> bool:
++        """
++        Check if we are currently in a transaction.
++        
++        :return: True if in a transaction, False otherwise
++        """
++        return self.conn.in_transaction
++
+     @contextlib.contextmanager
+     def atomic(self) -> Generator["Database", None, None]:
+         """
+@@ -2542,6 +2550,10 @@ class Table(Queryable):
+         """
+         if not self.exists():
+             raise ValueError("Cannot transform a table that doesn't exist yet")
++            
++        # Verificação preventiva para chaves estrangeiras destrutivas em transações
++        self._check_destructive_foreign_keys()
++            
+         sqls = self.transform_sql(
+             types=types,
+             rename=rename,
+@@ -2595,6 +2607,48 @@ class Table(Queryable):
+             self._defaults["strict"] = strict
+         return self
+ 
++    def _check_destructive_foreign_keys(self) -> None:
++        """
++        Check if there are destructive foreign key references pointing to this table
++        within an active transaction with foreign keys enabled.
++        Raises TransactionError if destructive references are found.
++        """
++        # Check if we're in a transaction
++        if not self.db.is_in_transaction():
++            return
++            
++        # Check if foreign keys are enabled
++        fk_enabled = self.db.execute("PRAGMA foreign_keys").fetchone()[0]
++        if not fk_enabled:
++            return
++            
++        # Get all foreign key references to this table with destructive actions
++        # We need to check all tables to find ones that reference this table
++        cursor = self.db.execute("""
++            SELECT 
++                m.name as referencing_table,
++                fk."on_delete" as on_delete_action
++            FROM 
++                sqlite_master AS m
++                JOIN pragma_foreign_key_list(m.name) AS fk 
++            WHERE 
++                fk."table" = ?
++                AND fk."on_delete" IN ('CASCADE', 'SET NULL', 'SET DEFAULT')
++        """, (self.name,))
++        
++        destructive_refs = cursor.fetchall()
++        
++        if destructive_refs:
++            ref_info = []
++            for ref in destructive_refs:
++                ref_info.append(f"{ref[0]} (ON DELETE {ref[1]})")
++            refs_str = ", ".join(ref_info)
++            raise TransactionError(
++                f"Cannot transform table '{self.name}' within a transaction with "
++                f"foreign_keys=ON when it is referenced by tables with destructive "
++                f"foreign key actions: {refs_str}"
++            )
++
+     def transform_sql(
+         self,
+         *,

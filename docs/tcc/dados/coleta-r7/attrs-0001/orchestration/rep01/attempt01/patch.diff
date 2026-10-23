@@ -1,0 +1,34 @@
+diff --git a/src/attr/_funcs.py b/src/attr/_funcs.py
+index 518be16e..3b20a9eb 100644
+--- a/src/attr/_funcs.py
++++ b/src/attr/_funcs.py
+@@ -296,7 +296,13 @@ def has(cls):
+ 
+     :rtype: bool
+     """
+-    return getattr(cls, "__attrs_attrs__", None) is not None
++    if getattr(cls, "__attrs_attrs__", None) is not None:
++        return True
++    # Handle specialized generic types by checking their origin class
++    origin_cls = getattr(cls, "__origin__", None)
++    if origin_cls is not None:
++        return getattr(origin_cls, "__attrs_attrs__", None) is not None
++    return False
+ 
+ 
+ def assoc(inst, **changes):
+diff --git a/src/attr/_make.py b/src/attr/_make.py
+index 014b7bc2..350b2c97 100644
+--- a/src/attr/_make.py
++++ b/src/attr/_make.py
+@@ -1919,6 +1919,10 @@ def fields(cls):
+     .. versionchanged:: 16.2.0 Returned tuple allows accessing the fields
+        by name.
+     """
++    # Handle specialized generic types by checking their origin class
++    origin_cls = getattr(cls, "__origin__", None)
++    if origin_cls is not None:
++        cls = origin_cls
+     if not isinstance(cls, type):
+         raise TypeError("Passed object must be a class.")
+     attrs = getattr(cls, "__attrs_attrs__", None)

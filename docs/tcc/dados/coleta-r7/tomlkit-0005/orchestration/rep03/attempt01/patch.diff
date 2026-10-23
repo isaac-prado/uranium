@@ -1,0 +1,44 @@
+diff --git a/tomlkit/_types.py b/tomlkit/_types.py
+index 3585d56..fe33478 100644
+--- a/tomlkit/_types.py
++++ b/tomlkit/_types.py
+@@ -71,11 +71,11 @@ else:
+             self.update(other)
+             return self
+ 
+-    class _CustomInt(Integral, int):
+-        """Adds Integral mixin while pretending to be a builtin int"""
++    class _CustomInt(int):
++        """Pretends to be a builtin int"""
+ 
+-    class _CustomFloat(Real, float):
+-        """Adds Real mixin while pretending to be a builtin float"""
++    class _CustomFloat(float):
++        """Pretends to be a builtin float"""
+ 
+ 
+ def wrap_method(
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 4a24fc0..cebfe7c 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -543,6 +543,9 @@ class Item:
+     def __getitem__(self, key: Key | str | int) -> Any:
+         raise TypeError(f"{type(self).__name__} does not support item access")
+ 
++    def __iter__(self) -> Iterator:
++        raise TypeError(f"'{type(self).__name__}' object is not iterable")
++
+     def __setitem__(self, key: Key | str | int, value: Any) -> None:
+         raise TypeError(f"{type(self).__name__} does not support item assignment")
+ 
+@@ -1219,6 +1222,9 @@ class Date(Item, date):
+ 
+         self._raw = raw
+ 
++    def __getitem__(self, key: Key | str | int) -> Any:
++        raise TypeError(f"{type(self).__name__} does not support item access")
++
+     def unwrap(self) -> date:
+         (year, month, day, _, _) = self._getstate()
+         return date(year, month, day)

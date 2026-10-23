@@ -1,0 +1,45 @@
+diff --git a/peewee.py b/peewee.py
+index 13d2c8e9..19ecb9a6 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -3787,6 +3787,7 @@ class Database(_callable_context_manager):
+                            'database driver you are using.')
+ 
+         self.connect_params = {}
++        self.query_hooks = []
+         self.init(database, **kwargs)
+ 
+     def init(self, database, **kwargs):
+@@ -3892,10 +3893,28 @@ class Database(_callable_context_manager):
+ 
+     def execute_sql(self, sql, params=None):
+         self._log_query(sql, params)
+-        with __exception_wrapper__:
+-            cursor = self.cursor()
+-            cursor.execute(sql, params or ())
+-        return cursor
++        start = time.time()
++        try:
++            with __exception_wrapper__:
++                cursor = self.cursor()
++                cursor.execute(sql, params or ())
++            result = cursor
++            exception = None
++        except Exception as exc:
++            result = None
++            exception = exc
++            raise
++        finally:
++            if hasattr(self, 'query_hooks'):
++                duration = time.time() - start
++                for hook in self.query_hooks:
++                    hook(type('Event', (), {
++                        'sql': sql,
++                        'params': params,
++                        'duration': duration,
++                        'exception': exception
++                    })())
++        return result
+ 
+     def execute(self, query, **context_options):
+         ctx = self.get_sql_context(**context_options)

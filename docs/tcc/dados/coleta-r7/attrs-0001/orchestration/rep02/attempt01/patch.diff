@@ -1,0 +1,105 @@
+diff --git a/src/attr/_funcs.py b/src/attr/_funcs.py
+index 518be16e..e682a1f2 100644
+--- a/src/attr/_funcs.py
++++ b/src/attr/_funcs.py
+@@ -1,10 +1,9 @@
+ # SPDX-License-Identifier: MIT
+ 
+-
+ import copy
++import typing
+ 
+ from ._make import NOTHING, _obj_setattr, fields
+-from .exceptions import AttrsAttributeNotFoundError
+ 
+ 
+ def asdict(
+@@ -296,7 +295,19 @@ def has(cls):
+ 
+     :rtype: bool
+     """
+-    return getattr(cls, "__attrs_attrs__", None) is not None
++    # Handle specialized generic types (e.g., MyClass[int])
++    # by checking their origin if they aren't a direct type.
++    effective_cls = cls
++    if not isinstance(cls, type):
++        # For Python < 3.9, we might get a _GenericAlias here.
++        # For Python >= 3.9, we get the specialized class directly.
++        # In both cases, we check for __origin__.
++        effective_cls = getattr(cls, "__origin__", None)
++        if effective_cls is None:
++            # Not a generic alias, and not a type. Definitely not an attrs class.
++            return False
++
++    return getattr(effective_cls, "__attrs_attrs__", None) is not None
+ 
+ 
+ def assoc(inst, **changes):
+@@ -330,10 +341,13 @@ def assoc(inst, **changes):
+     for k, v in changes.items():
+         a = getattr(attrs, k, NOTHING)
+         if a is NOTHING:
++            from .exceptions import AttrsAttributeNotFoundError
++
+             raise AttrsAttributeNotFoundError(
+                 f"{k} is not an attrs attribute on {new.__class__}."
+             )
+         _obj_setattr(new, k, v)
++
+     return new
+ 
+ 
+@@ -355,6 +369,15 @@ def evolve(inst, **changes):
+     """
+     cls = inst.__class__
+     attrs = fields(cls)
++    # We need to handle subclassing and potential field hiding.
++    # Therefore, we look at the class hierarchy and collect all fields.
++    # However, for simplicity and performance, we assume that the fields
++    # are defined on the most specific class.
++    # A more robust implementation would walk the MRO.
++    # For now, we just take the fields of the class of the instance.
++    # This works for the common case where the instance's class defines all its fields.
++    # It also matches the behavior of assoc().
++    changed = {}
+     for a in attrs:
+         if not a.init:
+             continue
+@@ -398,7 +421,6 @@ def resolve_types(cls, globalns=None, localns=None, attribs=None):
+ 
+     ..  versionadded:: 20.1.0
+     ..  versionadded:: 21.1.0 *attribs*
+-
+     """
+     # Since calling get_type_hints is expensive we cache whether we've
+     # done it already.
+@@ -415,4 +437,4 @@ def resolve_types(cls, globalns=None, localns=None, attribs=None):
+         cls.__attrs_types_resolved__ = cls
+ 
+     # Return the class so you can use it as a decorator too.
+-    return cls
++    return cls
+\ No newline at end of file
+diff --git a/src/attr/_make.py b/src/attr/_make.py
+index 014b7bc2..38c642f5 100644
+--- a/src/attr/_make.py
++++ b/src/attr/_make.py
+@@ -1919,9 +1919,16 @@ def fields(cls):
+     .. versionchanged:: 16.2.0 Returned tuple allows accessing the fields
+        by name.
+     """
++    # Handle specialized generic types (e.g., MyClass[int])
++    # by checking their origin.
++    effective_cls = cls
+     if not isinstance(cls, type):
+-        raise TypeError("Passed object must be a class.")
+-    attrs = getattr(cls, "__attrs_attrs__", None)
++        effective_cls = getattr(cls, "__origin__", None)
++        if effective_cls is None:
++            # Not a generic alias, and not a type.
++            raise TypeError("Passed object must be a class.")
++
++    attrs = getattr(effective_cls, "__attrs_attrs__", None)
+     if attrs is None:
+         raise NotAnAttrsClassError(f"{cls!r} is not an attrs-decorated class.")
+     return attrs

@@ -1,0 +1,35 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index d709fb9..6a9dcfe 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -2542,6 +2542,30 @@ class Table(Queryable):
+         """
+         if not self.exists():
+             raise ValueError("Cannot transform a table that doesn't exist yet")
++        
++        # Verificação preventiva para chaves estrangeiras destrutivas em transação
++        if self.db.conn.in_transaction and self.db.execute("PRAGMA foreign_keys").fetchone()[0]:
++            # Verificar se há chaves estrangeiras destrutivas (CASCADE, SET NULL, SET DEFAULT) 
++            # apontando para esta tabela
++            destructive_fks = []
++            for table_name in self.db.table_names():
++                if table_name == self.name:
++                    continue
++                fk_list_cursor = self.db.execute(f"PRAGMA foreign_key_list('{table_name}')")
++                for fk_row in fk_list_cursor.fetchall():
++                    # fk_row = (id, seq, table, from, to, on_update, on_delete, match)
++                    referenced_table = fk_row[2]
++                    on_delete_action = fk_row[6].upper()
++                    if (referenced_table == self.name and 
++                        on_delete_action in ("CASCADE", "SET NULL", "SET DEFAULT")):
++                        destructive_fks.append(f"{table_name}:{on_delete_action}")
++            
++            if destructive_fks:
++                raise TransactionError(
++                    f"Cannot transform table '{self.name}' with destructive foreign keys "
++                    f"active in transaction: {', '.join(destructive_fks)}"
++                )
++                
+         sqls = self.transform_sql(
+             types=types,
+             rename=rename,

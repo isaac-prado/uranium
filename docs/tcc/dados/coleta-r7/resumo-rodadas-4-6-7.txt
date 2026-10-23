@@ -1,0 +1,63 @@
+== r4 (runs/coleta-r4)
+  runs=39 resolvidas=24 tarefas_resolvidas(maioria das repetições)=9/13
+  custo=US$5.67 tokens=37.9M mediana/run=0.88M cache_gravada=n/d
+  cortes=16 concluiu=23 aprovacoes_erradas(concluiu sem resolver)=3 resolvidas_no_corte=4 error=0
+  faixas (resolvidas/runs)={'media': [7, 12], 'pequena': [12, 18], 'grande': [5, 9]}
+  por tarefa: attrs-0001=2/3 peewee-0001=3/3 peewee-0002=0/3 peewee-0003=3/3 pygments-0001=3/3 sqlite-utils-0001=1/3 sqlite-utils-0002=2/3 sqlite-utils-0003=2/3 tomlkit-0001=3/3 tomlkit-0002=2/3 tomlkit-0003=3/3 tomlkit-0004=0/3 tomlkit-0005=0/3
+  nao resolvidas: attrs-0001-r3(budget:), peewee-0002-r1(budget:), peewee-0002-r2(budget:), peewee-0002-r3(budget:), sqlite-utils-0001-r1(budget:), sqlite-utils-0001-r3(conclui), sqlite-utils-0002-r3(conclui), sqlite-utils-0003-r1(conclui), tomlkit-0002-r1(budget:), tomlkit-0004-r1(budget:), tomlkit-0004-r2(budget:), tomlkit-0004-r3(budget:), tomlkit-0005-r1(budget:), tomlkit-0005-r2(budget:), tomlkit-0005-r3(budget:)
+  mecanismos (eventos; runs = arquivos events.jsonl com run_end, inclusive tentativas repetidas): {'runs': 40, 'subtarefas': 192, 'feitas': 14, 'adiadas_no_fim': 25, 'abandonadas': 2, 'adiadas_alguma_vez': 27, 'adiadas_depois_feitas': 0, 'replans': 2, 'exec_shell': 0, 'runs_com_shell': 0, 'blocos_nao_compilam': 0, 'runs_com_nao_compila': 0, 'subtarefa_aprovada': 14, 'subtarefa_reprovada': 70, 'revisoes_finais': 93, 'finais_reprovadas': 69}
+    attrs-0001         {'feitas': 2, 'adiadas_alguma_vez': 1, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 0, 'replans': 0}
+    peewee-0001        {'feitas': 3, 'adiadas_alguma_vez': 0, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 0, 'replans': 0}
+    peewee-0002        {'feitas': 5, 'adiadas_alguma_vez': 4, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 0, 'replans': 0}
+    peewee-0003        {'feitas': 0, 'adiadas_alguma_vez': 0, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 0, 'replans': 0}
+    pygments-0001      {'feitas': 0, 'adiadas_alguma_vez': 1, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 0, 'replans': 0}
+    sqlite-utils-0001  {'feitas': 0, 'adiadas_alguma_vez': 2, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 0, 'replans': 0}
+    sqlite-utils-0002  {'feitas': 0, 'adiadas_alguma_vez': 0, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 0, 'replans': 0}
+    sqlite-utils-0003  {'feitas': 1, 'adiadas_alguma_vez': 3, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 0, 'replans': 0}
+    tomlkit-0001       {'feitas': 1, 'adiadas_alguma_vez': 2, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 0, 'replans': 2}
+    tomlkit-0002       {'feitas': 2, 'adiadas_alguma_vez': 1, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 0, 'replans': 0}
+    tomlkit-0003       {'feitas': 0, 'adiadas_alguma_vez': 5, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 0, 'replans': 0}
+    tomlkit-0004       {'feitas': 0, 'adiadas_alguma_vez': 3, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 0, 'replans': 0}
+    tomlkit-0005       {'feitas': 0, 'adiadas_alguma_vez': 5, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 0, 'replans': 0}
+== r6 (docs/tcc/dados/coleta-r6)
+  runs=39 resolvidas=19 tarefas_resolvidas(maioria das repetições)=6/13
+  custo=US$5.97 tokens=46.3M mediana/run=1.30M cache_gravada=n/d
+  cortes=16 concluiu=23 aprovacoes_erradas(concluiu sem resolver)=5 resolvidas_no_corte=1 error=0
+  faixas (resolvidas/runs)={'media': [4, 12], 'pequena': [11, 18], 'grande': [4, 9]}
+  por tarefa: attrs-0001=1/3 peewee-0001=3/3 peewee-0002=0/3 peewee-0003=3/3 pygments-0001=3/3 sqlite-utils-0001=0/3 sqlite-utils-0002=2/3 sqlite-utils-0003=0/3 tomlkit-0001=3/3 tomlkit-0002=1/3 tomlkit-0003=3/3 tomlkit-0004=0/3 tomlkit-0005=0/3
+  nao resolvidas: attrs-0001-r2(budget:), attrs-0001-r3(conclui), peewee-0002-r1(budget:), peewee-0002-r2(budget:), peewee-0002-r3(budget:), sqlite-utils-0001-r1(conclui), sqlite-utils-0001-r2(budget:), sqlite-utils-0001-r3(conclui), sqlite-utils-0002-r1(conclui), sqlite-utils-0003-r1(budget:), sqlite-utils-0003-r2(budget:), sqlite-utils-0003-r3(conclui), tomlkit-0002-r1(budget:), tomlkit-0002-r2(budget:), tomlkit-0004-r1(budget:), tomlkit-0004-r2(budget:), tomlkit-0004-r3(budget:), tomlkit-0005-r1(budget:), tomlkit-0005-r2(budget:), tomlkit-0005-r3(budget:)
+  mecanismos (eventos; runs = arquivos events.jsonl com run_end, inclusive tentativas repetidas): {'runs': 39, 'subtarefas': 103, 'feitas': 17, 'adiadas_no_fim': 19, 'abandonadas': 4, 'adiadas_alguma_vez': 23, 'adiadas_depois_feitas': 0, 'replans': 5, 'exec_shell': 0, 'runs_com_shell': 0, 'blocos_nao_compilam': 34, 'runs_com_nao_compila': 8, 'subtarefa_aprovada': 17, 'subtarefa_reprovada': 74, 'revisoes_finais': 84, 'finais_reprovadas': 62}
+    attrs-0001         {'feitas': 6, 'adiadas_alguma_vez': 0, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 0, 'replans': 2}
+    peewee-0001        {'feitas': 2, 'adiadas_alguma_vez': 0, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 0, 'replans': 1}
+    peewee-0002        {'feitas': 0, 'adiadas_alguma_vez': 6, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 0, 'replans': 0}
+    peewee-0003        {'feitas': 5, 'adiadas_alguma_vez': 0, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 0, 'replans': 1}
+    pygments-0001      {'feitas': 0, 'adiadas_alguma_vez': 0, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 0, 'replans': 0}
+    sqlite-utils-0001  {'feitas': 0, 'adiadas_alguma_vez': 2, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 0, 'replans': 1}
+    sqlite-utils-0002  {'feitas': 0, 'adiadas_alguma_vez': 0, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 0, 'replans': 0}
+    sqlite-utils-0003  {'feitas': 2, 'adiadas_alguma_vez': 5, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 5, 'replans': 0}
+    tomlkit-0001       {'feitas': 0, 'adiadas_alguma_vez': 0, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 15, 'replans': 0}
+    tomlkit-0002       {'feitas': 2, 'adiadas_alguma_vez': 1, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 0, 'replans': 0}
+    tomlkit-0003       {'feitas': 0, 'adiadas_alguma_vez': 3, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 14, 'replans': 0}
+    tomlkit-0004       {'feitas': 0, 'adiadas_alguma_vez': 3, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 0, 'replans': 0}
+    tomlkit-0005       {'feitas': 0, 'adiadas_alguma_vez': 3, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 0, 'replans': 0}
+== r7 (runs/coleta-r7)
+  runs=39 resolvidas=23 tarefas_resolvidas(maioria das repetições)=9/13
+  custo=US$4.37 tokens=32.3M mediana/run=0.69M cache_gravada=0.907
+  cortes=10 concluiu=27 aprovacoes_erradas(concluiu sem resolver)=6 resolvidas_no_corte=1 error=2
+  faixas (resolvidas/runs)={'media': [6, 12], 'pequena': [13, 18], 'grande': [4, 9]}
+  por tarefa: attrs-0001=2/3 peewee-0001=2/3 peewee-0002=0/3 peewee-0003=3/3 pygments-0001=3/3 sqlite-utils-0001=2/3 sqlite-utils-0002=2/3 sqlite-utils-0003=2/3 tomlkit-0001=3/3 tomlkit-0002=1/3 tomlkit-0003=3/3 tomlkit-0004=0/3 tomlkit-0005=0/3
+  nao resolvidas: attrs-0001-r1(conclui), peewee-0001-r3(budget:), peewee-0002-r1(budget:), peewee-0002-r2(budget:), peewee-0002-r3(error: ), sqlite-utils-0001-r1(conclui), sqlite-utils-0002-r3(conclui), sqlite-utils-0003-r2(conclui), tomlkit-0002-r2(conclui), tomlkit-0002-r3(conclui), tomlkit-0004-r1(budget:), tomlkit-0004-r2(budget:), tomlkit-0004-r3(budget:), tomlkit-0005-r1(budget:), tomlkit-0005-r2(budget:), tomlkit-0005-r3(budget:)
+  mecanismos (eventos; runs = arquivos events.jsonl com run_end, inclusive tentativas repetidas): {'runs': 41, 'subtarefas': 162, 'feitas': 26, 'adiadas_no_fim': 34, 'abandonadas': 7, 'adiadas_alguma_vez': 46, 'adiadas_depois_feitas': 2, 'replans': 2, 'exec_shell': 18, 'runs_com_shell': 3, 'blocos_nao_compilam': 17, 'runs_com_nao_compila': 4, 'subtarefa_aprovada': 26, 'subtarefa_reprovada': 50, 'revisoes_finais': 87, 'finais_reprovadas': 61}
+    attrs-0001         {'feitas': 5, 'adiadas_alguma_vez': 1, 'adiadas_depois_feitas': 1, 'exec_shell': 0, 'blocos_nao_compilam': 0, 'replans': 1}
+    peewee-0001        {'feitas': 1, 'adiadas_alguma_vez': 6, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 0, 'replans': 0}
+    peewee-0002        {'feitas': 7, 'adiadas_alguma_vez': 2, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 0, 'replans': 0}
+    peewee-0003        {'feitas': 0, 'adiadas_alguma_vez': 0, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 0, 'replans': 0}
+    pygments-0001      {'feitas': 2, 'adiadas_alguma_vez': 6, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 0, 'replans': 0}
+    sqlite-utils-0001  {'feitas': 0, 'adiadas_alguma_vez': 2, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 0, 'replans': 0}
+    sqlite-utils-0002  {'feitas': 0, 'adiadas_alguma_vez': 0, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 1, 'replans': 0}
+    sqlite-utils-0003  {'feitas': 5, 'adiadas_alguma_vez': 5, 'adiadas_depois_feitas': 0, 'exec_shell': 18, 'blocos_nao_compilam': 0, 'replans': 0}
+    tomlkit-0001       {'feitas': 0, 'adiadas_alguma_vez': 0, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 5, 'replans': 0}
+    tomlkit-0002       {'feitas': 3, 'adiadas_alguma_vez': 3, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 8, 'replans': 0}
+    tomlkit-0003       {'feitas': 0, 'adiadas_alguma_vez': 2, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 3, 'replans': 0}
+    tomlkit-0004       {'feitas': 0, 'adiadas_alguma_vez': 8, 'adiadas_depois_feitas': 0, 'exec_shell': 0, 'blocos_nao_compilam': 0, 'replans': 0}
+    tomlkit-0005       {'feitas': 3, 'adiadas_alguma_vez': 11, 'adiadas_depois_feitas': 1, 'exec_shell': 0, 'blocos_nao_compilam': 0, 'replans': 1}

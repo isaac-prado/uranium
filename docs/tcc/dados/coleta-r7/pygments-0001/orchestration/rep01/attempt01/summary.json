@@ -1,0 +1,28 @@
+{
+  "run_id": "pygments-0001-orchestration-r01-a01",
+  "arm": "orchestration",
+  "task_id": "pygments-0001",
+  "repetition": 1,
+  "attempt": 1,
+  "llm_seed": 20260821,
+  "topology": "multi_agent_roles",
+  "stop_reason": "error: ValueError",
+  "lost": false,
+  "is_valid": false,
+  "changed_files": [],
+  "diff_stat": {},
+  "turns": 0,
+  "totals": {
+    "tokens_prompt": 1089278,
+    "tokens_completion": 26454,
+    "tokens_reasoning": 0,
+    "tokens_total": 1115732,
+    "tokens_cached": 1006656,
+    "cost_usd": 0.1519062,
+    "llm_calls": 82,
+    "tool_calls": 74,
+    "test_runs": 2,
+    "errors": 2
+  },
+  "out_dir": "runs/coleta-r7/pygments-0001/orchestration/rep01/attempt01"
+}

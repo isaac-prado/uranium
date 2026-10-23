@@ -215,6 +215,25 @@ class ProviderError(RuntimeError):
 _STATUS_DE_INFRA = frozenset({401, 402, 403, 408, 409, 429})
 
 
+def openrouter_error_body(exc: BaseException) -> dict[str, Any] | None:
+    """
+    Erro que o OpenRouter devolve no corpo de uma resposta HTTP 200
+    (`{"error": {"message", "code", "metadata": {"error_type", ...}}}`), que o
+    cliente do LangChain levanta como `ValueError(dict)` em vez de
+    `APIStatusError`. Na rodada 7 (22/10/2026) dois runs morreram assim com
+    `code: 502, error_type: provider_unavailable` da DeepInfra e saíram como
+    `error:` (run terminado) em vez de `infra_error:` (perdido).
+    """
+    if isinstance(exc, ValueError) and exc.args and isinstance(exc.args[0], dict):
+        return exc.args[0]
+    return None
+
+
+def _openrouter_body_status(corpo: dict[str, Any]) -> int | None:
+    codigo = corpo.get("code")
+    return codigo if isinstance(codigo, int) and not isinstance(codigo, bool) else None
+
+
 def is_provider_error(exc: BaseException) -> bool:
     """Diz se a exceção é falha de infraestrutura, e não do modelo ou do run."""
     import httpx
@@ -224,6 +243,13 @@ def is_provider_error(exc: BaseException) -> bool:
         return True
     if isinstance(exc, openai.APIStatusError):
         return exc.status_code in _STATUS_DE_INFRA or exc.status_code >= 500
+    corpo = openrouter_error_body(exc)
+    if corpo is not None:
+        status = _openrouter_body_status(corpo)
+        tipo = (corpo.get("metadata") or {}).get("error_type")
+        if status is not None and (status in _STATUS_DE_INFRA or status >= 500):
+            return True
+        return tipo == "provider_unavailable"
     return isinstance(
         exc, (openai.APIConnectionError, httpx.TransportError, TimeoutError, ConnectionError)
     )
@@ -248,7 +274,10 @@ def is_fatal_provider_error(exc: BaseException) -> bool:
     import openai
 
     raiz = root_provider_error(exc)
-    return isinstance(raiz, openai.APIStatusError) and raiz.status_code in _STATUS_FATAL
+    if isinstance(raiz, openai.APIStatusError):
+        return raiz.status_code in _STATUS_FATAL
+    corpo = openrouter_error_body(raiz)
+    return corpo is not None and _openrouter_body_status(corpo) in _STATUS_FATAL
 
 
 # --------------------------------------------------------------------- config

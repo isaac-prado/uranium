@@ -1,0 +1,131 @@
+{
+  "result_schema_version": 2,
+  "harness_version": "1.0.0",
+  "evaluated_at": "2026-10-23T00:10:31+00:00",
+  "run_id": "peewee-0002-orchestration-r02-a01",
+  "arm": "orchestration",
+  "task_id": "peewee-0002",
+  "faixa": "media",
+  "repetition": 2,
+  "base_commit": "fc1811ecc1c55be8b1c4fd116c5d05c4ff7cf794",
+  "resolved": false,
+  "resolved_blocked_by_cheat": false,
+  "oracle": {
+    "f2p_total": 6,
+    "f2p_passed": 2,
+    "f2p": {
+      "exit_code": 1,
+      "passed": 2,
+      "failed": 4,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.92,
+      "failing_node_ids": [
+        "tests/migrations.py::TestSchemaMigration::test_make_index_name_long",
+        "tests/reflection.py::TestReflection::test_column_map_not_shared_with_class",
+        "tests/sql.py::TestOnConflictSqlite::test_unbound_error",
+        "tests/transactions.py::TestTransaction::test_commit_rollback_closed"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "p2p": {
+      "exit_code": 1,
+      "passed": 1400,
+      "failed": 4,
+      "errors": 0,
+      "skipped": 144,
+      "duration_s": 4.98,
+      "failing_node_ids": [
+        "tests/migrations.py::TestSchemaMigration::test_make_index_name_long",
+        "tests/reflection.py::TestReflection::test_column_map_not_shared_with_class",
+        "tests/sql.py::TestOnConflictSqlite::test_unbound_error",
+        "tests/transactions.py::TestTransaction::test_commit_rollback_closed"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "regression": {
+      "exit_code": 1,
+      "passed": 1400,
+      "failed": 4,
+      "errors": 0,
+      "skipped": 144,
+      "duration_s": 4.94,
+      "failing_node_ids": [
+        "tests/migrations.py::TestSchemaMigration::test_make_index_name_long",
+        "tests/reflection.py::TestReflection::test_column_map_not_shared_with_class",
+        "tests/sql.py::TestOnConflictSqlite::test_unbound_error",
+        "tests/transactions.py::TestTransaction::test_commit_rollback_closed"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    }
+  },
+  "cheat": {
+    "clean": false,
+    "critical_count": 1,
+    "warning_count": 0,
+    "signals": [
+      {
+        "rule": "C1",
+        "severity": "critical",
+        "file": "exec_test.py",
+        "line": null,
+        "detail": "arquivo protegido alterado (padrão '**/*_test.py')"
+      }
+    ]
+  },
+  "quality": {
+    "mi_before": 0.0,
+    "mi_after": 0.0,
+    "mi_delta": 0.0,
+    "cc_mean_before": 2.587,
+    "cc_mean_after": 2.592,
+    "cc_mean_delta": 0.005,
+    "files_analyzed": 1,
+    "error": null
+  },
+  "cost": {
+    "tokens_prompt": 1179691,
+    "tokens_completion": 18916,
+    "tokens_reasoning": 0,
+    "tokens_total": 1198607,
+    "tokens_cached": 1100208,
+    "cost_usd": 0.1527817,
+    "llm_calls": 129,
+    "byok_calls": 129,
+    "tool_calls": 116,
+    "wall_seconds": 573.173
+  },
+  "process": {
+    "turns": 120,
+    "test_runs": 4,
+    "tool_denials": 16,
+    "errors": 0,
+    "circuit_breaks": 2,
+    "self_recoveries": 0,
+    "stop_reason": "budget: max_turns (120 >= 120)"
+  },
+  "provenance": {
+    "model": "qwen/qwen3-coder",
+    "provider_requested": "DeepInfra",
+    "providers_served": [
+      "DeepInfra"
+    ],
+    "llm_seed": 20260822,
+    "topology": "multi_agent_roles"
+  },
+  "diff": {
+    "files_changed": 1,
+    "insertions": 17,
+    "deletions": 1,
+    "changed_files": [
+      "exec_test.py",
+      "peewee.py",
+      "peewee_test.db-shm",
+      "teste_temp.py",
+      "teste_window.py"
+    ]
+  }
+}
