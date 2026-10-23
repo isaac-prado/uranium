@@ -37,7 +37,7 @@ from src.schemas.validation_result import ValidationResult
 from src.state import WorkflowState, parse_intent
 from src.structured_llm import StructuredOutputError, invoke_structured
 from src.tools.base import truncate
-from src.tools.exec import _build_env, run_pytest, run_python
+from src.tools.exec import _build_env, reverter_protegidos, run_pytest, run_python
 from src.verificacao import ENCONTRADA as ENCONTRADA_
 from src.verificacao import NAO_ENCONTRADA as NAO_ENCONTRADA_
 from src.verificacao import NAO_VERIFICAVEL as NAO_VERIFICAVEL_
@@ -254,6 +254,7 @@ def _executar_comandos(ctx: RunContext, comandos: list[list[str]], timeout_s: in
     partes: list[str] = []
     for argv in comandos:
         mostrado = " ".join(shlex.quote(a) for a in [Path(argv[0]).name, *argv[1:]])
+        antes = set(ws.protected_touched())
         inicio = time.perf_counter()
         try:
             proc = subprocess.run(argv, cwd=ws.root, capture_output=True, text=True,
@@ -262,10 +263,8 @@ def _executar_comandos(ctx: RunContext, comandos: list[list[str]], timeout_s: in
         except subprocess.TimeoutExpired:
             saida, codigo, estourou = "", -1, True
         duracao = time.perf_counter() - inicio
-        violados = ws.protected_touched()
+        violados = reverter_protegidos(ws, antes)
         if violados:
-            for rel in violados:
-                subprocess.run(["git", "checkout", "--", rel], cwd=ws.root, capture_output=True)
             partes.append(f"$ {mostrado}\nRECUSADO: o comando alterou arquivo protegido ({', '.join(violados)}). A alteração foi revertida.")
             break
         if estourou:

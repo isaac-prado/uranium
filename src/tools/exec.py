@@ -195,6 +195,42 @@ SNIPPET_FILE = ".uranium_snippet.py"
 DEFAULT_SNIPPET_TIMEOUT_S = 60
 
 
+def _nao_rastreados(ws: Workspace) -> set[str]:
+    proc = subprocess.run(
+        ["git", "ls-files", "--others", "--exclude-standard"],
+        cwd=ws.root, capture_output=True, text=True,
+    )
+    return set(proc.stdout.split())
+
+
+def reverter_protegidos(ws: Workspace, antes: set[str] | None = None) -> list[str]:
+    """
+    Desfaz o que uma execução fez em arquivos protegidos e devolve os que
+    ela tocou.
+
+    Arquivo rastreado volta ao commit-base (`git checkout`); arquivo novo,
+    não rastreado, é apagado, porque `git checkout` não o remove. Sem isso um
+    arquivo deixado por uma execução ficava no workspace e toda execução
+    seguinte era recusada (rodada 7, peewee-0002 rep02: `exec_test.py` criado
+    por código em `run_python`; 16 execuções do developer e 28 do validador
+    recusadas até o fim; docs/tcc/23-rodada-7.md §4.4). Correção aprovada
+    pelo autor em 22/10/2026 (decisão 47). `antes` é o conjunto de protegidos
+    já tocados antes da execução: tudo é restaurado, mas só o que é novo em
+    relação a ele é atribuído a esta execução.
+    """
+    violados = ws.protected_touched()
+    if not violados:
+        return []
+    novos = _nao_rastreados(ws)
+    for rel in violados:
+        if rel in novos:
+            (ws.root / rel).unlink(missing_ok=True)
+        else:
+            subprocess.run(["git", "checkout", "--", rel], cwd=ws.root, capture_output=True)
+    ja_tocados = antes or set()
+    return [rel for rel in violados if rel not in ja_tocados]
+
+
 def run_python(
     ws: Workspace,
     code: str,
@@ -214,6 +250,7 @@ def run_python(
     dentro do Python contornaria a guarda de caminho — a alteração é
     revertida e a chamada é recusada.
     """
+    antes = set(ws.protected_touched())
     alvo = ws.root / SNIPPET_FILE
     alvo.write_text(code, encoding="utf-8")
 
@@ -234,10 +271,8 @@ def run_python(
 
     duracao = time.perf_counter() - inicio
 
-    violados = ws.protected_touched()
+    violados = reverter_protegidos(ws, antes)
     if violados:
-        for rel in violados:
-            subprocess.run(["git", "checkout", "--", rel], cwd=ws.root, capture_output=True)
         return (
             "RECUSADO: o trecho alterou arquivo protegido "
             f"({', '.join(violados)}). A alteração foi revertida. "

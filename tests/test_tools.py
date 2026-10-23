@@ -427,3 +427,48 @@ class TestContabilidadeDeContexto:
         r = registros[0]
         assert r.bytes_written == len(("a = 1\n" * 100).encode())
         assert r.bytes_read > 0, "a confirmação devolvida ao modelo também ocupa contexto"
+
+
+# ------------------------------------------------- guarda da execução (decisão 47)
+
+
+@mirror_available
+class TestGuardaDaExecucaoRestauraArquivoNovo:
+    """
+    Decisão 47 (22/10/2026): arquivo protegido criado por código executado é
+    apagado ao recusar. Antes, `git checkout` não removia arquivo novo, o
+    arquivo ficava no workspace e toda execução seguinte era recusada
+    (rodada 7, peewee-0002 rep02: 16 execuções do developer e 28 do validador).
+    """
+
+    def test_arquivo_novo_e_apagado_e_a_execucao_seguinte_nao_e_recusada(self, tools, ws):
+        out = tools["run_python"].invoke({"code": "open('rascunho_test.py', 'w').write('x = 1\\n')"})
+        assert out.startswith("RECUSADO") and "rascunho_test.py" in out
+        assert not (ws.root / "rascunho_test.py").exists()
+        assert ws.protected_touched() == []
+        depois = tools["run_python"].invoke({"code": "print('limpo')"})
+        assert depois.startswith("exit=0") and "limpo" in depois
+
+    def test_arquivo_rastreado_volta_ao_commit_base(self, tools, ws):
+        alvo = ws.root / "tests" / "test_items.py"
+        original = alvo.read_text(encoding="utf-8")
+        out = tools["run_python"].invoke({"code": "open('tests/test_items.py', 'a').write('# trapaca\\n')"})
+        assert out.startswith("RECUSADO") and "tests/test_items.py" in out
+        assert alvo.read_text(encoding="utf-8") == original
+        assert ws.protected_touched() == []
+
+    def test_comando_do_validador_usa_a_mesma_guarda(self, ws):
+        from types import SimpleNamespace
+
+        from src.agents.validator import _executar_comandos
+
+        python_bin = ws.spec.seed_repo.python_bin
+        ctx = SimpleNamespace(workspace=ws)
+        out = _executar_comandos(
+            ctx, [[python_bin, "-c", "open('novo_test.py', 'w').write('1')"]], timeout_s=30
+        )
+        assert "RECUSADO" in out and "novo_test.py" in out
+        assert not (ws.root / "novo_test.py").exists()
+        assert ws.protected_touched() == []
+        limpo = _executar_comandos(ctx, [[python_bin, "-c", "print('ok')"]], timeout_s=30)
+        assert "exit=0" in limpo and "ok" in limpo

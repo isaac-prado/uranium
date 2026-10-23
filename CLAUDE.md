@@ -6,7 +6,7 @@ Fonte de verdade sobre o desenho: `docs/tcc/00-guia-etapas.md`, `docs/tcc/01-inv
 
 ## Intocáveis sem aprovação do autor
 
-- Detector de trapaça (`harness/cheat.py`), oráculo (`harness/oracle.py`), guarda de caminho (`src/seeds.py` `DEFAULT_PROTECTED_GLOBS` e `src/workspace.py`), pino de provedor (`src/config.py`: `provider_routing`, `_validate`, `OpenRouterChat`).
+- Detector de trapaça (`harness/cheat.py`), oráculo (`harness/oracle.py`), guarda de caminho (`src/seeds.py` `DEFAULT_PROTECTED_GLOBS` e `src/workspace.py`), pino de provedor (`src/config.py`: `provider_routing`, `_validate`, `OpenRouterChat`). Decisão 47 (22/10/2026, aprovada por escrito): ao recusar uma execução que tocou arquivo protegido, `src/tools/exec.py::reverter_protegidos` apaga o arquivo novo e restaura o rastreado (antes, `git checkout` deixava o arquivo novo e todas as execuções seguintes do run eram recusadas: rodada 7, peewee-0002 rep02).
 - Prompts (`src/prompts.py`). Os dois braços usam o mesmo prompt de sistema e o mesmo conjunto de ferramentas na mesma ordem.
 - O refinador de intent tem duas versões (`INTENT_REFINER`, `orchestration_policy.intent_refiner`, manifesto v9): `v1` é o prompt do TFG, que resume, e é o da coleta principal de 12-13/10/2026; `v2` enriquece (reprodução, saídas esperadas e restrições copiadas literalmente, critérios verificáveis), aprovado por escrito pelo autor em 14/10/2026 (decisão 28) e roda em coleta própria, nunca misturado com a principal. Intent v2 entra no prompt do developer e do revisor como markdown (`src/schemas/intent.py::intent_as_text`); v1 continua JSON.
 - Mensagens de protocolo ao agente vivem só em `src/feedback.py`. Nenhum braço pode ter texto próprio de feedback; `tests/test_arm_parity.py` falha se houver.

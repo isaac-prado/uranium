@@ -412,3 +412,11 @@ Relatório em [07-e4-fumaca.md](07-e4-fumaca.md): 4 células (`tomlkit-0002` gra
 **Fração em cache das coletas anteriores (inferida, porque o campo não existia).** `scripts/cache_fraction.py` sobre os eventos ([dados/sondagens/fracao-cache-por-coleta-2026-10-22.txt](dados/sondagens/fracao-cache-por-coleta-2026-10-22.txt)): single-agent pareado 95,4 %, orquestrado rodada 6 92,4 %, rodada 5 91,5 %, rodada 4 82,5 %. O orquestrado aproveita menos cache porque cada troca de nó e cada ciclo do developer (memória de trabalho e sub-tarefa atualizadas) muda o prefixo; o single-agent só acrescenta. Leitura e consequência para a projeção da replicação em [08-escolha-modelo.md](08-escolha-modelo.md) §10.2.
 
 **Impacto em docs.** Decisão 46 e registro em [09-decisoes-do-autor.md](09-decisoes-do-autor.md); [08-escolha-modelo.md](08-escolha-modelo.md) §10.2; [23-rodada-7.md](23-rodada-7.md) §2 (a rodada 7 é a primeira coleta com o campo gravado); `CLAUDE.md`.
+
+## Guarda da execução: arquivo protegido novo é apagado ao recusar (22/10/2026, decisão 47)
+
+**Diff resumido.** `src/tools/exec.py`: `reverter_protegidos(ws, antes)` (rastreado → `git checkout`; não rastreado → apagado; devolve só o que a execução acrescentou em relação à foto `antes`) e `run_python` fotografa `ws.protected_touched()` antes de rodar o trecho; `src/agents/validator.py::_executar_comandos` usa o mesmo helper no lugar da cópia local do `git checkout`. Guarda de caminho (`DEFAULT_PROTECTED_GLOBS`, `src/workspace.py`) inalterada; mensagem `RECUSADO` inalterada. Os dois braços compartilham `run_python`, então a mudança é simétrica.
+
+**Teste que prova.** `tests/test_tools.py::TestGuardaDaExecucaoRestauraArquivoNovo` (+3: arquivo novo `rascunho_test.py` apagado e a execução seguinte aceita; `tests/test_items.py` alterado por código volta ao commit-base; comando do validador com a mesma guarda). Guardas existentes (`test_nodes`, `test_oracle_contract`, `TestRodada7`) continuam passando.
+
+**Motivo.** peewee-0002 rep02 da rodada 7: `exec_test.py` criado por código em `run_python`; 16 execuções do developer e 28 do validador recusadas até o fim ([23-rodada-7.md](23-rodada-7.md) §4.4). Decisão 47 em [09-decisoes-do-autor.md](09-decisoes-do-autor.md).
