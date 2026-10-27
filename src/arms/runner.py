@@ -37,8 +37,8 @@ from src.tools.base import (
     MAX_SEARCH_RESULTS,
     MAX_TOOL_OUTPUT_CHARS,
 )
-from src.tools.exec import DEFAULT_SNIPPET_TIMEOUT_S
-from src.workspace import Workspace, WorkspaceSpec
+from src.tools.exec import DEFAULT_SNIPPET_TIMEOUT_S, sandbox_mode
+from src.workspace import WORKSPACE_HISTORY, Workspace, WorkspaceSpec
 
 # 5 = a forma de v3 restaurada após a reversão da decisão 24 (09/10/2026):
 # v4 existiu só na checagem paga de 09/10 (`orchestration_policy.developer_input`)
@@ -64,7 +64,7 @@ from src.workspace import Workspace, WorkspaceSpec
 # "hybrid", `review_compare` ganha "neutral" e entra
 # `reproduction_compile_check`.
 # 16 = rodada 7 (decisão 44, 22/10/2026): entra `reproduction_shell`.
-MANIFEST_VERSION = 17
+MANIFEST_VERSION = 18
 
 # Chaves do manifesto que PODEM diferir entre os braços. Qualquer outra
 # divergência é violação do desenho experimental. Note que `repetition` NÃO
@@ -120,6 +120,11 @@ def _shared_limits(budget: RunBudget) -> dict[str, Any]:
         # sem esta chave rodaram com rootdir na raiz do uranium, onde o
         # visible_deselect não surtia efeito (rodada 2, 14/10/2026).
         "pytest_rootdir": "workspace",
+        # Decisão 49 (27/10/2026): workspace só com o commit-base e execução do
+        # agente em caixa de areia; iguais nos dois braços. Runs sem estas
+        # chaves rodaram com o histórico do espelho visível e sem caixa.
+        "workspace_history": WORKSPACE_HISTORY,
+        "sandbox": sandbox_mode(),
     }
 
 

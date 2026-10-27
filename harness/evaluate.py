@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Any
 
 from harness import HARNESS_VERSION, RESULT_SCHEMA_VERSION
-from harness.cheat import detect
+from harness.cheat import detect, mirror_for
 from harness.cost import aggregate_cost, aggregate_process, providers_served, read_events
 from harness.gitutil import base_commit, changed_files, diffstat
 from harness.oracle import evaluate_oracle
@@ -96,7 +96,10 @@ def evaluate_run(
     with _workspace_descartavel(origem) as workspace:
         # 1. trapaça e diff, sobre o estado exato em que o agente parou
         alterados = changed_files(workspace)
-        trapaca = detect(workspace, task.protected_globs)
+        trapaca = detect(
+            workspace, task.protected_globs,
+            mirror=mirror_for(task.seed_repo_id), base_commit=task.base_commit,
+        )
         estatistica_diff = diffstat(workspace)
         commit_base = base_commit(workspace)
 

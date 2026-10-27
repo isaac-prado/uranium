@@ -25,6 +25,17 @@ _FORBIDDEN_PREFIXES = (".git/",)
 
 BASE_TAG = "uranium-base"
 
+# Decisão 49 (27/10/2026, aprovada por escrito): o workspace nasce só com o
+# commit-base. Antes era `git clone --shared` do espelho inteiro, e `master`,
+# tags e commits posteriores ficavam visíveis dentro do workspace; um trecho
+# executado por `run_python` podia fazer `git show master:arquivo` e trazer
+# código futuro do upstream, inclusive a correção de referência (rodada 8,
+# tomlkit-0004 rep01: versão 0.1.1 -> "0.15.2", 4.866 linhas que o modelo não
+# digitou; coleta principal, tomlkit-0004 rep02; rodada 4, sqlite-utils-0001
+# rep01; `docs/tcc/dados/sondagens/vazamento-git-2026-10-27.txt`). Vai ao
+# manifesto em `shared_limits.workspace_history`.
+WORKSPACE_HISTORY = "commit-base-only"
+
 
 class WorkspaceError(RuntimeError):
     """Falha ao materializar ou operar o workspace."""
@@ -107,7 +118,8 @@ class Workspace:
         Cria o workspace clonando do espelho bare local, sem tocar na rede.
 
         Deixa o repositório no branch `uranium/<run_id>`, apontando para
-        `base_commit`, com a tag `uranium-base` marcando o estado inicial.
+        `base_commit`, com a tag `uranium-base` marcando o estado inicial, e
+        sem nenhum outro commit, ref ou alternates (`WORKSPACE_HISTORY`).
         """
         mirror = spec.seed_repo.mirror_path
         if not mirror.exists():
@@ -120,14 +132,19 @@ class Workspace:
             if not overwrite:
                 raise WorkspaceError(f"Workspace já existe: {root}")
             shutil.rmtree(root)
-        root.parent.mkdir(parents=True, exist_ok=True)
+        root.mkdir(parents=True)
 
+        # Só o commit-base entra (decisão 49): sem alternates para o espelho,
+        # sem remoto, sem refs além do branch do run e da tag `uranium-base`.
+        # O sha pedido não é ponta de ref no espelho, daí o allowAnySHA1InWant
+        # (o upload-pack local herda a configuração do cliente).
+        _git("init", "--quiet", cwd=root)
         _git(
-            "clone", "--quiet", "--shared", "--no-checkout",
-            str(mirror), str(root),
-            cwd=root.parent,
+            "-c", "uploadpack.allowAnySHA1InWant=true",
+            "fetch", "--quiet", "--depth", "1", f"file://{mirror}", spec.base_commit,
+            cwd=root,
         )
-        _git("checkout", "--quiet", spec.base_commit, cwd=root)
+        _git("checkout", "--quiet", "--detach", "FETCH_HEAD", cwd=root)
 
         cls._init_submodules(spec.seed_repo, root)
 

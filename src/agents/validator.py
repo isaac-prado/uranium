@@ -38,7 +38,7 @@ from src.state import WorkflowState, parse_intent
 from src.structured_llm import StructuredOutputError, invoke_structured
 from src.tools.base import truncate
 from src.enunciado import anotar_comparacoes, reparar_blocos
-from src.tools.exec import _build_env, reverter_protegidos, run_pytest, run_python
+from src.tools.exec import executar_isolado, reverter_protegidos, run_pytest, run_python
 from src.verificacao import ENCONTRADA as ENCONTRADA_
 from src.verificacao import NAO_ENCONTRADA as NAO_ENCONTRADA_
 from src.verificacao import NAO_VERIFICAVEL as NAO_VERIFICAVEL_
@@ -269,8 +269,7 @@ def _executar_comandos(ctx: RunContext, comandos: list[list[str]], timeout_s: in
         antes = set(ws.protected_touched())
         inicio = time.perf_counter()
         try:
-            proc = subprocess.run(argv, cwd=ws.root, capture_output=True, text=True,
-                                  env=_build_env(ws), timeout=timeout_s)
+            proc = executar_isolado(ws, argv, timeout_s=timeout_s)
             saida, codigo, estourou = (proc.stdout + proc.stderr).strip(), proc.returncode, False
         except subprocess.TimeoutExpired:
             saida, codigo, estourou = "", -1, True

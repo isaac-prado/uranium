@@ -1,0 +1,467 @@
+# scripts/varredura_vazamento_git.py, 27/10/2026, sobre runs/* (sem -analise); uma linha por run, sinais após ' | '
+ablacao-refinador/attrs-0001/orchestration/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+ablacao-refinador/peewee-0001/orchestration/rep01/attempt01: mods=1 novos=3 master_visivel=sim
+ablacao-refinador/peewee-0002/orchestration/rep01/attempt01: mods=3 novos=1 master_visivel=sim
+ablacao-refinador/peewee-0003/orchestration/rep01/attempt01: mods=1 novos=2 master_visivel=sim
+ablacao-refinador/pygments-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+ablacao-refinador/sqlite-utils-0001/orchestration/rep01/attempt01: mods=1 novos=1 master_visivel=sim
+ablacao-refinador/sqlite-utils-0002/orchestration/rep01/attempt01: mods=1 novos=1 master_visivel=sim
+ablacao-refinador/sqlite-utils-0003/orchestration/rep01/attempt01: mods=3 novos=0 master_visivel=sim
+ablacao-refinador/tomlkit-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+ablacao-refinador/tomlkit-0002/orchestration/rep01/attempt01: mods=3 novos=0 master_visivel=sim
+ablacao-refinador/tomlkit-0003/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+ablacao-refinador/tomlkit-0004/orchestration/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+ablacao-refinador/tomlkit-0005/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta/attrs-0001/orchestration/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+coleta/attrs-0001/orchestration/rep02/attempt01: mods=2 novos=0 master_visivel=sim
+coleta/attrs-0001/orchestration/rep03/attempt01: mods=3 novos=0 master_visivel=sim
+coleta/attrs-0001/single-agent/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+coleta/attrs-0001/single-agent/rep02/attempt01: mods=2 novos=0 master_visivel=sim
+coleta/attrs-0001/single-agent/rep03/attempt01: mods=2 novos=0 master_visivel=sim
+coleta/peewee-0001/orchestration/rep01/attempt01: mods=1 novos=1 master_visivel=sim
+coleta/peewee-0001/orchestration/rep02/attempt01: mods=1 novos=4 master_visivel=sim | MAIS PERTO DE MASTER peewee.py (base 286 vs master 142)
+coleta/peewee-0001/orchestration/rep03/attempt01: mods=1 novos=1 master_visivel=sim
+coleta/peewee-0001/single-agent/rep01/attempt01: mods=1 novos=1 master_visivel=sim
+coleta/peewee-0001/single-agent/rep02/attempt01: mods=3 novos=1 master_visivel=sim
+coleta/peewee-0001/single-agent/rep03/attempt01: mods=1 novos=2 master_visivel=sim
+coleta/peewee-0002/orchestration/rep01/attempt01: mods=3 novos=1 master_visivel=sim
+coleta/peewee-0002/orchestration/rep02/attempt01: mods=4 novos=1 master_visivel=sim
+coleta/peewee-0002/orchestration/rep03/attempt01: mods=2 novos=1 master_visivel=sim
+coleta/peewee-0002/single-agent/rep01/attempt01: mods=3 novos=1 master_visivel=sim
+coleta/peewee-0002/single-agent/rep02/attempt01: mods=5 novos=1 master_visivel=sim
+coleta/peewee-0002/single-agent/rep03/attempt01: mods=5 novos=1 master_visivel=sim
+coleta/peewee-0003/orchestration/rep01/attempt01: mods=1 novos=2 master_visivel=sim
+coleta/peewee-0003/orchestration/rep02/attempt01: mods=1 novos=2 master_visivel=sim
+coleta/peewee-0003/orchestration/rep03/attempt01: mods=1 novos=2 master_visivel=sim
+coleta/peewee-0003/single-agent/rep01/attempt01: mods=1 novos=2 master_visivel=sim
+coleta/peewee-0003/single-agent/rep02/attempt01: mods=1 novos=2 master_visivel=sim
+coleta/peewee-0003/single-agent/rep03/attempt01: mods=1 novos=2 master_visivel=sim
+coleta/pygments-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta/pygments-0001/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta/pygments-0001/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta/pygments-0001/single-agent/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta/pygments-0001/single-agent/rep02/attempt01: mods=1 novos=0 master_visivel=sim | BLOB FUTURO pygments/lexers/go.py = uranium-base-1-g9c436b34c
+coleta/pygments-0001/single-agent/rep03/attempt01: mods=1 novos=1 master_visivel=sim | MAIS PERTO DE MASTER pygments/lexers/go.py (base 55 vs master 51)
+coleta/sqlite-utils-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta/sqlite-utils-0001/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta/sqlite-utils-0001/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta/sqlite-utils-0001/single-agent/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta/sqlite-utils-0001/single-agent/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta/sqlite-utils-0001/single-agent/rep03/attempt01: mods=2 novos=2 master_visivel=sim
+coleta/sqlite-utils-0002/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta/sqlite-utils-0002/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta/sqlite-utils-0002/orchestration/rep03/attempt01: mods=1 novos=1 master_visivel=sim
+coleta/sqlite-utils-0002/single-agent/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta/sqlite-utils-0002/single-agent/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta/sqlite-utils-0002/single-agent/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta/sqlite-utils-0003/orchestration/rep01/attempt01: mods=3 novos=0 master_visivel=sim
+coleta/sqlite-utils-0003/orchestration/rep02/attempt01: mods=3 novos=0 master_visivel=sim
+coleta/sqlite-utils-0003/orchestration/rep03/attempt01: mods=3 novos=0 master_visivel=sim
+coleta/sqlite-utils-0003/single-agent/rep01/attempt01: mods=3 novos=0 master_visivel=sim
+coleta/sqlite-utils-0003/single-agent/rep01/attempt02: mods=3 novos=0 master_visivel=sim | MAIS PERTO DE MASTER sqlite_utils/utils.py (base 217 vs master 62)
+coleta/sqlite-utils-0003/single-agent/rep02/attempt01: mods=3 novos=0 master_visivel=sim
+coleta/sqlite-utils-0003/single-agent/rep03/attempt01: mods=4 novos=0 master_visivel=sim
+coleta/tomlkit-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta/tomlkit-0001/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta/tomlkit-0001/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta/tomlkit-0001/single-agent/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta/tomlkit-0001/single-agent/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta/tomlkit-0001/single-agent/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta/tomlkit-0002/orchestration/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+coleta/tomlkit-0002/orchestration/rep02/attempt01: mods=2 novos=0 master_visivel=sim
+coleta/tomlkit-0002/orchestration/rep03/attempt01: mods=3 novos=1 master_visivel=sim
+coleta/tomlkit-0002/single-agent/rep01/attempt01: mods=3 novos=0 master_visivel=sim
+coleta/tomlkit-0002/single-agent/rep02/attempt01: mods=3 novos=1 master_visivel=sim
+coleta/tomlkit-0002/single-agent/rep03/attempt01: mods=2 novos=0 master_visivel=sim
+coleta/tomlkit-0003/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta/tomlkit-0003/orchestration/rep02/attempt01: mods=2 novos=0 master_visivel=sim
+coleta/tomlkit-0003/orchestration/rep03/attempt01: mods=2 novos=0 master_visivel=sim
+coleta/tomlkit-0003/single-agent/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+coleta/tomlkit-0003/single-agent/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta/tomlkit-0003/single-agent/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta/tomlkit-0004/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta/tomlkit-0004/orchestration/rep02/attempt01: mods=4 novos=2 master_visivel=sim | MAIS PERTO DE MASTER tomlkit/parser.py (base 1481 vs master 8); NOVO COM NOME FUTURO tomlkit/source.py
+coleta/tomlkit-0004/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta/tomlkit-0004/single-agent/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+coleta/tomlkit-0004/single-agent/rep02/attempt01: mods=2 novos=1 master_visivel=sim
+coleta/tomlkit-0004/single-agent/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta/tomlkit-0005/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta/tomlkit-0005/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta/tomlkit-0005/orchestration/rep03/attempt01: mods=0 novos=0 master_visivel=sim
+coleta/tomlkit-0005/single-agent/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta/tomlkit-0005/single-agent/rep02/attempt01: mods=1 novos=1 master_visivel=sim
+coleta/tomlkit-0005/single-agent/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r2/attrs-0001/orchestration/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r2/attrs-0001/orchestration/rep02/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r2/attrs-0001/orchestration/rep03/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r2/peewee-0001/orchestration/rep01/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r2/peewee-0001/orchestration/rep02/attempt01: mods=2 novos=1 master_visivel=sim
+coleta-r2/peewee-0001/orchestration/rep03/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r2/peewee-0002/orchestration/rep01/attempt01: mods=3 novos=1 master_visivel=sim
+coleta-r2/peewee-0002/orchestration/rep02/attempt01: mods=3 novos=1 master_visivel=sim
+coleta-r2/peewee-0002/orchestration/rep03/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r2/peewee-0003/orchestration/rep01/attempt01: mods=1 novos=2 master_visivel=sim
+coleta-r2/peewee-0003/orchestration/rep02/attempt01: mods=1 novos=2 master_visivel=sim
+coleta-r2/peewee-0003/orchestration/rep03/attempt01: mods=1 novos=2 master_visivel=sim
+coleta-r2/pygments-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r2/pygments-0001/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim | MAIS PERTO DE MASTER pygments/lexers/go.py (base 56 vs master 54)
+coleta-r2/pygments-0001/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r2/pygments-0001/single-agent/rep01/attempt01: mods=1 novos=0 master_visivel=sim | MAIS PERTO DE MASTER pygments/lexers/go.py (base 53 vs master 49)
+coleta-r2/pygments-0001/single-agent/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r2/pygments-0001/single-agent/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r2/sqlite-utils-0001/orchestration/rep01/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r2/sqlite-utils-0001/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r2/sqlite-utils-0001/orchestration/rep03/attempt01: mods=2 novos=2 master_visivel=sim
+coleta-r2/sqlite-utils-0002/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r2/sqlite-utils-0002/orchestration/rep02/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r2/sqlite-utils-0002/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r2/sqlite-utils-0002/single-agent/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r2/sqlite-utils-0002/single-agent/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r2/sqlite-utils-0002/single-agent/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r2/sqlite-utils-0003/orchestration/rep01/attempt01: mods=3 novos=0 master_visivel=sim
+coleta-r2/sqlite-utils-0003/orchestration/rep02/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r2/sqlite-utils-0003/orchestration/rep03/attempt01: mods=2 novos=2 master_visivel=sim
+coleta-r2/tomlkit-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r2/tomlkit-0001/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r2/tomlkit-0001/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim | BLOB FUTURO tomlkit/parser.py = uranium-base-12-gb48c094
+coleta-r2/tomlkit-0002/orchestration/rep01/attempt01: mods=3 novos=0 master_visivel=sim
+coleta-r2/tomlkit-0002/orchestration/rep02/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r2/tomlkit-0002/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r2/tomlkit-0003/orchestration/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r2/tomlkit-0003/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r2/tomlkit-0003/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r2/tomlkit-0004/orchestration/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r2/tomlkit-0004/orchestration/rep02/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r2/tomlkit-0004/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r2/tomlkit-0004/single-agent/rep01/attempt01: mods=2 novos=1 master_visivel=sim
+coleta-r2/tomlkit-0004/single-agent/rep02/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r2/tomlkit-0004/single-agent/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r2/tomlkit-0005/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r2/tomlkit-0005/orchestration/rep02/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r2/tomlkit-0005/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r2-descartados/pygments-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim | MAIS PERTO DE MASTER pygments/lexers/go.py (base 75 vs master 67)
+coleta-r2-descartados/pygments-0001/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r2-descartados/sqlite-utils-0002/orchestration/rep01/attempt01: mods=1 novos=2 master_visivel=sim
+coleta-r2-descartados/sqlite-utils-0002/orchestration/rep02/attempt01: mods=1 novos=4 master_visivel=sim
+coleta-r2-descartados/tomlkit-0003/orchestration/rep01/attempt01: mods=0 novos=0 master_visivel=sim
+coleta-r2-descartados/tomlkit-0004/orchestration/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r3/attrs-0001/orchestration/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r3/attrs-0001/orchestration/rep02/attempt01: mods=3 novos=1 master_visivel=sim
+coleta-r3/attrs-0001/orchestration/rep03/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r3/peewee-0001/orchestration/rep01/attempt01: mods=2 novos=1 master_visivel=sim
+coleta-r3/peewee-0001/orchestration/rep02/attempt01: mods=3 novos=1 master_visivel=sim
+coleta-r3/peewee-0001/orchestration/rep03/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r3/peewee-0002/orchestration/rep01/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r3/peewee-0002/orchestration/rep02/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r3/peewee-0002/orchestration/rep03/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r3/peewee-0003/orchestration/rep01/attempt01: mods=1 novos=2 master_visivel=sim
+coleta-r3/peewee-0003/orchestration/rep02/attempt01: mods=1 novos=2 master_visivel=sim
+coleta-r3/peewee-0003/orchestration/rep03/attempt01: mods=1 novos=2 master_visivel=sim
+coleta-r3/pygments-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim | MAIS PERTO DE MASTER pygments/lexers/go.py (base 95 vs master 89)
+coleta-r3/pygments-0001/orchestration/rep02/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r3/pygments-0001/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim | MAIS PERTO DE MASTER pygments/lexers/go.py (base 65 vs master 63)
+coleta-r3/sqlite-utils-0001/orchestration/rep01/attempt01: mods=1 novos=2 master_visivel=sim
+coleta-r3/sqlite-utils-0001/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r3/sqlite-utils-0001/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r3/sqlite-utils-0002/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r3/sqlite-utils-0002/orchestration/rep02/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r3/sqlite-utils-0002/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r3/sqlite-utils-0003/orchestration/rep01/attempt01: mods=4 novos=0 master_visivel=sim
+coleta-r3/sqlite-utils-0003/orchestration/rep02/attempt01: mods=3 novos=0 master_visivel=sim
+coleta-r3/sqlite-utils-0003/orchestration/rep03/attempt01: mods=3 novos=0 master_visivel=sim
+coleta-r3/tomlkit-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r3/tomlkit-0001/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r3/tomlkit-0001/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r3/tomlkit-0002/orchestration/rep01/attempt01: mods=3 novos=0 master_visivel=sim
+coleta-r3/tomlkit-0002/orchestration/rep02/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r3/tomlkit-0002/orchestration/rep03/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r3/tomlkit-0003/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r3/tomlkit-0003/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r3/tomlkit-0003/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r3/tomlkit-0004/orchestration/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r3/tomlkit-0004/orchestration/rep02/attempt01: mods=3 novos=0 master_visivel=sim
+coleta-r3/tomlkit-0004/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r3/tomlkit-0005/orchestration/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r3/tomlkit-0005/orchestration/rep02/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r3/tomlkit-0005/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r4/attrs-0001/orchestration/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r4/attrs-0001/orchestration/rep02/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r4/attrs-0001/orchestration/rep03/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r4/peewee-0001/orchestration/rep01/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r4/peewee-0001/orchestration/rep02/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r4/peewee-0001/orchestration/rep03/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r4/peewee-0002/orchestration/rep01/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r4/peewee-0002/orchestration/rep01/attempt02: mods=1 novos=1 master_visivel=sim
+coleta-r4/peewee-0002/orchestration/rep02/attempt01: mods=1 novos=4 master_visivel=sim
+coleta-r4/peewee-0002/orchestration/rep03/attempt01: mods=1 novos=3 master_visivel=sim
+coleta-r4/peewee-0003/orchestration/rep01/attempt01: mods=1 novos=2 master_visivel=sim
+coleta-r4/peewee-0003/orchestration/rep02/attempt01: mods=1 novos=2 master_visivel=sim
+coleta-r4/peewee-0003/orchestration/rep03/attempt01: mods=1 novos=2 master_visivel=sim
+coleta-r4/pygments-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r4/pygments-0001/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r4/pygments-0001/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r4/sqlite-utils-0001/orchestration/rep01/attempt01: mods=2 novos=4 master_visivel=sim | MAIS PERTO DE MASTER sqlite_utils/db.py (base 1635 vs master 86); NOVO COM NOME FUTURO sqlite_utils/create_table_parser.py
+coleta-r4/sqlite-utils-0001/orchestration/rep02/attempt01: mods=1 novos=6 master_visivel=sim
+coleta-r4/sqlite-utils-0001/orchestration/rep03/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r4/sqlite-utils-0002/orchestration/rep01/attempt01: mods=1 novos=4 master_visivel=sim
+coleta-r4/sqlite-utils-0002/orchestration/rep02/attempt01: mods=1 novos=3 master_visivel=sim
+coleta-r4/sqlite-utils-0002/orchestration/rep03/attempt01: mods=1 novos=3 master_visivel=sim
+coleta-r4/sqlite-utils-0003/orchestration/rep01/attempt01: mods=3 novos=0 master_visivel=sim
+coleta-r4/sqlite-utils-0003/orchestration/rep02/attempt01: mods=3 novos=0 master_visivel=sim
+coleta-r4/sqlite-utils-0003/orchestration/rep03/attempt01: mods=3 novos=0 master_visivel=sim
+coleta-r4/tomlkit-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r4/tomlkit-0001/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim | BLOB FUTURO tomlkit/parser.py = uranium-base-12-gb48c094
+coleta-r4/tomlkit-0001/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r4/tomlkit-0002/orchestration/rep01/attempt01: mods=4 novos=0 master_visivel=sim | VERSÃO tomlkit/__init__.py: __version__ = "0.8.0" -> __version__ = "0.12.6"
+coleta-r4/tomlkit-0002/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r4/tomlkit-0002/orchestration/rep03/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r4/tomlkit-0003/orchestration/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r4/tomlkit-0003/orchestration/rep02/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r4/tomlkit-0003/orchestration/rep03/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r4/tomlkit-0004/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r4/tomlkit-0004/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r4/tomlkit-0004/orchestration/rep03/attempt01: mods=2 novos=1 master_visivel=sim
+coleta-r4/tomlkit-0005/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r4/tomlkit-0005/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r4/tomlkit-0005/orchestration/rep03/attempt01: mods=0 novos=0 master_visivel=sim
+coleta-r5/attrs-0001/orchestration/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r5/attrs-0001/orchestration/rep02/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r5/attrs-0001/orchestration/rep03/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r5/peewee-0001/orchestration/rep01/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r5/peewee-0001/orchestration/rep02/attempt01: mods=3 novos=1 master_visivel=sim
+coleta-r5/peewee-0001/orchestration/rep03/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r5/peewee-0002/orchestration/rep01/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r5/peewee-0002/orchestration/rep02/attempt01: mods=3 novos=1 master_visivel=sim
+coleta-r5/peewee-0002/orchestration/rep03/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r5/peewee-0003/orchestration/rep01/attempt01: mods=1 novos=2 master_visivel=sim
+coleta-r5/peewee-0003/orchestration/rep02/attempt01: mods=1 novos=2 master_visivel=sim
+coleta-r5/peewee-0003/orchestration/rep03/attempt01: mods=1 novos=3 master_visivel=sim
+coleta-r5/peewee-0003/orchestration/rep03/attempt02: mods=1 novos=2 master_visivel=sim
+coleta-r5/pygments-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r5/pygments-0001/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r5/pygments-0001/orchestration/rep02/attempt02: mods=1 novos=0 master_visivel=sim
+coleta-r5/pygments-0001/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r5/sqlite-utils-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r5/sqlite-utils-0001/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r5/sqlite-utils-0001/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r5/sqlite-utils-0002/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r5/sqlite-utils-0002/orchestration/rep02/attempt01: mods=1 novos=6 master_visivel=sim
+coleta-r5/sqlite-utils-0002/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r5/sqlite-utils-0003/orchestration/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r5/sqlite-utils-0003/orchestration/rep02/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r5/sqlite-utils-0003/orchestration/rep03/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r5/tomlkit-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r5/tomlkit-0001/orchestration/rep02/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r5/tomlkit-0001/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r5/tomlkit-0002/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r5/tomlkit-0002/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r5/tomlkit-0002/orchestration/rep03/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r5/tomlkit-0003/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r5/tomlkit-0003/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r5/tomlkit-0003/orchestration/rep03/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r5/tomlkit-0004/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r5/tomlkit-0004/orchestration/rep02/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r5/tomlkit-0004/orchestration/rep03/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r5/tomlkit-0005/orchestration/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r5/tomlkit-0005/orchestration/rep02/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r5/tomlkit-0005/orchestration/rep03/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r5-descartados/attrs-0001/orchestration/rep01/attempt01: mods=2 novos=1 master_visivel=sim
+coleta-r5-descartados/peewee-0001/orchestration/rep01/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r5-descartados/peewee-0002/orchestration/rep01/attempt01: mods=3 novos=1 master_visivel=sim
+coleta-r5-descartados/peewee-0003/orchestration/rep01/attempt01: mods=1 novos=2 master_visivel=sim
+coleta-r5-descartados/pygments-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r6/attrs-0001/orchestration/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r6/attrs-0001/orchestration/rep02/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r6/attrs-0001/orchestration/rep03/attempt01: mods=2 novos=2 master_visivel=sim
+coleta-r6/peewee-0001/orchestration/rep01/attempt01: mods=3 novos=1 master_visivel=sim
+coleta-r6/peewee-0001/orchestration/rep02/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r6/peewee-0001/orchestration/rep03/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r6/peewee-0002/orchestration/rep01/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r6/peewee-0002/orchestration/rep02/attempt01: mods=0 novos=0 master_visivel=sim
+coleta-r6/peewee-0002/orchestration/rep02/attempt02: mods=3 novos=1 master_visivel=sim
+coleta-r6/peewee-0002/orchestration/rep03/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r6/peewee-0003/orchestration/rep01/attempt01: mods=1 novos=2 master_visivel=sim
+coleta-r6/peewee-0003/orchestration/rep02/attempt01: mods=1 novos=2 master_visivel=sim
+coleta-r6/peewee-0003/orchestration/rep03/attempt01: mods=1 novos=2 master_visivel=sim
+coleta-r6/pygments-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim | MAIS PERTO DE MASTER pygments/lexers/go.py (base 51 vs master 45)
+coleta-r6/pygments-0001/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r6/pygments-0001/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r6/sqlite-utils-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r6/sqlite-utils-0001/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r6/sqlite-utils-0001/orchestration/rep03/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r6/sqlite-utils-0002/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r6/sqlite-utils-0002/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r6/sqlite-utils-0002/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r6/sqlite-utils-0003/orchestration/rep01/attempt01: mods=3 novos=0 master_visivel=sim
+coleta-r6/sqlite-utils-0003/orchestration/rep02/attempt01: mods=3 novos=0 master_visivel=sim
+coleta-r6/sqlite-utils-0003/orchestration/rep03/attempt01: mods=3 novos=0 master_visivel=sim
+coleta-r6/tomlkit-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim | BLOB FUTURO tomlkit/parser.py = uranium-base-12-gb48c094
+coleta-r6/tomlkit-0001/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r6/tomlkit-0001/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r6/tomlkit-0002/orchestration/rep01/attempt01: mods=3 novos=0 master_visivel=sim
+coleta-r6/tomlkit-0002/orchestration/rep02/attempt01: mods=3 novos=0 master_visivel=sim
+coleta-r6/tomlkit-0002/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r6/tomlkit-0003/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r6/tomlkit-0003/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r6/tomlkit-0003/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r6/tomlkit-0004/orchestration/rep01/attempt01: mods=3 novos=0 master_visivel=sim
+coleta-r6/tomlkit-0004/orchestration/rep02/attempt01: mods=2 novos=2 master_visivel=sim
+coleta-r6/tomlkit-0004/orchestration/rep03/attempt01: mods=3 novos=0 master_visivel=sim
+coleta-r6/tomlkit-0005/orchestration/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r6/tomlkit-0005/orchestration/rep02/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r6/tomlkit-0005/orchestration/rep03/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r7/attrs-0001/orchestration/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r7/attrs-0001/orchestration/rep02/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r7/attrs-0001/orchestration/rep03/attempt01: mods=2 novos=1 master_visivel=sim
+coleta-r7/peewee-0001/orchestration/rep01/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r7/peewee-0001/orchestration/rep02/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r7/peewee-0001/orchestration/rep03/attempt01: mods=1 novos=2 master_visivel=sim
+coleta-r7/peewee-0002/orchestration/rep01/attempt01: mods=2 novos=1 master_visivel=sim
+coleta-r7/peewee-0002/orchestration/rep02/attempt01: mods=1 novos=4 master_visivel=sim
+coleta-r7/peewee-0002/orchestration/rep03/attempt01: mods=0 novos=0 master_visivel=sim
+coleta-r7/peewee-0003/orchestration/rep01/attempt01: mods=1 novos=2 master_visivel=sim
+coleta-r7/peewee-0003/orchestration/rep02/attempt01: mods=1 novos=2 master_visivel=sim
+coleta-r7/peewee-0003/orchestration/rep03/attempt01: mods=0 novos=0 master_visivel=sim
+coleta-r7/peewee-0003/orchestration/rep03/attempt02: mods=1 novos=2 master_visivel=sim
+coleta-r7/pygments-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r7/pygments-0001/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r7/pygments-0001/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r7/sqlite-utils-0001/orchestration/rep01/attempt01: mods=0 novos=0 master_visivel=sim
+coleta-r7/sqlite-utils-0001/orchestration/rep01/attempt02: mods=1 novos=0 master_visivel=sim
+coleta-r7/sqlite-utils-0001/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r7/sqlite-utils-0001/orchestration/rep03/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r7/sqlite-utils-0002/orchestration/rep01/attempt01: mods=1 novos=3 master_visivel=sim
+coleta-r7/sqlite-utils-0002/orchestration/rep02/attempt01: mods=1 novos=5 master_visivel=sim
+coleta-r7/sqlite-utils-0002/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r7/sqlite-utils-0003/orchestration/rep01/attempt01: mods=3 novos=0 master_visivel=sim
+coleta-r7/sqlite-utils-0003/orchestration/rep02/attempt01: mods=3 novos=0 master_visivel=sim
+coleta-r7/sqlite-utils-0003/orchestration/rep03/attempt01: mods=3 novos=0 master_visivel=sim
+coleta-r7/tomlkit-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim | BLOB FUTURO tomlkit/parser.py = uranium-base-12-gb48c094
+coleta-r7/tomlkit-0001/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim | BLOB FUTURO tomlkit/parser.py = uranium-base-12-gb48c094
+coleta-r7/tomlkit-0001/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim | BLOB FUTURO tomlkit/parser.py = uranium-base-12-gb48c094
+coleta-r7/tomlkit-0002/orchestration/rep01/attempt01: mods=3 novos=0 master_visivel=sim
+coleta-r7/tomlkit-0002/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r7/tomlkit-0002/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r7/tomlkit-0003/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r7/tomlkit-0003/orchestration/rep02/attempt01: mods=2 novos=1 master_visivel=sim
+coleta-r7/tomlkit-0003/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r7/tomlkit-0004/orchestration/rep01/attempt01: mods=0 novos=4 master_visivel=sim
+coleta-r7/tomlkit-0004/orchestration/rep02/attempt01: mods=0 novos=1 master_visivel=sim
+coleta-r7/tomlkit-0004/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r7/tomlkit-0005/orchestration/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r7/tomlkit-0005/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r7/tomlkit-0005/orchestration/rep03/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r8/attrs-0001/orchestration/rep01/attempt01: mods=3 novos=0 master_visivel=sim
+coleta-r8/attrs-0001/orchestration/rep02/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r8/peewee-0001/orchestration/rep01/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r8/peewee-0001/orchestration/rep02/attempt01: mods=4 novos=2 master_visivel=sim
+coleta-r8/peewee-0002/orchestration/rep01/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r8/peewee-0003/orchestration/rep01/attempt01: mods=1 novos=3 master_visivel=sim
+coleta-r8/pygments-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r8/sqlite-utils-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r8/sqlite-utils-0002/orchestration/rep01/attempt01: mods=1 novos=2 master_visivel=sim
+coleta-r8/sqlite-utils-0003/orchestration/rep01/attempt01: mods=3 novos=0 master_visivel=sim
+coleta-r8/tomlkit-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim | BLOB FUTURO tomlkit/parser.py = uranium-base-12-gb48c094
+coleta-r8/tomlkit-0002/orchestration/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r8/tomlkit-0003/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r8/tomlkit-0004/orchestration/rep01/attempt01: mods=11 novos=2 master_visivel=sim | MAIS PERTO DE MASTER tomlkit/__init__.py (base 79 vs master 2); VERSÃO tomlkit/__init__.py: __version__ = "0.1.1" -> __version__ = "0.15.2"; BLOB FUTURO tomlkit/_compat.py = 0.14.0-10-g8e32f9c; MAIS PERTO DE MASTER tomlkit/_compat.py (base 171 vs master 0); MAIS PERTO DE MASTER tomlkit/_utils.py (base 139 vs master 4); MAIS PERTO DE MASTER tomlkit/api.py (base 392 vs master 37); MAIS PERTO DE MASTER tomlkit/container.py (base 1414 vs master 125); BLOB FUTURO tomlkit/exceptions.py = 0.14.0-10-g8e32f9c; MAIS PERTO DE MASTER tomlkit/exceptions.py (base 161 vs master 0); MAIS PERTO DE MASTER tomlkit/items.py (base 2377 vs master 106); MAIS PERTO DE MASTER tomlkit/parser.py (base 1485 vs master 4); BLOB FUTURO tomlkit/toml_document.py = 0.11.1-2-g0449c53; BLOB FUTURO tomlkit/toml_file.py = 0.14.0-10-g8e32f9c; MAIS PERTO DE MASTER tomlkit/toml_file.py (base 61 vs master 0); NOVO COM NOME FUTURO tomlkit/_types.py; NOVO COM NOME FUTURO tomlkit/source.py
+coleta-r8/tomlkit-0005/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+fumaca-08-10/tomlkit-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+fumaca-08-10/tomlkit-0001/single-agent/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+fumaca-08-10/tomlkit-0002/orchestration/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+fumaca-08-10/tomlkit-0002/single-agent/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+fumaca-08-10-b/tomlkit-0004/orchestration/rep01/attempt01: mods=0 novos=0 master_visivel=sim
+fumaca-08-10-b/tomlkit-0004/orchestration/rep01/attempt02: mods=0 novos=0 master_visivel=sim
+fumaca-08-10-b/tomlkit-0004/orchestration/rep01/attempt03: mods=0 novos=0 master_visivel=sim
+fumaca-08-10-b/tomlkit-0004/single-agent/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+fumaca-08-10-b/tomlkit-0004/single-agent/rep01/attempt02: mods=0 novos=0 master_visivel=sim
+fumaca-08-10-b/tomlkit-0004/single-agent/rep01/attempt03: mods=0 novos=0 master_visivel=sim
+fumaca-08-10-c/tomlkit-0004/orchestration/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+fumaca-08-10-c/tomlkit-0004/single-agent/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+fumaca-09-10-d/tomlkit-0004/orchestration/rep01/attempt01: mods=3 novos=0 master_visivel=sim
+fumaca-09-10-d/tomlkit-0004/single-agent/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+fumaca-09-10-f/tomlkit-0004/orchestration/rep01/attempt01: mods=9 novos=2 master_visivel=sim | BLOB FUTURO tomlkit/__init__.py = 0.15.0-61-gd8ed1e3; MAIS PERTO DE MASTER tomlkit/__init__.py (base 79 vs master 0); VERSÃO tomlkit/__init__.py: __version__ = "0.1.1" -> __version__ = "0.15.1"; MAIS PERTO DE MASTER tomlkit/_compat.py (base 168 vs master 15); BLOB FUTURO tomlkit/_utils.py = 0.15.0-65-g7aa5bde; MAIS PERTO DE MASTER tomlkit/_utils.py (base 137 vs master 0); MAIS PERTO DE MASTER tomlkit/api.py (base 385 vs master 28); MAIS PERTO DE MASTER tomlkit/container.py (base 1344 vs master 15); BLOB FUTURO tomlkit/exceptions.py = 0.14.0-10-g8e32f9c; MAIS PERTO DE MASTER tomlkit/exceptions.py (base 161 vs master 0); MAIS PERTO DE MASTER tomlkit/parser.py (base 1150 vs master 987); BLOB FUTURO tomlkit/toml_char.py = 0.7.2-2-gbe2050e; NOVO COM NOME FUTURO tomlkit/_types.py; NOVO COM NOME FUTURO tomlkit/source.py
+fumaca-09-10-f/tomlkit-0004/single-agent/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+fumaca-09-10-g/tomlkit-0004/orchestration/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+fumaca-09-10-g/tomlkit-0004/single-agent/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+fumaca-09-10-h/tomlkit-0004/orchestration/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+fumaca-09-10-h/tomlkit-0004/single-agent/rep01/attempt01: mods=3 novos=0 master_visivel=sim
+fumaca-planejador/tomlkit-0002/orchestration/rep01/attempt01: mods=0 novos=0 master_visivel=sim
+fumaca-planejador/tomlkit-0002/orchestration/rep01/attempt02: mods=2 novos=0 master_visivel=sim
+fumaca-planejador/tomlkit-0003/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+fumaca-planejador/tomlkit-0004/orchestration/rep01/attempt01: mods=1 novos=2 master_visivel=sim
+fumaca-r5/tomlkit-0002/orchestration/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+fumaca-r5/tomlkit-0003/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+fumaca-r5/tomlkit-0004/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+fumaca-r6/sqlite-utils-0003/orchestration/rep01/attempt01: mods=3 novos=0 master_visivel=sim
+fumaca-r6/tomlkit-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+fumaca-r6/tomlkit-0003/orchestration/rep01/attempt01: mods=0 novos=0 master_visivel=sim
+fumaca-r6b/sqlite-utils-0003/orchestration/rep01/attempt01: mods=3 novos=0 master_visivel=sim
+fumaca-r6b/tomlkit-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+fumaca-r6b/tomlkit-0003/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+fumaca-r7/peewee-0002/orchestration/rep01/attempt01: mods=1 novos=1 master_visivel=sim
+fumaca-r7/sqlite-utils-0003/orchestration/rep01/attempt01: mods=4 novos=0 master_visivel=sim
+fumaca-r7/tomlkit-0003/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+fumaca-r8/attrs-0001/orchestration/rep01/attempt01: mods=3 novos=1 master_visivel=sim
+fumaca-r8/sqlite-utils-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+fumaca-r8/sqlite-utils-0003/orchestration/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+fumaca-r8/tomlkit-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim | BLOB FUTURO tomlkit/parser.py = uranium-base-12-gb48c094
+fumaca-r8/tomlkit-0002/orchestration/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+fumaca-r8/tomlkit-0002/orchestration/rep02/attempt01: mods=3 novos=0 master_visivel=sim
+fumaca-r8/tomlkit-0003/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+fumaca-r8/tomlkit-0005/orchestration/rep01/attempt01: mods=0 novos=1 master_visivel=sim
+fumaca-r8-strict/sqlite-utils-0003/orchestration/rep01/attempt01: mods=3 novos=0 master_visivel=sim
+fumaca-r8-strict/tomlkit-0002/orchestration/rep01/attempt01: mods=3 novos=1 master_visivel=sim
+refinador-v2/attrs-0001/orchestration/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+refinador-v2/peewee-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+refinador-v2/peewee-0002/orchestration/rep01/attempt01: mods=2 novos=1 master_visivel=sim
+refinador-v2/peewee-0003/orchestration/rep01/attempt01: mods=1 novos=2 master_visivel=sim
+refinador-v2/pygments-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+refinador-v2/sqlite-utils-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+refinador-v2/sqlite-utils-0002/orchestration/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+refinador-v2/sqlite-utils-0003/orchestration/rep01/attempt01: mods=3 novos=0 master_visivel=sim
+refinador-v2/tomlkit-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+refinador-v2/tomlkit-0002/orchestration/rep01/attempt01: mods=3 novos=0 master_visivel=sim
+refinador-v2/tomlkit-0003/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+refinador-v2/tomlkit-0004/orchestration/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+refinador-v2/tomlkit-0005/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+
+# Distância, por arquivo sinalizado, ao arquivo no 1º commit pós-base que o tocou (correção upstream) e ao ramo principal (linhas de diff)
+coleta/peewee-0001/orchestration/rep02/attempt01 resolved=True peewee.py: vs base=286 vs correção(ab1266aa)=265 vs principal=142
+coleta/pygments-0001/single-agent/rep02/attempt01 resolved=True pygments/lexers/go.py: vs base=26 vs correção(9c436b34c)=0 vs principal=0
+coleta/pygments-0001/single-agent/rep03/attempt01 resolved=True pygments/lexers/go.py: vs base=55 vs correção(9c436b34c)=51 vs principal=51
+coleta/sqlite-utils-0003/single-agent/rep01/attempt02 resolved=True sqlite_utils/utils.py: vs base=217 vs correção(07b603e)=190 vs principal=62
+coleta/tomlkit-0004/orchestration/rep02/attempt01 resolved=False tomlkit/parser.py: vs base=1481 vs correção(eedcdb2)=1526 vs principal=8
+coleta-r2/pygments-0001/orchestration/rep02/attempt01 resolved=True pygments/lexers/go.py: vs base=56 vs correção(9c436b34c)=54 vs principal=54
+coleta-r2/pygments-0001/single-agent/rep01/attempt01 resolved=False pygments/lexers/go.py: vs base=53 vs correção(9c436b34c)=49 vs principal=49
+coleta-r2/tomlkit-0001/orchestration/rep03/attempt01 resolved=True tomlkit/parser.py: vs base=9 vs correção(d548e18)=0 vs principal=14
+coleta-r2-descartados/pygments-0001/orchestration/rep01/attempt01 resolved=False pygments/lexers/go.py: vs base=75 vs correção(9c436b34c)=67 vs principal=67
+coleta-r3/pygments-0001/orchestration/rep01/attempt01 resolved=False pygments/lexers/go.py: vs base=95 vs correção(9c436b34c)=89 vs principal=89
+coleta-r3/pygments-0001/orchestration/rep03/attempt01 resolved=True pygments/lexers/go.py: vs base=65 vs correção(9c436b34c)=63 vs principal=63
+coleta-r4/sqlite-utils-0001/orchestration/rep01/attempt01 resolved=False sqlite_utils/db.py: vs base=1635 vs correção(f66ddcb)=1600 vs principal=86
+coleta-r4/tomlkit-0001/orchestration/rep02/attempt01 resolved=True tomlkit/parser.py: vs base=9 vs correção(d548e18)=0 vs principal=14
+coleta-r6/pygments-0001/orchestration/rep01/attempt01 resolved=True pygments/lexers/go.py: vs base=51 vs correção(9c436b34c)=45 vs principal=45
+coleta-r6/tomlkit-0001/orchestration/rep01/attempt01 resolved=True tomlkit/parser.py: vs base=9 vs correção(d548e18)=0 vs principal=14
+coleta-r7/tomlkit-0001/orchestration/rep01/attempt01 resolved=True tomlkit/parser.py: vs base=9 vs correção(d548e18)=0 vs principal=14
+coleta-r7/tomlkit-0001/orchestration/rep02/attempt01 resolved=True tomlkit/parser.py: vs base=9 vs correção(d548e18)=0 vs principal=14
+coleta-r7/tomlkit-0001/orchestration/rep03/attempt01 resolved=True tomlkit/parser.py: vs base=9 vs correção(d548e18)=0 vs principal=14
+coleta-r8/tomlkit-0001/orchestration/rep01/attempt01 resolved=True tomlkit/parser.py: vs base=9 vs correção(d548e18)=0 vs principal=14
+coleta-r8/tomlkit-0004/orchestration/rep01/attempt01 resolved=False tomlkit/__init__.py: vs base=79 vs correção(9540b5b)=79 vs principal=2
+coleta-r8/tomlkit-0004/orchestration/rep01/attempt01 resolved=False tomlkit/_compat.py: vs base=171 vs correção(4a6e0d1)=158 vs principal=0
+coleta-r8/tomlkit-0004/orchestration/rep01/attempt01 resolved=False tomlkit/_utils.py: vs base=139 vs correção(4a6e0d1)=132 vs principal=4
+coleta-r8/tomlkit-0004/orchestration/rep01/attempt01 resolved=False tomlkit/api.py: vs base=392 vs correção(ea77afc)=392 vs principal=37
+coleta-r8/tomlkit-0004/orchestration/rep01/attempt01 resolved=False tomlkit/container.py: vs base=1414 vs correção(eedcdb2)=1432 vs principal=125
+coleta-r8/tomlkit-0004/orchestration/rep01/attempt01 resolved=False tomlkit/exceptions.py: vs base=161 vs correção(78ab7bd)=161 vs principal=0
+coleta-r8/tomlkit-0004/orchestration/rep01/attempt01 resolved=False tomlkit/items.py: vs base=2377 vs correção(eedcdb2)=2381 vs principal=106
+coleta-r8/tomlkit-0004/orchestration/rep01/attempt01 resolved=False tomlkit/parser.py: vs base=1485 vs correção(eedcdb2)=1530 vs principal=4
+coleta-r8/tomlkit-0004/orchestration/rep01/attempt01 resolved=False tomlkit/toml_document.py: vs base=2 vs correção(0449c53)=0 vs principal=0
+coleta-r8/tomlkit-0004/orchestration/rep01/attempt01 resolved=False tomlkit/toml_file.py: vs base=61 vs correção(b0d8730)=61 vs principal=0
+fumaca-09-10-f/tomlkit-0004/orchestration/rep01/attempt01 resolved=False tomlkit/__init__.py: vs base=79 vs correção(9540b5b)=79 vs principal=0
+fumaca-09-10-f/tomlkit-0004/orchestration/rep01/attempt01 resolved=False tomlkit/_compat.py: vs base=168 vs correção(4a6e0d1)=155 vs principal=15
+fumaca-09-10-f/tomlkit-0004/orchestration/rep01/attempt01 resolved=False tomlkit/_utils.py: vs base=137 vs correção(4a6e0d1)=130 vs principal=0
+fumaca-09-10-f/tomlkit-0004/orchestration/rep01/attempt01 resolved=False tomlkit/api.py: vs base=385 vs correção(ea77afc)=385 vs principal=28
+fumaca-09-10-f/tomlkit-0004/orchestration/rep01/attempt01 resolved=False tomlkit/container.py: vs base=1344 vs correção(eedcdb2)=1362 vs principal=15
+fumaca-09-10-f/tomlkit-0004/orchestration/rep01/attempt01 resolved=False tomlkit/exceptions.py: vs base=161 vs correção(78ab7bd)=161 vs principal=0
+fumaca-09-10-f/tomlkit-0004/orchestration/rep01/attempt01 resolved=False tomlkit/parser.py: vs base=1150 vs correção(eedcdb2)=1149 vs principal=987
+fumaca-09-10-f/tomlkit-0004/orchestration/rep01/attempt01 resolved=False tomlkit/toml_char.py: vs base=34 vs correção(2e1ebe3)=32 vs principal=67
+fumaca-r8/tomlkit-0001/orchestration/rep01/attempt01 resolved=True tomlkit/parser.py: vs base=9 vs correção(d548e18)=0 vs principal=14

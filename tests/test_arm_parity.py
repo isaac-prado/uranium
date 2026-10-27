@@ -130,6 +130,11 @@ class TestManifestoRegistraOQueAfetaOOrchestration:
         assert m["max_read_lines"] == MAX_READ_LINES
         assert m["max_search_results"] == MAX_SEARCH_RESULTS
         assert m["max_tool_output_chars"] == MAX_TOOL_OUTPUT_CHARS
+        # Decisão 49: workspace só com o commit-base e caixa de areia, iguais nos dois braços.
+        from src.tools.exec import sandbox_mode
+        from src.workspace import WORKSPACE_HISTORY
+        assert m["workspace_history"] == WORKSPACE_HISTORY == "commit-base-only"
+        assert m["sandbox"] == sandbox_mode()
 
     def test_mudar_max_semantic_rejections_muda_o_manifesto(self, tmp_path, monkeypatch):
         from src import config
@@ -176,7 +181,7 @@ class TestManifestoRegistraOQueAfetaOOrchestration:
 
     def test_manifest_version_subiu(self, tmp_path):
         """A forma do manifesto mudou (novas chaves): a versão precisa acompanhar."""
-        assert _spec("orchestration", tmp_path).manifest("t")["manifest_version"] == 17
+        assert _spec("orchestration", tmp_path).manifest("t")["manifest_version"] == 18
 
     def test_mudar_intent_refiner_muda_o_manifesto(self, tmp_path, monkeypatch):
         """Refinador v2 (decisão 28): a versão do refinador é política do braço."""

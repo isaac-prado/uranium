@@ -29,6 +29,15 @@ BASE_COMMIT = "11e22aefccd8069a90ae75d20613b9b1068754a1"
 TEST_FILE = "tests/test_parser.py"
 SOURCE_FILE = "tomlkit/parser.py"
 
+
+def _aplica_correcao_do_upstream(root) -> None:
+    """Escreve o arquivo da correção a partir do espelho: o workspace não tem mais o histórico (decisão 49)."""
+    conteudo = subprocess.run(
+        ["git", "show", f"{FIX_COMMIT}:{SOURCE_FILE}"], cwd=TOMLKIT.mirror_path,
+        check=True, capture_output=True,
+    ).stdout
+    (root / SOURCE_FILE).write_bytes(conteudo)
+
 preparado = pytest.mark.skipif(
     not (TOMLKIT.mirror_path.exists() and TOMLKIT.has_venv),
     reason="rode scripts/setup_mirror.py tomlkit",
@@ -113,10 +122,7 @@ class TestOraculoPorPatch:
         assert resultado.f2p_passed == 0
 
     def test_aprova_a_correcao_do_upstream(self, ws, tarefa):
-        subprocess.run(
-            ["git", "checkout", FIX_COMMIT, "--", SOURCE_FILE],
-            cwd=ws.root, check=True, capture_output=True,
-        )
+        _aplica_correcao_do_upstream(ws.root)
 
         resultado = evaluate_oracle(ws.root, tarefa, timeout_s=600)
 
@@ -133,10 +139,7 @@ class TestOraculoPorPatch:
         alvo = ws.resolve(TEST_FILE)
         alvo.write_text("def test_nada():\n    assert True\n", encoding="utf-8")
 
-        subprocess.run(
-            ["git", "checkout", FIX_COMMIT, "--", SOURCE_FILE],
-            cwd=ws.root, check=True, capture_output=True,
-        )
+        _aplica_correcao_do_upstream(ws.root)
         resultado = evaluate_oracle(ws.root, tarefa, timeout_s=600)
 
         assert resultado.resolved is True, "o teste do upstream tinha de ter voltado"

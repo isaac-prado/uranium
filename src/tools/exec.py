@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -20,6 +21,88 @@ from src.tools.base import MAX_TOOL_OUTPUT_CHARS, truncate
 from src.workspace import PathNotAllowed, Workspace
 
 DEFAULT_TEST_TIMEOUT_S = 120
+
+# Decisão 49 (27/10/2026, aprovada por escrito): toda execução de código do
+# agente (suíte, trecho Python, bloco de linha de comando) roda numa caixa de
+# areia bubblewrap: só o workspace é gravável; o venv da tarefa e o sistema
+# entram só leitura; o resto do disco (espelhos, src/ do uranium, caches) não
+# existe lá dentro; sem rede; HOME e /tmp em tmpfs. Antes um trecho em
+# `run_python` enxergava o disco inteiro e a rede. Vai ao manifesto em
+# `shared_limits.sandbox`. Sem o bubblewrap a execução falha alto em vez de
+# rodar aberta; `URANIUM_SANDBOX=off` desliga (só depuração) e o manifesto
+# registra "off".
+SANDBOX = "bwrap"
+_RO_SISTEMA = ("/usr", "/lib", "/lib64", "/bin", "/sbin", "/etc")
+
+
+def sandbox_mode() -> str:
+    """Modo efetivo da caixa de areia, registrado no manifesto."""
+    return "off" if os.getenv("URANIUM_SANDBOX", "").strip().lower() == "off" else SANDBOX
+
+
+def _prefixos_do_python(python_bin: str) -> list[str]:
+    """
+    Diretórios que o interpretador do venv precisa enxergar: o venv, a
+    instalação base apontada por `pyvenv.cfg` (`home`) e a que o binário
+    real resolve (no uv são dois caminhos, um deles symlink).
+    """
+    bin_path = Path(python_bin)
+    venv = bin_path.parent.parent
+    candidatos = [venv]
+    cfg = venv / "pyvenv.cfg"
+    if cfg.is_file():
+        for linha in cfg.read_text(encoding="utf-8", errors="replace").splitlines():
+            chave, sep, valor = linha.partition("=")
+            if sep and chave.strip() == "home":
+                candidatos.append(Path(valor.strip()).parent)
+    candidatos.append(Path(os.path.realpath(bin_path)).parent.parent)
+    prefixos: list[str] = []
+    for c in candidatos:
+        s = str(c)
+        if c.is_dir() and s not in prefixos and not any(s.startswith(f"{r}/") for r in _RO_SISTEMA):
+            prefixos.append(s)
+    return prefixos
+
+
+def envolver_na_caixa(ws: Workspace, cmd: list[str], python_bin: str) -> list[str]:
+    """argv de `cmd` dentro da caixa de areia (ou `cmd` intacto com a caixa desligada)."""
+    if sandbox_mode() == "off":
+        return list(cmd)
+    bwrap = shutil.which("bwrap")
+    if bwrap is None:
+        raise RuntimeError(
+            "bubblewrap (bwrap) ausente: a execução de código do agente exige a caixa de areia "
+            "(decisão 49). Instale o pacote bubblewrap ou, só para depuração, URANIUM_SANDBOX=off."
+        )
+    argv = [bwrap]
+    for d in _RO_SISTEMA:
+        if os.path.isdir(d):
+            argv += ["--ro-bind", d, d]
+    argv += ["--dev", "/dev", "--proc", "/proc", "--tmpfs", "/tmp", "--tmpfs", "/home"]
+    if os.path.isdir("/root"):
+        argv += ["--tmpfs", "/root"]
+    for prefixo in _prefixos_do_python(python_bin):
+        argv += ["--ro-bind", prefixo, prefixo]
+    raiz = str(ws.root)
+    argv += [
+        "--bind", raiz, raiz,
+        "--unshare-all", "--die-with-parent", "--new-session",
+        "--chdir", raiz,
+        "--", *cmd,
+    ]
+    return argv
+
+
+def executar_isolado(
+    ws: Workspace, cmd: list[str], *, timeout_s: int, python_bin: str | None = None,
+) -> subprocess.CompletedProcess[str]:
+    """Roda `cmd` no workspace, dentro da caixa de areia, com o ambiente determinístico."""
+    env = _build_env(ws)
+    env["HOME"] = "/tmp"
+    argv = envolver_na_caixa(ws, cmd, python_bin or ws.spec.seed_repo.python_bin)
+    return subprocess.run(
+        argv, cwd=ws.root, capture_output=True, text=True, env=env, timeout=timeout_s,
+    )
 
 # Ambiente determinístico: sem cache de bytecode, hash seed fixo, sem cor,
 # sem proxy herdado. O mesmo comando tem de produzir o mesmo resultado.
@@ -134,14 +217,7 @@ def run_pytest(
 
     start = time.perf_counter()
     try:
-        proc = subprocess.run(
-            cmd,
-            cwd=ws.root,
-            capture_output=True,
-            text=True,
-            env=_build_env(ws),
-            timeout=timeout_s,
-        )
+        proc = executar_isolado(ws, cmd, timeout_s=timeout_s, python_bin=python_bin or seed_repo.python_bin)
         elapsed = time.perf_counter() - start
         stdout, exit_code, timed_out = proc.stdout + proc.stderr, proc.returncode, False
     except subprocess.TimeoutExpired as exc:
@@ -257,10 +333,7 @@ def run_python(
     cmd = [python_bin or ws.spec.seed_repo.python_bin, SNIPPET_FILE]
     inicio = time.perf_counter()
     try:
-        proc = subprocess.run(
-            cmd, cwd=ws.root, capture_output=True, text=True,
-            env=_build_env(ws), timeout=timeout_s,
-        )
+        proc = executar_isolado(ws, cmd, timeout_s=timeout_s, python_bin=python_bin)
         saida = (proc.stdout + proc.stderr).strip()
         codigo = proc.returncode
         estourou = False

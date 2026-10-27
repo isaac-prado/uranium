@@ -872,7 +872,7 @@ class TestRodada8:
         monkeypatch.setattr(config, "REPRODUCTION_SOURCE", "statement")
         monkeypatch.setattr(config, "BLOCK_EXPECTED", "statement")
         pol = _orchestration_policy()
-        assert MANIFEST_VERSION == 17
+        assert MANIFEST_VERSION == 18
         assert pol["reproduction_source"] == "statement" and pol["block_expected"] == "statement"
 
 

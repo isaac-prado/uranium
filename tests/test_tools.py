@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from pathlib import Path
 
 from src.schemas.test_report import TestReport
 from src.seeds import TOMLKIT
@@ -472,3 +473,68 @@ class TestGuardaDaExecucaoRestauraArquivoNovo:
         assert ws.protected_touched() == []
         limpo = _executar_comandos(ctx, [[python_bin, "-c", "print('ok')"]], timeout_s=30)
         assert "exit=0" in limpo and "ok" in limpo
+
+
+class TestCaixaDeAreia:
+    """
+    Decisão 49 (27/10/2026): toda execução de código do agente roda em
+    bubblewrap: só o workspace é gravável, o resto do disco não existe lá
+    dentro e não há rede. Antes, um trecho em `run_python` enxergava o disco
+    inteiro (espelhos, src/ do uranium, caches) e a rede.
+    """
+
+    def test_nao_enxerga_o_projeto_nem_o_espelho(self, ws):
+        from src.seeds import PROJECT_ROOT
+        from src.tools.exec import run_python
+        codigo = (
+            "import os\n"
+            f"print('src:', os.path.exists({str(PROJECT_ROOT / 'src')!r}))\n"
+            f"print('espelho:', os.path.exists({str(TOMLKIT.mirror_path)!r}))\n"
+            f"print('cache:', os.path.exists({str(Path.home() / '.cache')!r}))\n"
+            f"print('docs:', os.path.exists({str(PROJECT_ROOT / 'docs')!r}))\n"
+            "print('cwd:', os.getcwd())\n"
+        )
+        saida = run_python(ws, codigo)
+        # /home/<usuário>/... existe só como diretório de montagem do venv; o conteúdo não.
+        assert "src: False" in saida and "espelho: False" in saida, saida
+        assert "cache: False" in saida and "docs: False" in saida, saida
+        assert f"cwd: {ws.root}" in saida, saida
+
+    def test_sem_rede(self, ws):
+        from src.tools.exec import run_python
+        saida = run_python(ws, "import socket\ns = socket.socket(); s.settimeout(3)\n"
+                                "try:\n    s.connect(('1.1.1.1', 80)); print('REDE ABERTA')\n"
+                                "except OSError as e:\n    print('rede bloqueada:', type(e).__name__)\n")
+        assert "rede bloqueada" in saida and "REDE ABERTA" not in saida, saida
+
+    def test_escreve_no_workspace_e_a_escrita_persiste(self, ws):
+        from src.tools.exec import run_python
+        saida = run_python(ws, "open('novo_da_caixa.txt', 'w').write('x'); print('ok')")
+        assert "ok" in saida, saida
+        assert (ws.root / "novo_da_caixa.txt").read_text() == "x"
+
+    def test_suite_roda_dentro_da_caixa(self, ws):
+        report = run_pytest(ws, ["tests/test_api.py"])
+        assert report.green and report.passed > 0
+
+    def test_caixa_desligada_so_por_variavel_e_vai_ao_manifesto(self, ws, monkeypatch):
+        from src.tools.exec import SANDBOX, envolver_na_caixa, sandbox_mode
+        assert sandbox_mode() == SANDBOX == "bwrap"
+        argv = envolver_na_caixa(ws, ["python", "-c", "1"], TOMLKIT.python_bin)
+        assert argv[0].endswith("bwrap") and argv[-3:] == ["python", "-c", "1"]
+        assert "--unshare-all" in argv and str(ws.root) in argv
+        monkeypatch.setenv("URANIUM_SANDBOX", "off")
+        assert sandbox_mode() == "off"
+        assert envolver_na_caixa(ws, ["python", "-c", "1"], TOMLKIT.python_bin) == ["python", "-c", "1"]
+
+    def test_sem_bwrap_falha_alto(self, ws, monkeypatch):
+        from src.tools import exec as exec_mod
+        monkeypatch.setattr(exec_mod.shutil, "which", lambda nome: None)
+        with pytest.raises(RuntimeError, match="bubblewrap"):
+            exec_mod.envolver_na_caixa(ws, ["python"], TOMLKIT.python_bin)
+
+    def test_prefixos_do_python_incluem_o_venv(self):
+        from src.tools.exec import _prefixos_do_python
+        prefixos = _prefixos_do_python(TOMLKIT.python_bin)
+        assert str(TOMLKIT.venv_path) in prefixos
+        assert all(Path(p).is_dir() for p in prefixos)

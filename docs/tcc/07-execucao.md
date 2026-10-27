@@ -450,3 +450,13 @@ Relatório em [07-e4-fumaca.md](07-e4-fumaca.md): 4 células (`tomlkit-0002` gra
 **Teste que prova.** Suíte completa verde (732) antes do lançamento; o manifesto do primeiro run confere a política.
 
 **Impacto em docs.** [24-rodada-8.md](24-rodada-8.md) §3.1 e §4; decisão 48 (decidido em 23/10) e registro (fumaça `strict`, lançamento) em [09-decisoes-do-autor.md](09-decisoes-do-autor.md); `CLAUDE.md`.
+
+## Decisão 49: workspace só com o commit-base, caixa de areia e regra C8 (27/10/2026)
+
+**Diff resumido.** `src/workspace.py`: `materialize` troca `git clone --shared` + `checkout` por `git init` + `fetch --depth 1 file://<espelho> <commit-base>` (`uploadpack.allowAnySHA1InWant`) + `checkout --detach FETCH_HEAD`; constante `WORKSPACE_HISTORY`. `src/tools/exec.py`: `SANDBOX`, `sandbox_mode`, `_prefixos_do_python`, `envolver_na_caixa` (argv do bubblewrap), `executar_isolado` (usado por `run_pytest` e `run_python`); `src/agents/validator.py::_executar_comandos` passa a usar `executar_isolado`. `harness/cheat.py`: `mirror_for`, `_c8_codigo_do_futuro`, `detect(..., mirror=, base_commit=)`; `harness/evaluate.py` passa o espelho e o commit-base. `src/arms/runner.py`: manifesto v18, `shared_limits.workspace_history` e `shared_limits.sandbox`. `scripts/varredura_vazamento_git.py` (novo). Testes que aplicavam a correção upstream com `git checkout <fix> -- arquivo` passam a lê-la do espelho (`tests/test_test_patch.py`, `tests/test_harness.py`).
+
+**Teste que prova.** `tests/test_workspace.py::TestIsolamentoDoHistorico` (6: um commit alcançável, só a tag base, sem remoto/alternates, `master` inexistente, só o branch do run), `tests/test_tools.py::TestCaixaDeAreia` (7: não enxerga `src/`, espelho nem caches; sem rede; escrita no workspace persiste; suíte roda na caixa; desligar só por variável e vai ao manifesto; sem `bwrap` falha alto; prefixos do Python), `tests/test_harness.py::TestC8CodigoDoFuturo` (6), F11 em `tests/test_arm_parity.py` com as chaves novas; pinos do manifesto em 18. Suíte completa: 751.
+
+**Dados.** [dados/sondagens/vazamento-git-2026-10-27.txt](dados/sondagens/vazamento-git-2026-10-27.txt): 426 workspaces varridos, 23 com sinal, leitura em [25-vazamento-historico-git.md](25-vazamento-historico-git.md) §2.
+
+**Impacto em docs.** [25-vazamento-historico-git.md](25-vazamento-historico-git.md) (novo); decisão 49 e registro em [09-decisoes-do-autor.md](09-decisoes-do-autor.md); `CLAUDE.md`; `.env.example`.

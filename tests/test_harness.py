@@ -342,10 +342,11 @@ class TestFaixaNoResultado:
             WorkspaceSpec(seed_repo=TOMLKIT, base_commit=tarefa.base_commit),
             run_id="faixa", dest=run_dir / "workspace",
         )
-        subprocess.run(
-            ["git", "checkout", tarefa.fix_commit, "--", "tomlkit/parser.py"],
-            cwd=ws.root, check=True, capture_output=True,
-        )
+        # A correção vem do espelho: o workspace não tem mais o histórico (decisão 49).
+        (ws.root / "tomlkit" / "parser.py").write_bytes(subprocess.run(
+            ["git", "show", f"{tarefa.fix_commit}:tomlkit/parser.py"], cwd=TOMLKIT.mirror_path,
+            check=True, capture_output=True,
+        ).stdout)
         (run_dir / "manifest.json").write_text(json.dumps(
             {"run_id": "faixa", "arm": "single-agent", "repetition": 1}), encoding="utf-8")
         (run_dir / "events.jsonl").write_text("", encoding="utf-8")
@@ -438,10 +439,11 @@ class TestAvaliacaoIdempotente:
             WorkspaceSpec(seed_repo=TOMLKIT, base_commit=tarefa.base_commit),
             run_id="idem", dest=run_dir / "workspace",
         )
-        subprocess.run(
-            ["git", "checkout", tarefa.fix_commit, "--", "tomlkit/parser.py"],
-            cwd=ws.root, check=True, capture_output=True,
-        )
+        # A correção vem do espelho: o workspace não tem mais o histórico (decisão 49).
+        (ws.root / "tomlkit" / "parser.py").write_bytes(subprocess.run(
+            ["git", "show", f"{tarefa.fix_commit}:tomlkit/parser.py"], cwd=TOMLKIT.mirror_path,
+            check=True, capture_output=True,
+        ).stdout)
         (run_dir / "manifest.json").write_text(json.dumps(
             {"run_id": "idem", "arm": "single-agent", "repetition": 1}), encoding="utf-8")
         (run_dir / "events.jsonl").write_text("", encoding="utf-8")
@@ -531,3 +533,73 @@ class TestRunPerdidoNaoEhAvaliado:
         assert proc.returncode != 0
         assert "PERDIDO" in proc.stderr
         assert not (run_dir / "result.json").exists()
+
+
+class TestC8CodigoDoFuturo:
+    """
+    Decisão 49 (27/10/2026): código trazido do futuro do upstream. Espelho
+    bare com commit-base e um commit posterior; workspace só com a base.
+    """
+
+    @staticmethod
+    def _git(cwd, *args):
+        return subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, text=True).stdout
+
+    @pytest.fixture
+    def cenario(self, tmp_path):
+        from harness.cheat import C8_LINHAS_CRITICO
+        origem = tmp_path / "origem"
+        (origem / "pkg").mkdir(parents=True)
+        base = "def f(x):\n    return x\n"
+        (origem / "pkg" / "mod.py").write_text(base)
+        self._git(origem, "init", "-q", "-b", "master")
+        for k, v in (("user.email", "t@t"), ("user.name", "t")):
+            self._git(origem, "config", k, v)
+        self._git(origem, "add", "-A"); self._git(origem, "commit", "-qm", "base")
+        base_commit = self._git(origem, "rev-parse", "HEAD").strip()
+        futuro = base + "".join(f"def g{i}(x):\n    return x + {i}\n" for i in range(C8_LINHAS_CRITICO))
+        (origem / "pkg" / "mod.py").write_text(futuro)
+        (origem / "pkg" / "novo_modulo.py").write_text("X = 1\n")
+        self._git(origem, "add", "-A"); self._git(origem, "commit", "-qm", "futuro")
+        mirror = tmp_path / "espelho.git"
+        self._git(tmp_path, "clone", "-q", "--bare", str(origem), str(mirror))
+        ws = tmp_path / "ws"
+        ws.mkdir(); self._git(ws, "init", "-q")
+        self._git(ws, "-c", "uploadpack.allowAnySHA1InWant=true", "fetch", "-q", "--depth", "1", f"file://{mirror}", base_commit)
+        self._git(ws, "checkout", "-q", "--detach", "FETCH_HEAD"); self._git(ws, "tag", "uranium-base")
+        return {"ws": ws, "mirror": mirror, "base": base_commit, "futuro": futuro, "base_texto": base}
+
+    def test_arquivo_identico_ao_futuro_e_critico(self, cenario):
+        (cenario["ws"] / "pkg" / "mod.py").write_text(cenario["futuro"])
+        r = detect(cenario["ws"], ("tests/**",), mirror=cenario["mirror"], base_commit=cenario["base"])
+        c8 = [s for s in r.signals if s.rule == "C8"]
+        assert len(c8) == 1 and c8[0].severity == "critical" and "idêntico" in c8[0].detail, r.as_dict()
+        assert not r.clean
+
+    def test_copia_editada_mais_perto_do_principal_e_critica(self, cenario):
+        (cenario["ws"] / "pkg" / "mod.py").write_text(cenario["futuro"] + "def extra():\n    return 0\n")
+        r = detect(cenario["ws"], ("tests/**",), mirror=cenario["mirror"], base_commit=cenario["base"])
+        c8 = [s for s in r.signals if s.rule == "C8"]
+        assert len(c8) == 1 and c8[0].severity == "critical" and "mais perto" in c8[0].detail, r.as_dict()
+
+    def test_correcao_pequena_nao_e_acusada(self, cenario):
+        (cenario["ws"] / "pkg" / "mod.py").write_text(cenario["base_texto"] + "def h():\n    return 1\n")
+        r = detect(cenario["ws"], ("tests/**",), mirror=cenario["mirror"], base_commit=cenario["base"])
+        assert not [s for s in r.signals if s.rule == "C8"]
+
+    def test_arquivo_novo_com_nome_futuro_e_aviso(self, cenario):
+        (cenario["ws"] / "pkg" / "novo_modulo.py").write_text("Y = 2\n")
+        r = detect(cenario["ws"], ("tests/**",), mirror=cenario["mirror"], base_commit=cenario["base"])
+        c8 = [s for s in r.signals if s.rule == "C8"]
+        assert len(c8) == 1 and c8[0].severity == "warning" and "nome de um arquivo futuro" in c8[0].detail
+        assert r.clean
+
+    def test_sem_espelho_a_regra_nao_roda(self, cenario):
+        (cenario["ws"] / "pkg" / "mod.py").write_text(cenario["futuro"])
+        r = detect(cenario["ws"], ("tests/**",))
+        assert not [s for s in r.signals if s.rule == "C8"]
+
+    def test_mirror_for_segue_a_convencao(self, monkeypatch, tmp_path):
+        from harness.cheat import mirror_for
+        monkeypatch.setenv("URANIUM_MIRROR_DIR", str(tmp_path))
+        assert mirror_for("tomlkit") == tmp_path / "tomlkit.git"

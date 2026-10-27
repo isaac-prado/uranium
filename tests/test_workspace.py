@@ -233,3 +233,39 @@ class TestRastreamento:
     def test_snapshot_gera_tar(self, ws, tmp_path):
         destino = ws.snapshot(tmp_path / "ws.tar.gz")
         assert destino.exists() and destino.stat().st_size > 0
+
+
+@mirror_available
+class TestIsolamentoDoHistorico:
+    """
+    Decisão 49 (27/10/2026): o workspace nasce só com o commit-base. Antes,
+    `git clone --shared` do espelho deixava `master`, tags e commits futuros
+    visíveis, e o agente trouxe código futuro do upstream por `git show`
+    (rodada 8, tomlkit-0004 rep01).
+    """
+
+    @staticmethod
+    def _git(ws, *args):
+        return subprocess.run(["git", *args], cwd=ws.root, capture_output=True, text=True)
+
+    def test_so_um_commit_alcancavel(self, ws):
+        assert self._git(ws, "rev-list", "--all", "--count").stdout.strip() == "1"
+
+    def test_sem_tags_alem_da_base(self, ws):
+        assert self._git(ws, "tag").stdout.split() == [BASE_TAG]
+
+    def test_sem_remoto_e_sem_alternates(self, ws):
+        assert self._git(ws, "remote").stdout.strip() == ""
+        assert not (ws.root / ".git" / "objects" / "info" / "alternates").exists()
+
+    def test_master_nao_existe(self, ws):
+        for ref in ("master", "main", "origin/master", "origin/HEAD"):
+            assert self._git(ws, "rev-parse", "-q", "--verify", ref).returncode != 0, ref
+
+    def test_so_o_branch_do_run(self, ws):
+        branches = [b.strip("* ").strip() for b in self._git(ws, "branch", "--list").stdout.splitlines()]
+        assert branches == ["uranium/test-run"]
+
+    def test_constante_registrada(self):
+        from src.workspace import WORKSPACE_HISTORY
+        assert WORKSPACE_HISTORY == "commit-base-only"
