@@ -1,0 +1,16 @@
+fumaça deepseek começa 27/10 21:59:25
+tarefas   3  ×  2 braço(s) ['single-agent', 'orchestration']  ×  1 repetição(ões)  =  6 células
+estado    0 concluídas, 6 pendentes  →  runs/fumaca-deepseek
+modelo    deepseek/deepseek-v3.2 via DeepInfra
+orçamento {'max_tokens': 8000000, 'max_wall_seconds': 3600, 'max_turns': 120}
+workers   1   tentativas por célula 3
+
+  done    tomlkit-0003         single-agent   rep01  resolveu      tests_pass
+  done    tomlkit-0003         orchestration  rep01  resolveu      concluiu
+  done    sqlite-utils-0003    single-agent   rep01  resolveu      tests_pass
+  done    sqlite-utils-0003    orchestration  rep01  resolveu      concluiu
+  done    peewee-0002          single-agent   rep01  não resolveu  budget: max_turns (120 >= 120)
+  done    peewee-0002          orchestration  rep01  não resolveu  budget: max_turns (120 >= 120)
+
+  6 concluídas, 0 perdidas  →  runs/fumaca-deepseek/collection.json
+fumaça deepseek terminou 27/10 23:17:28 exit=0

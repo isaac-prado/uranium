@@ -1,0 +1,50 @@
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 26b8f9f..a57d706 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -992,6 +992,12 @@ class Table(Item, dict):
+ 
+         return self
+ 
++    def __iter__(self):
++        return iter(self._value.keys())
++
++    def __len__(self):
++        return len(self._value)
++
+     def keys(self):  # type: () -> Generator[str]
+         for k in self._value.keys():
+             yield k
+@@ -1045,7 +1051,8 @@ class Table(Item, dict):
+         self.remove(key)
+ 
+     def __repr__(self):
+-        return super(Table, self).__repr__()
++        # Use self.items() to get the current state, not the inherited dict
++        return dict(self.items()).__repr__()
+ 
+     def __str__(self):
+         return str(self.value)
+@@ -1152,6 +1159,12 @@ class InlineTable(Item, dict):
+ 
+         return buf
+ 
++    def __iter__(self):
++        return iter(self._value.keys())
++
++    def __len__(self):
++        return len(self._value)
++
+     def keys(self):  # type: () -> Generator[str]
+         for k in self._value.keys():
+             yield k
+@@ -1205,7 +1218,8 @@ class InlineTable(Item, dict):
+         self.remove(key)
+ 
+     def __repr__(self):
+-        return super(InlineTable, self).__repr__()
++        # Use self.items() to get the current state, not the inherited dict
++        return dict(self.items()).__repr__()
+ 
+     def _getstate(self, protocol=3):
+         return (self._value, self._trivia)

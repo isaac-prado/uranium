@@ -470,3 +470,13 @@ Relatório em [07-e4-fumaca.md](07-e4-fumaca.md): 4 células (`tomlkit-0002` gra
 **Teste que prova.** Suíte completa verde na árvore principal após a mesclagem da decisão 49 (751).
 
 **Impacto em docs.** [24-rodada-8.md](24-rodada-8.md) §4 e §4.1; registro 48 (resultado) e 45 (configuração) em [09-decisoes-do-autor.md](09-decisoes-do-autor.md); [25-vazamento-historico-git.md](25-vazamento-historico-git.md) §1 e §2; `CLAUDE.md`.
+
+## Replicação: sondagem de aptidão e fumaça do DeepSeek (27/10/2026, decisão 45)
+
+**O que rodou.** `scripts/fitness_test.py` para os dois modelos (apto, apto; raciocínio 0) e a fumaça do DeepSeek V3.2 na DeepInfra (`runs/fumaca-deepseek`: 3 tarefas × 2 braços, orquestrado na configuração da rodada 4, manifesto v18): 4/6, US$ 1,43, 521/521 BYOK, primeira coleta com a caixa de areia e o workspace só no commit-base (125 execuções, 0 recusas, 0 erros).
+
+**Diff resumido.** Só dados e documentação: [26-replicacao.md](26-replicacao.md) (novo), `docs/tcc/dados/fumaca-deepseek/`, `docs/tcc/dados/sondagens/aptidao-replicacao-2026-10-27.txt`. Nenhuma mudança em `src/`.
+
+**Teste que prova.** Suíte completa verde (751); os manifestos da fumaça registram `workspace_history: commit-base-only`, `sandbox: bwrap`, `model: deepseek/deepseek-v3.2`, `provider: DeepInfra`.
+
+**Impacto em docs.** [26-replicacao.md](26-replicacao.md); registro 45 (aptidão e fumaça DeepSeek) em [09-decisoes-do-autor.md](09-decisoes-do-autor.md); `CLAUDE.md`.
