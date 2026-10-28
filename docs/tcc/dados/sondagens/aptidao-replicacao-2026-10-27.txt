@@ -1,0 +1,26 @@
+# Sondagem de aptidão dos modelos da replicação (decisão 45), 27/10/2026
+# Comando: .venv/bin/python scripts/fitness_test.py --model <modelo> --provider <provedor> -n 5
+# (saída copiada do terminal; custo total das duas sondagens US$ 0,0011)
+
+=== deepseek/deepseek-v3.2 @ DeepInfra ===
+  provedor DeepInfra (pinado, allow_fallbacks=False); seed 20260820; temperature 0.0
+  1. tool calling      5/5 chamaram search_code; argumentos exatos 5/5
+  2. provedor servido  {'DeepInfra': 5}
+  3. determinismo      3 assinatura(s) distinta(s) em 5
+     custo total       US$ 0.000540  (2507 tokens)
+  pino de provedor OK; conformidade OK; determinismo DIVERGENTE (declarar a variabilidade)
+  VEREDITO: APTO para os dois braços
+
+=== mistralai/devstral-2512 @ Mistral ===
+  provedor Mistral (pinado, allow_fallbacks=False); seed 20260820; temperature 0.0
+  1. tool calling      5/5 chamaram search_code; argumentos exatos 5/5
+  2. provedor servido  {'Mistral': 5}
+  3. determinismo      1 assinatura(s) distinta(s) em 5
+     custo total       US$ 0.000592  (1080 tokens)
+  pino de provedor OK; conformidade OK; determinismo OK
+  VEREDITO: APTO para os dois braços
+
+# Chamada direta por modelo (curl em /chat/completions, provider.order pinado, allow_fallbacks=false, max_tokens 300, temperature 0, seed 1, usage.include=true), 27/10/2026:
+deepseek/deepseek-v3.2 @ DeepInfra: prompt 28, completion 35, reasoning_tokens 0, is_byok True (chave DeepInfra registrada), cost 0 na fatura do OpenRouter (pago na DeepInfra)
+mistralai/devstral-2512 @ Mistral:  prompt 37, completion 44, reasoning_tokens 0, is_byok False (chave Mistral ainda não registrada no OpenRouter), cost US$ 0.0001028 no crédito do OpenRouter
+# Leitura: o DeepSeek V3.2 na DeepInfra responde sem raciocínio por padrão (reasoning_tokens 0): nada a mudar no pino de provedor.
