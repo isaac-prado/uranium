@@ -480,3 +480,14 @@ Relatório em [07-e4-fumaca.md](07-e4-fumaca.md): 4 células (`tomlkit-0002` gra
 **Teste que prova.** Suíte completa verde (751); os manifestos da fumaça registram `workspace_history: commit-base-only`, `sandbox: bwrap`, `model: deepseek/deepseek-v3.2`, `provider: DeepInfra`.
 
 **Impacto em docs.** [26-replicacao.md](26-replicacao.md); registro 45 (aptidão e fumaça DeepSeek) em [09-decisoes-do-autor.md](09-decisoes-do-autor.md); `CLAUDE.md`.
+
+
+---
+
+## Replicação: coleta do DeepSeek lançada e Devstral bloqueado na Mistral (28/10/2026, decisão 45)
+
+**Diff resumido.** Só documentação e dados. Sonda direta no OpenRouter antes do lançamento ([dados/sondagens/mistral-byok-429-2026-10-28.txt](dados/sondagens/mistral-byok-429-2026-10-28.txt)): DeepSeek V3.2 na DeepInfra com `is_byok: true` e `reasoning_tokens: 0`; Devstral 2 na Mistral com a chave BYOK registrada, mas 429 `Rate limit exceeded` código 1300 em 4 de 4 chamadas. Coleta do DeepSeek lançada 28/10 16:11 em `runs/coleta-deepseek` (78 células, `--workers 1 --retry-delay 300 --max-attempts 5`, orquestrado da rodada 4). Scripts de lançamento recriados em `runs/_lancamento/` (pasta ignorada pelo git; o scratchpad da sessão foi apagado duas vezes e levou os anteriores).
+
+**Teste que prova.** Suíte completa verde antes do commit (`runs/_lancamento/suite-2026-10-28.log`, fora do git); o manifesto do primeiro run registra `manifest_version 18`, `model: deepseek/deepseek-v3.2`, `provider: DeepInfra`, `sandbox: bwrap`, `workspace_history: commit-base-only`, orçamento 120/8M/3600.
+
+**Impacto em docs.** [26-replicacao.md](26-replicacao.md) §4 a §6; registro 45 (lançamento DeepSeek; Mistral bloqueada) em [09-decisoes-do-autor.md](09-decisoes-do-autor.md); `CLAUDE.md` (estado em 28/10). Pendente do autor: ativar pay-as-you-go na Mistral (crédito pré-pago não muda a faixa de limites, segundo a central de ajuda da Mistral), depois sonda, fumaça e 78 runs do Devstral.
