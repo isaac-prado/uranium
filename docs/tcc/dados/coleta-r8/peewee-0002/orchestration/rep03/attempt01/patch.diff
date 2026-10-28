@@ -1,0 +1,81 @@
+diff --git a/peewee.py b/peewee.py
+index 6a666d5b..3d425cf5 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -2652,6 +2652,13 @@ class Select(SelectBase):
+ 
+     @Node.copy
+     def window(self, *windows):
++        if windows:
++            seen_aliases = set()
++            for window in windows:
++                alias = getattr(window, '_alias', None)
++                if alias in seen_aliases:
++                    raise ValueError('Duplicate window alias detected: %s' % alias)
++                seen_aliases.add(alias)
+         self._windows = windows if windows else None
+ 
+     @Node.copy
+@@ -3781,6 +3788,11 @@ class Database(_callable_context_manager):
+     def __enter__(self):
+         if self.is_closed():
+             self.connect()
++        # Verifica se já estamos em um contexto de manual_commit
++        top_txn = self.top_transaction()
++        if top_txn is not None and isinstance(top_txn, _manual):
++            raise ValueError('Cannot enter atomic commit block while in '
++                             'manual commit mode.')
+         ctx = self.atomic()
+         self._state.ctx.append(ctx)
+         ctx.__enter__()
+@@ -4037,12 +4049,30 @@ class Database(_callable_context_manager):
+             self.cursor().execute('BEGIN')
+ 
+     def rollback(self):
+-        with __exception_wrapper__:
+-            self.cursor().execute('ROLLBACK')
++        if self.is_closed():
++            raise InterfaceError('Rollback failed, connection is closed.')
++        try:
++            with __exception_wrapper__:
++                self.cursor().execute('ROLLBACK')
++        except:
++            # Se ocorrer uma exceção durante o rollback, garantimos que a conexão
++            # continue marcada como fechada
++            if not self.autoconnect and self.is_closed():
++                raise
++            raise
+ 
+     def commit(self):
+-        with __exception_wrapper__:
+-            self.cursor().execute('COMMIT')
++        if self.is_closed():
++            raise InterfaceError('Commit failed, connection is closed.')
++        try:
++            with __exception_wrapper__:
++                self.cursor().execute('COMMIT')
++        except:
++            # Se ocorrer uma exceção durante o commit, garantimos que a conexão
++            # continue marcada como fechada
++            if not self.autoconnect and self.is_closed():
++                raise
++            raise
+ 
+     def batch_commit(self, it, n):
+         for group in chunked(it, n):
+@@ -5242,7 +5272,14 @@ class _atomic(object):
+                              'manual commit mode.')
+         else:
+             self._helper = self.db.savepoint()
+-        return self._helper.__enter__()
++        try:
++            return self._helper.__enter__()
++        except:
++            # Se ocorrer uma exceção em __enter__, limpamos o contexto
++            # para evitar estado inconsistente
++            if self.db._state.ctx and self.db._state.ctx[-1] is self:
++                self.db._state.ctx.pop()
++            raise
+ 
+     def __exit__(self, exc_type, exc_val, exc_tb):
+         return self._helper.__exit__(exc_type, exc_val, exc_tb)

@@ -1,0 +1,26 @@
+diff --git a/playhouse/fields.py b/playhouse/fields.py
+index 5eefd0a6..555734c3 100644
+--- a/playhouse/fields.py
++++ b/playhouse/fields.py
+@@ -69,8 +69,21 @@ class EnumFieldMixin(object):
+                         enum_class.__name__, member.name, member.value,
+                         self.enum_value_type.__name__))
+         self.enum_class = enum_class
++        
++        # Call the parent constructor first to process all arguments,
++        # including any user-provided 'choices'.
+         super(EnumFieldMixin, self).__init__(*args, **kwargs)
+ 
++        # Auto-populate choices only if they were not explicitly provided.
++        # This check must happen AFTER the super().__init__ call.
++        # The condition 'self.choices is None' means:
++        # 1. 'choices' was not in kwargs at all (implicitly None), OR
++        # 2. 'choices' was explicitly passed as None by the user.
++        # In both cases, we want to auto-generate the choices.
++        # If the user passed a specific list, it will be preserved.
++        if self.choices is None:
++            self.choices = [(member.value, member.name) for member in enum_class]
++
+     def db_value(self, value):
+         if value is None:
+             return value

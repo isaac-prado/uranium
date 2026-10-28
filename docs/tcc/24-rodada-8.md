@@ -69,7 +69,36 @@ Antes dos 39 runs, duas execuções com `BLOCK_EXPECTED=strict` (`runs/fumaca-r8
 
 ## 4. Execução dos 39 runs (lançada em 23/10/2026, 08:06)
 
-Crédito de US$ 5 adicionado pelo autor em 23/10/2026 e etapa 1 aprovada ("prossiga com a etapa 1 de teste, já adicionei os US$5"): fumaça em `strict` (§3.1) e, confirmada, os 39 runs. Lançados às 08:06 em `runs/coleta-r8` (13 tarefas × 3 repetições, só o orquestrado, `BLOCK_EXPECTED=strict`, manifesto v17; o primeiro manifesto gravado traz `block_expected: strict`, `reproduction_source: statement`, `subtask_max_cycles: 2`). Comando: o de §2 com `BLOCK_EXPECTED=strict` e `--repetitions 3 --out runs/coleta-r8 --retry-delay 300 --max-attempts 5`. Critério (decisão 45): a rodada 8 vira a configuração decisiva da replicação se chegar a 10 ou mais tarefas de 13 sem perder na faixa grande em relação à rodada 4 (5/9); senão a rodada 4 fica. Resultado nesta seção quando fechar.
+Crédito de US$ 5 adicionado pelo autor em 23/10/2026 e etapa 1 aprovada ("prossiga com a etapa 1 de teste, já adicionei os US$5"): fumaça em `strict` (§3.1) e, confirmada, os 39 runs. Lançados às 08:06 em `runs/coleta-r8` (13 tarefas × 3 repetições, só o orquestrado, `BLOCK_EXPECTED=strict`, manifesto v17; o primeiro manifesto gravado traz `block_expected: strict`, `reproduction_source: statement`, `subtask_max_cycles: 2`). Comando: o de §2 com `BLOCK_EXPECTED=strict` e `--repetitions 3 --out runs/coleta-r8 --retry-delay 300 --max-attempts 5`. Critério (decisão 45): a rodada 8 vira a configuração decisiva da replicação se chegar a 10 ou mais tarefas de 13 sem perder na faixa grande em relação à rodada 4 (5/9); senão a rodada 4 fica.
+
+A coleta morreu com a sessão em 23/10 às 09:53 com 14 células feitas e foi retomada em 27/10 nas mesmas condições (a célula interrompida, peewee-0001 rep02, voltou como tentativa 2 com a mesma semente); fechou em 27/10 às 21:46 com 39 células e 0 perdidas (`dados/coleta-r8/collection.json`).
+
+### 4.1 Resultado (fechada em 27/10/2026)
+
+Dados: [dados/coleta-r8/](dados/coleta-r8/) (runs sem workspaces, `analise-sete-metricas.{md,json}`, `apendice-metricas.md`, `resumo-rodadas-4-7-8.txt` de `scripts/resumo_rodada.py`). Single-agent de comparação: o pareado da rodada 2, como nas rodadas 4 a 7.
+
+| | rodada 4 | rodada 7 | **rodada 8** |
+|---|---|---|---|
+| runs resolvidos | 24/39 | 23/39 | **20/39** |
+| tarefas resolvidas (maioria das repetições) | 9/13 | 9/13 | **7/13** (single-agent 8/13) |
+| grande / média / pequena | 5/9 · 7/12 · 12/18 | 4/9 · 6/12 · 13/18 | **6/9** · 5/12 · 9/18 |
+| custo (US$) · cache gravado | 5,67 · n/d | 4,37 · 90,7 % | 4,95 · 91,3 % |
+| cortes por orçamento | 16 | 10 | 14 |
+| aprovações erradas (concluiu sem resolver) | 3 | 6 | 7 |
+| resolvidas só pelo oráculo (no corte) | 4 | 1 | 2 |
+| `strict_coerced` | — | — | 0 em 84 revisões finais |
+
+Por tarefa (resolvidas em 3 repetições), rodada 8 contra rodada 7: attrs-0001 0 (2), peewee-0001 2 (2), peewee-0002 0 (0), peewee-0003 3 (3), pygments-0001 2 (3), sqlite-utils-0001 0 (2), sqlite-utils-0002 1 (2), sqlite-utils-0003 **3** (2), tomlkit-0001 3 (3), tomlkit-0002 **3** (1), tomlkit-0003 3 (3), tomlkit-0004 0 (0), tomlkit-0005 0 (0).
+
+**Não é decisiva.** 7/13 fica abaixo das 9/13 da rodada 4; pela regra da decisão 45, **a rodada 4 é a configuração do orquestrado na replicação**. A faixa grande subiu para 6/9, a melhor de todas as rodadas, porque a tomlkit-0002 fechou 3 de 3 (rodada 7: 1 de 3, duas aprovações erradas com `foo.bar=1`); a sqlite-utils-0003 também fechou 3 de 3 (rodada 7: 2 de 3). São exatamente as duas tarefas em que o enunciado tem saída esperada pareada ao exemplo, e nelas o revisor só aprovou com todas as linhas encontradas.
+
+**O que o mecanismo fez e o que não pôde fazer.** `strict_coerced` não disparou nenhuma vez: em 84 revisões finais o revisor nunca aprovou contra uma linha "NÃO encontrada" (a classe de erro que o modo `strict` elimina não ocorreu). As 7 aprovações erradas são todas em tarefas sem par esperado no enunciado, por detalhes que nenhum exemplo exercita e que o teste oculto exige: attrs-0001 (3 de 3: a exceção certa com a mensagem citando `<class '__main__.Comum'>` em vez de `__main__.Comum[str]`, que o critério 3 pede), sqlite-utils-0001 (3 de 3: o caso da tabela autorreferente, sem exemplo; e a mensagem sem o prefixo literal `ON DELETE`, que o teste exige e o enunciado não escreve), sqlite-utils-0002 (1: o SQL exato da transformação). Do outro lado, 2 runs foram resolvidos só pelo oráculo porque o revisor reprovou um estado correto até o orçamento: peewee-0003 rep01 (10 reprovações dizendo que `choices` explícito era sobrescrito, com a saída certa visível em todas; a saída esperada deste enunciado está em comentário na linha do `print`, que o pareamento não reconhece) e tomlkit-0002 rep02 (duas reprovações pelo critério do acesso aninhado, sem exemplo, depois de as 2 linhas passarem a "encontrada"). O espelho da classe 2: o revisor também erra para o lado da reprovação sobre o que não roda.
+
+**Onde a rodada 8 perdeu para a 7.** Nas tarefas sem par esperado o resultado piorou (attrs-0001 2 → 0, sqlite-utils-0001 2 → 0, sqlite-utils-0002 2 → 1, pygments-0001 3 → 2): variação do modelo somada ao custo de `SUBTASK_MAX_CYCLES=2` (14 cortes contra 10). A troca é clara: o mecanismo ganha onde o enunciado dá a saída literal e não muda nada onde não dá.
+
+**Mecanismo 1 (cópia consertada pelo enunciado).** Exercitado 2 vezes na rodada (`fonte: enunciado` em 2 execuções: bloco do refinador que não compilava trocado pelo exemplo Python do enunciado), contra nenhuma na fumaça. Blocos que não compilam: 11 em 3 runs (rodada 7: 17 em 4). Blocos de linha de comando executados: 9 em 3 runs.
+
+**Vazamento pelo histórico git.** Dois runs desta rodada trouxeram código do `master` do espelho para o workspace, tomlkit-0004 rep01 e rep03, ambos 0/7 ([25-vazamento-historico-git.md](25-vazamento-historico-git.md)); a rodada rodou inteira nas condições antigas, de propósito, para a comparação com as rodadas 4 e 7 valer. A decisão 49 entra a partir daqui.
 
 ## 5. Calibração da barreira por exemplo (23/10/2026)
 

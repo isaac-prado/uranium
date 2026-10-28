@@ -1,0 +1,48 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index d709fb9..d7dbcee 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -2542,6 +2542,32 @@ class Table(Queryable):
+         """
+         if not self.exists():
+             raise ValueError("Cannot transform a table that doesn't exist yet")
++        
++        # Check for destructive foreign keys if we're in a transaction
++        pragma_foreign_keys_was_on = bool(
++            self.db.execute("PRAGMA foreign_keys").fetchone()[0]
++        )
++        already_in_transaction = self.db.conn.in_transaction
++        
++        if pragma_foreign_keys_was_on and already_in_transaction:
++            # Check for referencing tables with destructive ON DELETE actions
++            destructive_actions = {'CASCADE', 'SET NULL', 'SET DEFAULT'}
++            referencing_tables = []
++            
++            for table_name in self.db.table_names():
++                fk_list_query = f"PRAGMA foreign_key_list('{table_name}')"
++                for row in self.db.execute(fk_list_query).fetchall():
++                    id, seq, table_name_fk, from_col, to_col, on_update, on_delete, match = row
++                    if table_name_fk == self.name and on_delete in destructive_actions:
++                        referencing_tables.append((table_name, on_delete))
++            
++            if referencing_tables:
++                table_list = ", ".join([f"{table} ({action})" for table, action in referencing_tables])
++                raise TransactionError(
++                    f"Cannot transform table '{self.name}' while in a transaction "
++                    f"because it is referenced by tables with destructive ON DELETE actions: {table_list}"
++                )
++        
+         sqls = self.transform_sql(
+             types=types,
+             rename=rename,
+@@ -2556,10 +2582,6 @@ class Table(Queryable):
+             keep_table=keep_table,
+             strict=strict,
+         )
+-        pragma_foreign_keys_was_on = bool(
+-            self.db.execute("PRAGMA foreign_keys").fetchone()[0]
+-        )
+-        already_in_transaction = self.db.conn.in_transaction
+         should_disable_foreign_keys = (
+             pragma_foreign_keys_was_on and not already_in_transaction
+         )

@@ -1,0 +1,37 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index d709fb9..b5ba1e5 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -2566,6 +2566,32 @@ class Table(Queryable):
+         should_defer_foreign_keys = (
+             pragma_foreign_keys_was_on and already_in_transaction
+         )
++        # Check for destructive foreign keys if we are in a transaction
++        if pragma_foreign_keys_was_on and already_in_transaction:
++            # Get all tables that reference this table with destructive actions
++            destructive_refs = []
++            for table_name in self.db.table_names():
++                if table_name == self.name:
++                    continue
++                fk_list = self.db.execute(
++                    "PRAGMA foreign_key_list({})".format(quote_identifier(table_name))
++                ).fetchall()
++                for row in fk_list:
++                    id, seq, table, from_col, to_col, on_update, on_delete, match = row
++                    if table == self.name and on_delete in ("CASCADE", "SET NULL", "SET DEFAULT"):
++                        destructive_refs.append((table_name, on_delete))
++            
++            if destructive_refs:
++                ref_details = ", ".join(
++                    "{} ON DELETE {}".format(table, action) 
++                    for table, action in destructive_refs
++                )
++                raise TransactionError(
++                    "Cannot transform table '{}' with destructive foreign key references "
++                    "from tables: {}. Consider disabling foreign key checks or "
++                    "refactoring the schema.".format(self.name, ref_details)
++                )
++        
+         defer_foreign_keys_was_on = False
+         try:
+             if should_disable_foreign_keys:

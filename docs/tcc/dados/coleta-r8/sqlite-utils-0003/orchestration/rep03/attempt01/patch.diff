@@ -1,0 +1,176 @@
+diff --git a/sqlite_utils/cli.py b/sqlite_utils/cli.py
+index a30f79a..705dcc5 100644
+--- a/sqlite_utils/cli.py
++++ b/sqlite_utils/cli.py
+@@ -2115,6 +2115,8 @@ def _execute_query(
+     arrays,
+     json_cols,
+ ):
++    from .utils import dedupe_keys
++
+     with db.conn:
+         try:
+             cursor = db.execute(sql, dict(param))
+@@ -2126,6 +2128,9 @@ def _execute_query(
+             cursor = [[cursor.rowcount]]
+         else:
+             headers = [c[0] for c in cursor.description]
++            # Only apply dedupe_keys to JSON output, not CSV/TSV/table
++            if not (csv or tsv or fmt or table):
++                headers = dedupe_keys(headers)
+         cursor_or_rows: Any = cursor
+         if raw:
+             row = cursor_or_rows.fetchone()
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 3f23c7d..a71f3a3 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -763,6 +763,8 @@ class Database:
+           :meth:`execute` for those statements instead. The rejected statement
+           is rolled back, so it has no effect on the database
+         """
++        from .utils import dedupe_keys
++
+         message = (
+             "query() can only be used with SQL that returns rows - "
+             "use execute() for other statements"
+@@ -787,7 +789,8 @@ class Database:
+             if cursor.description is None:
+                 raise ValueError(message)
+             keys = [d[0] for d in cursor.description]
+-            return (dict(zip(keys, row)) for row in cursor)
++            deduped_keys = dedupe_keys(keys)
++            return (dict(zip(deduped_keys, row)) for row in cursor)
+         # Execute inside a savepoint, so a statement that turns out not to
+         # return rows can be rolled back before the ValueError is raised
+         self.conn.execute('SAVEPOINT "sqlite_utils_query"')
+@@ -797,6 +800,7 @@ class Database:
+             if cursor.description is None:
+                 raise ValueError(message)
+             keys = [d[0] for d in cursor.description]
++            deduped_keys = dedupe_keys(keys)
+             try:
+                 self.conn.execute('RELEASE "sqlite_utils_query"')
+                 released = True
+@@ -809,8 +813,8 @@ class Database:
+                 fetched = cursor.fetchall()
+                 self.conn.execute('RELEASE "sqlite_utils_query"')
+                 released = True
+-                return (dict(zip(keys, row)) for row in fetched)
+-            return (dict(zip(keys, row)) for row in cursor)
++                return (dict(zip(deduped_keys, row)) for row in fetched)
++            return (dict(zip(deduped_keys, row)) for row in cursor)
+         finally:
+             if not released:
+                 # An error occurred - undo anything the statement changed
+@@ -1853,6 +1857,8 @@ class Queryable:
+         :param limit: Integer number of rows to limit to
+         :param offset: Integer for SQL offset
+         """
++        from .utils import dedupe_keys
++
+         if not self.exists():
+             return
+         sql = "select {} from {}".format(select, quote_identifier(self.name))
+@@ -1866,8 +1872,9 @@ class Queryable:
+             sql += " offset {}".format(offset)
+         cursor = self.db.execute(sql, where_args or [])
+         columns = [c[0] for c in cursor.description]
++        deduped_columns = dedupe_keys(columns)
+         for row in cursor:
+-            yield dict(zip(columns, row))
++            yield dict(zip(deduped_columns, row))
+ 
+     def pks_and_rows_where(
+         self,
+@@ -3379,6 +3386,8 @@ class Table(Queryable):
+ 
+         See :ref:`python_api_fts_search`.
+         """
++        from .utils import dedupe_keys
++
+         args = {"query": self.db.quote_fts(q) if quote else q}
+         if where_args and "query" in where_args:
+             raise ValueError(
+@@ -3399,8 +3408,9 @@ class Table(Queryable):
+             args,
+         )
+         columns = [c[0] for c in cursor.description]
++        deduped_columns = dedupe_keys(columns)
+         for row in cursor:
+-            yield dict(zip(columns, row))
++            yield dict(zip(deduped_columns, row))
+ 
+     def value_or_default(self, key: str, value: Any) -> Any:
+         return self._defaults[key] if value is DEFAULT else value
+diff --git a/sqlite_utils/utils.py b/sqlite_utils/utils.py
+index 865ee79..8af4122 100644
+--- a/sqlite_utils/utils.py
++++ b/sqlite_utils/utils.py
+@@ -67,6 +67,59 @@ Row = Dict[str, RowValue]
+ T = TypeVar("T")
+ 
+ 
++def dedupe_keys(keys: List[str]) -> List[str]:
++    """
++    Renames duplicate keys in a list by appending a numeric suffix (_2, _3, etc.)
++    to ensure all keys are unique, preserving the original order.
++
++    The first occurrence of a key remains unchanged. Subsequent duplicates are
++    renamed. If a potential new key (e.g., 'key_2') already exists, the suffix
++    is incremented until a unique name is found.
++
++    Examples:
++        [] -> []
++        ['id', 'name'] -> ['id', 'name']
++        ['id', 'id'] -> ['id', 'id_2']
++        ['id', 'id', 'id'] -> ['id', 'id_2', 'id_3']
++        ['id', 'id', 'id_2'] -> ['id', 'id_3', 'id_2']
++        ['id_2', 'id', 'id'] -> ['id_2', 'id', 'id_3']
++        ['id', 'id', 'id_2', 'id_2'] -> ['id', 'id_3', 'id_2', 'id_2_2']
++
++    Args:
++        keys: A list of strings representing column names.
++
++    Returns:
++        A new list of strings with duplicates renamed to ensure uniqueness.
++    """
++    if not keys:
++        return []
++
++    seen: Dict[str, int] = {}
++    result: List[str] = []
++    existing_keys = set(keys)
++
++    for key in keys:
++        if key not in seen:
++            # First occurrence, leave it as is
++            seen[key] = 1
++            result.append(key)
++        else:
++            # Duplicate found, generate a new unique key
++            seen[key] += 1
++            counter = seen[key]
++            new_key = f"{key}_{counter}"
++
++            # Ensure the generated key doesn't conflict with existing ones
++            while new_key in existing_keys or new_key in result:
++                counter += 1
++                new_key = f"{key}_{counter}"
++
++            result.append(new_key)
++            seen[new_key] = 1  # Add the new key to seen to handle further duplicates
++
++    return result
++
++
+ class _CloseableIterator(Iterator[Row]):
+     """Iterator wrapper that closes a file when iteration is complete."""
+ 
+@@ -628,4 +681,4 @@ def flatten(row: Dict[str, Any]) -> Dict[str, Any]:
+ 
+     :param row: A Python dictionary, optionally with nested dictionaries
+     """
+-    return dict(_flatten(row))
++    return dict(_flatten(row))
+\ No newline at end of file

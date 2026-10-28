@@ -465,3 +465,45 @@ fumaca-09-10-f/tomlkit-0004/orchestration/rep01/attempt01 resolved=False tomlkit
 fumaca-09-10-f/tomlkit-0004/orchestration/rep01/attempt01 resolved=False tomlkit/parser.py: vs base=1150 vs correção(eedcdb2)=1149 vs principal=987
 fumaca-09-10-f/tomlkit-0004/orchestration/rep01/attempt01 resolved=False tomlkit/toml_char.py: vs base=34 vs correção(2e1ebe3)=32 vs principal=67
 fumaca-r8/tomlkit-0001/orchestration/rep01/attempt01 resolved=True tomlkit/parser.py: vs base=9 vs correção(d548e18)=0 vs principal=14
+
+# Re-varredura de runs/coleta-r8 em 27/10/2026, após o fechamento da rodada (39 células + 1 tentativa interrompida)
+coleta-r8/attrs-0001/orchestration/rep01/attempt01: mods=3 novos=0 master_visivel=sim
+coleta-r8/attrs-0001/orchestration/rep02/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r8/attrs-0001/orchestration/rep03/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r8/peewee-0001/orchestration/rep01/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r8/peewee-0001/orchestration/rep02/attempt01: mods=4 novos=2 master_visivel=sim
+coleta-r8/peewee-0001/orchestration/rep02/attempt02: mods=1 novos=1 master_visivel=sim
+coleta-r8/peewee-0001/orchestration/rep03/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r8/peewee-0002/orchestration/rep01/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r8/peewee-0002/orchestration/rep02/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r8/peewee-0002/orchestration/rep03/attempt01: mods=1 novos=1 master_visivel=sim
+coleta-r8/peewee-0003/orchestration/rep01/attempt01: mods=1 novos=3 master_visivel=sim
+coleta-r8/peewee-0003/orchestration/rep02/attempt01: mods=1 novos=2 master_visivel=sim
+coleta-r8/peewee-0003/orchestration/rep03/attempt01: mods=1 novos=2 master_visivel=sim
+coleta-r8/pygments-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r8/pygments-0001/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim | MAIS PERTO DE MASTER pygments/lexers/go.py (base 77 vs master 73)
+coleta-r8/pygments-0001/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r8/sqlite-utils-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r8/sqlite-utils-0001/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r8/sqlite-utils-0001/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r8/sqlite-utils-0002/orchestration/rep01/attempt01: mods=1 novos=2 master_visivel=sim
+coleta-r8/sqlite-utils-0002/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r8/sqlite-utils-0002/orchestration/rep03/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r8/sqlite-utils-0003/orchestration/rep01/attempt01: mods=3 novos=0 master_visivel=sim
+coleta-r8/sqlite-utils-0003/orchestration/rep02/attempt01: mods=3 novos=0 master_visivel=sim
+coleta-r8/sqlite-utils-0003/orchestration/rep03/attempt01: mods=3 novos=0 master_visivel=sim
+coleta-r8/tomlkit-0001/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim | BLOB FUTURO tomlkit/parser.py = uranium-base-12-gb48c094
+coleta-r8/tomlkit-0001/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim | BLOB FUTURO tomlkit/parser.py = uranium-base-12-gb48c094
+coleta-r8/tomlkit-0001/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r8/tomlkit-0002/orchestration/rep01/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r8/tomlkit-0002/orchestration/rep02/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r8/tomlkit-0002/orchestration/rep03/attempt01: mods=2 novos=0 master_visivel=sim
+coleta-r8/tomlkit-0003/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r8/tomlkit-0003/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r8/tomlkit-0003/orchestration/rep03/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r8/tomlkit-0004/orchestration/rep01/attempt01: mods=11 novos=2 master_visivel=sim | MAIS PERTO DE MASTER tomlkit/__init__.py (base 79 vs master 2); VERSÃO tomlkit/__init__.py: __version__ = "0.1.1" -> __version__ = "0.15.2"; BLOB FUTURO tomlkit/_compat.py = 0.14.0-10-g8e32f9c; MAIS PERTO DE MASTER tomlkit/_compat.py (base 171 vs master 0); MAIS PERTO DE MASTER tomlkit/_utils.py (base 139 vs master 4); MAIS PERTO DE MASTER tomlkit/api.py (base 392 vs master 37); MAIS PERTO DE MASTER tomlkit/container.py (base 1414 vs master 125); BLOB FUTURO tomlkit/exceptions.py = 0.14.0-10-g8e32f9c; MAIS PERTO DE MASTER tomlkit/exceptions.py (base 161 vs master 0); MAIS PERTO DE MASTER tomlkit/items.py (base 2377 vs master 106); MAIS PERTO DE MASTER tomlkit/parser.py (base 1485 vs master 4); BLOB FUTURO tomlkit/toml_document.py = 0.11.1-2-g0449c53; BLOB FUTURO tomlkit/toml_file.py = 0.14.0-10-g8e32f9c; MAIS PERTO DE MASTER tomlkit/toml_file.py (base 61 vs master 0); NOVO COM NOME FUTURO tomlkit/_types.py; NOVO COM NOME FUTURO tomlkit/source.py
+coleta-r8/tomlkit-0004/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r8/tomlkit-0004/orchestration/rep03/attempt01: mods=5 novos=1 master_visivel=sim | MAIS PERTO DE MASTER tomlkit/items.py (base 2376 vs master 139); NOVO COM NOME FUTURO tomlkit/_types.py
+coleta-r8/tomlkit-0005/orchestration/rep01/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r8/tomlkit-0005/orchestration/rep02/attempt01: mods=1 novos=0 master_visivel=sim
+coleta-r8/tomlkit-0005/orchestration/rep03/attempt01: mods=2 novos=0 master_visivel=sim

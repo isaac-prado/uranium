@@ -1,0 +1,39 @@
+{
+  "run_id": "tomlkit-0004-orchestration-r03-a01",
+  "arm": "orchestration",
+  "task_id": "tomlkit-0004",
+  "repetition": 3,
+  "attempt": 1,
+  "llm_seed": 20260823,
+  "topology": "multi_agent_roles",
+  "stop_reason": "budget: max_turns (120 >= 120)",
+  "lost": false,
+  "is_valid": false,
+  "changed_files": [
+    "tomlkit/_compat.py",
+    "tomlkit/_types.py",
+    "tomlkit/_utils.py",
+    "tomlkit/exceptions.py",
+    "tomlkit/items.py",
+    "tomlkit/parser.py"
+  ],
+  "diff_stat": {
+    "files_changed": 5,
+    "insertions": 2144,
+    "deletions": 302
+  },
+  "turns": 120,
+  "totals": {
+    "tokens_prompt": 1969353,
+    "tokens_completion": 16406,
+    "tokens_reasoning": 0,
+    "tokens_total": 1985759,
+    "tokens_cached": 1800592,
+    "cost_usd": 0.2470935,
+    "llm_calls": 124,
+    "tool_calls": 126,
+    "test_runs": 3,
+    "errors": 0
+  },
+  "out_dir": "runs/coleta-r8/tomlkit-0004/orchestration/rep03/attempt01"
+}

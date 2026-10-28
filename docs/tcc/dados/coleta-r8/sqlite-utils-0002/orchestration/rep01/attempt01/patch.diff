@@ -1,0 +1,40 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 48987a6..05fb7af 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -56,6 +56,8 @@ from .utils import (
+     types_for_column_types,
+ )
+ 
++from .is_numeric_type import is_numeric_type
++
+ try:
+     iterdump = importlib.import_module("sqlite_dump").iterdump
+ except ImportError:
+@@ -3103,10 +3105,25 @@ class Table(Queryable):
+         if "rowid" not in new_cols:
+             new_cols.insert(0, "rowid")
+             old_cols.insert(0, "rowid")
++        
++        # Modify old_cols to use NULLIF for TEXT columns being converted to numeric types
++        old_cols_modified = []
++        for i, (from_col, to_col) in enumerate(zip(old_cols, new_cols)):
++            # Get the original column type
++            original_type = self.columns_dict.get(from_col)
++            # Get the target type for this column
++            target_type = types.get(from_col)
++            
++            # If converting from TEXT to a numeric type, wrap in NULLIF(col, '')
++            if (original_type is str or original_type == 'TEXT') and target_type is not None and is_numeric_type(target_type):
++                old_cols_modified.append(f"NULLIF({quote_identifier(from_col)}, '')")
++            else:
++                old_cols_modified.append(quote_identifier(from_col))
++        
+         copy_sql = "INSERT INTO {} ({new_cols})\n   SELECT {old_cols} FROM {};".format(
+             quote_identifier(new_table_name),
+             quote_identifier(self.name),
+-            old_cols=", ".join(quote_identifier(col) for col in old_cols),
++            old_cols=", ".join(old_cols_modified),
+             new_cols=", ".join(quote_identifier(col) for col in new_cols),
+         )
+         sqls.append(copy_sql)

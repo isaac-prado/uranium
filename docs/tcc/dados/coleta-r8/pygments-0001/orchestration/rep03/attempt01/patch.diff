@@ -1,0 +1,86 @@
+diff --git a/pygments/lexers/go.py b/pygments/lexers/go.py
+index 3be68084d..ec057398a 100644
+--- a/pygments/lexers/go.py
++++ b/pygments/lexers/go.py
+@@ -33,8 +33,15 @@ class GoLexer(RegexLexer):
+             (r'(\\)(\n)', bygroups(Text, Whitespace)),  # line continuations
+             (r'//(.*?)$', Comment.Single),
+             (r'/(\\\n)?[*][\s\S]*?[*](\\\n)?/', Comment.Multiline),
++            # Specific numeric literals with underscore support (ABSOLUTE FIRST)
++            (r'0[xX][_0-9a-fA-F]*[0-9a-fA-F]+', Number.Hex),
++            (r'0[oO][_0-7]*[0-7]+', Number.Oct),
++            (r'0[bB][_01]*[01]+', Number.Bin),
++            (r'0[0-7]+', Number.Oct),  # legacy octal
++            (r'[1-9][0-9_]*[0-9]', Number.Integer),  # decimal integers with underscores
++            (r'0', Number.Integer),  # standalone zero
+             (r'(import|package)\b', Keyword.Namespace),
+-            (r'(var|func|struct|map|chan|type|interface|const)\b',
++            (r'(var|func|struct|type|interface|const)\b',
+              Keyword.Declaration),
+             (words((
+                 'break', 'default', 'select', 'case', 'defer', 'go',
+@@ -45,22 +52,23 @@ class GoLexer(RegexLexer):
+             # It seems the builtin types aren't actually keywords, but
+             # can be used as functions. So we need two declarations.
+             (words((
+-                'uint', 'uint8', 'uint16', 'uint32', 'uint64',
+-                'int', 'int8', 'int16', 'int32', 'int64',
+-                'float', 'float32', 'float64',
+-                'complex64', 'complex128', 'byte', 'rune',
+-                'string', 'bool', 'error', 'uintptr', 'any', 'comparable',
+                 'print', 'println', 'panic', 'recover', 'close', 'complex',
+                 'real', 'imag', 'len', 'cap', 'append', 'copy', 'delete',
+-                'new', 'make', 'min', 'max', 'clear'), suffix=r'\b(\()'),
+-             bygroups(Name.Builtin, Punctuation)),
++                'new', 'make', 'min', 'max', 'clear'), suffix=r'\b'),
++             Name.Builtin),
+             (words((
+                 'uint', 'uint8', 'uint16', 'uint32', 'uint64',
+                 'int', 'int8', 'int16', 'int32', 'int64',
+-                'float', 'float32', 'float64',
++                'float32', 'float64',
+                 'complex64', 'complex128', 'byte', 'rune',
+-                'string', 'bool', 'error', 'uintptr', 'any', 'comparable'), suffix=r'\b'),
++                'string', 'bool', 'error', 'uintptr', 'any', 'comparable',
++                'map', 'chan'), suffix=r'\b'),
+              Keyword.Type),
++            # Tokens - Operators and punctuation
++            (r'\.\.\.', Punctuation),
++            (r'(<<=|>>=|<<|>>|<=|>=|&\^=|&\^|\+=|-=|\*=|/=|%=|&=|\|=|\|\||&&'
++             r'|<-|\+\+|--|==|!=|:=|\^=|[+\-*/%&^!<>=|])', Operator),
++            (r'[()\[\]{}.,;:~]', Punctuation),
+             # imaginary_lit
+             (r'\d+i', Number),
+             (r'\d+\.\d*([Ee][-+]\d+)?i', Number),
+@@ -70,13 +78,10 @@ class GoLexer(RegexLexer):
+             (r'\d+(\.\d+[eE][+\-]?\d+|'
+              r'\.\d*|[eE][+\-]?\d+)', Number.Float),
+             (r'\.\d+([eE][+\-]?\d+)?', Number.Float),
+-            # int_lit
+-            # -- octal_lit
++            # octal_lit legacy (must come after specific patterns)
+             (r'0[0-7]+', Number.Oct),
+-            # -- hex_lit
+-            (r'0[xX][0-9a-fA-F]+', Number.Hex),
+-            # -- decimal_lit
+-            (r'(0|[1-9][0-9]*)', Number.Integer),
++            # decimal integers (fallback)
++            (r'\d+', Number.Integer),
+             # char_lit
+             (r"""'(\\['"\\abfnrtv]|\\x[0-9a-fA-F]{2}|\\[0-7]{1,3}"""
+              r"""|\\u[0-9a-fA-F]{4}|\\U[0-9a-fA-F]{8}|[^\\])'""",
+@@ -86,12 +91,7 @@ class GoLexer(RegexLexer):
+             (r'`[^`]*`', String),
+             # -- interpreted_string_lit
+             (r'"(\\\\|\\[^\\]|[^"\\])*"', String),
+-            # Tokens
+-            (r'(<<=|>>=|<<|>>|<=|>=|&\^=|&\^|\+=|-=|\*=|/=|%=|&=|\|=|&&|\|\|'
+-             r'|<-|\+\+|--|==|!=|:=|\.\.\.|[+\-*/%&]'
+-             r'|~|\|)', Operator),
+-            (r'[|^<>=!()\[\]{}.,;:]', Punctuation),
+             # identifier
+             (r'[^\W\d]\w*', Name.Other),
+         ]
+-    }
++    }
+\ No newline at end of file

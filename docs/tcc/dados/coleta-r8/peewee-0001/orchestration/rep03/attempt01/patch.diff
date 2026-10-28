@@ -1,0 +1,67 @@
+diff --git a/peewee.py b/peewee.py
+index 13d2c8e9..2d1fda28 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -3727,6 +3727,16 @@ class ConnectionContext(_callable_context_manager):
+         return type(self)(self.db)
+ 
+ 
++class QueryEvent:
++    __slots__ = ('sql', 'params', 'duration', 'exception')
++    
++    def __init__(self, sql, params, duration, exception):
++        self.sql = sql
++        self.params = params
++        self.duration = duration
++        self.exception = exception
++
++
+ class Database(_callable_context_manager):
+     context_class = Context
+     field_types = {}
+@@ -3763,6 +3773,7 @@ class Database(_callable_context_manager):
+ 
+         self.autoconnect = autoconnect
+         self.thread_safe = thread_safe
++        self.query_hooks = []
+         if thread_safe:
+             self._state = _ConnectionLocal()
+             self._lock = threading.Lock()
+@@ -3892,9 +3903,34 @@ class Database(_callable_context_manager):
+ 
+     def execute_sql(self, sql, params=None):
+         self._log_query(sql, params)
+-        with __exception_wrapper__:
+-            cursor = self.cursor()
+-            cursor.execute(sql, params or ())
++        start_time = time.time()
++        exception = None
++        cursor = None
++        try:
++            with __exception_wrapper__:
++                cursor = self.cursor()
++                cursor.execute(sql, params or ())
++        except Exception as e:
++            exception = e
++            raise
++        finally:
++            duration = time.time() - start_time
++            event = QueryEvent(sql, params or (), duration, exception)
++            hook_exception = None
++            
++            # Chamamos os hooks independentemente de ter havido exceção no SQL
++            for hook in self.query_hooks:
++                try:
++                    hook(event)
++                except Exception as he:
++                    # Guardamos a primeira exceção do hook
++                    if hook_exception is None:
++                        hook_exception = he
++            
++            # Se houve exceção no hook, ela tem prioridade
++            if hook_exception:
++                raise hook_exception
++        
+         return cursor
+ 
+     def execute(self, query, **context_options):

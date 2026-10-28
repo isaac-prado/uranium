@@ -1,0 +1,49 @@
+diff --git a/peewee.py b/peewee.py
+index 6a666d5b..83405abe 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -2652,6 +2652,15 @@ class Select(SelectBase):
+ 
+     @Node.copy
+     def window(self, *windows):
++        # Verificar se há aliases duplicados
++        if windows:
++            aliases = set()
++            for window in windows:
++                if hasattr(window, '_alias'):
++                    alias = window._alias
++                    if alias in aliases:
++                        raise ValueError('Window alias "%s" specified twice.' % alias)
++                    aliases.add(alias)
+         self._windows = windows if windows else None
+ 
+     @Node.copy
+@@ -3783,7 +3792,12 @@ class Database(_callable_context_manager):
+             self.connect()
+         ctx = self.atomic()
+         self._state.ctx.append(ctx)
+-        ctx.__enter__()
++        try:
++            ctx.__enter__()
++        except:
++            # Se ocorrer uma exceção, remova o contexto e re-lance
++            self._state.ctx.pop()
++            raise
+         return self
+ 
+     def __exit__(self, exc_type, exc_val, exc_tb):
+@@ -4382,10 +4396,14 @@ class SqliteDatabase(Database):
+         self.execute_sql(statement)
+ 
+     def commit(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot commit transaction, no connection available.')
+         with __exception_wrapper__:
+             return self.execute_sql('COMMIT')
+ 
+     def rollback(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot rollback transaction, no connection available.')
+         with __exception_wrapper__:
+             return self.execute_sql('ROLLBACK')
+ 

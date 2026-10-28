@@ -1,0 +1,23 @@
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 26b8f9f..627111f 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -1045,7 +1045,17 @@ class Table(Item, dict):
+         self.remove(key)
+ 
+     def __repr__(self):
+-        return super(Table, self).__repr__()
++        # For super tables, the inherited dict might not reflect the full state of _value.body
++        # especially when dealing with out-of-order table definitions.
++        # We reconstruct the representation from _value.body to ensure accuracy.
++        if self._is_super_table:
++            temp_dict = {}
++            for k, v in self._value.body:
++                if k is not None:
++                    temp_dict[k.key] = v
++            return repr(temp_dict)
++        else:
++            return super(Table, self).__repr__()
+ 
+     def __str__(self):
+         return str(self.value)

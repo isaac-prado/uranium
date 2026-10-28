@@ -1,0 +1,35 @@
+diff --git a/peewee.py b/peewee.py
+index 6a666d5b..ffd01be2 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -4037,12 +4037,26 @@ class Database(_callable_context_manager):
+             self.cursor().execute('BEGIN')
+ 
+     def rollback(self):
+-        with __exception_wrapper__:
+-            self.cursor().execute('ROLLBACK')
++        if self.is_closed():
++            self._state.reset()  # Ensure state is properly set before raising
++            raise InterfaceError('Cannot rollback transaction, no connection available.')
++        try:
++            with __exception_wrapper__:
++                self.cursor().execute('ROLLBACK')
++        except Exception:
++            self._state.reset()  # Ensure state is reset even if exception occurs
++            raise
+ 
+     def commit(self):
+-        with __exception_wrapper__:
+-            self.cursor().execute('COMMIT')
++        if self.is_closed():
++            self._state.reset()  # Ensure state is properly set before raising
++            raise InterfaceError('Cannot commit transaction, no connection available.')
++        try:
++            with __exception_wrapper__:
++                self.cursor().execute('COMMIT')
++        except Exception:
++            self._state.reset()  # Ensure state is reset even if exception occurs
++            raise
+ 
+     def batch_commit(self, it, n):
+         for group in chunked(it, n):

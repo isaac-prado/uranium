@@ -460,3 +460,13 @@ Relatório em [07-e4-fumaca.md](07-e4-fumaca.md): 4 células (`tomlkit-0002` gra
 **Dados.** [dados/sondagens/vazamento-git-2026-10-27.txt](dados/sondagens/vazamento-git-2026-10-27.txt): 426 workspaces varridos, 23 com sinal, leitura em [25-vazamento-historico-git.md](25-vazamento-historico-git.md) §2.
 
 **Impacto em docs.** [25-vazamento-historico-git.md](25-vazamento-historico-git.md) (novo); decisão 49 e registro em [09-decisoes-do-autor.md](09-decisoes-do-autor.md); `CLAUDE.md`; `.env.example`.
+
+## Rodada 8 fechada (27/10/2026)
+
+**O que rodou.** 39 células em `runs/coleta-r8` (14 em 23/10, 25 na retomada de 27/10, 0 perdidas): 20/39 runs, 7/13 tarefas; grande 6/9; US$ 4,95; `strict_coerced` 0 em 84 revisões finais; 7 aprovações erradas, todas em tarefas sem saída esperada pareada no enunciado. Não decisiva: a rodada 4 segue como configuração do orquestrado na replicação (decisão 45).
+
+**Diff resumido.** Só dados e documentação: `docs/tcc/dados/coleta-r8/` (runs sem workspaces, sete métricas, apêndice, `resumo-rodadas-4-7-8.txt`), re-varredura de vazamento da rodada anexada a `dados/sondagens/vazamento-git-2026-10-27.txt` (tomlkit-0004 rep03 também copiou `items.py` do `master`: 5ª cópia, não resolvida). Nenhuma mudança em `src/`.
+
+**Teste que prova.** Suíte completa verde na árvore principal após a mesclagem da decisão 49 (751).
+
+**Impacto em docs.** [24-rodada-8.md](24-rodada-8.md) §4 e §4.1; registro 48 (resultado) e 45 (configuração) em [09-decisoes-do-autor.md](09-decisoes-do-autor.md); [25-vazamento-historico-git.md](25-vazamento-historico-git.md) §1 e §2; `CLAUDE.md`.

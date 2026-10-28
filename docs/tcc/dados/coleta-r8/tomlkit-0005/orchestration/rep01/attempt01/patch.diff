@@ -1,0 +1,22 @@
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 4a24fc0..d2a5c89 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -608,7 +608,7 @@ class Comment(Item):
+         return f"{self._trivia.indent}{decode(self._trivia.comment)}"
+ 
+ 
+-class Integer(Item, _CustomInt):
++class Integer(Item, int):
+     """
+     An integer literal.
+     """
+@@ -831,7 +831,7 @@ class Integer(Item, _CustomInt):
+         return Float._new(self, result)  # type: ignore[arg-type]
+ 
+ 
+-class Float(Item, _CustomFloat):
++class Float(Item, float):
+     """
+     A float literal.
+     """

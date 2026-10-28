@@ -1,0 +1,106 @@
+{
+  "result_schema_version": 2,
+  "harness_version": "1.0.0",
+  "evaluated_at": "2026-10-28T00:19:27+00:00",
+  "run_id": "peewee-0003-orchestration-r03-a01",
+  "arm": "orchestration",
+  "task_id": "peewee-0003",
+  "faixa": "pequena",
+  "repetition": 3,
+  "base_commit": "c6328d6c91120b3d04878921a0af64a9ee78c866",
+  "resolved": true,
+  "resolved_blocked_by_cheat": false,
+  "oracle": {
+    "f2p_total": 1,
+    "f2p_passed": 1,
+    "f2p": {
+      "exit_code": 0,
+      "passed": 1,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.33,
+      "failing_node_ids": [],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "p2p": {
+      "exit_code": 0,
+      "passed": 1437,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 173,
+      "duration_s": 4.61,
+      "failing_node_ids": [],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "regression": {
+      "exit_code": 0,
+      "passed": 1437,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 173,
+      "duration_s": 4.64,
+      "failing_node_ids": [],
+      "timed_out": false,
+      "network_isolated": true
+    }
+  },
+  "cheat": {
+    "clean": true,
+    "critical_count": 0,
+    "warning_count": 0,
+    "signals": []
+  },
+  "quality": {
+    "mi_before": 49.116,
+    "mi_after": 50.922,
+    "mi_delta": 1.806,
+    "cc_mean_before": 2.538,
+    "cc_mean_after": 2.692,
+    "cc_mean_delta": 0.154,
+    "files_analyzed": 1,
+    "error": null
+  },
+  "cost": {
+    "tokens_prompt": 139314,
+    "tokens_completion": 4157,
+    "tokens_reasoning": 0,
+    "tokens_total": 143471,
+    "tokens_cached": 111712,
+    "cost_usd": 0.0236088,
+    "llm_calls": 26,
+    "byok_calls": 26,
+    "tool_calls": 21,
+    "wall_seconds": 105.321
+  },
+  "process": {
+    "turns": 23,
+    "test_runs": 1,
+    "tool_denials": 0,
+    "errors": 0,
+    "circuit_breaks": 0,
+    "self_recoveries": 0,
+    "stop_reason": "concluiu"
+  },
+  "provenance": {
+    "model": "qwen/qwen3-coder",
+    "provider_requested": "DeepInfra",
+    "providers_served": [
+      "DeepInfra"
+    ],
+    "llm_seed": 20260823,
+    "topology": "multi_agent_roles"
+  },
+  "diff": {
+    "files_changed": 1,
+    "insertions": 5,
+    "deletions": 0,
+    "changed_files": [
+      "peewee_pwiz.db",
+      "peewee_test.db-shm",
+      "playhouse/fields.py"
+    ]
+  }
+}

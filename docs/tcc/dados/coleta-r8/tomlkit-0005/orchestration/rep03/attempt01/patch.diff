@@ -1,0 +1,30 @@
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 4a24fc0..c853f10 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -307,12 +307,6 @@ class BoolType(Enum):
+     def __bool__(self) -> bool:
+         return {BoolType.TRUE: True, BoolType.FALSE: False}[self]
+ 
+-    def __iter__(self) -> Iterator[str]:
+-        return iter(self.value)
+-
+-    def __len__(self) -> int:
+-        return len(self.value)
+-
+ 
+ @dataclasses.dataclass
+ class Trivia:
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index c97a08d..ebf9dba 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -610,7 +610,7 @@ class Parser:
+ 
+             # only keep parsing for bool if the characters match the style
+             # try consuming rest of chars in style
+-            for c in style:
++            for c in style.value:
+                 self.consume(c, min=1, max=1)
+ 
+             return Bool(style, Trivia())

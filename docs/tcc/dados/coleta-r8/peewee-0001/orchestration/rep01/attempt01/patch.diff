@@ -1,0 +1,41 @@
+diff --git a/peewee.py b/peewee.py
+index 13d2c8e9..be02d718 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -3763,6 +3763,7 @@ class Database(_callable_context_manager):
+ 
+         self.autoconnect = autoconnect
+         self.thread_safe = thread_safe
++        self.query_hooks = []
+         if thread_safe:
+             self._state = _ConnectionLocal()
+             self._lock = threading.Lock()
+@@ -3892,9 +3893,25 @@ class Database(_callable_context_manager):
+ 
+     def execute_sql(self, sql, params=None):
+         self._log_query(sql, params)
+-        with __exception_wrapper__:
+-            cursor = self.cursor()
+-            cursor.execute(sql, params or ())
++        start = time.time()
++        exception = None
++        try:
++            with __exception_wrapper__:
++                cursor = self.cursor()
++                cursor.execute(sql, params or ())
++        except Exception as exc:
++            exception = exc
++            raise
++        finally:
++            duration = time.time() - start
++            if hasattr(self, 'query_hooks'):
++                for hook in self.query_hooks:
++                    hook(type('QueryEvent', (), {
++                        'sql': sql,
++                        'params': params,
++                        'duration': duration,
++                        'exception': exception
++                    })())
+         return cursor
+ 
+     def execute(self, query, **context_options):

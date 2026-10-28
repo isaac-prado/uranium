@@ -1,0 +1,119 @@
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 4a24fc0..a88fdbc 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -608,7 +608,7 @@ class Comment(Item):
+         return f"{self._trivia.indent}{decode(self._trivia.comment)}"
+ 
+ 
+-class Integer(Item, _CustomInt):
++class Integer(_CustomInt):
+     """
+     An integer literal.
+     """
+@@ -617,7 +617,7 @@ class Integer(Item, _CustomInt):
+         return int.__new__(cls, value)
+ 
+     def __init__(self, value: int, trivia: Trivia, raw: str) -> None:
+-        super().__init__(trivia)
++        self._trivia = trivia
+         self._original = value
+         self._raw = raw
+         self._sign = False
+@@ -625,6 +625,19 @@ class Integer(Item, _CustomInt):
+         if re.match(r"^[+\-]\d+$", raw):
+             self._sign = True
+ 
++    @property
++    def trivia(self) -> Trivia:
++        return self._trivia
++
++    def is_table(self) -> bool:
++        return False
++
++    def is_inline_table(self) -> bool:
++        return False
++
++    def is_aot(self) -> bool:
++        return False
++
+     def unwrap(self) -> int:
+         return self._original
+ 
+@@ -831,7 +844,7 @@ class Integer(Item, _CustomInt):
+         return Float._new(self, result)  # type: ignore[arg-type]
+ 
+ 
+-class Float(Item, _CustomFloat):
++class Float(_CustomFloat):
+     """
+     A float literal.
+     """
+@@ -840,7 +853,7 @@ class Float(Item, _CustomFloat):
+         return float.__new__(cls, value)
+ 
+     def __init__(self, value: float, trivia: Trivia, raw: str) -> None:
+-        super().__init__(trivia)
++        self._trivia = trivia
+         self._original = value
+         self._raw = raw
+         self._sign = False
+@@ -848,6 +861,19 @@ class Float(Item, _CustomFloat):
+         if re.match(r"^[+\-].+$", raw):
+             self._sign = True
+ 
++    @property
++    def trivia(self) -> Trivia:
++        return self._trivia
++
++    def is_table(self) -> bool:
++        return False
++
++    def is_inline_table(self) -> bool:
++        return False
++
++    def is_aot(self) -> bool:
++        return False
++
+     def unwrap(self) -> float:
+         return self._original
+ 
+@@ -1192,7 +1218,7 @@ class DateTime(Item, datetime):
+         )
+ 
+ 
+-class Date(Item, date):
++class Date(date):
+     """
+     A date literal.
+     """
+@@ -1215,8 +1241,7 @@ class Date(Item, date):
+         trivia: Trivia | None = None,
+         raw: str = "",
+     ) -> None:
+-        super().__init__(trivia or Trivia())
+-
++        self._trivia = trivia or Trivia()
+         self._raw = raw
+ 
+     def unwrap(self) -> date:
+@@ -1231,6 +1256,19 @@ class Date(Item, date):
+     def value(self) -> date:
+         return self
+ 
++    @property
++    def trivia(self) -> Trivia:
++        return self._trivia
++
++    def is_table(self) -> bool:
++        return False
++
++    def is_inline_table(self) -> bool:
++        return False
++
++    def is_aot(self) -> bool:
++        return False
++
+     def as_string(self) -> str:
+         return self._raw
+ 

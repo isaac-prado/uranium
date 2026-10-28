@@ -1,0 +1,34 @@
+{
+  "run_id": "peewee-0003-orchestration-r03-a01",
+  "arm": "orchestration",
+  "task_id": "peewee-0003",
+  "repetition": 3,
+  "attempt": 1,
+  "llm_seed": 20260823,
+  "topology": "multi_agent_roles",
+  "stop_reason": "concluiu",
+  "lost": false,
+  "is_valid": true,
+  "changed_files": [
+    "playhouse/fields.py"
+  ],
+  "diff_stat": {
+    "files_changed": 1,
+    "insertions": 5,
+    "deletions": 0
+  },
+  "turns": 23,
+  "totals": {
+    "tokens_prompt": 139314,
+    "tokens_completion": 4157,
+    "tokens_reasoning": 0,
+    "tokens_total": 143471,
+    "tokens_cached": 111712,
+    "cost_usd": 0.0236088,
+    "llm_calls": 26,
+    "tool_calls": 21,
+    "test_runs": 1,
+    "errors": 0
+  },
+  "out_dir": "runs/coleta-r8/peewee-0003/orchestration/rep03/attempt01"
+}
