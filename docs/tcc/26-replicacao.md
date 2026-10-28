@@ -33,11 +33,30 @@ O DeepSeek V3.2 na DeepInfra responde sem raciocínio por padrão (`reasoning_to
 
 Autor adicionou crédito na DeepInfra e na Mistral em 28/10/2026 ("Pronto, adicionei ambos saldos") e pediu para seguir. Sonda direta antes do lançamento ([dados/sondagens/mistral-byok-429-2026-10-28.txt](dados/sondagens/mistral-byok-429-2026-10-28.txt)): DeepSeek V3.2 na DeepInfra responde com `is_byok: true` e `reasoning_tokens: 0`. **Coleta lançada 28/10 16:11** em `runs/coleta-deepseek`: 78 células (13 tarefas × 2 braços × 3 repetições), `--workers 1 --retry-delay 300 --max-attempts 5`, orquestrado na configuração da rodada 4, manifesto v18 (script de lançamento `runs/_lancamento/fila-deepseek.sh`, fora do versionamento; o comando completo está na §1). Custo projetado US$ 20–30 (§3).
 
-## 5. Devstral bloqueado na Mistral (28/10/2026)
+## 5. Devstral: bloqueio na Mistral e destravamento (28/10/2026)
 
-A chave da Mistral está registrada como BYOK no OpenRouter (o erro volta com `is_byok: true` e `limit_source: upstream_provider_account`), mas a própria Mistral responde 429 `Rate limit exceeded`, código 1300, em 4 chamadas de 16 tokens entre 16:10 e 16:11 (mesmo arquivo de sonda). Causa mais provável, pela central de ajuda da Mistral: a conta está em "Free mode", e crédito pré-pago não muda a faixa de limites ("Adding credits does not raise your rate limits"); só pay-as-you-go ativado destrava o Tier 1. Pendente do autor: ativar pay-as-you-go no console da Mistral e conferir a faixa em admin.mistral.ai/plateforme/limits. Depois: nova sonda, fumaça (3 tarefas × 2 braços, `runs/fumaca-devstral`) e os 78 runs (`runs/coleta-devstral`). Enquanto isso o 429 não contamina nada: o pino do provedor sem fallback faz a chamada falhar em vez de sair pela conta do OpenRouter, e o harness trataria a falha como run perdido.
+A chave da Mistral estava registrada como BYOK no OpenRouter (o erro voltava com `is_byok: true` e `limit_source: upstream_provider_account`), mas a própria Mistral respondia 429 `Rate limit exceeded`, código 1300, em 4 chamadas de 16 tokens entre 16:10 e 16:11 ([dados/sondagens/mistral-byok-429-2026-10-28.txt](dados/sondagens/mistral-byok-429-2026-10-28.txt)). Causa, confirmada pelo desfecho: a conta estava em "Free mode" e o Devstral 2 não existe no plano gratuito (acesso pago desde 27/01/2026); o modelo nem aparecia na página de limites. Crédito pré-pago não muda a faixa ("Adding credits does not raise your rate limits", central de ajuda da Mistral). O autor ativou o pay-as-you-go e a sonda seguinte, às 16:31:27, respondeu `http=200 provider=Mistral is_byok=True reasoning=0`. O pay-as-you-go da Mistral é pré-pago e inclui franquia de US$ 10/mês de API; saldo zero devolve 402, que o harness trata como run perdido. Autor ligou recarga automática e teto mensal de gastos adicionais de US$ 40. Pendência de conferência: o console mostrava US$ 1,35 de uso incluso quando a soma do `cost_usd` das nossas chamadas era US$ 0,37; comparar no fechamento o uso do console com o total de `cost_usd` (se a Mistral cobrar mais do que o OpenRouter reporta, a métrica de custo da replicação precisa de correção documentada).
 
-## 6. Pendente
+## 6. Fumaça do Devstral (28/10/2026, 16:31 a 17:06, US$ 0,97)
 
-- Fechamento da coleta DeepSeek com as sete métricas (`scripts/analyze_results.py`) e a comparação com o estudo principal.
-- Devstral: pay-as-you-go na Mistral, sonda, fumaça e 78 runs; fechamento igual.
+`runs/fumaca-devstral`, dados sem workspaces em [dados/fumaca-devstral/](dados/fumaca-devstral/). Mesmas 3 tarefas e configuração da fumaça do DeepSeek (§3), em paralelo com a coleta do DeepSeek já em andamento. 6 células, 0 perdidas, **5 resolvidas** (DeepSeek: 4).
+
+| tarefa | braço | resultado | turnos | parada | ocultos | cache | US$ |
+|---|---|---|---:|---|---|---:|---:|
+| tomlkit-0003 | single-agent | resolveu | 91 | `tests_pass` | 1/1 | 98 % | 0,265 |
+| tomlkit-0003 | orchestration | resolveu | 54 | `concluiu` | 1/1 | 87 % | 0,098 |
+| sqlite-utils-0003 | single-agent | resolveu | 56 | `tests_pass` | 12/12 | 97 % | 0,091 |
+| sqlite-utils-0003 | orchestration | resolveu | 65 | `concluiu` | 12/12 | 86 % | 0,133 |
+| peewee-0002 | single-agent | **resolveu** | 108 | `tests_pass` | 6/6 | 98 % | 0,133 |
+| peewee-0002 | orchestration | não | 120 | `budget: max_turns` | 2/6 | 71 % | 0,253 |
+
+Saúde: 513 de 513 chamadas BYOK, todas servidas pela Mistral; 0 tokens de raciocínio; 137 execuções de código do agente na caixa de areia (129 `run_python`, 8 `run_tests`), 0 recusadas, 0 estouros de tempo; detector 0 críticos, 0 avisos; cache de prompt 92,4 % (a Mistral cobra leitura em cache a 10 % do preço de entrada). Os dois únicos retornos de erro de ferramenta são a mensagem de protocolo do `replace_in_file` para trecho ambíguo (tomlkit-0003 single-agent, turnos 82 e 84). Custo por run entre US$ 0,09 e US$ 0,27; projeção dos 78 runs US$ 15–25.
+
+## 7. Coleta do Devstral lançada (28/10/2026, 17:07)
+
+Fumaça limpa em todos os critérios → **coleta lançada 28/10 17:07** em `runs/coleta-devstral` (78 células, mesmos parâmetros da §4, script `runs/_lancamento/fila-devstral.sh`), em paralelo com a do DeepSeek (provedores distintos; a execução de código é leve, mediana 6 s e máximo 47 s por suíte contra teto de 120 s, medido nos runs de hoje). Autor avisado de que a máquina não pode suspender; combinado que uso moderado da máquina é aceitável e que estouros de tempo em `test_run` serão auditados no fechamento como possível confundidor.
+
+## 8. Pendente
+
+- Fechamento de cada coleta com as sete métricas (`scripts/analyze_results.py`), auditoria de `timed_out` nas suítes, comparação com o estudo principal.
+- Conferir o uso cobrado no console da Mistral contra a soma de `cost_usd` (§5).

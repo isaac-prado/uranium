@@ -491,3 +491,15 @@ Relatório em [07-e4-fumaca.md](07-e4-fumaca.md): 4 células (`tomlkit-0002` gra
 **Teste que prova.** Suíte completa verde antes do commit (`runs/_lancamento/suite-2026-10-28.log`, fora do git); o manifesto do primeiro run registra `manifest_version 18`, `model: deepseek/deepseek-v3.2`, `provider: DeepInfra`, `sandbox: bwrap`, `workspace_history: commit-base-only`, orçamento 120/8M/3600.
 
 **Impacto em docs.** [26-replicacao.md](26-replicacao.md) §4 a §6; registro 45 (lançamento DeepSeek; Mistral bloqueada) em [09-decisoes-do-autor.md](09-decisoes-do-autor.md); `CLAUDE.md` (estado em 28/10). Pendente do autor: ativar pay-as-you-go na Mistral (crédito pré-pago não muda a faixa de limites, segundo a central de ajuda da Mistral), depois sonda, fumaça e 78 runs do Devstral.
+
+
+
+---
+
+## Replicação: fumaça do Devstral e lançamento dos 78 runs (28/10/2026, decisão 45)
+
+**Diff resumido.** Só documentação e dados. Autor ativou o pay-as-you-go na Mistral (o Devstral 2 não existe no plano gratuito; crédito pré-pago não muda a faixa de limites) e a sonda respondeu BYOK às 16:31. Fumaça `runs/fumaca-devstral` (16:31 a 17:06, US$ 0,97): 6 células, 0 perdidas, 5 resolvidas, 513/513 BYOK servidas pela Mistral, 137 execuções na caixa de areia sem recusa nem estouro, detector 0/0, cache 92,4 %; dados sem workspaces em [dados/fumaca-devstral/](dados/fumaca-devstral/). Coleta do Devstral lançada 17:07 em `runs/coleta-devstral` (78 células), em paralelo com a do DeepSeek (5 células prontas às 17:07, 4 resolvidas).
+
+**Teste que prova.** Nenhum código mudou desde a suíte verde das 16:35 (751, `runs/_lancamento/suite-2026-10-28.log`); a suíte não foi rodada de novo para não disputar CPU com as duas coletas. Os `result.json` da fumaça trazem `byok_calls == llm_calls`, `cheat.clean`, `oracle.*.network_isolated` e `timed_out: false` em todas as execuções.
+
+**Impacto em docs.** [26-replicacao.md](26-replicacao.md) §5 a §8; registro 45 (fumaça e lançamento Devstral) em [09-decisoes-do-autor.md](09-decisoes-do-autor.md); `CLAUDE.md` (estado em 28/10).

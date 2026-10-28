@@ -19,3 +19,9 @@ tentativa 3 16:11:11 http=429 provider=None is_byok=True reasoning=None erro=429
 Leitura: a chave da Mistral está registrada como BYOK (is_byok=true, limit_source=upstream_provider_account); o 429 é da conta na Mistral, não do OpenRouter.
 Central de ajuda da Mistral (help.mistral.ai, artigo 698531 "Why am I hitting API rate limits and how do I increase them", lido em 28/10/2026):
 "Free mode" é o padrão, com os menores limites; pay-as-you-go destrava o Tier 1; "Adding credits does not raise your rate limits"; limites e faixa atual em admin.mistral.ai/plateforme/limits.
+
+== resolução (28/10/2026)
+Autor: "estou com a recarga automática desativada, com 15 dolares de crédito e buscando na https://admin.mistral.ai/plateforme/limits não aparece este modelo" → "já ativei o pay as u go".
+Nova sonda, mesma chamada de 16 tokens:
+tentativa 1 16:31:27 http=200 provider=Mistral is_byok=True reasoning=0 custo=0 upstream=1.24e-05 erro=None resp='ok'
+Leitura: o Devstral 2 não está no plano gratuito (acesso pago desde 27/01/2026); com pay-as-you-go ativo a chave BYOK atende, e o custo sai como upstream_inference_cost (cobrado na conta da Mistral).

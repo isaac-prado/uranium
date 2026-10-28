@@ -1,0 +1,23 @@
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 26b8f9f..9ee2e56 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -1014,6 +1014,9 @@ class Table(Item, dict):
+     def __contains__(self, key):  # type: (Union[Key, str]) -> bool
+         return key in self._value
+ 
++    def __iter__(self):
++        return iter(self._value)
++
+     def __getitem__(self, key):  # type: (Union[Key, str]) -> Item
+         return self._value[key]
+ 
+@@ -1045,7 +1048,7 @@ class Table(Item, dict):
+         self.remove(key)
+ 
+     def __repr__(self):
+-        return super(Table, self).__repr__()
++        return repr(self._value)
+ 
+     def __str__(self):
+         return str(self.value)

@@ -1,0 +1,29 @@
+diff --git a/peewee.py b/peewee.py
+index 6a666d5..89d08fb 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -3781,6 +3781,9 @@ class Database(_callable_context_manager):
+     def __enter__(self):
+         if self.is_closed():
+             self.connect()
++        top = self.top_transaction()
++        if top is not None and isinstance(top, _manual):
++            raise ValueError('Cannot enter transaction block while a manual commit is active.')
+         ctx = self.atomic()
+         self._state.ctx.append(ctx)
+         ctx.__enter__()
+@@ -4382,10 +4385,14 @@ class SqliteDatabase(Database):
+         self.execute_sql(statement)
+ 
+     def commit(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot commit on a closed connection')
+         with __exception_wrapper__:
+             return self.execute_sql('COMMIT')
+ 
+     def rollback(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot rollback on a closed connection')
+         with __exception_wrapper__:
+             return self.execute_sql('ROLLBACK')
+ 

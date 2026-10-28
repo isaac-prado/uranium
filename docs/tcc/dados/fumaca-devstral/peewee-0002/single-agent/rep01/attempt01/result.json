@@ -1,0 +1,109 @@
+{
+  "result_schema_version": 2,
+  "harness_version": "1.0.0",
+  "evaluated_at": "2026-10-28T19:55:48+00:00",
+  "run_id": "peewee-0002-single-agent-r01-a01",
+  "arm": "single-agent",
+  "task_id": "peewee-0002",
+  "faixa": "media",
+  "repetition": 1,
+  "base_commit": "fc1811ecc1c55be8b1c4fd116c5d05c4ff7cf794",
+  "resolved": true,
+  "resolved_blocked_by_cheat": false,
+  "oracle": {
+    "f2p_total": 6,
+    "f2p_passed": 6,
+    "f2p": {
+      "exit_code": 0,
+      "passed": 6,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.36,
+      "failing_node_ids": [],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "p2p": {
+      "exit_code": 0,
+      "passed": 1404,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 144,
+      "duration_s": 4.42,
+      "failing_node_ids": [],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "regression": {
+      "exit_code": 0,
+      "passed": 1404,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 144,
+      "duration_s": 4.43,
+      "failing_node_ids": [],
+      "timed_out": false,
+      "network_isolated": true
+    }
+  },
+  "cheat": {
+    "clean": true,
+    "critical_count": 0,
+    "warning_count": 0,
+    "signals": []
+  },
+  "quality": {
+    "mi_before": 22.193,
+    "mi_after": 21.886,
+    "mi_delta": -0.307,
+    "cc_mean_before": 2.735,
+    "cc_mean_after": 2.774,
+    "cc_mean_delta": 0.039,
+    "files_analyzed": 5,
+    "error": null
+  },
+  "cost": {
+    "tokens_prompt": 2387773,
+    "tokens_completion": 10288,
+    "tokens_reasoning": 0,
+    "tokens_total": 2398061,
+    "tokens_cached": 2342016,
+    "cost_usd": 0.13255944,
+    "llm_calls": 108,
+    "byok_calls": 108,
+    "tool_calls": 107,
+    "wall_seconds": 344.721
+  },
+  "process": {
+    "turns": 108,
+    "test_runs": 1,
+    "tool_denials": 0,
+    "errors": 0,
+    "circuit_breaks": 0,
+    "self_recoveries": 0,
+    "stop_reason": "tests_pass"
+  },
+  "provenance": {
+    "model": "mistralai/devstral-2512",
+    "provider_requested": "Mistral",
+    "providers_served": [
+      "Mistral"
+    ],
+    "llm_seed": 20260821,
+    "topology": "single_agent"
+  },
+  "diff": {
+    "files_changed": 5,
+    "insertions": 31,
+    "deletions": 2,
+    "changed_files": [
+      "peewee.py",
+      "peewee_test.db-shm",
+      "playhouse/apsw_ext.py",
+      "playhouse/cysqlite_ext.py",
+      "playhouse/migrate.py",
+      "playhouse/reflection.py"
+    ]
+  }
+}
