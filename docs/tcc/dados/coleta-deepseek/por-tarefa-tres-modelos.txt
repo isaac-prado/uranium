@@ -1,0 +1,91 @@
+Fontes: Qwen SA = docs/tcc/dados/coleta (estudo principal), Qwen OR = docs/tcc/dados/coleta-r4 (rodada 4),
+        DeepSeek e Devstral = runs/coleta-deepseek e runs/coleta-devstral (versionados em docs/tcc/dados/coleta-*).
+Célula = runs resolvidos / 3 repetições.
+
+tarefa            faixa    Qwen-SA    Qwen-OR    Deep-SA    Deep-OR    Devs-SA    Devs-OR    total
+tomlkit-0002      grande   1/3       2/3       0/3       3/3       1/3       2/3       9/18
+tomlkit-0003      grande   3/3       3/3       3/3       3/3       3/3       3/3       18/18
+tomlkit-0004      grande   0/3       0/3       0/3       0/3       0/3       0/3       0/18
+attrs-0001        media    3/3       2/3       3/3       3/3       3/3       3/3       17/18
+peewee-0001       media    3/3       3/3       3/3       3/3       3/3       3/3       18/18
+peewee-0002       media    2/3       0/3       0/3       0/3       2/3       0/3       4/18
+sqlite-utils-0003 media    2/3       2/3       3/3       2/3       3/3       3/3       15/18
+peewee-0003       pequena  3/3       3/3       3/3       3/3       3/3       3/3       18/18
+pygments-0001     pequena  3/3       3/3       3/3       3/3       1/3       3/3       16/18
+sqlite-utils-0001 pequena  1/3       1/3       2/3       0/3       0/3       3/3       7/18
+sqlite-utils-0002 pequena  1/3       2/3       0/3       0/3       3/3       3/3       9/18
+tomlkit-0001      pequena  3/3       3/3       3/3       3/3       3/3       3/3       18/18
+tomlkit-0005      pequena  0/3       0/3       3/3       3/3       3/3       1/3       10/18
+
+Teto (18/18 nas seis células): tomlkit-0003, peewee-0001, peewee-0003, tomlkit-0001
+Piso (0/18 nas seis células): tomlkit-0004
+Discriminam (entre 1 e 17): 8 de 13 tarefas
+
+Tarefas cuja célula varia de 0/3 a 3/3 conforme o modelo (prova de que a tarefa é solúvel no harness):
+  tomlkit-0002: Qwen-SA=1/3, Qwen-OR=2/3, Deep-SA=0/3, Deep-OR=3/3, Devs-SA=1/3, Devs-OR=2/3
+  sqlite-utils-0001: Qwen-SA=1/3, Qwen-OR=1/3, Deep-SA=2/3, Deep-OR=0/3, Devs-SA=0/3, Devs-OR=3/3
+  sqlite-utils-0002: Qwen-SA=1/3, Qwen-OR=2/3, Deep-SA=0/3, Deep-OR=0/3, Devs-SA=3/3, Devs-OR=3/3
+  tomlkit-0005: Qwen-SA=0/3, Qwen-OR=0/3, Deep-SA=3/3, Deep-OR=3/3, Devs-SA=3/3, Devs-OR=1/3
+
+== tomlkit-0004: runs não resolvidos (turnos, stop_reason, ocultos passados, testes ocultos que falham)
+  Qwen-SA rep1 turns=120 f2p=0/7  budget: max_turns (120 >= 120)     | test_original_string_and_dumped_string_are_equal[0.5.0], test_parse_can_parse_valid_toml_files[0.5.0], test_parsed_document_are_properly_json_representable[0.5.0], test_hex_octal_and_bin_integers_are_supported, test_inf_and_nan_are_supported, test_items_can_be_appended_to_and_removed_from_a_table, test_toml_document_with_dotted_keys
+  Qwen-SA rep2 turns=120 f2p=0/7  budget: max_turns (120 >= 120)     | test_original_string_and_dumped_string_are_equal[0.5.0], test_parse_can_parse_valid_toml_files[0.5.0], test_parsed_document_are_properly_json_representable[0.5.0], test_hex_octal_and_bin_integers_are_supported, test_inf_and_nan_are_supported, test_items_can_be_appended_to_and_removed_from_a_table, test_toml_document_with_dotted_keys
+  Qwen-SA rep3 turns=102 f2p=5/7  tests_pass                         | test_original_string_and_dumped_string_are_equal[0.5.0], test_items_can_be_appended_to_and_removed_from_a_table
+  Qwen-OR rep1 turns= 81 f2p=0/7  budget: max_wall_seconds (3647s >= | test_original_string_and_dumped_string_are_equal[0.5.0], test_parse_can_parse_valid_toml_files[0.5.0], test_parsed_document_are_properly_json_representable[0.5.0], test_hex_octal_and_bin_integers_are_supported, test_inf_and_nan_are_supported, test_items_can_be_appended_to_and_removed_from_a_table, test_toml_document_with_dotted_keys
+  Qwen-OR rep2 turns=120 f2p=0/7  budget: max_turns (120 >= 120)     | test_original_string_and_dumped_string_are_equal[0.5.0], test_parse_can_parse_valid_toml_files[0.5.0], test_parsed_document_are_properly_json_representable[0.5.0], test_hex_octal_and_bin_integers_are_supported, test_inf_and_nan_are_supported, test_items_can_be_appended_to_and_removed_from_a_table, test_toml_document_with_dotted_keys
+  Qwen-OR rep3 turns=120 f2p=0/7  budget: max_turns (120 >= 120)     | test_original_string_and_dumped_string_are_equal[0.5.0], test_parse_can_parse_valid_toml_files[0.5.0], test_parsed_document_are_properly_json_representable[0.5.0], test_hex_octal_and_bin_integers_are_supported, test_inf_and_nan_are_supported, test_items_can_be_appended_to_and_removed_from_a_table, test_toml_document_with_dotted_keys
+  Deep-SA rep1 turns=120 f2p=6/7  budget: max_turns (120 >= 120)     | test_toml_document_with_dotted_keys
+  Deep-SA rep2 turns=120 f2p=6/7  budget: max_turns (120 >= 120)     | test_original_string_and_dumped_string_are_equal[0.5.0]
+  Deep-SA rep3 turns=120 f2p=0/7  budget: max_turns (120 >= 120)     | test_original_string_and_dumped_string_are_equal[0.5.0], test_parse_can_parse_valid_toml_files[0.5.0], test_parsed_document_are_properly_json_representable[0.5.0], test_hex_octal_and_bin_integers_are_supported, test_inf_and_nan_are_supported, test_items_can_be_appended_to_and_removed_from_a_table, test_toml_document_with_dotted_keys
+  Deep-OR rep1 turns=120 f2p=5/7  budget: max_turns (120 >= 120)     | test_original_string_and_dumped_string_are_equal[0.5.0], test_items_can_be_appended_to_and_removed_from_a_table
+  Deep-OR rep2 turns=120 f2p=5/7  budget: max_turns (120 >= 120)     | test_original_string_and_dumped_string_are_equal[0.5.0], test_items_can_be_appended_to_and_removed_from_a_table
+  Deep-OR rep3 turns=120 f2p=5/7  budget: max_turns (120 >= 120)     | test_original_string_and_dumped_string_are_equal[0.5.0], test_items_can_be_appended_to_and_removed_from_a_table
+  Devs-SA rep1 turns=120 f2p=0/7  budget: max_turns (120 >= 120)     | test_original_string_and_dumped_string_are_equal[0.5.0], test_parse_can_parse_valid_toml_files[0.5.0], test_parsed_document_are_properly_json_representable[0.5.0], test_hex_octal_and_bin_integers_are_supported, test_inf_and_nan_are_supported, test_items_can_be_appended_to_and_removed_from_a_table, test_toml_document_with_dotted_keys
+  Devs-SA rep2 turns=120 f2p=0/7  budget: max_turns (120 >= 120)     | test_original_string_and_dumped_string_are_equal[0.5.0], test_parse_can_parse_valid_toml_files[0.5.0], test_parsed_document_are_properly_json_representable[0.5.0], test_hex_octal_and_bin_integers_are_supported, test_inf_and_nan_are_supported, test_items_can_be_appended_to_and_removed_from_a_table, test_toml_document_with_dotted_keys
+  Devs-SA rep3 turns=120 f2p=5/7  budget: max_turns (120 >= 120)     | test_original_string_and_dumped_string_are_equal[0.5.0], test_items_can_be_appended_to_and_removed_from_a_table
+  Devs-OR rep1 turns=120 f2p=0/7  budget: max_turns (120 >= 120)     | test_original_string_and_dumped_string_are_equal[0.5.0], test_parse_can_parse_valid_toml_files[0.5.0], test_parsed_document_are_properly_json_representable[0.5.0], test_hex_octal_and_bin_integers_are_supported, test_inf_and_nan_are_supported, test_items_can_be_appended_to_and_removed_from_a_table, test_toml_document_with_dotted_keys
+  Devs-OR rep2 turns=120 f2p=3/7  budget: max_turns (120 >= 120)     | test_original_string_and_dumped_string_are_equal[0.5.0], test_parsed_document_are_properly_json_representable[0.5.0], test_items_can_be_appended_to_and_removed_from_a_table, test_toml_document_with_dotted_keys
+  Devs-OR rep3 turns=120 f2p=0/7  budget: max_turns (120 >= 120)     | test_original_string_and_dumped_string_are_equal[0.5.0], test_parse_can_parse_valid_toml_files[0.5.0], test_parsed_document_are_properly_json_representable[0.5.0], test_hex_octal_and_bin_integers_are_supported, test_inf_and_nan_are_supported, test_items_can_be_appended_to_and_removed_from_a_table, test_toml_document_with_dotted_keys
+  frequência de falha em 18 runs:
+    17  tests/test_api.py::test_original_string_and_dumped_string_are_equal[0.5.0]
+    16  tests/test_items.py::test_items_can_be_appended_to_and_removed_from_a_table
+    12  tests/test_toml_document.py::test_toml_document_with_dotted_keys
+    11  tests/test_api.py::test_parsed_document_are_properly_json_representable[0.5.0]
+    10  tests/test_api.py::test_parse_can_parse_valid_toml_files[0.5.0]
+    10  tests/test_items.py::test_hex_octal_and_bin_integers_are_supported
+    10  tests/test_items.py::test_inf_and_nan_are_supported
+
+== peewee-0002: runs não resolvidos (turnos, stop_reason, ocultos passados, testes ocultos que falham)
+  Qwen-SA rep3 turns=112 f2p=5/6  tests_pass                         | test_commit_rollback_closed
+  Qwen-OR rep1 turns=120 f2p=1/6  budget: max_turns (120 >= 120)     | test_make_index_name_long, test_column_map_not_shared_with_class, test_unbound_error, test_duplicate_window_alias_error, test_commit_rollback_closed
+  Qwen-OR rep2 turns=120 f2p=0/6  budget: max_turns (120 >= 120)     | test_make_index_name_long, test_column_map_not_shared_with_class, test_unbound_error, test_duplicate_window_alias_error, test_commit_rollback_closed, test_mixing_manual_db_context
+  Qwen-OR rep3 turns=120 f2p=3/6  budget: max_turns (120 >= 120)     | test_make_index_name_long, test_column_map_not_shared_with_class, test_unbound_error
+  Deep-SA rep1 turns=120 f2p=5/6  budget: max_turns (120 >= 120)     | test_column_map_not_shared_with_class
+  Deep-SA rep2 turns=120 f2p=3/6  budget: max_turns (120 >= 120)     | test_make_index_name_long, test_column_map_not_shared_with_class, test_unbound_error
+  Deep-SA rep3 turns=116 f2p=5/6  tests_pass                         | test_duplicate_window_alias_error
+  Deep-OR rep1 turns=120 f2p=4/6  budget: max_turns (120 >= 120)     | test_make_index_name_long, test_column_map_not_shared_with_class
+  Deep-OR rep2 turns=120 f2p=3/6  budget: max_turns (120 >= 120)     | test_make_index_name_long, test_column_map_not_shared_with_class, test_unbound_error
+  Deep-OR rep3 turns=120 f2p=3/6  budget: max_turns (120 >= 120)     | test_make_index_name_long, test_column_map_not_shared_with_class, test_unbound_error
+  Devs-SA rep3 turns=120 f2p=4/6  budget: max_turns (120 >= 120)     | test_unbound_error, test_commit_rollback_closed
+  Devs-OR rep1 turns= 49 f2p=1/6  concluiu                           | test_make_index_name_long, test_column_map_not_shared_with_class, test_unbound_error, test_duplicate_window_alias_error, test_mixing_manual_db_context
+  Devs-OR rep2 turns=120 f2p=5/6  budget: max_turns (120 >= 120)     | test_column_map_not_shared_with_class
+  Devs-OR rep3 turns= 69 f2p=2/6  concluiu                           | test_make_index_name_long, test_column_map_not_shared_with_class, test_unbound_error, test_duplicate_window_alias_error
+  frequência de falha em 18 runs:
+    11  tests/reflection.py::TestReflection::test_column_map_not_shared_with_class
+     9  tests/migrations.py::TestSchemaMigration::test_make_index_name_long
+     9  tests/sql.py::TestOnConflictSqlite::test_unbound_error
+     5  tests/sql.py::TestWindowFunctions::test_duplicate_window_alias_error
+     4  tests/transactions.py::TestTransaction::test_commit_rollback_closed
+     2  tests/transactions.py::TestTransaction::test_mixing_manual_db_context
+
+== Reprodução do oráculo no run DeepSeek single-agent rep02 da tomlkit-0004 (6/7), 29/10/2026
+Cópia do workspace do run + tasks/tomlkit-0004/test_patch.diff; venv da tarefa (.uranium/venvs/tomlkit);
+  pytest -q --rootdir . "tests/test_api.py::test_original_string_and_dumped_string_are_equal[0.5.0]"
+        "tests/test_items.py::test_items_can_be_appended_to_and_removed_from_a_table"
+        "tests/test_toml_document.py::test_toml_document_with_dotted_keys"
+Resultado: F.. (1 failed, 2 passed). O teste de ida e volta falha porque o serializador do agente duplica o
+último caractere de cada valor de chave pontilhada ('"round""', 'a.b.d = 22'); é o item 5 do enunciado
+(tomlkit.dumps(tomlkit.parse(texto)) == texto), reproduzível pelo bloco 5 de "Como reproduzir".
+Validação da tarefa: docs/tcc/dados/validacao-08-10/validate_task_final.txt l.103-133 (oculto vermelho na base,
+duas referências resolvem sem regressão, patch plantado detectado). O test_patch acrescenta ao exemplo
+tests/examples/0.5.0.toml exatamente as cinco linhas de chave pontilhada que o enunciado lista.

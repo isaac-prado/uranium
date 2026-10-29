@@ -527,3 +527,13 @@ Relatório em [07-e4-fumaca.md](07-e4-fumaca.md): 4 células (`tomlkit-0002` gra
 **Teste que prova.** Nenhum código mudou desde a suíte verde das 16:35 de 28/10 (751); `analise-sete-metricas.md` admite 78 de 78 runs; `auditoria-saude.txt` registra 5.777/5.777 BYOK, 0 estouros de tempo, detector 0 críticos e 1 aviso.
 
 **Impacto em docs.** [26-replicacao.md](26-replicacao.md) §9 a §11; registro 45 (resultado DeepSeek e síntese) em [09-decisoes-do-autor.md](09-decisoes-do-autor.md); `CLAUDE.md`. Pendente do autor: valor final do Devstral no console da Mistral e leitura da síntese.
+
+---
+
+## Replicação: tarefas piso e teto nas seis células e correção da síntese (29/10/2026, decisão 45)
+
+**Diff resumido.** Só documentação e dados. O autor perguntou se "as tarefas que travam são as mesmas" nos três modelos e se isso indicaria erro padrão do harness em vez de teste válido. A frase da síntese dizia que sim e estava forte demais. Tabela por tarefa das seis células (3 modelos × 2 braços, 234 runs) em [dados/coleta-deepseek/por-tarefa-tres-modelos.txt](dados/coleta-deepseek/por-tarefa-tres-modelos.txt): 4 tarefas teto (18/18), 1 piso (tomlkit-0004, 0/18), 8 discriminam; tomlkit-0005 e sqlite-utils-0002 vão de 0/6 num modelo a 6/6 noutro; peewee-0002 é 0/9 no orquestrado dos três modelos e 4/9 no single-agent. Para a tomlkit-0004, o arquivo lista os testes ocultos que falham em cada um dos 18 runs e a reprodução do oráculo no run DeepSeek single-agent rep02 (6/7): o serializador do agente duplica o último caractere dos valores de chave pontilhada, erro que o bloco 5 do enunciado detecta.
+
+**Teste que prova.** Suíte completa de 29/10 (`runs/_lancamento/suite-2026-10-29.log`); a tarefa continua validada pelos quatro portões com duas referências ([dados/validacao-08-10/validate_task_final.txt](dados/validacao-08-10/validate_task_final.txt), l.103-133); o enunciado em `tasks/tomlkit-0004/statement.md` descreve os sete comportamentos cobrados e as cinco linhas que o patch de teste acrescenta a `tests/examples/0.5.0.toml`.
+
+**Impacto em docs.** [26-replicacao.md](26-replicacao.md) §10: frase corrigida e parágrafo "Validade das tarefas como teste".
