@@ -1,0 +1,335 @@
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index 777d96a..dd0d201 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -11,6 +11,7 @@ from .exceptions import KeyAlreadyPresent
+ from .exceptions import NonExistentKey
+ from .items import AoT
+ from .items import Comment
++from .items import DottedKeyTable
+ from .items import Item
+ from .items import Key
+ from .items import Null
+@@ -70,6 +71,7 @@ class Container(dict):
+ 
+     def append(self, key, item):  # type: (Key, Item) -> None
+         from .api import item as _item
++        from .items import Table
+ 
+         if not isinstance(key, Key) and key is not None:
+             key = Key(key)
+@@ -80,6 +82,8 @@ class Container(dict):
+         if isinstance(item, (AoT, Table)) and item.name is None:
+             item.name = key.key
+ 
++        
++
+         if key is not None and key in self:
+             current = self._body[self._map[key]][1]
+             if isinstance(item, Table):
+@@ -191,6 +195,14 @@ class Container(dict):
+                                 table.trivia.trail,
+                             )
+                             cur += table.as_string(prefix=key)
++                elif isinstance(v, DottedKeyTable):
++                    cur = "{}{}{}{}{}".format(
++                        v.trivia.indent,
++                        decode(v.as_string()),
++                        v.trivia.comment_ws,
++                        decode(v.trivia.comment),
++                        v.trivia.trail,
++                    )
+                 else:
+                     cur = "{}{}{}{}{}{}{}".format(
+                         v.trivia.indent,
+@@ -237,7 +249,7 @@ class Container(dict):
+ 
+         return key in self._map
+ 
+-    def __getitem__(self, key):  # type: (Key) -> Item
++    def __getitem__(self, key):  # type: (Key) -> Any
+         if not isinstance(key, Key):
+             key = Key(key)
+ 
+@@ -246,9 +258,14 @@ class Container(dict):
+             raise NonExistentKey(key)
+ 
+         item = self._body[idx][1]
+-        value = item.value
+-
+-        return value
++        
++        # For tables, return the table itself, not its value
++        # This allows accessing nested keys like table["key"]["nested"]
++        if isinstance(item, Table):
++            return item
++        
++        else:
++            return item.value
+ 
+     def __setitem__(self, key, value):  # type: (Union[Key, str], Any) -> None
+         if key is not None and key in self:
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index c88637a..007dce4 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -8,6 +8,7 @@ from datetime import date
+ from datetime import datetime
+ from datetime import time
+ from enum import Enum
++from typing import Any
+ from typing import List
+ from typing import Optional
+ 
+@@ -656,6 +657,54 @@ class AoT(Item):
+         return "<AoT {}>".format(self.value)
+ 
+ 
++class DottedKeyTable(Table):
++    """
++    A table created from a dotted key (e.g., a.b.c = 1).
++    Stores the original key parts for serialization.
++    """
++
++    def __init__(self, value, key_parts, trivia):  # type: (Item, List[Key], Trivia) -> None
++        # Create a container with the value at the nested location
++        container = Container()
++        current = container
++        
++        # Create nested structure
++        for i, part_key in enumerate(key_parts[:-1]):
++            part_key_str = part_key.key
++            # Create nested table
++            table = Table(Container(), Trivia("", "", "", ""), 
++                         False, name=part_key_str, is_super_table=True)
++            current._map[part_key] = len(current._body)
++            current._body.append((part_key, table))
++            super(Container, current).__setitem__(part_key_str, table.value)
++            current = table.value
++        
++        # Add the actual value at the last key
++        last_key = key_parts[-1]
++        last_key_str = last_key.key
++        current._map[last_key] = len(current._body)
++        current._body.append((last_key, value))
++        super(Container, current).__setitem__(last_key_str, value.value)
++        
++        # Initialize as a table
++        super(DottedKeyTable, self).__init__(
++            container, trivia, False, is_super_table=True, 
++            name=key_parts[0].key
++        )
++        
++        self._key_parts = key_parts
++        self._original_value = value
++
++    @property
++    def key_parts(self):  # type: () -> List[Key]
++        return self._key_parts
++
++    def as_string(self):  # type: () -> str
++        # Serialize as dotted key
++        key_str = ".".join(part.as_string() for part in self._key_parts)
++        return "{}{}{}".format(key_str, self._key_parts[0].sep, self._original_value.as_string())
++
++
+ class Null(Item):
+     """
+     A null item.
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..20e3dea 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -8,8 +8,10 @@ import string
+ 
+ from copy import copy
+ from typing import Iterator
++from typing import List
+ from typing import Optional
+ from typing import Tuple
++from typing import Union
+ 
+ from ._compat import PY2
+ from ._compat import chr
+@@ -362,50 +364,115 @@ class Parser:
+ 
+         indent = self.extract()
+ 
+-        # Key
+-        key = self._parse_key()
+-        if not key.key.strip():
+-            raise self.parse_error(EmptyKeyError)
++        # Parse key - may be dotted
++        key_or_parts = self._parse_key()
++        
++        # Handle dotted keys
++        if isinstance(key_or_parts, list):
++            # This is a dotted key
++            parts = key_or_parts
++            if not parts:
++                raise self.parse_error(EmptyKeyError)
++            
++            # Parse separator
++            self.mark()
++            found_equals = self._current == "="
++            while self._current.is_kv_sep() and self.inc():
++                if self._current == "=":
++                    if found_equals:
++                        raise self.parse_error(UnexpectedCharError, ("=",))
++                    else:
++                        found_equals = True
++                pass
++            sep = self.extract()
++            
++            # All parts share the same separator
++            for part in parts:
++                part.sep = sep
++            
++            # Parse value
++            val = self._parse_value()
++
++            # Comment
++            if parse_comment:
++                cws, comment, trail = self._parse_comment_trail()
++                meta = val.trivia
++                meta.comment_ws = cws
++                meta.comment = comment
++                meta.trail = trail
++            else:
++                val.trivia.trail = ""
+ 
+-        self.mark()
++            val.trivia.indent = indent
+ 
+-        found_equals = self._current == "="
+-        while self._current.is_kv_sep() and self.inc():
+-            if self._current == "=":
+-                if found_equals:
+-                    raise self.parse_error(UnexpectedCharError, ("=",))
+-                else:
+-                    found_equals = True
+-            pass
++            # For dotted keys, we need to return a special item
++            # that will create the nested structure
++            from .items import DottedKeyTable
++            return parts[0], DottedKeyTable(val, parts, val.trivia)
++        else:
++            # Single key (non-dotted)
++            key = key_or_parts
++            if not key.key.strip():
++                raise self.parse_error(EmptyKeyError)
++
++            self.mark()
+ 
+-        key.sep = self.extract()
++            found_equals = self._current == "="
++            while self._current.is_kv_sep() and self.inc():
++                if self._current == "=":
++                    if found_equals:
++                        raise self.parse_error(UnexpectedCharError, ("=",))
++                    else:
++                        found_equals = True
++                pass
+ 
+-        # Value
+-        val = self._parse_value()
++            key.sep = self.extract()
+ 
+-        # Comment
+-        if parse_comment:
+-            cws, comment, trail = self._parse_comment_trail()
+-            meta = val.trivia
+-            meta.comment_ws = cws
+-            meta.comment = comment
+-            meta.trail = trail
+-        else:
+-            val.trivia.trail = ""
++            # Value
++            val = self._parse_value()
+ 
+-        val.trivia.indent = indent
++            # Comment
++            if parse_comment:
++                cws, comment, trail = self._parse_comment_trail()
++                meta = val.trivia
++                meta.comment_ws = cws
++                meta.comment = comment
++                meta.trail = trail
++            else:
++                val.trivia.trail = ""
+ 
+-        return key, val
++            val.trivia.indent = indent
+ 
+-    def _parse_key(self):  # type: () -> Key
++            return key, val
++
++    def _parse_key(self):  # type: () -> Union[Key, List[Key]]
+         """
+         Parses a Key at the current position;
+         WS before the key must be exhausted first at the callsite.
++        Returns either a single Key or a list of Keys for dotted keys.
+         """
+-        if self._current in "\"'":
+-            return self._parse_quoted_key()
+-        else:
+-            return self._parse_bare_key()
++        # Save current position to check if it's a dotted key
++        saved_idx = self._save_idx()
++        
++        # Try to parse as a dotted key
++        try:
++            parts = self._parse_dotted_key()
++            if len(parts) > 1:
++                return parts
++            else:
++                # Single key, not dotted
++                self._restore_idx(*saved_idx)
++                if self._current in "\"'":
++                    return self._parse_quoted_key()
++                else:
++                    return self._parse_bare_key()
++        except Exception:
++            # Not a dotted key, restore and parse as single key
++            self._restore_idx(*saved_idx)
++            if self._current in "\"'":
++                return self._parse_quoted_key()
++            else:
++                return self._parse_bare_key()
+ 
+     def _parse_quoted_key(self):  # type: () -> Key
+         """
+@@ -432,6 +499,33 @@ class Parser:
+ 
+         return Key(key, key_type, "")
+ 
++    def _parse_dotted_key(self):  # type: () -> List[Key]
++        """
++        Parses a dotted key (e.g., "a.b.c" or "site.\"google.com\"").
++        Returns a list of Key objects for each part.
++        """
++        parts = []
++        
++        while True:
++            # Parse one part of the dotted key
++            if self._current in "\"'":
++                part_key = self._parse_quoted_key()
++            else:
++                part_key = self._parse_bare_key()
++            
++            parts.append(part_key)
++            
++            # Check if there's a dot for another part
++            if self._current == ".":
++                self.inc()  # Skip the dot
++                # Continue parsing next part
++                continue
++            else:
++                # End of dotted key
++                break
++        
++        return parts
++
+     def _parse_bare_key(self):  # type: () -> Key
+         """
+         Parses a bare key.

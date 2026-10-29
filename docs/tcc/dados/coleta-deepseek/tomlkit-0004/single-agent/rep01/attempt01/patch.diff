@@ -1,0 +1,223 @@
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index 777d96a..dd4155d 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -39,16 +39,39 @@ class Container(dict):
+             if k is None:
+                 continue
+ 
+-            k = k.key
+-            v = v.value
+-
+-            if isinstance(v, Container):
++            # Check if this is a dotted key
++            if hasattr(k, 'dotted') and k.dotted and k.dotted_parts:
++                # Build nested structure for dotted key
++                current = d
++                parts = k.dotted_parts
++                
++                for i, part in enumerate(parts[:-1]):
++                    part_key = part.key
++                    if part_key not in current:
++                        current[part_key] = {}
++                    elif not isinstance(current[part_key], dict):
++                        # Convert to dict if it's not already
++                        current[part_key] = {}
++                    current = current[part_key]
++                
++                # Set the value on the last part
++                last_part = parts[-1].key
++                current[last_part] = v.value
++            else:
++                k = k.key
+                 v = v.value
+ 
+-            if k in d:
+-                d[k].update(v)
+-            else:
+-                d[k] = v
++                if isinstance(v, Container):
++                    v = v.value
++
++                if k in d:
++                    if isinstance(d[k], dict) and isinstance(v, dict):
++                        d[k].update(v)
++                    else:
++                        # This shouldn't happen for valid TOML
++                        d[k] = v
++                else:
++                    d[k] = v
+ 
+         return d
+ 
+@@ -242,13 +265,40 @@ class Container(dict):
+             key = Key(key)
+ 
+         idx = self._map.get(key, None)
+-        if idx is None:
+-            raise NonExistentKey(key)
+-
+-        item = self._body[idx][1]
+-        value = item.value
+-
+-        return value
++        if idx is not None:
++            item = self._body[idx][1]
++            value = item.value
++            return value
++        
++        # Check if this key is a prefix of any dotted key
++        # For example, accessing doc['physical'] when we have 'physical.color'
++        for k, v in self._body:
++            if k is None:
++                continue
++                
++            if hasattr(k, 'dotted') and k.dotted and k.dotted_parts:
++                # Check if the requested key matches the first part of a dotted key
++                if k.dotted_parts[0].key == key.key:
++                    # Create a virtual container for this prefix
++                    container = Container()
++                    # Add all values that share this prefix
++                    for k2, v2 in self._body:
++                        if k2 is None:
++                            continue
++                        if hasattr(k2, 'dotted') and k2.dotted and k2.dotted_parts:
++                            if k2.dotted_parts[0].key == key.key:
++                                # Add the rest of the dotted key to the container
++                                if len(k2.dotted_parts) > 1:
++                                    # Create a nested key for the rest
++                                    rest_key = Key(k2.dotted_parts[1].key, t=k2.dotted_parts[1].t)
++                                    if len(k2.dotted_parts) > 2:
++                                        # Handle deeper nesting
++                                        rest_key.dotted = True
++                                        rest_key.dotted_parts = k2.dotted_parts[1:]
++                                    container.append(rest_key, v2)
++                    return container.value
++        
++        raise NonExistentKey(key)
+ 
+     def __setitem__(self, key, value):  # type: (Union[Key, str], Any) -> None
+         if key is not None and key in self:
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index c88637a..0641fbb 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -68,7 +68,7 @@ class Key:
+     A key value.
+     """
+ 
+-    def __init__(self, k, t=None, sep=None):  # type: (str) -> None
++    def __init__(self, k, t=None, sep=None, dotted=False, dotted_parts=None):  # type: (str) -> None
+         if t is None:
+             if any(
+                 [c not in string.ascii_letters + string.digits + "-" + "_" for c in k]
+@@ -83,18 +83,35 @@ class Key:
+ 
+         self.sep = sep
+         self.key = k
++        self.dotted = dotted
++        self.dotted_parts = dotted_parts
+ 
+     @property
+     def delimiter(self):  # type: () -> str
+         return self.t.value
+ 
+     def as_string(self):  # type: () -> str
++        if hasattr(self, 'dotted') and self.dotted and self.dotted_parts:
++            # Reconstruct dotted key from parts
++            parts = []
++            for part in self.dotted_parts:
++                if part.t == KeyType.Bare:
++                    parts.append(part.key)
++                else:
++                    parts.append("{}{}{}".format(part.delimiter, part.key, part.delimiter))
++            return ".".join(parts)
+         return "{}{}{}".format(self.delimiter, self.key, self.delimiter)
+ 
+     def __hash__(self):  # type: () -> int
++        # For dotted keys, hash the full dotted string
++        if hasattr(self, 'dotted') and self.dotted and self.dotted_parts:
++            return hash(self.as_string())
+         return hash(self.key)
+ 
+     def __eq__(self, other):  # type: (Key) -> bool
++        # For dotted keys, compare the full dotted string
++        if hasattr(self, 'dotted') and self.dotted and self.dotted_parts:
++            return self.as_string() == other.as_string()
+         return self.key == other.key
+ 
+     def __str__(self):  # type: () -> str
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..7031795 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -239,7 +239,9 @@ class Parser:
+                     t = KeyType.Literal if c == "'" else KeyType.Basic
+ 
+                 continue
+-            elif in_name or c.is_bare_key_char():
++            elif in_name:
++                current += c
++            elif c.is_bare_key_char():
+                 current += c
+             else:
+                 raise self.parse_error()
+@@ -402,10 +404,45 @@ class Parser:
+         Parses a Key at the current position;
+         WS before the key must be exhausted first at the callsite.
+         """
+-        if self._current in "\"'":
+-            return self._parse_quoted_key()
++        # We need to parse the full key which may be dotted
++        # A dotted key is a sequence of simple keys separated by dots
++        # Each simple key can be bare or quoted
++        
++        parts = []
++        while True:
++            if self._current in "\"'":
++                # Quoted key part
++                part = self._parse_quoted_key()
++                parts.append(part)
++            else:
++                # Bare key part
++                self.mark()
++                while self._current.is_bare_key_char() and self._current != ".":
++                    self.inc()
++                
++                key_str = self.extract()
++                if not key_str:
++                    break
++                    
++                parts.append(Key(key_str, sep=""))
++            
++            # Check for dot separator
++            if self._current == ".":
++                self.inc()  # Skip the dot
++                if self.end() or self._current in " \t\n\r=":
++                    # Trailing dot or dot before separator
++                    raise self.parse_error(UnexpectedCharError, ("."))
++                continue
++            else:
++                # End of key
++                break
++        
++        if len(parts) == 1:
++            # Single key
++            return parts[0]
+         else:
+-            return self._parse_bare_key()
++            # Dotted key
++            return Key(parts[0].key, t=parts[0].t, sep="", dotted=True, dotted_parts=parts)
+ 
+     def _parse_quoted_key(self):  # type: () -> Key
+         """
+@@ -859,6 +896,9 @@ class Parser:
+             item = self._parse_item()
+             if item:
+                 _key, item = item
++                # Skip initial newline after table header
++                if isinstance(item, Whitespace) and item.s == "\n" and len(values._body) == 0:
++                    continue
+                 if not self._merge_ws(item, values):
+                     values.append(_key, item)
+             else:

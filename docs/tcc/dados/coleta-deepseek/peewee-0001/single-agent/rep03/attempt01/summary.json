@@ -1,0 +1,37 @@
+{
+  "run_id": "peewee-0001-single-agent-r03-a01",
+  "arm": "single-agent",
+  "task_id": "peewee-0001",
+  "repetition": 3,
+  "attempt": 1,
+  "llm_seed": 20260823,
+  "topology": "single_agent",
+  "stop_reason": "tests_pass",
+  "lost": false,
+  "is_valid": true,
+  "changed_files": [
+    "peewee.py",
+    "peewee_test.db-shm",
+    "playhouse/postgres_ext.py",
+    "playhouse/pwasyncio.py"
+  ],
+  "diff_stat": {
+    "files_changed": 3,
+    "insertions": 90,
+    "deletions": 9
+  },
+  "turns": 53,
+  "totals": {
+    "tokens_prompt": 739882,
+    "tokens_completion": 13376,
+    "tokens_reasoning": 0,
+    "tokens_total": 753258,
+    "tokens_cached": 696512,
+    "cost_usd": 0.10690564,
+    "llm_calls": 53,
+    "tool_calls": 52,
+    "test_runs": 1,
+    "errors": 0
+  },
+  "out_dir": "runs/coleta-deepseek/peewee-0001/single-agent/rep03/attempt01"
+}

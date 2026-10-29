@@ -1,0 +1,69 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 48987a6..300ee76 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -2991,6 +2991,8 @@ class Table(Queryable):
+         current_column_pairs = list(self.columns_dict.items())
+         new_column_pairs = []
+         copy_from_to = {column: column for column, _ in current_column_pairs}
++        # Track which columns need NULLIF('', '') when copying
++        needs_nullif = {}
+         for name, type_ in current_column_pairs:
+             type_ = types.get(name) or type_
+             if name in drop:
+@@ -2999,6 +3001,27 @@ class Table(Queryable):
+             new_name = rename.get(name) or name
+             new_column_pairs.append((new_name, type_))
+             copy_from_to[name] = new_name
++            
++            # Determine if we need NULLIF for this column
++            # Check if original type is TEXT and new type is numeric
++            original_affinity = self.columns_dict[name]
++            if original_affinity is str:
++                # Check if new type is numeric
++                if isinstance(type_, type):
++                    new_is_numeric = type_ in (int, float)
++                else:
++                    # type_ is a string like "integer", "float", "REAL"
++                    type_str = str(type_).upper()
++                    new_is_numeric = (
++                        "INT" in type_str or
++                        "REAL" in type_str or
++                        "FLOA" in type_str or
++                        "DOUB" in type_str or
++                        type_str == "NUMERIC"
++                    )
++                needs_nullif[name] = new_is_numeric
++            else:
++                needs_nullif[name] = False
+ 
+         if existing_autoincrement:
+             existing_autoincrement = resolve_casing(
+@@ -3097,17 +3120,21 @@ class Table(Queryable):
+         new_cols = []
+         old_cols = []
+         for from_, to_ in copy_from_to.items():
+-            old_cols.append(from_)
+-            new_cols.append(to_)
++            # Apply NULLIF if needed
++            if needs_nullif.get(from_, False):
++                old_cols.append(f'NULLIF({quote_identifier(from_)}, "")')
++            else:
++                old_cols.append(quote_identifier(from_))
++            new_cols.append(quote_identifier(to_))
+         # Ensure rowid is copied too
+         if "rowid" not in new_cols:
+-            new_cols.insert(0, "rowid")
+-            old_cols.insert(0, "rowid")
++            new_cols.insert(0, quote_identifier("rowid"))
++            old_cols.insert(0, quote_identifier("rowid"))
+         copy_sql = "INSERT INTO {} ({new_cols})\n   SELECT {old_cols} FROM {};".format(
+             quote_identifier(new_table_name),
+             quote_identifier(self.name),
+-            old_cols=", ".join(quote_identifier(col) for col in old_cols),
+-            new_cols=", ".join(quote_identifier(col) for col in new_cols),
++            old_cols=", ".join(old_cols),
++            new_cols=", ".join(new_cols),
+         )
+         sqls.append(copy_sql)
+         # Capture indexes before the old table is changed. Simple indexes that

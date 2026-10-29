@@ -87,7 +87,44 @@ Contra o estudo principal (Qwen3-Coder, rodada 4: single-agent 23/39 e 8/13, orq
 
 `cost_usd` dos runs do Devstral é o `upstream_inference_cost` que o OpenRouter estima assumindo leitura em cache a 10 % do preço de entrada; a Mistral cobra o Devstral 2 pelo preço cheio ou perto disso. Soma reportada US$ 9,70; preço de tabela sem desconto de cache US$ 50,70 para os mesmos tokens; o autor observou cerca de US$ 35 no console com 74 de 78 células, compatível com o preço cheio menos a franquia de US$ 10 ([dados/sondagens/mistral-byok-429-2026-10-28.txt](dados/sondagens/mistral-byok-429-2026-10-28.txt), que traz também a contraprova na DeepInfra: saldo caiu US$ 6,44 contra US$ 6,43 reportados, razão 1,00). **Na replicação Devstral, a métrica de custo em dólares usa a cobrança do console da Mistral como fonte, pendente do autor informar o valor final do mês por modelo; `cost_usd` fica registrado como estimativa do OpenRouter e a comparação em tokens (métrica 2) não é afetada.**
 
-## 9. Pendente
+## 9. Coleta do DeepSeek fechada (28/10 16:11 a 29/10 06:03, 78/78, 0 perdidas)
 
-- Fechamento da coleta DeepSeek (em andamento desde 16:11) com o mesmo tratamento.
-- Valor final de uso do Devstral no console da Mistral (autor), para a métrica de custo em dólares da §8.3.
+Dados em [dados/coleta-deepseek/](dados/coleta-deepseek/) (runs sem workspaces, `collection.json`, `collection.log`, `analise-sete-metricas.{md,json}`, `apendice-metricas.md`, `resumo-deepseek-devstral.txt` com as duas coletas lado a lado, `auditoria-saude.txt`). 13 h 52 de parede, em paralelo com a do Devstral nas primeiras 5 h 41.
+
+### 9.1 Saúde
+
+5.777 de 5.777 chamadas BYOK, todas servidas pela DeepInfra; 0 tokens de raciocínio; cache de prompt 95,2 %; 0 estouros de tempo em suíte (oráculo e agente); 0 ferramentas negadas; 78 de 78 runs admitidos, nenhum par quebrado. Detector: 0 críticos e **1 aviso**, regra C6 (exceção silenciada introduzida, `except Exception: pass` em `sqlite_utils/db.py`) em sqlite-utils-0001 orquestrado rep03, run não resolvido, sem bloqueio; fica registrado como aviso, não como trapaça. Custo reportado pelo OpenRouter US$ 13,58, e aqui o valor é a cobrança real: a contraprova de 28/10 às 22:37 deu razão 1,00 entre a queda do saldo da DeepInfra e a soma de `cost_usd` (§8.3).
+
+### 9.2 Resultado
+
+| | single-agent | orchestration |
+|---|---|---|
+| runs resolvidos | **26/39** | **26/39** |
+| tarefas (maioria das repetições) | **9/13** | **9/13** |
+| grande | 3/9 runs, 1/3 tarefas | 6/9 runs, 2/3 tarefas |
+| média | 9/12 runs, 3/4 tarefas | 8/12 runs, 3/4 tarefas |
+| pequena | 14/18 runs, 5/6 tarefas | 12/18 runs, 4/6 tarefas |
+| cortes por orçamento | 8 | 11 |
+| turnos médios | 68 | 75 |
+| custo (cobrança real) | US$ 8,02 | US$ 5,56 |
+
+Sete métricas (`analise-sete-metricas.md`): resolução 9/13 × 9/13 (sinal exato, n = 3, p = 1,0); tokens, mediana 706.968 × 792.110 (Wilcoxon, n = 8, p = 0,55); tempo 391 s × 591 s (p = 0,055, orquestrado mais lento); Δ complexidade 0,031 × 0,028 (p = 0,64); consistência 8/9 × 8/9; conclusão sem corte 31/39 × 28/39; violações 0 em ambos. Nenhuma diferença significativa.
+
+Por tarefa (`auditoria-saude.txt`): o orquestrado leva a grande tomlkit-0002 3/3 contra 0/3; o single-agent leva sqlite-utils-0001 2/3 contra 0/3 e sqlite-utils-0003 3/3 contra 2/3; peewee-0002, sqlite-utils-0002 e tomlkit-0004 ficam 0/6; as outras sete tarefas 3/3 nos dois braços. Aprovações erradas do revisor final: **7**, todas em sqlite-utils (0001 ×3, 0002 ×3, 0003 rep03), a classe "nenhum exemplo exercita o critério oculto" que a rodada 8 já tinha medido com o Qwen (7, em attrs-0001 e sqlite-utils). Resolvidos só pelo oráculo, com corte por orçamento: 5, todos no orquestrado (attrs-0001 rep01, tomlkit-0001 ×3, tomlkit-0005 rep01): o revisor do DeepSeek reprova um estado correto até o teto, e em tomlkit-0001 faz isso nas três repetições.
+
+## 10. Síntese das três coletas
+
+Mesmas 13 tarefas, mesmas sementes por repetição, mesmos tetos; orquestrado na configuração da rodada 4. Fontes: estudo principal `dados/coleta/` (single-agent) e `dados/coleta-r4/` (orquestrado), replicações §8 e §9.
+
+| modelo | single-agent runs / tarefas | orchestration runs / tarefas | OR − SA | grande (runs, SA × OR) | diferença com p < 0,05 |
+|---|---|---|---|---|---|
+| Qwen3-Coder (DeepInfra), estudo principal + rodada 4 | 23/39, 8/13 | 24/39, 9/13 | +1 run, +1 tarefa | 4/9 × 5/9 | nenhuma |
+| DeepSeek V3.2 (DeepInfra) | 26/39, 9/13 | 26/39, 9/13 | 0, 0 | 3/9 × 6/9 | nenhuma (tempo p = 0,055, orquestrado mais lento) |
+| Devstral 2 (Mistral) | 28/39, 9/13 | 30/39, 10/13 | +2 runs, +1 tarefa | 4/9 × 5/9 | tokens (orquestrado ≈ metade, p = 0,031) |
+
+Leitura: em nenhum dos três modelos a topologia muda a taxa de resolução de forma significativa; a diferença em tarefas fica entre 0 e +1 a favor do orquestrado. O único padrão que se repete nos três é a faixa grande, em que o orquestrado resolve mais runs (5/9, 6/9 e 5/9 contra 4/9, 3/9 e 4/9), com a tarefa tomlkit-0002 resolvida pelo orquestrado 3/3 no DeepSeek e 2/3 no Devstral contra 0/3 e 1/3 do single-agent. As tarefas que travam são as mesmas nos três modelos (tomlkit-0004 por orçamento, peewee-0002 e sqlite-utils-0002 no DeepSeek, sqlite-utils-0001 no single-agent do Devstral e no orquestrado do DeepSeek), e as aprovações erradas do revisor se concentram nas tarefas sem exemplo que exercite o critério oculto (sqlite-utils-0001 e 0002 nos dois modelos da replicação e no Qwen). O que muda entre modelos é o custo da topologia: no Devstral o orquestrado gasta metade dos tokens; no DeepSeek gasta o mesmo e demora mais. A métrica de custo em dólares do Devstral depende da cobrança da Mistral (§8.3).
+
+## 11. Pendente
+
+- Valor final de uso do Devstral no console da Mistral (autor), para a métrica de custo em dólares da §8.3; o saldo final da DeepInfra confirma a do DeepSeek (esperado ≈ US$ 30 − 13,58).
+- Leitura do autor sobre a síntese (§10) e decisão sobre o que entra no texto do TCC.

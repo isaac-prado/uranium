@@ -1,0 +1,19 @@
+diff --git a/playhouse/fields.py b/playhouse/fields.py
+index 5eefd0a..cb4037c 100644
+--- a/playhouse/fields.py
++++ b/playhouse/fields.py
+@@ -69,6 +69,14 @@ class EnumFieldMixin(object):
+                         enum_class.__name__, member.name, member.value,
+                         self.enum_value_type.__name__))
+         self.enum_class = enum_class
++        
++        # Se choices não foi fornecido explicitamente ou é None, 
++        # gerar automaticamente a partir dos membros do enum
++        if kwargs.get('choices') is None:
++            # Gerar lista de pares (valor, nome) na ordem de declaração
++            choices = [(member.value, member.name) for member in enum_class]
++            kwargs['choices'] = choices
++        
+         super(EnumFieldMixin, self).__init__(*args, **kwargs)
+ 
+     def db_value(self, value):

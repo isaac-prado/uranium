@@ -1,0 +1,147 @@
+diff --git a/tomlkit/api.py b/tomlkit/api.py
+index fd4b2f3..2c0d25d 100644
+--- a/tomlkit/api.py
++++ b/tomlkit/api.py
+@@ -2,7 +2,9 @@ import datetime as _datetime
+ 
+ from collections.abc import Mapping
+ from typing import IO
++from typing import List
+ from typing import Tuple
++from typing import Union
+ 
+ from ._utils import parse_rfc3339
+ from .container import Container
+@@ -141,7 +143,11 @@ def aot() -> AoT:
+     return AoT([])
+ 
+ 
+-def key(k: str) -> Key:
++def key(k: Union[str, List[str]]) -> Key:
++    if isinstance(k, list):
++        from .items import DottedKey
++        keys = [SingleKey(part) for part in k]
++        return DottedKey(keys, sep=" = ")
+     return SingleKey(k)
+ 
+ 
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index dc6da89..6636b1e 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -20,6 +20,7 @@ from .items import Key
+ from .items import Null
+ from .items import SingleKey
+ from .items import Table
++from .items import Trivia
+ from .items import Whitespace
+ from .items import _CustomDict
+ from .items import item as _item
+@@ -87,15 +88,20 @@ class Container(_CustomDict):
+ 
+             key, item = None, key
+ 
++        # Handle dotted keys in add method
++        if key is not None and isinstance(key, Key) and key.is_dotted():
++            return self._add_dotted_key(key, item)
++
++        # Convert item to Item if needed
++        if not isinstance(item, Item):
++            item = _item(item)
++
+         return self.append(key, item)
+ 
+     def append(self, key: Union[Key, str, None], item: Item) -> "Container":
+         if not isinstance(key, Key) and key is not None:
+             key = SingleKey(key)
+ 
+-        if not isinstance(item, Item):
+-            item = _item(item)
+-
+         if isinstance(item, (AoT, Table)) and item.name is None:
+             item.name = key.key
+ 
+@@ -696,6 +702,83 @@ class Container(_CustomDict):
+         prev = self._previous_item_with_index(idx, ignore)
+         return prev[-1] if prev else None
+ 
++    def _add_dotted_key(self, key: Key, item: Item) -> "Container":
++        """Handle adding a dotted key by creating nested tables."""
++        # Convert item if needed
++        if not isinstance(item, Item):
++            item = _item(item)
++        
++        names = tuple(iter(key))
++        
++        # Mark all parts as dotted
++        for name in names:
++            name._dotted = True
++        
++        name = names[0]
++        
++        if name in self:
++            # First part already exists
++            if not isinstance(self[name], Table):
++                raise KeyAlreadyPresent(name)
++            
++            table = self[name]
++        else:
++            # First part doesn't exist, create table
++            table = Table(Container(True), Trivia(), False, is_super_table=True)
++            # Add the table using raw append to avoid dotted key handling
++            self._raw_append(name, table)
++        
++        # Now navigate through or create the nested structure
++        current_table = table
++        for i, _name in enumerate(names[1:]):
++            if i == len(names) - 2:
++                # Last part, add the value
++                _name.sep = key.sep
++                # Add the value to the current table
++                return current_table.value.append(_name, item)
++            else:
++                # Intermediate part, ensure table exists
++                if _name in current_table.value:
++                    if not isinstance(current_table.value[_name], Table):
++                        raise KeyAlreadyPresent(_name)
++                    current_table = current_table.value[_name]
++                else:
++                    new_table = Table(Container(True), Trivia(), False, is_super_table=True)
++                    # Use raw append to avoid dotted key handling
++                    current_table.value._raw_append(_name, new_table)
++                    current_table = new_table
++        return self
++    
++    def _raw_append(self, key: Key, item: Item) -> None:
++        """Append an item without checking for dotted keys."""
++        # Simplified version of append that doesn't handle dotted keys
++        if not isinstance(item, Item):
++            item = _item(item)
++        
++        if isinstance(item, (AoT, Table)) and item.name is None:
++            item.name = key.key
++        
++        prev = self._previous_item()
++        prev_ws = isinstance(prev, Whitespace) or ends_with_withespace(prev)
++        if isinstance(item, Table):
++            if item.name != key.key:
++                item.invalidate_display_name()
++            if self._body and not (self._parsed or item.trivia.indent or prev_ws):
++                item.trivia.indent = "\n"
++        
++        if isinstance(item, AoT) and self._body and not self._parsed:
++            item.invalidate_display_name()
++            if item and not ("\n" in item[0].trivia.indent or prev_ws):
++                item[0].trivia.indent = "\n" + item[0].trivia.indent
++        
++        self._map[key] = len(self._body)
++        self._body.append((key, item))
++        if item.is_table():
++            self._table_keys.append(key)
++        
++        if key is not None:
++            dict.__setitem__(self, key.key, item.value)
++
+ 
+ class OutOfOrderTableProxy(_CustomDict):
+     def __init__(self, container: Container, indices: Tuple[int]) -> None:

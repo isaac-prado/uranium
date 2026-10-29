@@ -1,0 +1,174 @@
+diff --git a/peewee.py b/peewee.py
+index 13d2c8e..46df02e 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -3632,6 +3632,21 @@ class OperationalError(DatabaseError): pass
+ class ProgrammingError(DatabaseError): pass
+ 
+ 
++class QueryEvent:
++    """Evento representando uma execução de query SQL."""
++    __slots__ = ('sql', 'params', 'duration', 'exception')
++    
++    def __init__(self, sql, params, duration, exception):
++        self.sql = sql
++        self.params = params
++        self.duration = duration
++        self.exception = exception
++    
++    def __repr__(self):
++        return (f'<QueryEvent sql={self.sql!r} params={self.params!r} '
++                f'duration={self.duration:.6f} exception={self.exception}>')
++
++
+ class ExceptionWrapper(object):
+     __slots__ = ('exceptions',)
+     def __init__(self, exceptions):
+@@ -3787,6 +3802,7 @@ class Database(_callable_context_manager):
+                            'database driver you are using.')
+ 
+         self.connect_params = {}
++        self.query_hooks = []
+         self.init(database, **kwargs)
+ 
+     def init(self, database, **kwargs):
+@@ -3892,9 +3908,32 @@ class Database(_callable_context_manager):
+ 
+     def execute_sql(self, sql, params=None):
+         self._log_query(sql, params)
+-        with __exception_wrapper__:
+-            cursor = self.cursor()
+-            cursor.execute(sql, params or ())
++        start = time.time()
++        exception = None
++        cursor = None
++        
++        try:
++            with __exception_wrapper__:
++                cursor = self.cursor()
++                cursor.execute(sql, params or ())
++        except Exception as exc:
++            exception = exc
++            raise
++        finally:
++            duration = time.time() - start
++            event = QueryEvent(sql, params, duration, exception)
++            for hook in self.query_hooks:
++                try:
++                    hook(event)
++                except Exception:
++                    # Se um hook levantar exceção, ela deve ser propagada
++                    # ao chamador de execute_sql
++                    if exception is None:
++                        # Se a query original não falhou, propaga a exceção do hook
++                        raise
++                    # Se já havia uma exceção da query, mantém a original
++                    pass
++        
+         return cursor
+ 
+     def execute(self, query, **context_options):
+diff --git a/playhouse/postgres_ext.py b/playhouse/postgres_ext.py
+index 89eb017..07076e2 100644
+--- a/playhouse/postgres_ext.py
++++ b/playhouse/postgres_ext.py
+@@ -1,5 +1,6 @@
+ import json
+ import logging
++import time
+ 
+ from peewee import *
+ from peewee import ColumnBase
+@@ -10,6 +11,7 @@ from peewee import NodeList
+ from peewee import Psycopg2Adapter
+ from peewee import Psycopg3Adapter
+ from peewee import __exception_wrapper__
++from peewee import QueryEvent
+ from playhouse.pool import _PooledPostgresqlDatabase
+ 
+ try:
+@@ -726,10 +728,29 @@ class PostgresqlExtDatabase(PostgresqlDatabase):
+     def execute_sql(self, sql, params=None, named_cursor=None):
+         if not named_cursor:
+             return super(PostgresqlExtDatabase, self).execute_sql(sql, params)
++        
+         self._log_query(sql, params)
+-        with __exception_wrapper__:
+-            cursor = self.cursor(named_cursor=named_cursor)
+-            cursor.execute(sql, params or ())
++        start = time.time()
++        exception = None
++        cursor = None
++        
++        try:
++            with __exception_wrapper__:
++                cursor = self.cursor(named_cursor=named_cursor)
++                cursor.execute(sql, params or ())
++        except Exception as exc:
++            exception = exc
++            raise
++        finally:
++            duration = time.time() - start
++            event = QueryEvent(sql, params, duration, exception)
++            for hook in self.query_hooks:
++                try:
++                    hook(event)
++                except Exception:
++                    if exception is None:
++                        raise
++        
+         return cursor
+ 
+ 
+diff --git a/playhouse/pwasyncio.py b/playhouse/pwasyncio.py
+index f800353..ddb34d1 100644
+--- a/playhouse/pwasyncio.py
++++ b/playhouse/pwasyncio.py
+@@ -5,6 +5,7 @@ import itertools
+ import json
+ import logging
+ import re
++import time
+ 
+ from greenlet import greenlet, getcurrent
+ from peewee import *
+@@ -12,6 +13,7 @@ from peewee import _atomic, _savepoint, _transaction
+ from peewee import _callable_context_manager
+ from peewee import __exception_wrapper__
+ from peewee import Psycopg3Adapter
++from peewee import QueryEvent
+ from playhouse.postgres_ext import Json
+ 
+ try:
+@@ -237,9 +239,28 @@ class AsyncDatabaseMixin(object):
+ 
+     async def aexecute_sql(self, sql, params=None):
+         self._log_query(sql, params)
+-        conn = await self.aconnect()
+-        with __exception_wrapper__:
+-            return await conn.execute(sql, params)
++        start = time.time()
++        exception = None
++        result = None
++        
++        try:
++            conn = await self.aconnect()
++            with __exception_wrapper__:
++                result = await conn.execute(sql, params)
++        except Exception as exc:
++            exception = exc
++            raise
++        finally:
++            duration = time.time() - start
++            event = QueryEvent(sql, params, duration, exception)
++            for hook in self.query_hooks:
++                try:
++                    hook(event)
++                except Exception:
++                    if exception is None:
++                        raise
++        
++        return result
+ 
+     def connect(self):
+         return await_(self.aconnect())

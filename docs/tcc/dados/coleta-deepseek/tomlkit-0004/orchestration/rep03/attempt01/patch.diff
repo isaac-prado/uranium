@@ -1,0 +1,287 @@
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index 777d96a..30d2c06 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -13,6 +13,7 @@ from .items import AoT
+ from .items import Comment
+ from .items import Item
+ from .items import Key
++from .items import KeyType
+ from .items import Null
+ from .items import Table
+ from .items import Trivia
+@@ -28,6 +29,71 @@ class Container(dict):
+         self._map = {}  # type: Dict[Key, int]
+         self._body = []  # type: List[Tuple[Optional[Key], Item]]
+ 
++    @staticmethod
++    def _split_dotted_key(key_str):  # type: (str) -> List[Key]
++        """
++        Split a dotted key string into individual Key parts.
++        Handles quoted keys with dots inside them.
++        Returns Keys with their original representation preserved.
++        """
++        parts = []
++        current = ""
++        in_quotes = False
++        quote_char = None
++        key_type = None
++        
++        i = 0
++        while i < len(key_str):
++            c = key_str[i]
++            
++            if c in "\"'":
++                if not in_quotes:
++                    # Starting quoted key
++                    in_quotes = True
++                    quote_char = c
++                    key_type = KeyType.Literal if c == "'" else KeyType.Basic
++                    current += c
++                elif c == quote_char:
++                    # Ending quoted key
++                    in_quotes = False
++                    current += c
++                else:
++                    # Different quote char inside quotes
++                    current += c
++            elif c == "." and not in_quotes:
++                # Dot separator outside quotes
++                if current:
++                    # Create Key with the full string including quotes if present
++                    if current.startswith('"') and current.endswith('"'):
++                        # Remove quotes for the key value but keep type
++                        key_val = current[1:-1]
++                        parts.append(Key(key_val, KeyType.Basic))
++                    elif current.startswith("'") and current.endswith("'"):
++                        key_val = current[1:-1]
++                        parts.append(Key(key_val, KeyType.Literal))
++                    else:
++                        parts.append(Key(current, KeyType.Bare))
++                    current = ""
++                    key_type = None
++            else:
++                current += c
++            
++            i += 1
++        
++        if current:
++            # Create Key with the full string including quotes if present
++            if current.startswith('"') and current.endswith('"'):
++                # Remove quotes for the key value but keep type
++                key_val = current[1:-1]
++                parts.append(Key(key_val, KeyType.Basic))
++            elif current.startswith("'") and current.endswith("'"):
++                key_val = current[1:-1]
++                parts.append(Key(key_val, KeyType.Literal))
++            else:
++                parts.append(Key(current, KeyType.Bare))
++        
++        return parts
++
+     @property
+     def body(self):  # type: () -> List[Tuple[Optional[Key], Item]]
+         return self._body
+@@ -80,6 +146,86 @@ class Container(dict):
+         if isinstance(item, (AoT, Table)) and item.name is None:
+             item.name = key.key
+ 
++        # Handle dotted keys
++        if key is not None:
++            # Use original parts if available (from parser), otherwise split
++            if hasattr(key, '_original_parts'):
++                parts = key._original_parts
++            else:
++                parts = self._split_dotted_key(key.key)
++            
++            if len(parts) > 1:
++                # Create nested structure
++                current = self
++                for i, part in enumerate(parts[:-1]):
++                    # Check if this part already exists
++                    part_key_str = part.key
++                    # Get the appropriate container to check
++                    if isinstance(current, Container):
++                        check_container = current
++                    else:
++                        check_container = current.value
++                    
++                    if part_key_str in check_container:
++                        # Existing container
++                        existing = check_container[part_key_str]
++                        if not isinstance(existing, Container):
++                            # Convert to table if needed
++                            if isinstance(existing, dict):
++                                # Already a dict (value from super(Container).__setitem__)
++                                # Need to create a proper Table
++                                table = Table(Container(), Trivia("", "", "", ""), 
++                                            is_aot_element=False, is_super_table=True,
++                                            name=part_key_str)
++                                # Move existing value to the table
++                                if part_key_str in check_container.value:
++                                    # We need to handle the next part
++                                    next_part = parts[i+1].key
++                                    table.value[next_part] = check_container.value[part_key_str]
++                                if isinstance(current, Container):
++                                    current._replace(Key(part_key_str), Key(part_key_str), table)
++                                else:
++                                    current.value._replace(Key(part_key_str), Key(part_key_str), table)
++                                current = table
++                            else:
++                                raise KeyAlreadyPresent(part_key_str)
++                        else:
++                            current = existing
++                    else:
++                        # Create new table
++                        table = Table(Container(), Trivia("", "", "", ""), 
++                                    is_aot_element=False, is_super_table=i < len(parts) - 2,
++                                    name=part_key_str)
++                        # Use the part object itself as key
++                        if isinstance(current, Container):
++                            current._body.append((part, table))
++                            current._map[part] = len(current._body) - 1
++                            super(Container, current).__setitem__(part_key_str, table)
++                        else:
++                            # current is a Table
++                            current.value._body.append((part, table))
++                            current.value._map[part] = len(current.value._body) - 1
++                            super(Container, current.value).__setitem__(part_key_str, table)
++                        current = table
++                
++                # Add the actual item to the last container
++                # Don't split the last part again
++                last_part = parts[-1]
++                # Preserve the separator from the original key
++                if hasattr(key, 'sep'):
++                    last_part.sep = key.sep
++                
++                if isinstance(current, Container):
++                    current._body.append((last_part, item))
++                    current._map[last_part] = len(current._body) - 1
++                    super(Container, current).__setitem__(last_part.key, item)
++                else:
++                    # current is a Table
++                    current.value._body.append((last_part, item))
++                    current.value._map[last_part] = len(current.value._body) - 1
++                    super(Container, current.value).__setitem__(last_part.key, item)
++                return
++
+         if key is not None and key in self:
+             current = self._body[self._map[key]][1]
+             if isinstance(item, Table):
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index c88637a..7caabe0 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -89,6 +89,16 @@ class Key:
+         return self.t.value
+ 
+     def as_string(self):  # type: () -> str
++        # If we have original parts (for dotted keys), reconstruct with proper quoting
++        if hasattr(self, '_original_parts'):
++            parts = []
++            for k in self._original_parts:
++                if k.t == KeyType.Bare:
++                    parts.append(k.key)
++                else:
++                    # For quoted keys, include the quotes
++                    parts.append("{}{}{}".format(k.delimiter, k.key, k.delimiter))
++            return ".".join(parts)
+         return "{}{}{}".format(self.delimiter, self.key, self.delimiter)
+ 
+     def __hash__(self):  # type: () -> int
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..69fb2bf 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -402,14 +402,55 @@ class Parser:
+         Parses a Key at the current position;
+         WS before the key must be exhausted first at the callsite.
+         """
+-        if self._current in "\"'":
+-            return self._parse_quoted_key()
+-        else:
+-            return self._parse_bare_key()
++        # Parse dotted key
++        return self._parse_dotted_key()
++
++    def _parse_dotted_key(self):  # type: () -> Key
++        """
++        Parses a dotted key (may be a single key or multiple keys separated by dots).
++        Returns a Key with the combined key string (without quotes for individual parts)
++        but stores the original parts as metadata for serialization.
++        """
++        parts = []
++        while True:
++            # Parse one key part
++            if self._current in "\"'":
++                key = self._parse_quoted_key()
++            else:
++                key = self._parse_bare_key()
++            
++            parts.append(key)
++            
++            # Check if there's a dot for next part
++            if self._current == ".":
++                self.inc()  # Skip the dot
++                # Skip whitespace after dot? According to TOML spec, no whitespace allowed between dots and key parts
++                continue
++            else:
++                break
++        
++        # Combine all parts into a single dotted key string WITHOUT quotes
++        # This is for dictionary key access
++        dotted_key_parts = []
++        for k in parts:
++            dotted_key_parts.append(k.key)  # k.key already has quotes removed
++        
++        dotted_key = ".".join(dotted_key_parts)
++        
++        # Create the key but store original parts for serialization
++        result = Key(dotted_key, sep=parts[-1].sep if parts else "")
++        
++        # Store original parts as an attribute for serialization
++        # We need to know which parts were quoted
++        result._original_parts = parts
++        
++        return result
+ 
+     def _parse_quoted_key(self):  # type: () -> Key
+         """
+         Parses a key enclosed in either single or double quotes.
++        Returns a Key object with the content between quotes as key,
++        and the appropriate KeyType.
+         """
+         quote_style = self._current
+         key_type = None
+@@ -421,14 +462,14 @@ class Parser:
+         if key_type is None:
+             raise RuntimeError("Should not have entered _parse_quoted_key()")
+ 
+-        self.inc()
++        self.inc()  # Skip opening quote
+         self.mark()
+ 
+         while self._current != quote_style and self.inc():
+             pass
+ 
+-        key = self.extract()
+-        self.inc()
++        key = self.extract()  # Content between quotes
++        self.inc()  # Skip closing quote
+ 
+         return Key(key, key_type, "")
+ 
+@@ -441,6 +482,12 @@ class Parser:
+             pass
+ 
+         key = self.extract()
++        
++        # Check if we stopped at a dot (which is not a bare key char)
++        # If so, we need to backtrack one character
++        if self._current == ".":
++            # The dot belongs to the next key part, not this one
++            pass
+ 
+         return Key(key, sep="")
+ 

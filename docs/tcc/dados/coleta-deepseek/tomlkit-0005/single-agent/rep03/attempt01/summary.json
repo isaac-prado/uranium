@@ -1,0 +1,34 @@
+{
+  "run_id": "tomlkit-0005-single-agent-r03-a01",
+  "arm": "single-agent",
+  "task_id": "tomlkit-0005",
+  "repetition": 3,
+  "attempt": 1,
+  "llm_seed": 20260823,
+  "topology": "single_agent",
+  "stop_reason": "tests_pass",
+  "lost": false,
+  "is_valid": true,
+  "changed_files": [
+    "tomlkit/items.py"
+  ],
+  "diff_stat": {
+    "files_changed": 1,
+    "insertions": 1,
+    "deletions": 8
+  },
+  "turns": 57,
+  "totals": {
+    "tokens_prompt": 800268,
+    "tokens_completion": 14074,
+    "tokens_reasoning": 0,
+    "tokens_total": 814342,
+    "tokens_cached": 770944,
+    "cost_usd": 0.11319508,
+    "llm_calls": 57,
+    "tool_calls": 56,
+    "test_runs": 1,
+    "errors": 0
+  },
+  "out_dir": "runs/coleta-deepseek/tomlkit-0005/single-agent/rep03/attempt01"
+}

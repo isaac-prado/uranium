@@ -1,0 +1,105 @@
+diff --git a/peewee.py b/peewee.py
+index 6a666d5..aa949cf 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -2652,6 +2652,16 @@ class Select(SelectBase):
+ 
+     @Node.copy
+     def window(self, *windows):
++        if windows:
++            # Check for duplicate window aliases
++            aliases = {}
++            for window in windows:
++                alias = getattr(window, '_alias', None)
++                if alias is None:
++                    alias = 'w'  # Default alias
++                if alias in aliases:
++                    raise ValueError('Multiple windows with the same alias "%s"' % alias)
++                aliases[alias] = True
+         self._windows = windows if windows else None
+ 
+     @Node.copy
+@@ -3783,7 +3793,11 @@ class Database(_callable_context_manager):
+             self.connect()
+         ctx = self.atomic()
+         self._state.ctx.append(ctx)
+-        ctx.__enter__()
++        try:
++            ctx.__enter__()
++        except Exception:
++            self._state.ctx.pop()
++            raise
+         return self
+ 
+     def __exit__(self, exc_type, exc_val, exc_tb):
+@@ -4037,10 +4051,14 @@ class Database(_callable_context_manager):
+             self.cursor().execute('BEGIN')
+ 
+     def rollback(self):
++        if self.is_closed():
++            raise InterfaceError('Error, database connection not opened.')
+         with __exception_wrapper__:
+             self.cursor().execute('ROLLBACK')
+ 
+     def commit(self):
++        if self.is_closed():
++            raise InterfaceError('Error, database connection not opened.')
+         with __exception_wrapper__:
+             self.cursor().execute('COMMIT')
+ 
+@@ -4382,10 +4400,14 @@ class SqliteDatabase(Database):
+         self.execute_sql(statement)
+ 
+     def commit(self):
++        if self.is_closed():
++            raise InterfaceError('Error, database connection not opened.')
+         with __exception_wrapper__:
+             return self.execute_sql('COMMIT')
+ 
+     def rollback(self):
++        if self.is_closed():
++            raise InterfaceError('Error, database connection not opened.')
+         with __exception_wrapper__:
+             return self.execute_sql('ROLLBACK')
+ 
+diff --git a/playhouse/apsw_ext.py b/playhouse/apsw_ext.py
+index b6c45d4..ffdc123 100644
+--- a/playhouse/apsw_ext.py
++++ b/playhouse/apsw_ext.py
+@@ -101,6 +101,8 @@ class APSWDatabase(SqliteDatabase):
+         self.cursor().execute('begin %s;' % lock_type)
+ 
+     def commit(self):
++        if self.is_closed():
++            raise InterfaceError('Error, database connection not opened.')
+         with __exception_wrapper__:
+             curs = self.cursor()
+             if curs.connection.getautocommit():
+@@ -109,6 +111,8 @@ class APSWDatabase(SqliteDatabase):
+         return True
+ 
+     def rollback(self):
++        if self.is_closed():
++            raise InterfaceError('Error, database connection not opened.')
+         with __exception_wrapper__:
+             curs = self.cursor()
+             if curs.connection.getautocommit():
+diff --git a/playhouse/cysqlite_ext.py b/playhouse/cysqlite_ext.py
+index c36b242..453e092 100644
+--- a/playhouse/cysqlite_ext.py
++++ b/playhouse/cysqlite_ext.py
+@@ -226,10 +226,14 @@ class CySqliteDatabase(SqliteDatabase):
+             self.connection().begin(lock_type)
+ 
+     def commit(self):
++        if self.is_closed():
++            raise InterfaceError('Error, database connection not opened.')
+         with __exception_wrapper__:
+             self.connection().commit()
+ 
+     def rollback(self):
++        if self.is_closed():
++            raise InterfaceError('Error, database connection not opened.')
+         with __exception_wrapper__:
+             self.connection().rollback()
+ 

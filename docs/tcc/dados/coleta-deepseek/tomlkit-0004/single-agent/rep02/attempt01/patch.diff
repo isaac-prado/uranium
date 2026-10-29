@@ -1,0 +1,281 @@
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index 777d96a..b19d4cf 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -151,6 +151,50 @@ class Container(dict):
+ 
+                         continue
+ 
++                    # Check if this table was created implicitly by dotted keys
++                    # If it has no trivia.indent, serialize as dotted keys
++                    is_implicit_table = not v.trivia.indent.strip()
++                    if is_implicit_table:
++                        # Serialize as dotted keys recursively
++                        if prefix is not None:
++                            base_key = prefix + "." + k.as_string()
++                        else:
++                            base_key = k.as_string()
++                        
++                        # Helper function to serialize dotted keys recursively
++                        def serialize_dotted(table, current_prefix):
++                            result = ""
++                            for i, (sub_k, sub_v) in enumerate(table._value.body):
++                                if sub_k is not None:
++                                    if isinstance(sub_v, Table) and not sub_v.trivia.indent.strip():
++                                        # Nested implicit table, recurse
++                                        result += serialize_dotted(sub_v, current_prefix + "." + sub_k.as_string())
++                                    else:
++                                        # Regular key-value pair
++                                        full_key = current_prefix + "." + sub_k.as_string()
++                                        result += "{}{}{}{}{}{}{}".format(
++                                            sub_v.trivia.indent,
++                                            decode(full_key),
++                                            sub_k.sep,
++                                            decode(sub_v.as_string()),
++                                            sub_v.trivia.comment_ws,
++                                            decode(sub_v.trivia.comment),
++                                            sub_v.trivia.trail,
++                                        )
++                                elif sub_v is not None and hasattr(sub_v, 'trivia'):
++                                    # Whitespace or comment, include it
++                                    result += sub_v.as_string()
++                                # Add newline after each key-value pair (except the last one)
++                                if sub_k is not None and i < len(table._value.body) - 1:
++                                    # Check if next item is also a key-value (not whitespace/comment)
++                                    next_item = table._value.body[i + 1]
++                                    if next_item[0] is not None:
++                                        result += "\n"
++                            return result
++                        
++                        s += serialize_dotted(v, base_key)
++                        continue
++
+                     if v.display_name is not None:
+                         key = v.display_name
+                     else:
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index c88637a..699158f 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -447,7 +447,11 @@ class Table(Item):
+         return self._is_super_table
+ 
+     def as_string(self, prefix=None):  # type: () -> str
+-        return self._value.as_string(prefix=prefix)
++        content = self._value.as_string(prefix=prefix)
++        # Only include trail if there's actual content
++        if content:
++            return content + self._trivia.trail
++        return content
+ 
+     # Helpers
+ 
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..a67a3ef 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -22,6 +22,7 @@ from .exceptions import EmptyTableNameError
+ from .exceptions import InternalParserError
+ from .exceptions import InvalidCharInStringError
+ from .exceptions import InvalidNumberOrDateError
++from .exceptions import KeyAlreadyPresent
+ from .exceptions import MixedArrayTypesError
+ from .exceptions import ParseError
+ from .exceptions import UnexpectedCharError
+@@ -130,9 +131,14 @@ class Parser:
+             if not item:
+                 break
+ 
+-            key, value = item
+-            if not self._merge_ws(value, body):
+-                body.append(key, value)
++            if len(item) == 3:
++                key, value, key_parts = item
++                # Handle dotted keys
++                self._handle_dotted_key(body, key_parts, value)
++            else:
++                key, value = item
++                if not self._merge_ws(value, body):
++                    body.append(key, value)
+ 
+             self.mark()
+ 
+@@ -280,9 +286,13 @@ class Parser:
+                 # Return to beginning of whitespace so it gets included
+                 # as indentation for the KV about to be parsed.
+                 self._restore_idx(*saved_idx)
+-                key, value = self._parse_key_value(True)
+-
+-                return key, value
++                result = self._parse_key_value(True)
++                if len(result) == 3:
++                    key, value, key_parts = result
++                    return key, value, key_parts
++                else:
++                    key, value = result
++                    return key, value
+ 
+     def _save_idx(self):  # type: () -> Tuple[Iterator, int, str]
+         if PY2:
+@@ -362,9 +372,9 @@ class Parser:
+ 
+         indent = self.extract()
+ 
+-        # Key
+-        key = self._parse_key()
+-        if not key.key.strip():
++        # Key - parse as dotted key
++        key_parts = self._parse_dotted_key()
++        if not key_parts:
+             raise self.parse_error(EmptyKeyError)
+ 
+         self.mark()
+@@ -378,7 +388,7 @@ class Parser:
+                     found_equals = True
+             pass
+ 
+-        key.sep = self.extract()
++        sep = self.extract()
+ 
+         # Value
+         val = self._parse_value()
+@@ -395,7 +405,18 @@ class Parser:
+ 
+         val.trivia.indent = indent
+ 
+-        return key, val
++        # Handle dotted keys by creating nested structure
++        if len(key_parts) > 1:
++            # Set separator on the last key part
++            key_parts[-1].sep = sep
++            # Create a dummy key for the first part
++            first_key = key_parts[0]
++            return first_key, val, key_parts
++        else:
++            # Single key (not dotted)
++            key = key_parts[0]
++            key.sep = sep
++            return key, val
+ 
+     def _parse_key(self):  # type: () -> Key
+         """
+@@ -437,13 +458,77 @@ class Parser:
+         Parses a bare key.
+         """
+         self.mark()
+-        while self._current.is_bare_key_char() and self.inc():
++        while self._current.is_bare_key_char() and self._current != "." and self.inc():
+             pass
+ 
+         key = self.extract()
+ 
+         return Key(key, sep="")
+ 
++    def _handle_dotted_key(self, container, key_parts, value):  # type: (Container, list, Item) -> None
++        """
++        Handle a dotted key by creating nested containers.
++        """
++        current = container
++        for i, part in enumerate(key_parts):
++            is_last = i == len(key_parts) - 1
++            
++            if is_last:
++                # Last part gets the value
++                if not self._merge_ws(value, current):
++                    current.append(part, value)
++            else:
++                # Intermediate part needs a container
++                if part in current:
++                    existing = current[part]
++                    if isinstance(existing, (Container, Table)):
++                        current = existing
++                    else:
++                        # Can't have a non-container as intermediate part
++                        raise self.parse_error(KeyAlreadyPresent, (part.key,))
++                else:
++                    # Create a new table for this intermediate part
++                    # Create trivia with empty indent to mark as implicit table
++                    trivia = Trivia(indent="", comment_ws="", comment="", trail="")
++                    new_table = Table(Container(), trivia, False)
++                    current.append(part, new_table)
++                    current = new_table.value
++
++    def _parse_dotted_key(self):  # type: () -> list
++        """
++        Parses a dotted key (multiple key parts separated by dots).
++        Returns a list of Key objects.
++        """
++        parts = []
++        while True:
++            if self._current in "\"'":
++                # Quoted key part
++                part = self._parse_quoted_key()
++                parts.append(part)
++            else:
++                # Bare key part
++                self.mark()
++                while self._current.is_bare_key_char() and self._current != "." and self.inc():
++                    pass
++                key_str = self.extract()
++                if not key_str:
++                    if not parts:
++                        raise self.parse_error(UnexpectedCharError, (self._current,))
++                    else:
++                        # This happens when we have a trailing dot
++                        raise self.parse_error(UnexpectedCharError, (self._current,))
++                parts.append(Key(key_str, sep=""))
++            
++            # Check for dot separator
++            if self._current == ".":
++                self.inc()  # Skip the dot
++                # According to TOML spec, whitespace is not allowed around dots in dotted keys
++                continue
++            else:
++                break
++        
++        return parts
++
+     def _parse_value(self):  # type: () -> Item
+         """
+         Attempts to parse a value at the current position.
+@@ -517,8 +602,15 @@ class Parser:
+                 if self._current == "}":
+                     break
+ 
+-                key, val = self._parse_key_value(False, inline=True)
+-                elems.append(key, val)
++                result = self._parse_key_value(False, inline=True)
++                if len(result) == 3:
++                    key, val, key_parts = result
++                    # For inline tables, we can't have dotted keys
++                    # According to TOML spec, dotted keys are not allowed in inline tables
++                    raise self.parse_error(UnexpectedCharError, (".",))
++                else:
++                    key, val = result
++                    elems.append(key, val)
+ 
+             self.inc()
+ 
+@@ -859,6 +951,9 @@ class Parser:
+             item = self._parse_item()
+             if item:
+                 _key, item = item
++                # Skip whitespace that comes immediately after table header
++                if isinstance(item, Whitespace) and not values.body:
++                    continue
+                 if not self._merge_ws(item, values):
+                     values.append(_key, item)
+             else:
+diff --git a/tomlkit/toml_char.py b/tomlkit/toml_char.py
+index 8d8d660..fd2c802 100644
+--- a/tomlkit/toml_char.py
++++ b/tomlkit/toml_char.py
+@@ -14,7 +14,7 @@ class TOMLChar(unicode):
+         """
+         Whether the character is a valid bare key name or not.
+         """
+-        return self in string.ascii_letters + string.digits + "-" + "_"
++        return self in string.ascii_letters + string.digits + "-" + "_" + "."
+ 
+     def is_kv_sep(self):  # type: () -> bool
+         """

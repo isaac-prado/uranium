@@ -515,3 +515,15 @@ Relatório em [07-e4-fumaca.md](07-e4-fumaca.md): 4 células (`tomlkit-0002` gra
 **Teste que prova.** Nenhum código mudou desde a suíte verde das 16:35 (751); `analise-sete-metricas.md` admite 78 de 78 runs sem par quebrado; `auditoria-saude.txt` registra 5.392/5.392 BYOK, detector 0/0, 0 estouros de tempo.
 
 **Impacto em docs.** [26-replicacao.md](26-replicacao.md) §8 e §9; registro 45 (resultado Devstral) em [09-decisoes-do-autor.md](09-decisoes-do-autor.md); `CLAUDE.md`. Pendente do autor: valor final de uso do Devstral no console da Mistral.
+
+
+
+---
+
+## Replicação: coleta do DeepSeek fechada e síntese das três coletas (29/10/2026, decisão 45)
+
+**Diff resumido.** Só documentação e dados. `runs/coleta-deepseek` fechada às 06:03 de 29/10 (13 h 52), 78/78, 0 perdidas; dados sem workspaces, análise das sete métricas, apêndice, resumo das duas replicações e auditoria em [dados/coleta-deepseek/](dados/coleta-deepseek/). Resultado: 26/39 runs e 9/13 tarefas nos dois braços; nenhuma métrica com p < 0,05; 7 aprovações erradas, todas em sqlite-utils; 5 resolvidos só pelo oráculo, todos no orquestrado; 1 aviso C6 do detector em run não resolvido. Síntese das três coletas em [26-replicacao.md](26-replicacao.md) §10.
+
+**Teste que prova.** Nenhum código mudou desde a suíte verde das 16:35 de 28/10 (751); `analise-sete-metricas.md` admite 78 de 78 runs; `auditoria-saude.txt` registra 5.777/5.777 BYOK, 0 estouros de tempo, detector 0 críticos e 1 aviso.
+
+**Impacto em docs.** [26-replicacao.md](26-replicacao.md) §9 a §11; registro 45 (resultado DeepSeek e síntese) em [09-decisoes-do-autor.md](09-decisoes-do-autor.md); `CLAUDE.md`. Pendente do autor: valor final do Devstral no console da Mistral e leitura da síntese.

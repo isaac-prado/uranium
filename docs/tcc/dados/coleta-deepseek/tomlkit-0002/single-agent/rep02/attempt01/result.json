@@ -1,0 +1,121 @@
+{
+  "result_schema_version": 2,
+  "harness_version": "1.0.0",
+  "evaluated_at": "2026-10-29T02:34:11+00:00",
+  "run_id": "tomlkit-0002-single-agent-r02-a01",
+  "arm": "single-agent",
+  "task_id": "tomlkit-0002",
+  "faixa": "grande",
+  "repetition": 2,
+  "base_commit": "b5da6c945aa00bf818f89d2fbd434bc3c2c949e2",
+  "resolved": false,
+  "resolved_blocked_by_cheat": false,
+  "oracle": {
+    "f2p_total": 1,
+    "f2p_passed": 1,
+    "f2p": {
+      "exit_code": 0,
+      "passed": 1,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.15,
+      "failing_node_ids": [],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "p2p": {
+      "exit_code": 1,
+      "passed": 737,
+      "failed": 7,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 2.1,
+      "failing_node_ids": [
+        "tests/test_build.py::test_add_remove",
+        "tests/test_build.py::test_top_level_keys_are_put_at_the_root_of_the_document",
+        "tests/test_toml_document.py::test_inserting_after_element_with_no_new_line_adds_a_new_line",
+        "tests/test_toml_document.py::test_no_spurious_whitespaces",
+        "tests/test_toml_document.py::test_out_of_order_tables_are_still_dicts",
+        "tests/test_toml_document.py::test_pop_add_whitespace_and_insert_table_work_togheter",
+        "tests/test_toml_document.py::test_values_can_still_be_set_for_out_of_order_tables"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "regression": {
+      "exit_code": 1,
+      "passed": 737,
+      "failed": 7,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 2.16,
+      "failing_node_ids": [
+        "tests/test_build.py::test_add_remove",
+        "tests/test_build.py::test_top_level_keys_are_put_at_the_root_of_the_document",
+        "tests/test_toml_document.py::test_inserting_after_element_with_no_new_line_adds_a_new_line",
+        "tests/test_toml_document.py::test_no_spurious_whitespaces",
+        "tests/test_toml_document.py::test_out_of_order_tables_are_still_dicts",
+        "tests/test_toml_document.py::test_pop_add_whitespace_and_insert_table_work_togheter",
+        "tests/test_toml_document.py::test_values_can_still_be_set_for_out_of_order_tables"
+      ],
+      "timed_out": false,
+      "network_isolated": true
+    }
+  },
+  "cheat": {
+    "clean": true,
+    "critical_count": 0,
+    "warning_count": 0,
+    "signals": []
+  },
+  "quality": {
+    "mi_before": 33.901,
+    "mi_after": 33.225,
+    "mi_delta": -0.676,
+    "cc_mean_before": 3.259,
+    "cc_mean_after": 3.512,
+    "cc_mean_delta": 0.253,
+    "files_analyzed": 2,
+    "error": null
+  },
+  "cost": {
+    "tokens_prompt": 3805590,
+    "tokens_completion": 32920,
+    "tokens_reasoning": 0,
+    "tokens_total": 3838510,
+    "tokens_cached": 3754752,
+    "cost_usd": 0.51384524,
+    "llm_calls": 120,
+    "byok_calls": 120,
+    "tool_calls": 120,
+    "wall_seconds": 1097.394
+  },
+  "process": {
+    "turns": 120,
+    "test_runs": 0,
+    "tool_denials": 0,
+    "errors": 0,
+    "circuit_breaks": 1,
+    "self_recoveries": 0,
+    "stop_reason": "budget: max_turns (120 >= 120)"
+  },
+  "provenance": {
+    "model": "deepseek/deepseek-v3.2",
+    "provider_requested": "DeepInfra",
+    "providers_served": [
+      "DeepInfra"
+    ],
+    "llm_seed": 20260822,
+    "topology": "single_agent"
+  },
+  "diff": {
+    "files_changed": 2,
+    "insertions": 93,
+    "deletions": 4,
+    "changed_files": [
+      "tomlkit/api.py",
+      "tomlkit/container.py"
+    ]
+  }
+}

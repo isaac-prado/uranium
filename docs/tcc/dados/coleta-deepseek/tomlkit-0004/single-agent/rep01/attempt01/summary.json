@@ -1,0 +1,28 @@
+{
+  "run_id": "tomlkit-0004-single-agent-r01-a01",
+  "arm": "single-agent",
+  "task_id": "tomlkit-0004",
+  "repetition": 1,
+  "attempt": 1,
+  "llm_seed": 20260821,
+  "topology": "single_agent",
+  "stop_reason": "budget: max_turns (120 >= 120)",
+  "lost": false,
+  "is_valid": false,
+  "changed_files": [],
+  "diff_stat": {},
+  "turns": 120,
+  "totals": {
+    "tokens_prompt": 3906123,
+    "tokens_completion": 27771,
+    "tokens_reasoning": 0,
+    "tokens_total": 3933894,
+    "tokens_cached": 3854400,
+    "cost_usd": 0.52507296,
+    "llm_calls": 120,
+    "tool_calls": 120,
+    "test_runs": 0,
+    "errors": 0
+  },
+  "out_dir": "runs/coleta-deepseek/tomlkit-0004/single-agent/rep01/attempt01"
+}

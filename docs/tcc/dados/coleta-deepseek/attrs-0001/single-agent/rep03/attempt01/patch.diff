@@ -1,0 +1,126 @@
+diff --git a/src/attr/_funcs.py b/src/attr/_funcs.py
+index 518be16..652c673 100644
+--- a/src/attr/_funcs.py
++++ b/src/attr/_funcs.py
+@@ -296,6 +296,19 @@ def has(cls):
+ 
+     :rtype: bool
+     """
++    import typing
++    
++    # For generic aliases (e.g., Caixa[str]), check the origin class
++    # typing.get_origin was added in Python 3.8
++    if hasattr(typing, "get_origin"):
++        origin = typing.get_origin(cls)
++    else:
++        # Fallback for Python < 3.8
++        origin = getattr(cls, "__origin__", None)
++    
++    if origin is not None:
++        cls = origin
++    
+     return getattr(cls, "__attrs_attrs__", None) is not None
+ 
+ 
+diff --git a/src/attr/_make.py b/src/attr/_make.py
+index 014b7bc..7f2fabf 100644
+--- a/src/attr/_make.py
++++ b/src/attr/_make.py
+@@ -1824,6 +1824,19 @@ def _add_eq(cls, attrs=None):
+     """
+     Add equality methods to *cls* with *attrs*.
+     """
++    import typing
++    
++    # For generic aliases (e.g., Caixa[str]), check the origin class
++    # typing.get_origin was added in Python 3.8
++    if hasattr(typing, "get_origin"):
++        origin = typing.get_origin(cls)
++    else:
++        # Fallback for Python < 3.8
++        origin = getattr(cls, "__origin__", None)
++    
++    if origin is not None:
++        cls = origin
++    
+     if attrs is None:
+         attrs = cls.__attrs_attrs__
+ 
+@@ -1894,6 +1907,19 @@ def _add_repr(cls, ns=None, attrs=None):
+     """
+     Add a repr method to *cls*.
+     """
++    import typing
++    
++    # For generic aliases (e.g., Caixa[str]), check the origin class
++    # typing.get_origin was added in Python 3.8
++    if hasattr(typing, "get_origin"):
++        origin = typing.get_origin(cls)
++    else:
++        # Fallback for Python < 3.8
++        origin = getattr(cls, "__origin__", None)
++    
++    if origin is not None:
++        cls = origin
++    
+     if attrs is None:
+         attrs = cls.__attrs_attrs__
+ 
+@@ -1919,11 +1945,27 @@ def fields(cls):
+     .. versionchanged:: 16.2.0 Returned tuple allows accessing the fields
+        by name.
+     """
++    import typing
++    
++    # Store original class for error messages
++    original_cls = cls
++    
++    # For generic aliases (e.g., Caixa[str]), check the origin class
++    # typing.get_origin was added in Python 3.8
++    if hasattr(typing, "get_origin"):
++        origin = typing.get_origin(cls)
++    else:
++        # Fallback for Python < 3.8
++        origin = getattr(cls, "__origin__", None)
++    
++    if origin is not None:
++        cls = origin
++    
+     if not isinstance(cls, type):
+         raise TypeError("Passed object must be a class.")
+     attrs = getattr(cls, "__attrs_attrs__", None)
+     if attrs is None:
+-        raise NotAnAttrsClassError(f"{cls!r} is not an attrs-decorated class.")
++        raise NotAnAttrsClassError(f"{original_cls!r} is not an attrs-decorated class.")
+     return attrs
+ 
+ 
+@@ -1942,11 +1984,27 @@ def fields_dict(cls):
+ 
+     .. versionadded:: 18.1.0
+     """
++    import typing
++    
++    # Store original class for error messages
++    original_cls = cls
++    
++    # For generic aliases (e.g., Caixa[str]), check the origin class
++    # typing.get_origin was added in Python 3.8
++    if hasattr(typing, "get_origin"):
++        origin = typing.get_origin(cls)
++    else:
++        # Fallback for Python < 3.8
++        origin = getattr(cls, "__origin__", None)
++    
++    if origin is not None:
++        cls = origin
++    
+     if not isinstance(cls, type):
+         raise TypeError("Passed object must be a class.")
+     attrs = getattr(cls, "__attrs_attrs__", None)
+     if attrs is None:
+-        raise NotAnAttrsClassError(f"{cls!r} is not an attrs-decorated class.")
++        raise NotAnAttrsClassError(f"{original_cls!r} is not an attrs-decorated class.")
+     return {a.name: a for a in attrs}
+ 
+ 

@@ -1,0 +1,111 @@
+diff --git a/peewee.py b/peewee.py
+index 13d2c8e..f866f18 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -3684,6 +3684,7 @@ ForeignKeyMetadata = collections.namedtuple(
+     ('column', 'dest_table', 'dest_column', 'table', 'name', 'on_delete',
+      'on_update'), defaults=(None, None, None))
+ ViewMetadata = collections.namedtuple('ViewMetadata', ('name', 'sql'))
++QueryEvent = collections.namedtuple('QueryEvent', ('sql', 'params', 'duration', 'exception'))
+ 
+ 
+ class _ConnectionState(object):
+@@ -3787,6 +3788,7 @@ class Database(_callable_context_manager):
+                            'database driver you are using.')
+ 
+         self.connect_params = {}
++        self.query_hooks = []
+         self.init(database, **kwargs)
+ 
+     def init(self, database, **kwargs):
+@@ -3890,11 +3892,27 @@ class Database(_callable_context_manager):
+         if logger.isEnabledFor(logging.DEBUG):
+             logger.debug((sql, params))
+ 
++    def _notify_hooks(self, sql, params, duration, exception=None):
++        """Notify all registered query hooks about a SQL execution."""
++        if self.query_hooks:
++            event = QueryEvent(sql, params, duration, exception)
++            for hook in self.query_hooks:
++                hook(event)
++
+     def execute_sql(self, sql, params=None):
+         self._log_query(sql, params)
+-        with __exception_wrapper__:
+-            cursor = self.cursor()
+-            cursor.execute(sql, params or ())
++        start_time = time.time()
++        exception = None
++        try:
++            with __exception_wrapper__:
++                cursor = self.cursor()
++                cursor.execute(sql, params or ())
++        except Exception as exc:
++            exception = exc
++            raise
++        finally:
++            duration = time.time() - start_time
++            self._notify_hooks(sql, params, duration, exception)
+         return cursor
+ 
+     def execute(self, query, **context_options):
+diff --git a/playhouse/postgres_ext.py b/playhouse/postgres_ext.py
+index 89eb017..982e546 100644
+--- a/playhouse/postgres_ext.py
++++ b/playhouse/postgres_ext.py
+@@ -727,9 +727,18 @@ class PostgresqlExtDatabase(PostgresqlDatabase):
+         if not named_cursor:
+             return super(PostgresqlExtDatabase, self).execute_sql(sql, params)
+         self._log_query(sql, params)
+-        with __exception_wrapper__:
+-            cursor = self.cursor(named_cursor=named_cursor)
+-            cursor.execute(sql, params or ())
++        start_time = time.time()
++        exception = None
++        try:
++            with __exception_wrapper__:
++                cursor = self.cursor(named_cursor=named_cursor)
++                cursor.execute(sql, params or ())
++        except Exception as exc:
++            exception = exc
++            raise
++        finally:
++            duration = time.time() - start_time
++            self._notify_hooks(sql, params, duration, exception)
+         return cursor
+ 
+ 
+diff --git a/playhouse/pwasyncio.py b/playhouse/pwasyncio.py
+index f800353..cc3f329 100644
+--- a/playhouse/pwasyncio.py
++++ b/playhouse/pwasyncio.py
+@@ -5,6 +5,7 @@ import itertools
+ import json
+ import logging
+ import re
++import time
+ 
+ from greenlet import greenlet, getcurrent
+ from peewee import *
+@@ -237,9 +238,18 @@ class AsyncDatabaseMixin(object):
+ 
+     async def aexecute_sql(self, sql, params=None):
+         self._log_query(sql, params)
+-        conn = await self.aconnect()
+-        with __exception_wrapper__:
+-            return await conn.execute(sql, params)
++        start_time = time.time()
++        exception = None
++        try:
++            conn = await self.aconnect()
++            with __exception_wrapper__:
++                return await conn.execute(sql, params)
++        except Exception as exc:
++            exception = exc
++            raise
++        finally:
++            duration = time.time() - start_time
++            self._notify_hooks(sql, params, duration, exception)
+ 
+     def connect(self):
+         return await_(self.aconnect())

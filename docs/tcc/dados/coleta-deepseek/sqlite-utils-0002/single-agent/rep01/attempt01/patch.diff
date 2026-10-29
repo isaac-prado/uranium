@@ -1,0 +1,55 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 48987a6..1e76faf 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -3095,18 +3095,45 @@ class Table(Queryable):
+ 
+         # Copy across data, respecting any renamed columns
+         new_cols = []
+-        old_cols = []
++        select_cols = []
+         for from_, to_ in copy_from_to.items():
+-            old_cols.append(from_)
+             new_cols.append(to_)
++            # Determine if we need NULLIF for this column
++            # Get the original type from current_column_pairs
++            original_type = None
++            for col_name, col_type in current_column_pairs:
++                if col_name == from_:
++                    original_type = col_type
++                    break
++            
++            # Get the new type from new_column_pairs
++            new_type = None
++            for col_name, col_type in new_column_pairs:
++                if col_name == to_:
++                    new_type = col_type
++                    break
++            
++            # Apply NULLIF if converting from TEXT to INTEGER/REAL
++            if (original_type is not None and new_type is not None and
++                COLUMN_TYPE_MAPPING.get(original_type) == "TEXT" and
++                COLUMN_TYPE_MAPPING.get(new_type) in ("INTEGER", "REAL")):
++                select_cols.append(f'NULLIF({quote_identifier(from_)}, "")')
++            else:
++                select_cols.append(quote_identifier(from_))
++        
+         # Ensure rowid is copied too
+         if "rowid" not in new_cols:
+             new_cols.insert(0, "rowid")
+-            old_cols.insert(0, "rowid")
+-        copy_sql = "INSERT INTO {} ({new_cols})\n   SELECT {old_cols} FROM {};".format(
++            select_cols.insert(0, quote_identifier("rowid"))
++        else:
++            # rowid is already in new_cols, need to find its position
++            rowid_index = new_cols.index("rowid")
++            select_cols.insert(rowid_index, quote_identifier("rowid"))
++        
++        copy_sql = "INSERT INTO {} ({new_cols})\n   SELECT {select_cols} FROM {};".format(
+             quote_identifier(new_table_name),
+             quote_identifier(self.name),
+-            old_cols=", ".join(quote_identifier(col) for col in old_cols),
++            select_cols=", ".join(select_cols),
+             new_cols=", ".join(quote_identifier(col) for col in new_cols),
+         )
+         sqls.append(copy_sql)

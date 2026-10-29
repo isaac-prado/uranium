@@ -1,0 +1,120 @@
+diff --git a/peewee.py b/peewee.py
+index 6a666d5..8af614a 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -2057,9 +2057,13 @@ class OnConflict(Node):
+         self._conflict_constraint = conflict_constraint
+ 
+     def get_conflict_statement(self, ctx, query):
++        if query._database is None and getattr(ctx.state, 'database', None) is None:
++            raise InterfaceError('Cannot generate ON CONFLICT SQL without database association')
+         return ctx.state.conflict_statement(self, query)
+ 
+     def get_conflict_update(self, ctx, query):
++        if query._database is None and getattr(ctx.state, 'database', None) is None:
++            raise InterfaceError('Cannot generate ON CONFLICT SQL without database association')
+         return ctx.state.conflict_update(self, query)
+ 
+     @Node.copy
+@@ -2652,6 +2656,25 @@ class Select(SelectBase):
+ 
+     @Node.copy
+     def window(self, *windows):
++        if windows:
++            # Validar aliases duplicados
++            aliases = []
++            for w in windows:
++                alias = getattr(w, '_alias', None)
++                if alias is None:
++                    alias = getattr(w, 'alias', 'w')  # alias padrão
++                aliases.append(alias)
++            
++            seen = set()
++            duplicates = []
++            for i, alias in enumerate(aliases):
++                if alias in seen:
++                    duplicates.append(alias)
++                seen.add(alias)
++            
++            if duplicates:
++                raise ValueError('Duplicate window alias %r' % duplicates[0])
++        
+         self._windows = windows if windows else None
+ 
+     @Node.copy
+@@ -3782,8 +3805,12 @@ class Database(_callable_context_manager):
+         if self.is_closed():
+             self.connect()
+         ctx = self.atomic()
++        try:
++            ctx.__enter__()
++        except Exception:
++            # Se ctx.__enter__() falhar, não adicionamos à pilha
++            raise
+         self._state.ctx.append(ctx)
+-        ctx.__enter__()
+         return self
+ 
+     def __exit__(self, exc_type, exc_val, exc_tb):
+@@ -4037,10 +4064,14 @@ class Database(_callable_context_manager):
+             self.cursor().execute('BEGIN')
+ 
+     def rollback(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot rollback, connection is closed.')
+         with __exception_wrapper__:
+             self.cursor().execute('ROLLBACK')
+ 
+     def commit(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot commit, connection is closed.')
+         with __exception_wrapper__:
+             self.cursor().execute('COMMIT')
+ 
+@@ -4382,10 +4413,14 @@ class SqliteDatabase(Database):
+         self.execute_sql(statement)
+ 
+     def commit(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot commit, connection is closed.')
+         with __exception_wrapper__:
+             return self.execute_sql('COMMIT')
+ 
+     def rollback(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot rollback, connection is closed.')
+         with __exception_wrapper__:
+             return self.execute_sql('ROLLBACK')
+ 
+@@ -5238,8 +5273,7 @@ class _atomic(object):
+             args, kwargs = self._transaction_args
+             self._helper = self.db.transaction(*args, **kwargs)
+         elif isinstance(self.db.top_transaction(), _manual):
+-            raise ValueError('Cannot enter atomic commit block while in '
+-                             'manual commit mode.')
++            raise ValueError('Cannot use \'with db:\' inside manual_commit block.')
+         else:
+             self._helper = self.db.savepoint()
+         return self._helper.__enter__()
+diff --git a/playhouse/apsw_ext.py b/playhouse/apsw_ext.py
+index b6c45d4..b04c239 100644
+--- a/playhouse/apsw_ext.py
++++ b/playhouse/apsw_ext.py
+@@ -101,6 +101,8 @@ class APSWDatabase(SqliteDatabase):
+         self.cursor().execute('begin %s;' % lock_type)
+ 
+     def commit(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot commit, connection is closed.')
+         with __exception_wrapper__:
+             curs = self.cursor()
+             if curs.connection.getautocommit():
+@@ -109,6 +111,8 @@ class APSWDatabase(SqliteDatabase):
+         return True
+ 
+     def rollback(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot rollback, connection is closed.')
+         with __exception_wrapper__:
+             curs = self.cursor()
+             if curs.connection.getautocommit():

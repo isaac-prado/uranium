@@ -1,0 +1,67 @@
+diff --git a/src/attr/_funcs.py b/src/attr/_funcs.py
+index 518be16..288dc10 100644
+--- a/src/attr/_funcs.py
++++ b/src/attr/_funcs.py
+@@ -2,6 +2,8 @@
+ 
+ 
+ import copy
++import types
++import typing
+ 
+ from ._make import NOTHING, _obj_setattr, fields
+ from .exceptions import AttrsAttributeNotFoundError
+@@ -296,6 +298,13 @@ def has(cls):
+ 
+     :rtype: bool
+     """
++    # Check if it's a generic alias (e.g., Caixa[str])
++    # Support both typing._GenericAlias and types.GenericAlias
++    if hasattr(cls, "__origin__"):
++        # Get the original class from the generic alias
++        origin = cls.__origin__
++        return getattr(origin, "__attrs_attrs__", None) is not None
++    
+     return getattr(cls, "__attrs_attrs__", None) is not None
+ 
+ 
+diff --git a/src/attr/_make.py b/src/attr/_make.py
+index 014b7bc..9224ac3 100644
+--- a/src/attr/_make.py
++++ b/src/attr/_make.py
+@@ -1919,6 +1919,17 @@ def fields(cls):
+     .. versionchanged:: 16.2.0 Returned tuple allows accessing the fields
+        by name.
+     """
++    # Handle generic aliases (e.g., Caixa[str])
++    if hasattr(cls, "__origin__"):
++        # Get the original class from the generic alias
++        origin = cls.__origin__
++        if not isinstance(origin, type):
++            raise TypeError("Passed object must be a class.")
++        attrs = getattr(origin, "__attrs_attrs__", None)
++        if attrs is None:
++            raise NotAnAttrsClassError(f"{cls!r} is not an attrs-decorated class.")
++        return attrs
++    
+     if not isinstance(cls, type):
+         raise TypeError("Passed object must be a class.")
+     attrs = getattr(cls, "__attrs_attrs__", None)
+@@ -1942,6 +1953,17 @@ def fields_dict(cls):
+ 
+     .. versionadded:: 18.1.0
+     """
++    # Handle generic aliases (e.g., Caixa[str])
++    if hasattr(cls, "__origin__"):
++        # Get the original class from the generic alias
++        origin = cls.__origin__
++        if not isinstance(origin, type):
++            raise TypeError("Passed object must be a class.")
++        attrs = getattr(origin, "__attrs_attrs__", None)
++        if attrs is None:
++            raise NotAnAttrsClassError(f"{cls!r} is not an attrs-decorated class.")
++        return {a.name: a for a in attrs}
++    
+     if not isinstance(cls, type):
+         raise TypeError("Passed object must be a class.")
+     attrs = getattr(cls, "__attrs_attrs__", None)

@@ -1,0 +1,38 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 48987a6..e0cf952 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -2991,6 +2991,8 @@ class Table(Queryable):
+         current_column_pairs = list(self.columns_dict.items())
+         new_column_pairs = []
+         copy_from_to = {column: column for column, _ in current_column_pairs}
++        # Store original types for NULLIF detection
++        original_types = dict(current_column_pairs)
+         for name, type_ in current_column_pairs:
+             type_ = types.get(name) or type_
+             if name in drop:
+@@ -3097,7 +3099,14 @@ class Table(Queryable):
+         new_cols = []
+         old_cols = []
+         for from_, to_ in copy_from_to.items():
+-            old_cols.append(from_)
++            # Determine if we need NULLIF for this column
++            original_type = original_types.get(from_)
++            target_type = types.get(from_) or original_type
++            # Apply NULLIF if original type is TEXT and target type is numeric
++            if original_type == str and target_type in (int, float):
++                old_cols.append(f'NULLIF("{from_}", \'\')')
++            else:
++                old_cols.append(from_)
+             new_cols.append(to_)
+         # Ensure rowid is copied too
+         if "rowid" not in new_cols:
+@@ -3106,7 +3115,7 @@ class Table(Queryable):
+         copy_sql = "INSERT INTO {} ({new_cols})\n   SELECT {old_cols} FROM {};".format(
+             quote_identifier(new_table_name),
+             quote_identifier(self.name),
+-            old_cols=", ".join(quote_identifier(col) for col in old_cols),
++            old_cols=", ".join(col if col.startswith('NULLIF') else quote_identifier(col) for col in old_cols),
+             new_cols=", ".join(quote_identifier(col) for col in new_cols),
+         )
+         sqls.append(copy_sql)

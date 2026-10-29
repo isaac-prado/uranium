@@ -1,0 +1,56 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index d709fb9..2b55082 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -2542,6 +2542,40 @@ class Table(Queryable):
+         """
+         if not self.exists():
+             raise ValueError("Cannot transform a table that doesn't exist yet")
++        
++        # Check for destructive foreign keys when inside a transaction
++        pragma_foreign_keys_was_on = bool(
++            self.db.execute("PRAGMA foreign_keys").fetchone()[0]
++        )
++        already_in_transaction = self.db.conn.in_transaction
++        
++        if already_in_transaction and pragma_foreign_keys_was_on:
++            # Find all tables that reference this table with destructive ON DELETE actions
++            destructive_refs = []
++            tables = self.db.execute(
++                "SELECT name FROM sqlite_master WHERE type='table'"
++            ).fetchall()
++            for (table_name,) in tables:
++                fks = self.db.execute(
++                    f"PRAGMA foreign_key_list('{table_name}')"
++                ).fetchall()
++                for fk in fks:
++                    if fk[2] == self.name:  # fk[2] is referenced table
++                        on_delete = fk[6].upper()  # fk[6] is ON DELETE action
++                        if on_delete in ('CASCADE', 'SET NULL', 'SET DEFAULT'):
++                            destructive_refs.append((table_name, on_delete))
++            
++            if destructive_refs:
++                # Format error message
++                refs_info = []
++                for ref_table, action in destructive_refs:
++                    refs_info.append(f"{ref_table} ({action})")
++                refs_str = ", ".join(refs_info)
++                raise TransactionError(
++                    f"Cannot transform table '{self.name}' inside a transaction "
++                    f"because it is referenced by destructive foreign keys: {refs_str}"
++                )
++        
+         sqls = self.transform_sql(
+             types=types,
+             rename=rename,
+@@ -2556,10 +2590,6 @@ class Table(Queryable):
+             keep_table=keep_table,
+             strict=strict,
+         )
+-        pragma_foreign_keys_was_on = bool(
+-            self.db.execute("PRAGMA foreign_keys").fetchone()[0]
+-        )
+-        already_in_transaction = self.db.conn.in_transaction
+         should_disable_foreign_keys = (
+             pragma_foreign_keys_was_on and not already_in_transaction
+         )

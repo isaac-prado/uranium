@@ -1,0 +1,78 @@
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index 6386e73..ed6b8bb 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -513,8 +513,15 @@ class Container(dict):
+ 
+     # Dictionary methods
+ 
++    def __iter__(self):  # type: () -> Iterator[str]
++        return iter(self.value.keys())
++    
++    def __len__(self):  # type: () -> int
++        return len(self.value)
++    
+     def keys(self):  # type: () -> Generator[str]
+-        return super(Container, self).keys()
++        for k in self.value.keys():
++            yield k
+ 
+     def values(self):  # type: () -> Generator[Item]
+         for k in self.keys():
+@@ -653,7 +660,7 @@ class Container(dict):
+         return str(self.value)
+ 
+     def __repr__(self):  # type: () -> str
+-        return super(Container, self).__repr__()
++        return repr(self.value)
+ 
+     def __eq__(self, other):  # type: (Dict) -> bool
+         if not isinstance(other, dict):
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 26b8f9f..dad5125 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -992,6 +992,12 @@ class Table(Item, dict):
+ 
+         return self
+ 
++    def __iter__(self):  # type: () -> Iterator[str]
++        return iter(self._value.keys())
++    
++    def __len__(self):  # type: () -> int
++        return len(self._value)
++    
+     def keys(self):  # type: () -> Generator[str]
+         for k in self._value.keys():
+             yield k
+@@ -1045,7 +1051,7 @@ class Table(Item, dict):
+         self.remove(key)
+ 
+     def __repr__(self):
+-        return super(Table, self).__repr__()
++        return repr(self.value)
+ 
+     def __str__(self):
+         return str(self.value)
+@@ -1152,6 +1158,12 @@ class InlineTable(Item, dict):
+ 
+         return buf
+ 
++    def __iter__(self):  # type: () -> Iterator[str]
++        return iter(self._value.keys())
++    
++    def __len__(self):  # type: () -> int
++        return len(self._value)
++    
+     def keys(self):  # type: () -> Generator[str]
+         for k in self._value.keys():
+             yield k
+@@ -1205,7 +1217,7 @@ class InlineTable(Item, dict):
+         self.remove(key)
+ 
+     def __repr__(self):
+-        return super(InlineTable, self).__repr__()
++        return repr(self.value)
+ 
+     def _getstate(self, protocol=3):
+         return (self._value, self._trivia)

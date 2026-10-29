@@ -1,0 +1,65 @@
+diff --git a/src/attr/_funcs.py b/src/attr/_funcs.py
+index 518be16..4ef0d27 100644
+--- a/src/attr/_funcs.py
++++ b/src/attr/_funcs.py
+@@ -296,6 +296,16 @@ def has(cls):
+ 
+     :rtype: bool
+     """
++    # Handle generic aliases like Caixa[str]
++    origin = getattr(cls, "__origin__", None)
++    if origin is not None:
++        # Check if the origin class has attrs attributes
++        return getattr(origin, "__attrs_attrs__", None) is not None
++    
++    # Check if it's a regular class
++    if not isinstance(cls, type):
++        return False
++    
+     return getattr(cls, "__attrs_attrs__", None) is not None
+ 
+ 
+diff --git a/src/attr/_make.py b/src/attr/_make.py
+index 014b7bc..bf66dbd 100644
+--- a/src/attr/_make.py
++++ b/src/attr/_make.py
+@@ -1919,9 +1919,17 @@ def fields(cls):
+     .. versionchanged:: 16.2.0 Returned tuple allows accessing the fields
+        by name.
+     """
+-    if not isinstance(cls, type):
++    # Handle generic aliases like Caixa[str]
++    origin = getattr(cls, "__origin__", None)
++    if origin is not None:
++        # Use the origin class for attribute lookup
++        lookup_cls = origin
++    else:
++        lookup_cls = cls
++    
++    if not isinstance(lookup_cls, type):
+         raise TypeError("Passed object must be a class.")
+-    attrs = getattr(cls, "__attrs_attrs__", None)
++    attrs = getattr(lookup_cls, "__attrs_attrs__", None)
+     if attrs is None:
+         raise NotAnAttrsClassError(f"{cls!r} is not an attrs-decorated class.")
+     return attrs
+@@ -1942,9 +1950,17 @@ def fields_dict(cls):
+ 
+     .. versionadded:: 18.1.0
+     """
+-    if not isinstance(cls, type):
++    # Handle generic aliases like Caixa[str]
++    origin = getattr(cls, "__origin__", None)
++    if origin is not None:
++        # Use the origin class for attribute lookup
++        lookup_cls = origin
++    else:
++        lookup_cls = cls
++    
++    if not isinstance(lookup_cls, type):
+         raise TypeError("Passed object must be a class.")
+-    attrs = getattr(cls, "__attrs_attrs__", None)
++    attrs = getattr(lookup_cls, "__attrs_attrs__", None)
+     if attrs is None:
+         raise NotAnAttrsClassError(f"{cls!r} is not an attrs-decorated class.")
+     return {a.name: a for a in attrs}

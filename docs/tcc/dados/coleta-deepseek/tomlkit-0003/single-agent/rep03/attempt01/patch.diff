@@ -1,0 +1,39 @@
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 26b8f9f..82a0dd4 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -1026,7 +1026,15 @@ class Table(Item, dict):
+         self._value[key] = value
+ 
+         if key is not None:
+-            super(Table, self).__setitem__(key, value)
++            # Check if we're replacing an existing table with another table
++            # This happens when extending tables via dotted keys
++            existing = super(Table, self).get(key)
++            if existing is not None and isinstance(existing, Table) and isinstance(value, Table):
++                # Merge the new table into the existing one
++                for k, v in value.items():
++                    existing[k] = v
++            else:
++                super(Table, self).__setitem__(key, value)
+ 
+         m = re.match("(?s)^[^ ]*([ ]+).*$", self._trivia.indent)
+         if not m or not fix_indent:
+@@ -1045,7 +1053,7 @@ class Table(Item, dict):
+         self.remove(key)
+ 
+     def __repr__(self):
+-        return super(Table, self).__repr__()
++        return repr(self.value)
+ 
+     def __str__(self):
+         return str(self.value)
+@@ -1205,7 +1213,7 @@ class InlineTable(Item, dict):
+         self.remove(key)
+ 
+     def __repr__(self):
+-        return super(InlineTable, self).__repr__()
++        return repr(self.value)
+ 
+     def _getstate(self, protocol=3):
+         return (self._value, self._trivia)

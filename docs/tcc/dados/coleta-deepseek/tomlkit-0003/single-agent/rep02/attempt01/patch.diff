@@ -1,0 +1,20 @@
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 26b8f9f..a72a137 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -1044,8 +1044,14 @@ class Table(Item, dict):
+     def __delitem__(self, key):  # type: (Union[Key, str]) -> None
+         self.remove(key)
+ 
++    def __iter__(self):
++        return iter(self._value)
++
++    def __len__(self):
++        return len(self._value)
++
+     def __repr__(self):
+-        return super(Table, self).__repr__()
++        return repr(dict(self))
+ 
+     def __str__(self):
+         return str(self.value)

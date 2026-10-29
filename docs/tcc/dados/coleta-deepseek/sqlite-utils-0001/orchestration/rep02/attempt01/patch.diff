@@ -1,0 +1,45 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index d709fb9..c2ad861 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -2567,6 +2567,40 @@ class Table(Queryable):
+             pragma_foreign_keys_was_on and already_in_transaction
+         )
+         defer_foreign_keys_was_on = False
++        
++        # Verificar referências destrutivas dentro de transação com foreign_keys ON
++        if already_in_transaction and pragma_foreign_keys_was_on:
++            destructive_refs = []
++            # Verificar todas as tabelas
++            for table_row in self.db.execute(
++                "SELECT name FROM sqlite_master WHERE type='table'"
++            ).fetchall():
++                referencing_table = table_row[0]
++                # Ignorar tabelas sqlite_* internas
++                if referencing_table.startswith('sqlite_'):
++                    continue
++                # Escapar aspas simples no nome da tabela para a consulta PRAGMA
++                # (nomes vêm do sqlite_master, então são válidos)
++                safe_table_name = referencing_table.replace("'", "''")
++                for fk_row in self.db.execute(
++                    f"PRAGMA foreign_key_list('{safe_table_name}')"
++                ).fetchall():
++                    # fk_row: (id, seq, table, from, to, on_update, on_delete, match)
++                    referenced_table = fk_row[2]  # tabela referenciada
++                    on_delete = fk_row[6]  # ação ON DELETE
++                    if referenced_table == self.name and on_delete in ('CASCADE', 'SET NULL', 'SET DEFAULT'):
++                        destructive_refs.append((referencing_table, on_delete))
++            
++            if destructive_refs:
++                # Construir mensagem de erro
++                table_names = ", ".join(sorted(set(ref[0] for ref in destructive_refs)))
++                actions = ", ".join(sorted(set(ref[1] for ref in destructive_refs)))
++                raise TransactionError(
++                    f"Cannot transform table '{self.name}' within a transaction because "
++                    f"it is referenced by destructive foreign keys: "
++                    f"table(s) {table_names} with ON DELETE action(s) {actions}"
++                )
++        
+         try:
+             if should_disable_foreign_keys:
+                 self.db.execute("PRAGMA foreign_keys=0;")

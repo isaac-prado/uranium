@@ -1,0 +1,214 @@
+diff --git a/tomlkit/api.py b/tomlkit/api.py
+index fd4b2f3..cd2cd2f 100644
+--- a/tomlkit/api.py
++++ b/tomlkit/api.py
+@@ -2,7 +2,9 @@ import datetime as _datetime
+ 
+ from collections.abc import Mapping
+ from typing import IO
++from typing import List
+ from typing import Tuple
++from typing import Union
+ 
+ from ._utils import parse_rfc3339
+ from .container import Container
+@@ -12,6 +14,7 @@ from .items import Bool
+ from .items import Comment
+ from .items import Date
+ from .items import DateTime
++from .items import DottedKey
+ from .items import Float
+ from .items import InlineTable
+ from .items import Integer
+@@ -141,7 +144,12 @@ def aot() -> AoT:
+     return AoT([])
+ 
+ 
+-def key(k: str) -> Key:
++def key(k: Union[str, List[str]]) -> Key:
++    if isinstance(k, list):
++        # Create a DottedKey from a list of strings
++        from .items import DottedKey
++        single_keys = [SingleKey(part) for part in k]
++        return DottedKey(single_keys)
+     return SingleKey(k)
+ 
+ 
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index dc6da89..2f96dfb 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -74,7 +74,7 @@ class Container(_CustomDict):
+                     t.value.parsing(parsing)
+ 
+     def add(
+-        self, key: Union[Key, Item, str], item: Optional[Item] = None
++        self, key: Union[Key, Item, str, List[str]], item: Optional[Item] = None
+     ) -> "Container":
+         """
+         Adds an item to the current Container.
+@@ -89,15 +89,27 @@ class Container(_CustomDict):
+ 
+         return self.append(key, item)
+ 
+-    def append(self, key: Union[Key, str, None], item: Item) -> "Container":
++    def append(self, key: Union[Key, str, List[str], None], item: Item) -> "Container":
++        from .items import DottedKey
++        
+         if not isinstance(key, Key) and key is not None:
+-            key = SingleKey(key)
++            if isinstance(key, list):
++                # Convert list of strings to DottedKey
++                single_keys = [SingleKey(part) for part in key]
++                key = DottedKey(single_keys)
++            else:
++                key = SingleKey(key)
+ 
+         if not isinstance(item, Item):
+             item = _item(item)
+ 
++        # Handle dotted keys
++        if isinstance(key, DottedKey):
++            return self._handle_dotted_key(key, item)
++        
++        # Original logic for non-dotted keys
+         if isinstance(item, (AoT, Table)) and item.name is None:
+-            item.name = key.key
++            item.name = key.key if key is not None else None
+ 
+         prev = self._previous_item()
+         prev_ws = isinstance(prev, Whitespace) or ends_with_withespace(prev)
+@@ -111,7 +123,7 @@ class Container(_CustomDict):
+             item.invalidate_display_name()
+             if item and not ("\n" in item[0].trivia.indent or prev_ws):
+                 item[0].trivia.indent = "\n" + item[0].trivia.indent
+-
++        
+         if key is not None and key in self:
+             current_idx = self._map[key]
+             if isinstance(current_idx, tuple):
+@@ -181,7 +193,6 @@ class Container(_CustomDict):
+                     raise KeyAlreadyPresent(key)
+             elif isinstance(item, AoT):
+                 if not isinstance(current, AoT):
+-                    # Tried to define an AoT after a table with the same name.
+                     raise KeyAlreadyPresent(key)
+ 
+                 for table in item.body:
+@@ -191,6 +202,28 @@ class Container(_CustomDict):
+             else:
+                 raise KeyAlreadyPresent(key)
+ 
++        if key is not None:
++            if key in self._map:
++                current_idx = self._map[key]
++                if isinstance(current_idx, tuple):
++                    self._map[key] = current_idx + (len(self._body),)
++                else:
++                    self._map[key] = (current_idx, len(self._body))
++            else:
++                self._map[key] = len(self._body)
++        else:
++            # No key (comment/whitespace)
++            pass
++
++        self._body.append((key, item))
++        if item.is_table():
++            self._table_keys.append(key)
++
++        if key is not None:
++            dict.__setitem__(self, key.key, item.value)
++
++        return self
++
+         is_table = isinstance(item, (Table, AoT))
+         if key is not None and self._body and not self._parsed:
+             # If there is already at least one table in the current container
+@@ -630,6 +663,74 @@ class Container(_CustomDict):
+     def __str__(self) -> str:
+         return str(self.value)
+ 
++    
++
++    def _handle_dotted_key(self, key: "DottedKey", value: Item) -> "Container":
++        """Handle dotted keys by creating nested structure, similar to parser."""
++        from .items import Table, Trivia
++        
++        names = list(iter(key))
++        if len(names) == 0:
++            raise ValueError("DottedKey must have at least one part")
++        
++        first_key = names[0]
++        # Mark first key as dotted so it renders correctly
++        first_key._dotted = True
++        
++        if first_key in self:
++            # First level already exists
++            current = self[first_key]
++            if len(names) == 1:
++                # Single key, replace value
++                return self._replace(first_key, value)
++            
++            # Navigate through existing structure
++            for i, name in enumerate(names[1:]):
++                if i == len(names) - 2:
++                    # Last key, set the value
++                    name.sep = key.sep
++                    if isinstance(current, Table):
++                        return current.value.append(name, value)
++                    else:
++                        # current is a Container
++                        return current.append(name, value)
++                else:
++                    # Intermediate key
++                    name._dotted = True
++                    if name in current:
++                        current = current[name]
++                    else:
++                        # Create new intermediate table
++                        new_table = Table(Container(True), Trivia(), False, is_super_table=True)
++                        if isinstance(current, Table):
++                            current.value.append(name, new_table)
++                        else:
++                            current.append(name, new_table)
++                        current = new_table
++        else:
++            # First level doesn't exist, create whole structure
++            if len(names) == 1:
++                # Single dotted key (unusual but possible)
++                return self.append(first_key, value)
++            else:
++                # Create nested structure
++                table = Table(Container(True), Trivia(), False, is_super_table=True)
++                current = table
++                
++                for i, name in enumerate(names[1:]):
++                    if i == len(names) - 2:
++                        # Last key
++                        name.sep = key.sep
++                        current.value.append(name, value)
++                    else:
++                        # Intermediate key
++                        name._dotted = True
++                        next_table = Table(Container(True), Trivia(), False, is_super_table=True)
++                        current.value.append(name, next_table)
++                        current = next_table
++                
++                return self.append(first_key, table)
++
+     def __repr__(self) -> str:
+         return repr(self.value)
+ 
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index f325029..929d559 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -329,7 +329,7 @@ class DottedKey(Key):
+         if original is None:
+             original = ".".join(k.as_string() for k in self._keys)
+ 
+-        self.sep = "=" if sep is None else sep
++        self.sep = " = " if sep is None else sep
+         self._original = original
+         self._dotted = True
+         self.key = ".".join(k.key for k in self._keys)

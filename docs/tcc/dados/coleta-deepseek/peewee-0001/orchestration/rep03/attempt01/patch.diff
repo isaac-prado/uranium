@@ -1,0 +1,95 @@
+diff --git a/peewee.py b/peewee.py
+index 13d2c8e..e0c482c 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -3632,6 +3632,17 @@ class OperationalError(DatabaseError): pass
+ class ProgrammingError(DatabaseError): pass
+ 
+ 
++class QueryEvent:
++    """Evento de execução de consulta SQL."""
++    __slots__ = ('sql', 'params', 'duration', 'exception')
++    
++    def __init__(self, sql, params, duration, exception):
++        self.sql = sql
++        self.params = params
++        self.duration = duration
++        self.exception = exception
++
++
+ class ExceptionWrapper(object):
+     __slots__ = ('exceptions',)
+     def __init__(self, exceptions):
+@@ -3787,6 +3798,7 @@ class Database(_callable_context_manager):
+                            'database driver you are using.')
+ 
+         self.connect_params = {}
++        self.query_hooks = []
+         self.init(database, **kwargs)
+ 
+     def init(self, database, **kwargs):
+@@ -3892,9 +3904,21 @@ class Database(_callable_context_manager):
+ 
+     def execute_sql(self, sql, params=None):
+         self._log_query(sql, params)
+-        with __exception_wrapper__:
+-            cursor = self.cursor()
+-            cursor.execute(sql, params or ())
++        start_time = time.time()
++        exception = None
++        cursor = None
++        try:
++            with __exception_wrapper__:
++                cursor = self.cursor()
++                cursor.execute(sql, params or ())
++        except Exception as exc:
++            exception = exc
++            raise
++        finally:
++            duration = time.time() - start_time
++            event = QueryEvent(sql, params, duration, exception)
++            for hook in self.query_hooks:
++                hook(event)
+         return cursor
+ 
+     def execute(self, query, **context_options):
+@@ -4243,13 +4267,37 @@ class SqliteDatabase(Database):
+     def _set_pragmas(self, conn):
+         cursor = conn.cursor()
+         for pragma, value in self._pragmas:
+-            cursor.execute('PRAGMA %s = %s;' % (pragma, value))
++            sql = 'PRAGMA %s = %s;' % (pragma, value)
++            start_time = time.time()
++            exception = None
++            try:
++                cursor.execute(sql)
++            except Exception as exc:
++                exception = exc
++                raise
++            finally:
++                duration = time.time() - start_time
++                event = QueryEvent(sql, None, duration, exception)
++                for hook in self.query_hooks:
++                    hook(event)
+         cursor.close()
+ 
+     def _attach_databases(self, conn):
+         cursor = conn.cursor()
+         for name, db in self._attached.items():
+-            cursor.execute('ATTACH DATABASE "%s" AS "%s"' % (db, name))
++            sql = 'ATTACH DATABASE "%s" AS "%s"' % (db, name)
++            start_time = time.time()
++            exception = None
++            try:
++                cursor.execute(sql)
++            except Exception as exc:
++                exception = exc
++                raise
++            finally:
++                duration = time.time() - start_time
++                event = QueryEvent(sql, None, duration, exception)
++                for hook in self.query_hooks:
++                    hook(event)
+         cursor.close()
+ 
+     def pragma(self, key, value=SENTINEL, permanent=False, schema=None):

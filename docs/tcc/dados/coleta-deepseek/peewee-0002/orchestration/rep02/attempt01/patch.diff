@@ -1,0 +1,116 @@
+diff --git a/peewee.py b/peewee.py
+index 6a666d5..de7fdeb 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -2652,6 +2652,26 @@ class Select(SelectBase):
+ 
+     @Node.copy
+     def window(self, *windows):
++        if windows:
++            # Verificar aliases duplicados
++            aliases = []
++            for w in windows:
++                if hasattr(w, '_alias'):
++                    aliases.append(w._alias)
++            
++            # Verificar duplicados
++            seen = set()
++            duplicates = set()
++            for alias in aliases:
++                if alias in seen:
++                    duplicates.add(alias)
++                else:
++                    seen.add(alias)
++            
++            if duplicates:
++                raise ValueError('Window aliases must be unique. Duplicate alias(es): %s' % 
++                               ', '.join(sorted(duplicates)))
++        
+         self._windows = windows if windows else None
+ 
+     @Node.copy
+@@ -3783,7 +3803,12 @@ class Database(_callable_context_manager):
+             self.connect()
+         ctx = self.atomic()
+         self._state.ctx.append(ctx)
+-        ctx.__enter__()
++        try:
++            ctx.__enter__()
++        except Exception:
++            # Se ctx.__enter__() falhar, precisamos remover o contexto da lista
++            self._state.ctx.pop()
++            raise
+         return self
+ 
+     def __exit__(self, exc_type, exc_val, exc_tb):
+@@ -4037,10 +4062,14 @@ class Database(_callable_context_manager):
+             self.cursor().execute('BEGIN')
+ 
+     def rollback(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot rollback, connection is closed.')
+         with __exception_wrapper__:
+             self.cursor().execute('ROLLBACK')
+ 
+     def commit(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot commit, connection is closed.')
+         with __exception_wrapper__:
+             self.cursor().execute('COMMIT')
+ 
+@@ -4382,10 +4411,14 @@ class SqliteDatabase(Database):
+         self.execute_sql(statement)
+ 
+     def commit(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot commit, connection is closed.')
+         with __exception_wrapper__:
+             return self.execute_sql('COMMIT')
+ 
+     def rollback(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot rollback, connection is closed.')
+         with __exception_wrapper__:
+             return self.execute_sql('ROLLBACK')
+ 
+diff --git a/playhouse/apsw_ext.py b/playhouse/apsw_ext.py
+index b6c45d4..b04c239 100644
+--- a/playhouse/apsw_ext.py
++++ b/playhouse/apsw_ext.py
+@@ -101,6 +101,8 @@ class APSWDatabase(SqliteDatabase):
+         self.cursor().execute('begin %s;' % lock_type)
+ 
+     def commit(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot commit, connection is closed.')
+         with __exception_wrapper__:
+             curs = self.cursor()
+             if curs.connection.getautocommit():
+@@ -109,6 +111,8 @@ class APSWDatabase(SqliteDatabase):
+         return True
+ 
+     def rollback(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot rollback, connection is closed.')
+         with __exception_wrapper__:
+             curs = self.cursor()
+             if curs.connection.getautocommit():
+diff --git a/playhouse/cysqlite_ext.py b/playhouse/cysqlite_ext.py
+index c36b242..78c3e91 100644
+--- a/playhouse/cysqlite_ext.py
++++ b/playhouse/cysqlite_ext.py
+@@ -226,10 +226,14 @@ class CySqliteDatabase(SqliteDatabase):
+             self.connection().begin(lock_type)
+ 
+     def commit(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot commit, connection is closed.')
+         with __exception_wrapper__:
+             self.connection().commit()
+ 
+     def rollback(self):
++        if self.is_closed():
++            raise InterfaceError('Cannot rollback, connection is closed.')
+         with __exception_wrapper__:
+             self.connection().rollback()
+ 

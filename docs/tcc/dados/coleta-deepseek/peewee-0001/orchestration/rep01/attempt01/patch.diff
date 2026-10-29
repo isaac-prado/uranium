@@ -1,0 +1,119 @@
+diff --git a/peewee.py b/peewee.py
+index 13d2c8e..8f7e4c5 100644
+--- a/peewee.py
++++ b/peewee.py
+@@ -3727,6 +3727,21 @@ class ConnectionContext(_callable_context_manager):
+         return type(self)(self.db)
+ 
+ 
++class QueryEvent:
++    """Evento de execução de consulta SQL."""
++    __slots__ = ('sql', 'params', 'duration', 'exception')
++    
++    def __init__(self, sql, params, duration, exception):
++        self.sql = sql
++        self.params = params
++        self.duration = duration
++        self.exception = exception
++    
++    def __repr__(self):
++        return '<QueryEvent sql=%r params=%r duration=%r exception=%r>' % (
++            self.sql, self.params, self.duration, self.exception)
++
++
+ class Database(_callable_context_manager):
+     context_class = Context
+     field_types = {}
+@@ -3787,6 +3802,7 @@ class Database(_callable_context_manager):
+                            'database driver you are using.')
+ 
+         self.connect_params = {}
++        self.query_hooks = []  # Lista de ganchos para observar execuções SQL
+         self.init(database, **kwargs)
+ 
+     def init(self, database, **kwargs):
+@@ -3892,9 +3908,29 @@ class Database(_callable_context_manager):
+ 
+     def execute_sql(self, sql, params=None):
+         self._log_query(sql, params)
+-        with __exception_wrapper__:
+-            cursor = self.cursor()
+-            cursor.execute(sql, params or ())
++        start_time = time.time()
++        exception = None
++        cursor = None
++        
++        try:
++            with __exception_wrapper__:
++                cursor = self.cursor()
++                cursor.execute(sql, params or ())
++        except Exception as e:
++            exception = e
++            raise
++        finally:
++            duration = time.time() - start_time
++            event = QueryEvent(sql, params, duration, exception)
++            
++            # Chamar hooks na ordem de registro
++            for hook in self.query_hooks:
++                try:
++                    hook(event)
++                except Exception as hook_exc:
++                    # Se um hook levantar exceção, propagamos
++                    raise hook_exc from exception if exception else None
++            
+         return cursor
+ 
+     def execute(self, query, **context_options):
+diff --git a/playhouse/postgres_ext.py b/playhouse/postgres_ext.py
+index 89eb017..d0d22c8 100644
+--- a/playhouse/postgres_ext.py
++++ b/playhouse/postgres_ext.py
+@@ -1,5 +1,6 @@
+ import json
+ import logging
++import time
+ 
+ from peewee import *
+ from peewee import ColumnBase
+@@ -9,6 +10,7 @@ from peewee import Node
+ from peewee import NodeList
+ from peewee import Psycopg2Adapter
+ from peewee import Psycopg3Adapter
++from peewee import QueryEvent
+ from peewee import __exception_wrapper__
+ from playhouse.pool import _PooledPostgresqlDatabase
+ 
+@@ -727,9 +729,29 @@ class PostgresqlExtDatabase(PostgresqlDatabase):
+         if not named_cursor:
+             return super(PostgresqlExtDatabase, self).execute_sql(sql, params)
+         self._log_query(sql, params)
+-        with __exception_wrapper__:
+-            cursor = self.cursor(named_cursor=named_cursor)
+-            cursor.execute(sql, params or ())
++        start_time = time.time()
++        exception = None
++        cursor = None
++        
++        try:
++            with __exception_wrapper__:
++                cursor = self.cursor(named_cursor=named_cursor)
++                cursor.execute(sql, params or ())
++        except Exception as e:
++            exception = e
++            raise
++        finally:
++            duration = time.time() - start_time
++            event = QueryEvent(sql, params, duration, exception)
++            
++            # Chamar hooks na ordem de registro
++            for hook in self.query_hooks:
++                try:
++                    hook(event)
++                except Exception as hook_exc:
++                    # Se um hook levantar exceção, propagamos
++                    raise hook_exc from exception if exception else None
++            
+         return cursor
+ 
+ 

@@ -1,0 +1,150 @@
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..a3325b0 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -22,6 +22,7 @@ from .exceptions import EmptyTableNameError
+ from .exceptions import InternalParserError
+ from .exceptions import InvalidCharInStringError
+ from .exceptions import InvalidNumberOrDateError
++from .exceptions import KeyAlreadyPresent
+ from .exceptions import MixedArrayTypesError
+ from .exceptions import ParseError
+ from .exceptions import UnexpectedCharError
+@@ -132,7 +133,7 @@ class Parser:
+ 
+             key, value = item
+             if not self._merge_ws(value, body):
+-                body.append(key, value)
++                self._append_dotted_key(body, key, value)
+ 
+             self.mark()
+ 
+@@ -169,6 +170,75 @@ class Parser:
+ 
+         return True
+ 
++    def _append_dotted_key(self, container, key, value):  # type: (Container, Key, Item) -> None
++        """
++        Append a value using a dotted key, creating nested tables as needed.
++        """
++        # Handle None key (whitespace or comment)
++        if key is None:
++            # For whitespace or comments, just append to container
++            container.append(key, value)
++            return
++        
++        # Check if key has original parts - this indicates it's a dotted key
++        # Dotted keys should be processed even if they contain dots
++        if hasattr(key, '_original_parts'):
++            # This is a dotted key, process it
++            pass
++        elif key.t != KeyType.Bare:
++            # Quoted keys with dots are NOT dotted keys
++            # They are single keys with dots in their name
++            container.append(key, value)
++            return
++        
++        # Check if key has dots
++        if '.' not in key.key:
++            container.append(key, value)
++            return
++        
++        # Get the parts - use original parts if available
++        if hasattr(key, '_original_parts'):
++            parts = [part.key for part in key._original_parts]
++        else:
++            parts = key.key.split('.')
++        current_container = container
++        
++        # Create nested tables for all parts except the last
++        for i, part in enumerate(parts[:-1]):
++            # Create a key for this part
++            part_key = Key(part)
++            
++            # Check if this part already exists
++            if part_key in current_container:
++                # Get the actual item, not its value
++                idx = current_container._map.get(part_key)
++                if idx is not None:
++                    existing_item = current_container._body[idx][1]
++                else:
++                    # Should not happen if part_key in current_container
++                    existing_item = current_container[part_key]
++                
++                # If it's a table, use its value (the inner container)
++                if isinstance(existing_item, Table):
++                    current_container = existing_item.value
++                # If it's a container (already a nested container), use it
++                elif isinstance(existing_item, Container):
++                    current_container = existing_item
++                # If it's a value, we have a conflict
++                else:
++                    # According to TOML spec, this is an error
++                    # A dotted key cannot redefine a simple key
++                    raise KeyAlreadyPresent(part_key)
++            else:
++                # Create a new table for this part
++                new_table = Table(Container(), Trivia(), False, is_super_table=True)
++                current_container.append(part_key, new_table)
++                current_container = new_table.value
++        
++        # Add the value with the last part as key
++        last_key = Key(parts[-1])
++        current_container.append(last_key, value)
++
+     def parse_error(self, kind=ParseError, args=None):  # type: () -> None
+         """
+         Creates a generic "parse error" at the current position.
+@@ -402,10 +472,38 @@ class Parser:
+         Parses a Key at the current position;
+         WS before the key must be exhausted first at the callsite.
+         """
+-        if self._current in "\"'":
+-            return self._parse_quoted_key()
++        # Parse dotted key: multiple key parts (bare or quoted) separated by dots
++        parts = []
++        
++        while True:
++            # Parse a key part (bare or quoted)
++            if self._current in "\"'":
++                key_part = self._parse_quoted_key()
++            else:
++                key_part = self._parse_bare_key()
++            
++            parts.append(key_part)
++            
++            # Check if there's a dot for another part
++            if self._current == ".":
++                # Consume the dot
++                self.inc()
++                # Continue parsing next part
++                continue
++            else:
++                # No more dots, we're done
++                break
++        
++        if len(parts) == 1:
++            return parts[0]
+         else:
+-            return self._parse_bare_key()
++            # Join all parts with dots
++            full_key = ".".join(part.key for part in parts)
++            # Use the separator from the first part
++            key = Key(full_key, sep=parts[0].sep)
++            # Store the original parts for dotted key handling
++            key._original_parts = parts
++            return key
+ 
+     def _parse_quoted_key(self):  # type: () -> Key
+         """
+@@ -441,6 +539,10 @@ class Parser:
+             pass
+ 
+         key = self.extract()
++        
++        if not key:
++            # Empty key - this shouldn't happen in valid TOML
++            raise self.parse_error(EmptyKeyError)
+ 
+         return Key(key, sep="")
+ 

@@ -1,0 +1,65 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 48987a6..b003c81 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -3097,16 +3097,57 @@ class Table(Queryable):
+         new_cols = []
+         old_cols = []
+         for from_, to_ in copy_from_to.items():
+-            old_cols.append(from_)
++            # Determine if we need to apply NULLIF for empty string conversion
++            # from TEXT to numeric type
++            original_type = None
++            target_type = None
++            
++            # Find original type from current_column_pairs
++            for col_name, col_type in current_column_pairs:
++                if col_name == from_:
++                    original_type = col_type
++                    break
++            
++            # Find target type from types parameter
++            target_type = types.get(from_) if types else None
++            
++            # If no explicit target type, use original type
++            if target_type is None:
++                target_type = original_type
++            
++            # Check if conversion is from TEXT to numeric
++            needs_nullif = False
++            if original_type and target_type:
++                # Get SQL types for comparison
++                original_sql_type = COLUMN_TYPE_MAPPING.get(original_type)
++                target_sql_type = COLUMN_TYPE_MAPPING.get(target_type)
++                
++                # If we can't determine from mapping, try string comparison
++                if original_sql_type is None and isinstance(original_type, str):
++                    original_sql_type = original_type.upper()
++                if target_sql_type is None and isinstance(target_type, str):
++                    target_sql_type = target_type.upper()
++                
++                # Check if conversion is from TEXT to numeric
++                if (original_sql_type == "TEXT" or 
++                    (isinstance(original_type, type) and original_type == str)):
++                    if (target_sql_type in ("INTEGER", "REAL", "FLOAT") or
++                        (isinstance(target_type, type) and target_type in (int, float))):
++                        needs_nullif = True
++            
++            if needs_nullif:
++                old_cols.append(f'NULLIF({quote_identifier(from_)}, "")')
++            else:
++                old_cols.append(quote_identifier(from_))
+             new_cols.append(to_)
+         # Ensure rowid is copied too
+         if "rowid" not in new_cols:
+             new_cols.insert(0, "rowid")
+-            old_cols.insert(0, "rowid")
++            old_cols.insert(0, quote_identifier("rowid"))
+         copy_sql = "INSERT INTO {} ({new_cols})\n   SELECT {old_cols} FROM {};".format(
+             quote_identifier(new_table_name),
+             quote_identifier(self.name),
+-            old_cols=", ".join(quote_identifier(col) for col in old_cols),
++            old_cols=", ".join(old_cols),
+             new_cols=", ".join(quote_identifier(col) for col in new_cols),
+         )
+         sqls.append(copy_sql)

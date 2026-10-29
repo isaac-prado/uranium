@@ -1,0 +1,82 @@
+diff --git a/src/attr/_funcs.py b/src/attr/_funcs.py
+index 518be16..d71af24 100644
+--- a/src/attr/_funcs.py
++++ b/src/attr/_funcs.py
+@@ -296,6 +296,17 @@ def has(cls):
+ 
+     :rtype: bool
+     """
++    import typing
++    
++    # Check if it's a generic alias (e.g., Caixa[str])
++    # typing._GenericAlias might not exist in older Python versions
++    GenericAlias = getattr(typing, "_GenericAlias", None)
++    if GenericAlias is not None and isinstance(cls, GenericAlias):
++        # Get the origin class and check if it has attrs attributes
++        origin = getattr(cls, "__origin__", None)
++        if origin is not None:
++            return getattr(origin, "__attrs_attrs__", None) is not None
++    
+     return getattr(cls, "__attrs_attrs__", None) is not None
+ 
+ 
+diff --git a/src/attr/_make.py b/src/attr/_make.py
+index 014b7bc..22d5026 100644
+--- a/src/attr/_make.py
++++ b/src/attr/_make.py
+@@ -1919,6 +1919,27 @@ def fields(cls):
+     .. versionchanged:: 16.2.0 Returned tuple allows accessing the fields
+        by name.
+     """
++    import typing
++    
++    # Check if it's a generic alias (e.g., Caixa[str])
++    # typing._GenericAlias might not exist in older Python versions
++    GenericAlias = getattr(typing, "_GenericAlias", None)
++    if GenericAlias is not None and isinstance(cls, GenericAlias):
++        # Get the origin class
++        origin = getattr(cls, "__origin__", None)
++        if origin is None:
++            raise TypeError("Passed object must be a class.")
++        
++        # Check if origin is a class
++        if not isinstance(origin, type):
++            raise TypeError("Passed object must be a class.")
++        
++        # Check if origin has attrs attributes
++        attrs = getattr(origin, "__attrs_attrs__", None)
++        if attrs is None:
++            raise NotAnAttrsClassError(f"{cls!r} is not an attrs-decorated class.")
++        return attrs
++    
+     if not isinstance(cls, type):
+         raise TypeError("Passed object must be a class.")
+     attrs = getattr(cls, "__attrs_attrs__", None)
+@@ -1942,6 +1963,27 @@ def fields_dict(cls):
+ 
+     .. versionadded:: 18.1.0
+     """
++    import typing
++    
++    # Check if it's a generic alias (e.g., Caixa[str])
++    # typing._GenericAlias might not exist in older Python versions
++    GenericAlias = getattr(typing, "_GenericAlias", None)
++    if GenericAlias is not None and isinstance(cls, GenericAlias):
++        # Get the origin class
++        origin = getattr(cls, "__origin__", None)
++        if origin is None:
++            raise TypeError("Passed object must be a class.")
++        
++        # Check if origin is a class
++        if not isinstance(origin, type):
++            raise TypeError("Passed object must be a class.")
++        
++        # Check if origin has attrs attributes
++        attrs = getattr(origin, "__attrs_attrs__", None)
++        if attrs is None:
++            raise NotAnAttrsClassError(f"{cls!r} is not an attrs-decorated class.")
++        return {a.name: a for a in attrs}
++    
+     if not isinstance(cls, type):
+         raise TypeError("Passed object must be a class.")
+     attrs = getattr(cls, "__attrs_attrs__", None)
