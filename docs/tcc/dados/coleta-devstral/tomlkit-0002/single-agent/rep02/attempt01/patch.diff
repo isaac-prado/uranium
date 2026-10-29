@@ -1,0 +1,150 @@
+diff --git a/tomlkit/api.py b/tomlkit/api.py
+index fd4b2f3..f0ad0db 100644
+--- a/tomlkit/api.py
++++ b/tomlkit/api.py
+@@ -3,6 +3,7 @@ import datetime as _datetime
+ from collections.abc import Mapping
+ from typing import IO
+ from typing import Tuple
++from typing import Union
+ 
+ from ._utils import parse_rfc3339
+ from .container import Container
+@@ -12,6 +13,7 @@ from .items import Bool
+ from .items import Comment
+ from .items import Date
+ from .items import DateTime
++from .items import DottedKey
+ from .items import Float
+ from .items import InlineTable
+ from .items import Integer
+@@ -141,7 +143,9 @@ def aot() -> AoT:
+     return AoT([])
+ 
+ 
+-def key(k: str) -> Key:
++def key(k: Union[str, list]) -> Key:
++    if isinstance(k, list):
++        return DottedKey((SingleKey(part) for part in k), sep=" = ")
+     return SingleKey(k)
+ 
+ 
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index dc6da89..7f5a251 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -15,11 +15,13 @@ from .exceptions import NonExistentKey
+ from .exceptions import TOMLKitError
+ from .items import AoT
+ from .items import Comment
++from .items import DottedKey
+ from .items import Item
+ from .items import Key
+ from .items import Null
+ from .items import SingleKey
+ from .items import Table
++from .items import Trivia
+ from .items import Whitespace
+ from .items import _CustomDict
+ from .items import item as _item
+@@ -96,6 +98,9 @@ class Container(_CustomDict):
+         if not isinstance(item, Item):
+             item = _item(item)
+ 
++        if isinstance(key, DottedKey):
++            return self._append_dotted_key(key, item)
++
+         if isinstance(item, (AoT, Table)) and item.name is None:
+             item.name = key.key
+ 
+@@ -254,6 +259,90 @@ class Container(_CustomDict):
+ 
+         return self
+ 
++    def _append_dotted_key(self, key: "DottedKey", item: Item) -> "Container":
++        names = tuple(iter(key))
++        name = names[0]
++        name._dotted = True
++        if name in self:
++            current = self[name]
++            if isinstance(current, Table):
++                if not current.is_super_table():
++                    new_table = Table(Container(True), Trivia(), False, is_super_table=True)
++                    for k, v in current.value.body:
++                        new_table.value.append(k, v)
++                    self._body[self._map[name]] = (name, new_table)
++                    self._map[name] = self._map[name]
++                    current = new_table
++                
++                _table = current
++                for i, _name in enumerate(names[1:]):
++                    if i == len(names) - 2:
++                        _name.sep = key.sep
++                        _table.value.append(_name, item)
++                    else:
++                        _name._dotted = True
++                        if _name in _table.value:
++                            _table = _table.value[_name]
++                        else:
++                            new_subtable = Table(
++                                Container(True),
++                                Trivia(),
++                                False,
++                                is_super_table=i < len(names) - 2,
++                            )
++                            _table.value.append(_name, new_subtable)
++                            _table = new_subtable
++                return self
++            elif not isinstance(item, Table):
++                table = Table(Container(True), Trivia(), False, is_super_table=True)
++                _table = table
++                for i, _name in enumerate(names[1:]):
++                    if i == len(names) - 2:
++                        _name.sep = key.sep
++                        _table.append(_name, item)
++                    else:
++                        _name._dotted = True
++                        _table.append(
++                            _name,
++                            Table(
++                                Container(True),
++                                Trivia(),
++                                False,
++                                is_super_table=i < len(names) - 2,
++                            ),
++                        )
++                        _table = _table[_name]
++                item = table
++                self.append(name, item)
++                return self
++            else:
++                raise TOMLKitError(f"Cannot add dotted key to non-table item at {name}")
++        else:
++            table = Table(Container(True), Trivia(), False, is_super_table=True)
++            self.append(name, table)
++
++        for i, _name in enumerate(names[1:]):
++            if i == len(names) - 2:
++                _name.sep = key.sep
++                table.value.append(_name, item)
++            else:
++                _name._dotted = True
++                if _name in table.value:
++                    table = table.value[_name]
++                else:
++                    table.append(
++                        _name,
++                        Table(
++                            Container(True),
++                            Trivia(),
++                            False,
++                            is_super_table=i < len(names) - 2,
++                        ),
++                    )
++                    table = table[_name]
++        
++        return self
++
+     def remove(self, key: Union[Key, str]) -> "Container":
+         if not isinstance(key, Key):
+             key = SingleKey(key)

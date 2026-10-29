@@ -1,0 +1,22 @@
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index b952b36..059d25b 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -665,12 +665,14 @@ class Parser:
+             # exception eagerly computes a line/column, which scans the whole
+             # source. On a large file with many arrays this is a big, pure waste.
+             if not prev_value and self._current != "]":
+-                try:
++                # Check if current character is a valid start of a value
++                c = self._current
++                if c in (StringType.SLB.value, StringType.SLL.value,
++                         BoolType.TRUE.value[0], BoolType.FALSE.value[0],
++                         "[", "{") or c in "+-" or c in string.digits:
+                     elems.append(self._parse_value())
+                     prev_value = True
+                     continue
+-                except UnexpectedCharError:
+-                    pass
+ 
+             # consume comma
+             if prev_value and self._current == ",":

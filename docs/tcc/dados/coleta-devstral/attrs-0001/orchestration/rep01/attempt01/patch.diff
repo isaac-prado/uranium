@@ -1,0 +1,77 @@
+diff --git a/src/attr/_funcs.py b/src/attr/_funcs.py
+index 518be16..13a9d68 100644
+--- a/src/attr/_funcs.py
++++ b/src/attr/_funcs.py
+@@ -296,6 +296,16 @@ def has(cls):
+ 
+     :rtype: bool
+     """
++    # Handle generic specialized classes (e.g., Caixa[str])
++    # by checking the origin class if cls is a generic alias.
++    if not isinstance(cls, type):
++        try:
++            import typing
++            cls = typing.get_origin(cls)
++        except (AttributeError, TypeError):
++            # If get_origin fails, cls is not a generic alias.
++            return False
++    
+     return getattr(cls, "__attrs_attrs__", None) is not None
+ 
+ 
+diff --git a/src/attr/_make.py b/src/attr/_make.py
+index 014b7bc..3a3a517 100644
+--- a/src/attr/_make.py
++++ b/src/attr/_make.py
+@@ -1919,11 +1919,23 @@ def fields(cls):
+     .. versionchanged:: 16.2.0 Returned tuple allows accessing the fields
+        by name.
+     """
++    # Handle generic specialized classes (e.g., Caixa[str])
++    # by checking the origin class if cls is a generic alias.
++    original_cls = cls
+     if not isinstance(cls, type):
+-        raise TypeError("Passed object must be a class.")
++        try:
++            cls = typing.get_origin(cls)
++        except (AttributeError, TypeError):
++            # If get_origin fails, cls is not a generic alias.
++            raise TypeError("Passed object must be a class.")
++        
++        # If get_origin returns None, cls is not a generic alias.
++        if cls is None:
++            raise TypeError("Passed object must be a class.")
++    
+     attrs = getattr(cls, "__attrs_attrs__", None)
+     if attrs is None:
+-        raise NotAnAttrsClassError(f"{cls!r} is not an attrs-decorated class.")
++        raise NotAnAttrsClassError(f"{original_cls!r} is not an attrs-decorated class.")
+     return attrs
+ 
+ 
+@@ -1942,11 +1954,23 @@ def fields_dict(cls):
+ 
+     .. versionadded:: 18.1.0
+     """
++    # Handle generic specialized classes (e.g., Caixa[str])
++    # by checking the origin class if cls is a generic alias.
++    original_cls = cls
+     if not isinstance(cls, type):
+-        raise TypeError("Passed object must be a class.")
++        try:
++            cls = typing.get_origin(cls)
++        except (AttributeError, TypeError):
++            # If get_origin fails, cls is not a generic alias.
++            raise TypeError("Passed object must be a class.")
++        
++        # If get_origin returns None, cls is not a generic alias.
++        if cls is None:
++            raise TypeError("Passed object must be a class.")
++    
+     attrs = getattr(cls, "__attrs_attrs__", None)
+     if attrs is None:
+-        raise NotAnAttrsClassError(f"{cls!r} is not an attrs-decorated class.")
++        raise NotAnAttrsClassError(f"{original_cls!r} is not an attrs-decorated class.")
+     return {a.name: a for a in attrs}
+ 
+ 

@@ -1,0 +1,109 @@
+diff --git a/src/attr/_funcs.py b/src/attr/_funcs.py
+index 518be16..0b4dba6 100644
+--- a/src/attr/_funcs.py
++++ b/src/attr/_funcs.py
+@@ -2,11 +2,28 @@
+ 
+ 
+ import copy
++import typing
+ 
+ from ._make import NOTHING, _obj_setattr, fields
+ from .exceptions import AttrsAttributeNotFoundError
+ 
+ 
++def _unwrap_generic(cls):
++    """
++    Unwrap a generic class if it's a specialized generic alias.
++    
++    For example, if cls is Caixa[str], return Caixa.
++    If cls is not a generic alias, return cls unchanged.
++    
++    :param cls: A class or a specialized generic alias.
++    :return: The unwrapped class.
++    """
++    # Check if cls is a generic alias (e.g., Caixa[str])
++    if hasattr(cls, '__origin__'):
++        return cls.__origin__
++    return cls
++
++
+ def asdict(
+     inst,
+     recurse=True,
+@@ -296,7 +313,9 @@ def has(cls):
+ 
+     :rtype: bool
+     """
+-    return getattr(cls, "__attrs_attrs__", None) is not None
++    # Unwrap generic aliases like Caixa[str]
++    unwrapped = _unwrap_generic(cls)
++    return getattr(unwrapped, "__attrs_attrs__", None) is not None
+ 
+ 
+ def assoc(inst, **changes):
+@@ -400,19 +419,22 @@ def resolve_types(cls, globalns=None, localns=None, attribs=None):
+     ..  versionadded:: 21.1.0 *attribs*
+ 
+     """
++    # Unwrap generic aliases like Caixa[str]
++    unwrapped = _unwrap_generic(cls)
++    
+     # Since calling get_type_hints is expensive we cache whether we've
+     # done it already.
+-    if getattr(cls, "__attrs_types_resolved__", None) != cls:
++    if getattr(unwrapped, "__attrs_types_resolved__", None) != unwrapped:
+         import typing
+ 
+-        hints = typing.get_type_hints(cls, globalns=globalns, localns=localns)
+-        for field in fields(cls) if attribs is None else attribs:
++        hints = typing.get_type_hints(unwrapped, globalns=globalns, localns=localns)
++        for field in fields(unwrapped) if attribs is None else attribs:
+             if field.name in hints:
+                 # Since fields have been frozen we must work around it.
+                 _obj_setattr(field, "type", hints[field.name])
+         # We store the class we resolved so that subclasses know they haven't
+         # been resolved.
+-        cls.__attrs_types_resolved__ = cls
++        unwrapped.__attrs_types_resolved__ = unwrapped
+ 
+     # Return the class so you can use it as a decorator too.
+     return cls
+diff --git a/src/attr/_make.py b/src/attr/_make.py
+index 014b7bc..91a4b8d 100644
+--- a/src/attr/_make.py
++++ b/src/attr/_make.py
+@@ -1919,9 +1919,14 @@ def fields(cls):
+     .. versionchanged:: 16.2.0 Returned tuple allows accessing the fields
+        by name.
+     """
+-    if not isinstance(cls, type):
++    # Unwrap generic aliases like Caixa[str]
++    unwrapped = cls
++    if hasattr(cls, '__origin__'):
++        unwrapped = cls.__origin__
++    
++    if not isinstance(unwrapped, type):
+         raise TypeError("Passed object must be a class.")
+-    attrs = getattr(cls, "__attrs_attrs__", None)
++    attrs = getattr(unwrapped, "__attrs_attrs__", None)
+     if attrs is None:
+         raise NotAnAttrsClassError(f"{cls!r} is not an attrs-decorated class.")
+     return attrs
+@@ -1942,9 +1947,14 @@ def fields_dict(cls):
+ 
+     .. versionadded:: 18.1.0
+     """
+-    if not isinstance(cls, type):
++    # Unwrap generic aliases like Caixa[str]
++    unwrapped = cls
++    if hasattr(cls, '__origin__'):
++        unwrapped = cls.__origin__
++    
++    if not isinstance(unwrapped, type):
+         raise TypeError("Passed object must be a class.")
+-    attrs = getattr(cls, "__attrs_attrs__", None)
++    attrs = getattr(unwrapped, "__attrs_attrs__", None)
+     if attrs is None:
+         raise NotAnAttrsClassError(f"{cls!r} is not an attrs-decorated class.")
+     return {a.name: a for a in attrs}

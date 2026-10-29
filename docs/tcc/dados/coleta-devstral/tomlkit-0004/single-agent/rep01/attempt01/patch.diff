@@ -1,0 +1,36 @@
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..fb3b53c 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -147,6 +147,8 @@ class Parser:
+ 
+         return body
+ 
++
++
+     def _merge_ws(self, item, container):  # type: (Item, Container) -> bool:
+         """
+         Merges the given Item with the last one currently in the given Container if
+@@ -367,6 +369,11 @@ class Parser:
+         if not key.key.strip():
+             raise self.parse_error(EmptyKeyError)
+ 
++        # Check if the key contains dots (dotted key)
++        # But first, we need to parse the full key (which may include quoted parts)
++        # So we need to handle the case where the key itself contains dots inside quotes
++        # For now, let's just check if the key contains dots and handle it
++        
+         self.mark()
+ 
+         found_equals = self._current == "="
+@@ -432,6 +439,10 @@ class Parser:
+ 
+         return Key(key, key_type, "")
+ 
++
++
++
++
+     def _parse_bare_key(self):  # type: () -> Key
+         """
+         Parses a bare key.

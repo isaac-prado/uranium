@@ -1,0 +1,104 @@
+{
+  "result_schema_version": 2,
+  "harness_version": "1.0.0",
+  "evaluated_at": "2026-10-29T01:48:50+00:00",
+  "run_id": "tomlkit-0005-orchestration-r03-a01",
+  "arm": "orchestration",
+  "task_id": "tomlkit-0005",
+  "faixa": "pequena",
+  "repetition": 3,
+  "base_commit": "495a42ecc9119eaaeb895def0fd025a71cd1cf60",
+  "resolved": true,
+  "resolved_blocked_by_cheat": false,
+  "oracle": {
+    "f2p_total": 1,
+    "f2p_passed": 1,
+    "f2p": {
+      "exit_code": 0,
+      "passed": 1,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.12,
+      "failing_node_ids": [],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "p2p": {
+      "exit_code": 0,
+      "passed": 1051,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.84,
+      "failing_node_ids": [],
+      "timed_out": false,
+      "network_isolated": true
+    },
+    "regression": {
+      "exit_code": 0,
+      "passed": 1051,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_s": 0.81,
+      "failing_node_ids": [],
+      "timed_out": false,
+      "network_isolated": true
+    }
+  },
+  "cheat": {
+    "clean": true,
+    "critical_count": 0,
+    "warning_count": 0,
+    "signals": []
+  },
+  "quality": {
+    "mi_before": 0.0,
+    "mi_after": 0.0,
+    "mi_delta": 0.0,
+    "cc_mean_before": 2.199,
+    "cc_mean_after": 2.199,
+    "cc_mean_delta": 0.0,
+    "files_analyzed": 1,
+    "error": null
+  },
+  "cost": {
+    "tokens_prompt": 1252222,
+    "tokens_completion": 24786,
+    "tokens_reasoning": 0,
+    "tokens_total": 1277008,
+    "tokens_cached": 1155584,
+    "cost_usd": 0.13445056,
+    "llm_calls": 90,
+    "byok_calls": 90,
+    "tool_calls": 84,
+    "wall_seconds": 338.711
+  },
+  "process": {
+    "turns": 87,
+    "test_runs": 2,
+    "tool_denials": 0,
+    "errors": 1,
+    "circuit_breaks": 0,
+    "self_recoveries": 1,
+    "stop_reason": "concluiu"
+  },
+  "provenance": {
+    "model": "mistralai/devstral-2512",
+    "provider_requested": "Mistral",
+    "providers_served": [
+      "Mistral"
+    ],
+    "llm_seed": 20260823,
+    "topology": "multi_agent_roles"
+  },
+  "diff": {
+    "files_changed": 1,
+    "insertions": 9,
+    "deletions": 7,
+    "changed_files": [
+      "tomlkit/items.py"
+    ]
+  }
+}

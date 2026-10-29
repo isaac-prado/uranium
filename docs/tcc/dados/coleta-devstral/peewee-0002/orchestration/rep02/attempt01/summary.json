@@ -1,0 +1,36 @@
+{
+  "run_id": "peewee-0002-orchestration-r02-a01",
+  "arm": "orchestration",
+  "task_id": "peewee-0002",
+  "repetition": 2,
+  "attempt": 1,
+  "llm_seed": 20260822,
+  "topology": "multi_agent_roles",
+  "stop_reason": "budget: max_turns (120 >= 120)",
+  "lost": false,
+  "is_valid": false,
+  "changed_files": [
+    "peewee.py",
+    "peewee_test.db-shm",
+    "playhouse/migrate.py"
+  ],
+  "diff_stat": {
+    "files_changed": 2,
+    "insertions": 25,
+    "deletions": 4
+  },
+  "turns": 120,
+  "totals": {
+    "tokens_prompt": 1713468,
+    "tokens_completion": 21641,
+    "tokens_reasoning": 0,
+    "tokens_total": 1735109,
+    "tokens_cached": 1540224,
+    "cost_usd": 0.17418856,
+    "llm_calls": 126,
+    "tool_calls": 119,
+    "test_runs": 3,
+    "errors": 0
+  },
+  "out_dir": "runs/coleta-devstral/peewee-0002/orchestration/rep02/attempt01"
+}

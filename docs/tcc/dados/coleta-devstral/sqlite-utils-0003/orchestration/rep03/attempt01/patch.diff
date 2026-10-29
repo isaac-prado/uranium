@@ -1,0 +1,135 @@
+diff --git a/sqlite_utils/cli.py b/sqlite_utils/cli.py
+index a30f79a..7f719f3 100644
+--- a/sqlite_utils/cli.py
++++ b/sqlite_utils/cli.py
+@@ -18,7 +18,7 @@ from sqlite_utils.db import (
+     quote_identifier,
+ )
+ from sqlite_utils.plugins import ensure_plugins_loaded, pm, get_plugins
+-from sqlite_utils.utils import maximize_csv_field_size_limit
++from sqlite_utils.utils import maximize_csv_field_size_limit, dedupe_keys
+ from sqlite_utils import recipes
+ import textwrap
+ import inspect
+@@ -3499,6 +3499,8 @@ def output_rows(iterator, headers, nl, arrays, json_cols):
+     current_iter, next_iter = itertools.tee(iterator, 2)
+     next(next_iter, None)
+     first = True
++    # Apply dedupe_keys to headers to handle duplicate column names
++    deduped_headers = dedupe_keys(headers)
+     for row, next_row in itertools.zip_longest(current_iter, next_iter):
+         is_last = next_row is None
+         data = row
+@@ -3506,7 +3508,7 @@ def output_rows(iterator, headers, nl, arrays, json_cols):
+             # Any value that is a valid JSON string should be treated as JSON
+             data = [maybe_json(value) for value in data]
+         if not arrays:
+-            data = dict(zip(headers, data))
++            data = dict(zip(deduped_headers, data))
+         line = "{firstchar}{serialized}{maybecomma}{lastchar}".format(
+             firstchar=("[" if first else " ") if not nl else "",
+             serialized=json.dumps(data, default=json_binary),
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 3f23c7d..bb2afd0 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -8,6 +8,7 @@ from .utils import (
+     column_affinity,
+     progressbar,
+     find_spatialite,
++    dedupe_keys,
+ )
+ import binascii
+ from collections import namedtuple
+@@ -787,7 +788,8 @@ class Database:
+             if cursor.description is None:
+                 raise ValueError(message)
+             keys = [d[0] for d in cursor.description]
+-            return (dict(zip(keys, row)) for row in cursor)
++            deduped_keys = dedupe_keys(keys)
++            return (dict(zip(deduped_keys, row)) for row in cursor)
+         # Execute inside a savepoint, so a statement that turns out not to
+         # return rows can be rolled back before the ValueError is raised
+         self.conn.execute('SAVEPOINT "sqlite_utils_query"')
+@@ -809,8 +811,10 @@ class Database:
+                 fetched = cursor.fetchall()
+                 self.conn.execute('RELEASE "sqlite_utils_query"')
+                 released = True
+-                return (dict(zip(keys, row)) for row in fetched)
+-            return (dict(zip(keys, row)) for row in cursor)
++                deduped_keys = dedupe_keys(keys)
++                return (dict(zip(deduped_keys, row)) for row in fetched)
++            deduped_keys = dedupe_keys(keys)
++            return (dict(zip(deduped_keys, row)) for row in cursor)
+         finally:
+             if not released:
+                 # An error occurred - undo anything the statement changed
+@@ -1866,8 +1870,9 @@ class Queryable:
+             sql += " offset {}".format(offset)
+         cursor = self.db.execute(sql, where_args or [])
+         columns = [c[0] for c in cursor.description]
++        deduped_columns = dedupe_keys(columns)
+         for row in cursor:
+-            yield dict(zip(columns, row))
++            yield dict(zip(deduped_columns, row))
+ 
+     def pks_and_rows_where(
+         self,
+@@ -3399,8 +3404,9 @@ class Table(Queryable):
+             args,
+         )
+         columns = [c[0] for c in cursor.description]
++        deduped_columns = dedupe_keys(columns)
+         for row in cursor:
+-            yield dict(zip(columns, row))
++            yield dict(zip(deduped_columns, row))
+ 
+     def value_or_default(self, key: str, value: Any) -> Any:
+         return self._defaults[key] if value is DEFAULT else value
+diff --git a/sqlite_utils/utils.py b/sqlite_utils/utils.py
+index 865ee79..260bab2 100644
+--- a/sqlite_utils/utils.py
++++ b/sqlite_utils/utils.py
+@@ -629,3 +629,42 @@ def flatten(row: Dict[str, Any]) -> Dict[str, Any]:
+     :param row: A Python dictionary, optionally with nested dictionaries
+     """
+     return dict(_flatten(row))
++
++
++def dedupe_keys(keys: List[str]) -> List[str]:
++    """
++    Deduplicate a list of column names by appending numeric suffixes to duplicates.
++    
++    The first occurrence of each name is preserved. Subsequent occurrences are
++    renamed with a suffix `_N` (starting at 2), ensuring the new name does not
++    collide with any existing name (original or already renamed).
++    
++    Example usage::
++
++        from sqlite_utils.utils import dedupe_keys
++
++        dedupe_keys(["id", "id", "id_2"])
++        # Returns ["id", "id_3", "id_2"]
++
++    :param keys: List of column names, possibly with duplicates
++    :return: New list with duplicates renamed, preserving order and size
++    """
++    result = []
++    used = set()
++    # First, collect all original keys to check for collisions
++    all_original_keys = set(keys)
++    for key in keys:
++        if key not in used:
++            result.append(key)
++            used.add(key)
++        else:
++            # Find the smallest suffix that doesn't collide with any original or used key
++            suffix = 2
++            while True:
++                new_key = f"{key}_{suffix}"
++                if new_key not in used and new_key not in all_original_keys:
++                    break
++                suffix += 1
++            result.append(new_key)
++            used.add(new_key)
++    return result

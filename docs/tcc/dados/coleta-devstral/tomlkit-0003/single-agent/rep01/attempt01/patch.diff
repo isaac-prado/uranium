@@ -1,0 +1,29 @@
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 26b8f9f..329d5d9 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -924,7 +924,15 @@ class Table(Item, dict):
+             key = key.key
+ 
+         if key is not None:
++            # If the item is a Table, ensure its base dict is updated with its _value
++            if isinstance(_item, Table):
++                for k in _item._value.keys():
++                    super(Table, _item).__setitem__(k, _item._value[k])
++            # Update the base dict with the item
+             super(Table, self).__setitem__(key, _item)
++            # Also update the base dict with the item's _value if it's a Table
++            if isinstance(_item, Table):
++                super(Table, self).__setitem__(key, _item)
+ 
+         m = re.match("(?s)^[^ ]*([ ]+).*$", self._trivia.indent)
+         if not m:
+@@ -1045,7 +1053,7 @@ class Table(Item, dict):
+         self.remove(key)
+ 
+     def __repr__(self):
+-        return super(Table, self).__repr__()
++        return repr(self._value)
+ 
+     def __str__(self):
+         return str(self.value)

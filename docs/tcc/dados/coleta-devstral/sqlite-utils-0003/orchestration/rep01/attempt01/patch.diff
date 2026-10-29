@@ -1,0 +1,159 @@
+diff --git a/sqlite_utils/cli.py b/sqlite_utils/cli.py
+index a30f79a..891617e 100644
+--- a/sqlite_utils/cli.py
++++ b/sqlite_utils/cli.py
+@@ -2115,6 +2115,8 @@ def _execute_query(
+     arrays,
+     json_cols,
+ ):
++    from sqlite_utils.utils import dedupe_keys
++
+     with db.conn:
+         try:
+             cursor = db.execute(sql, dict(param))
+@@ -2154,7 +2156,9 @@ def _execute_query(
+             for row in cursor:
+                 writer.writerow(row)
+         else:
+-            for line in output_rows(cursor, headers, nl, arrays, json_cols):
++            # For JSON output, deduplicate headers to avoid column name collisions
++            unique_headers = dedupe_keys(headers)
++            for line in output_rows(cursor, unique_headers, nl, arrays, json_cols):
+                 click.echo(line)
+ 
+ 
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 3f23c7d..c6f7e5c 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -763,6 +763,8 @@ class Database:
+           :meth:`execute` for those statements instead. The rejected statement
+           is rolled back, so it has no effect on the database
+         """
++        from sqlite_utils.utils import dedupe_keys
++
+         message = (
+             "query() can only be used with SQL that returns rows - "
+             "use execute() for other statements"
+@@ -787,7 +789,8 @@ class Database:
+             if cursor.description is None:
+                 raise ValueError(message)
+             keys = [d[0] for d in cursor.description]
+-            return (dict(zip(keys, row)) for row in cursor)
++            unique_keys = dedupe_keys(keys)
++            return (dict(zip(unique_keys, row)) for row in cursor)
+         # Execute inside a savepoint, so a statement that turns out not to
+         # return rows can be rolled back before the ValueError is raised
+         self.conn.execute('SAVEPOINT "sqlite_utils_query"')
+@@ -797,6 +800,7 @@ class Database:
+             if cursor.description is None:
+                 raise ValueError(message)
+             keys = [d[0] for d in cursor.description]
++            unique_keys = dedupe_keys(keys)
+             try:
+                 self.conn.execute('RELEASE "sqlite_utils_query"')
+                 released = True
+@@ -809,8 +813,8 @@ class Database:
+                 fetched = cursor.fetchall()
+                 self.conn.execute('RELEASE "sqlite_utils_query"')
+                 released = True
+-                return (dict(zip(keys, row)) for row in fetched)
+-            return (dict(zip(keys, row)) for row in cursor)
++                return (dict(zip(unique_keys, row)) for row in fetched)
++            return (dict(zip(unique_keys, row)) for row in cursor)
+         finally:
+             if not released:
+                 # An error occurred - undo anything the statement changed
+@@ -1853,6 +1857,8 @@ class Queryable:
+         :param limit: Integer number of rows to limit to
+         :param offset: Integer for SQL offset
+         """
++        from sqlite_utils.utils import dedupe_keys
++
+         if not self.exists():
+             return
+         sql = "select {} from {}".format(select, quote_identifier(self.name))
+@@ -1866,8 +1872,9 @@ class Queryable:
+             sql += " offset {}".format(offset)
+         cursor = self.db.execute(sql, where_args or [])
+         columns = [c[0] for c in cursor.description]
++        unique_columns = dedupe_keys(columns)
+         for row in cursor:
+-            yield dict(zip(columns, row))
++            yield dict(zip(unique_columns, row))
+ 
+     def pks_and_rows_where(
+         self,
+@@ -3379,6 +3386,8 @@ class Table(Queryable):
+ 
+         See :ref:`python_api_fts_search`.
+         """
++        from sqlite_utils.utils import dedupe_keys
++
+         args = {"query": self.db.quote_fts(q) if quote else q}
+         if where_args and "query" in where_args:
+             raise ValueError(
+@@ -3399,8 +3408,9 @@ class Table(Queryable):
+             args,
+         )
+         columns = [c[0] for c in cursor.description]
++        unique_columns = dedupe_keys(columns)
+         for row in cursor:
+-            yield dict(zip(columns, row))
++            yield dict(zip(unique_columns, row))
+ 
+     def value_or_default(self, key: str, value: Any) -> Any:
+         return self._defaults[key] if value is DEFAULT else value
+diff --git a/sqlite_utils/utils.py b/sqlite_utils/utils.py
+index 865ee79..4ac467f 100644
+--- a/sqlite_utils/utils.py
++++ b/sqlite_utils/utils.py
+@@ -629,3 +629,48 @@ def flatten(row: Dict[str, Any]) -> Dict[str, Any]:
+     :param row: A Python dictionary, optionally with nested dictionaries
+     """
+     return dict(_flatten(row))
++
++
++def dedupe_keys(keys: List[str]) -> List[str]:
++    """
++    Deduplicate a list of column names by appending numeric suffixes to duplicates.
++
++    The first occurrence of a column name is kept as-is. Each subsequent occurrence
++    receives a suffix `_N` where `N` starts at 2 and increments until the name does not
++    collide with any other name in the list (original or already renamed).
++
++    Example usage::
++
++        from sqlite_utils.utils import dedupe_keys
++
++        dedupe_keys(["id", "name"])
++        # Outputs ["id", "name"]
++
++        dedupe_keys(["id", "id"])
++        # Outputs ["id", "id_2"]
++
++        dedupe_keys(["id", "id", "id_2"])
++        # Outputs ["id", "id_3", "id_2"]
++
++    :param keys: List of column names, possibly with duplicates
++    :return: List of unique column names, in the same order as the input
++    """
++    # Collect all original keys to check for collisions
++    original_keys = set(keys)
++    result = []
++    used = set()
++    for key in keys:
++        if key not in used:
++            result.append(key)
++            used.add(key)
++        else:
++            # Find the smallest N >= 2 such that key_N is not in original_keys or used
++            n = 2
++            while True:
++                new_key = f"{key}_{n}"
++                if new_key not in original_keys and new_key not in used:
++                    break
++                n += 1
++            result.append(new_key)
++            used.add(new_key)
++    return result

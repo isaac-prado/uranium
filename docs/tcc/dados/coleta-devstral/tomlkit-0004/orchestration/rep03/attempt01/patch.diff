@@ -1,0 +1,92 @@
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..555086e 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -132,7 +132,11 @@ class Parser:
+ 
+             key, value = item
+             if not self._merge_ws(value, body):
+-                body.append(key, value)
++                # Handle dotted keys
++                if key is not None and "." in key.key:
++                    self._handle_dotted_key(body, key, value)
++                else:
++                    body.append(key, value)
+ 
+             self.mark()
+ 
+@@ -247,6 +251,39 @@ class Parser:
+         if current:
+             yield Key(current, t=t, sep="")
+ 
++    def _handle_dotted_key(self, body, key, value):
++        """
++        Handles a dotted key by splitting it into parts and creating nested tables.
++        """
++        # Split the dotted key into parts
++        parts = list(self._split_table_name(key.key))
++        
++        # Navigate through the parts to find or create the nested tables
++        current_container = body
++        for part in parts[:-1]:
++            # Check if the part already exists in the current container
++            if part.key in current_container:
++                item = current_container[part.key]
++                if isinstance(item, Table):
++                    current_container = item.value
++                else:
++                    # The key exists but is not a table, so we need to replace it with a table
++                    # This is a bit tricky, but we'll create a new table and move the existing item into it
++                    new_table = Table(Container(), Trivia(), False, False)
++                    new_table.value.append(part, item)
++                    current_container._body[current_container._map[part]] = (part, new_table)
++                    current_container[part.key] = new_table.value
++                    current_container = new_table.value
++            else:
++                # Create a new table for this part
++                new_table = Table(Container(), Trivia(), False, False)
++                new_table.name = part.key
++                current_container.append(part, new_table)
++                current_container = new_table.value
++        
++        # Add the final part and value to the current container
++        current_container.append(parts[-1], value)
++
+     def _parse_item(self):  # type: () -> Optional[Tuple[Optional[Key], Item]]
+         """
+         Attempts to parse the next item and returns it, along with its key
+@@ -402,10 +439,30 @@ class Parser:
+         Parses a Key at the current position;
+         WS before the key must be exhausted first at the callsite.
+         """
+-        if self._current in "\"'":
+-            return self._parse_quoted_key()
+-        else:
+-            return self._parse_bare_key()
++        self.mark()
++        parts = []
++        
++        while True:
++            if self._current in "\"'":
++                # Parse a quoted part
++                parts.append(self._parse_quoted_key().key)
++            else:
++                # Parse a bare part
++                bare_key = self._parse_bare_key()
++                parts.append(bare_key.key)
++            
++            # Check if there's a dot next
++            if self._current == ".":
++                self.inc()
++                if not self._current.is_bare_key_char() and self._current not in "\"'":
++                    # Dotted key cannot end with a dot
++                    raise self.parse_error()
++            else:
++                break
++        
++        # Combine parts into a single key string
++        dotted_key = ".".join(parts)
++        return Key(dotted_key, sep="")
+ 
+     def _parse_quoted_key(self):  # type: () -> Key
+         """

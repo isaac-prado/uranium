@@ -1,0 +1,35 @@
+diff --git a/src/attr/_funcs.py b/src/attr/_funcs.py
+index 518be16..043662d 100644
+--- a/src/attr/_funcs.py
++++ b/src/attr/_funcs.py
+@@ -296,7 +296,10 @@ def has(cls):
+ 
+     :rtype: bool
+     """
+-    return getattr(cls, "__attrs_attrs__", None) is not None
++    from typing import get_origin
++    
++    origin = get_origin(cls) or cls
++    return getattr(origin, "__attrs_attrs__", None) is not None
+ 
+ 
+ def assoc(inst, **changes):
+diff --git a/src/attr/_make.py b/src/attr/_make.py
+index 014b7bc..56307e3 100644
+--- a/src/attr/_make.py
++++ b/src/attr/_make.py
+@@ -1919,9 +1919,12 @@ def fields(cls):
+     .. versionchanged:: 16.2.0 Returned tuple allows accessing the fields
+        by name.
+     """
+-    if not isinstance(cls, type):
++    from typing import get_origin
++    
++    origin = get_origin(cls) or cls
++    if not isinstance(origin, type):
+         raise TypeError("Passed object must be a class.")
+-    attrs = getattr(cls, "__attrs_attrs__", None)
++    attrs = getattr(origin, "__attrs_attrs__", None)
+     if attrs is None:
+         raise NotAnAttrsClassError(f"{cls!r} is not an attrs-decorated class.")
+     return attrs

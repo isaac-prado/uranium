@@ -1,0 +1,36 @@
+{
+  "run_id": "peewee-0003-single-agent-r02-a01",
+  "arm": "single-agent",
+  "task_id": "peewee-0003",
+  "repetition": 2,
+  "attempt": 1,
+  "llm_seed": 20260822,
+  "topology": "single_agent",
+  "stop_reason": "tests_pass",
+  "lost": false,
+  "is_valid": true,
+  "changed_files": [
+    "peewee_pwiz.db",
+    "peewee_test.db-shm",
+    "playhouse/fields.py"
+  ],
+  "diff_stat": {
+    "files_changed": 1,
+    "insertions": 5,
+    "deletions": 0
+  },
+  "turns": 11,
+  "totals": {
+    "tokens_prompt": 50732,
+    "tokens_completion": 1564,
+    "tokens_reasoning": 0,
+    "tokens_total": 52296,
+    "tokens_cached": 40448,
+    "cost_usd": 0.00885952,
+    "llm_calls": 11,
+    "tool_calls": 10,
+    "test_runs": 1,
+    "errors": 0
+  },
+  "out_dir": "runs/coleta-devstral/peewee-0003/single-agent/rep02/attempt01"
+}

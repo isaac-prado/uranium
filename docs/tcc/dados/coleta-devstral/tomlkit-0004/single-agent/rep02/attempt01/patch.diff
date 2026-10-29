@@ -1,0 +1,45 @@
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..ccb097c 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -169,6 +169,40 @@ class Parser:
+ 
+         return True
+ 
++    def _handle_dotted_key(self, container, key, value):  # type: (Container, Key, Item) -> None
++        """
++        Handles a dotted key by creating nested tables as needed.
++        """
++        if "." not in key.key:
++            container.append(key, value)
++            return
++
++        key_parts = key.key.split(".")
++        current_container = container
++
++        for i, part in enumerate(key_parts[:-1]):
++            part_key = Key(part)
++            if part_key not in current_container:
++                table = Table(Container(), Trivia(), False, name=part)
++                current_container.append(part_key, table)
++            else:
++                existing = current_container[part_key]
++                if isinstance(existing, Table):
++                    table = existing
++                elif isinstance(existing, Container):
++                    table = existing
++                else:
++                    raise self.parse_error(
++                        InternalParserError,
++                        ("Expected table for dotted key part",)
++                    )
++
++            current_container = table.value if isinstance(table, Table) else table
++
++        last_key = Key(key_parts[-1])
++        last_key.sep = key.sep
++        current_container.append(last_key, value)
++
+     def parse_error(self, kind=ParseError, args=None):  # type: () -> None
+         """
+         Creates a generic "parse error" at the current position.

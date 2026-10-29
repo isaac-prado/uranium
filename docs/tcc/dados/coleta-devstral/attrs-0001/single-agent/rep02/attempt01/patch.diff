@@ -1,0 +1,89 @@
+diff --git a/src/attr/_funcs.py b/src/attr/_funcs.py
+index 518be16..ec30ca4 100644
+--- a/src/attr/_funcs.py
++++ b/src/attr/_funcs.py
+@@ -2,6 +2,7 @@
+ 
+ 
+ import copy
++from typing import get_origin
+ 
+ from ._make import NOTHING, _obj_setattr, fields
+ from .exceptions import AttrsAttributeNotFoundError
+@@ -296,7 +297,9 @@ def has(cls):
+ 
+     :rtype: bool
+     """
+-    return getattr(cls, "__attrs_attrs__", None) is not None
++    # Handle generic types like Caixa[str] by getting their origin.
++    origin = get_origin(cls) or cls
++    return getattr(origin, "__attrs_attrs__", None) is not None
+ 
+ 
+ def assoc(inst, **changes):
+@@ -400,19 +403,22 @@ def resolve_types(cls, globalns=None, localns=None, attribs=None):
+     ..  versionadded:: 21.1.0 *attribs*
+ 
+     """
++    # Handle generic types like Caixa[str] by getting their origin.
++    origin = get_origin(cls) or cls
++    
+     # Since calling get_type_hints is expensive we cache whether we've
+     # done it already.
+-    if getattr(cls, "__attrs_types_resolved__", None) != cls:
++    if getattr(origin, "__attrs_types_resolved__", None) != origin:
+         import typing
+ 
+-        hints = typing.get_type_hints(cls, globalns=globalns, localns=localns)
++        hints = typing.get_type_hints(origin, globalns=globalns, localns=localns)
+         for field in fields(cls) if attribs is None else attribs:
+             if field.name in hints:
+                 # Since fields have been frozen we must work around it.
+                 _obj_setattr(field, "type", hints[field.name])
+         # We store the class we resolved so that subclasses know they haven't
+         # been resolved.
+-        cls.__attrs_types_resolved__ = cls
++        origin.__attrs_types_resolved__ = origin
+ 
+     # Return the class so you can use it as a decorator too.
+     return cls
+diff --git a/src/attr/_make.py b/src/attr/_make.py
+index 014b7bc..c2113a8 100644
+--- a/src/attr/_make.py
++++ b/src/attr/_make.py
+@@ -6,6 +6,7 @@ import linecache
+ import sys
+ import types
+ import typing
++from typing import get_origin
+ 
+ from operator import itemgetter
+ 
+@@ -1919,9 +1920,11 @@ def fields(cls):
+     .. versionchanged:: 16.2.0 Returned tuple allows accessing the fields
+        by name.
+     """
+-    if not isinstance(cls, type):
++    # Handle generic types like Caixa[str] by getting their origin.
++    origin = get_origin(cls) or cls
++    if not isinstance(origin, type):
+         raise TypeError("Passed object must be a class.")
+-    attrs = getattr(cls, "__attrs_attrs__", None)
++    attrs = getattr(origin, "__attrs_attrs__", None)
+     if attrs is None:
+         raise NotAnAttrsClassError(f"{cls!r} is not an attrs-decorated class.")
+     return attrs
+@@ -1942,9 +1945,11 @@ def fields_dict(cls):
+ 
+     .. versionadded:: 18.1.0
+     """
+-    if not isinstance(cls, type):
++    # Handle generic types like Caixa[str] by getting their origin.
++    origin = get_origin(cls) or cls
++    if not isinstance(origin, type):
+         raise TypeError("Passed object must be a class.")
+-    attrs = getattr(cls, "__attrs_attrs__", None)
++    attrs = getattr(origin, "__attrs_attrs__", None)
+     if attrs is None:
+         raise NotAnAttrsClassError(f"{cls!r} is not an attrs-decorated class.")
+     return {a.name: a for a in attrs}

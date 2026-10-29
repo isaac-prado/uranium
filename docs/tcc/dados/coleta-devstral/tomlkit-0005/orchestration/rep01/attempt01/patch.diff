@@ -1,0 +1,109 @@
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 4a24fc0..3f09c1d 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -540,9 +540,6 @@ class Item:
+     def __reduce_ex__(self, protocol: int) -> tuple[type, tuple[object, ...]]:  # type: ignore[override]
+         return self.__class__, self._getstate(protocol)
+ 
+-    def __getitem__(self, key: Key | str | int) -> Any:
+-        raise TypeError(f"{type(self).__name__} does not support item access")
+-
+     def __setitem__(self, key: Key | str | int, value: Any) -> None:
+         raise TypeError(f"{type(self).__name__} does not support item assignment")
+ 
+@@ -633,6 +630,18 @@ class Integer(Item, _CustomInt):
+     def __hash__(self) -> int:
+         return hash(self.unwrap())
+ 
++    def __bool__(self) -> bool:
++        return bool(self.unwrap())
++
++    def __len__(self) -> None:
++        raise TypeError(f"{type(self).__name__} object has no len()")
++
++    def __getitem__(self, key: Any) -> None:
++        raise TypeError(f"{type(self).__name__} object is not subscriptable")
++
++    def __iter__(self) -> None:
++        raise TypeError(f"{type(self).__name__} object is not iterable")
++
+     @property
+     def discriminant(self) -> int:
+         return 2
+@@ -856,6 +865,18 @@ class Float(Item, _CustomFloat):
+     def __hash__(self) -> int:
+         return hash(self.unwrap())
+ 
++    def __bool__(self) -> bool:
++        return bool(self.unwrap())
++
++    def __len__(self) -> None:
++        raise TypeError(f"{type(self).__name__} object has no len()")
++
++    def __getitem__(self, key: Any) -> None:
++        raise TypeError(f"{type(self).__name__} object is not subscriptable")
++
++    def __iter__(self) -> None:
++        raise TypeError(f"{type(self).__name__} object is not iterable")
++
+     @property
+     def discriminant(self) -> int:
+         return 3
+@@ -1081,6 +1102,18 @@ class DateTime(Item, datetime):
+ 
+         self._raw = raw or self.isoformat()
+ 
++    def __bool__(self) -> bool:
++        return bool(self.unwrap())
++
++    def __len__(self) -> None:
++        raise TypeError(f"{type(self).__name__} object has no len()")
++
++    def __getitem__(self, key: Any) -> None:
++        raise TypeError(f"{type(self).__name__} object is not subscriptable")
++
++    def __iter__(self) -> None:
++        raise TypeError(f"{type(self).__name__} object is not iterable")
++
+     def unwrap(self) -> datetime:
+         (
+             year,
+@@ -1223,6 +1256,18 @@ class Date(Item, date):
+         (year, month, day, _, _) = self._getstate()
+         return date(year, month, day)
+ 
++    def __bool__(self) -> bool:
++        return bool(self.unwrap())
++
++    def __len__(self) -> None:
++        raise TypeError(f"{type(self).__name__} object has no len()")
++
++    def __getitem__(self, key: Any) -> None:
++        raise TypeError(f"{type(self).__name__} object is not subscriptable")
++
++    def __iter__(self) -> None:
++        raise TypeError(f"{type(self).__name__} object is not iterable")
++
+     @property
+     def discriminant(self) -> int:
+         return 6
+@@ -1302,6 +1347,18 @@ class Time(Item, time):
+ 
+         self._raw = raw
+ 
++    def __bool__(self) -> bool:
++        return bool(self.unwrap())
++
++    def __len__(self) -> None:
++        raise TypeError(f"{type(self).__name__} object has no len()")
++
++    def __getitem__(self, key: Any) -> None:
++        raise TypeError(f"{type(self).__name__} object is not subscriptable")
++
++    def __iter__(self) -> None:
++        raise TypeError(f"{type(self).__name__} object is not iterable")
++
+     def unwrap(self) -> time:
+         (hour, minute, second, microsecond, tzinfo, _, _) = self._getstate()
+         return time(hour, minute, second, microsecond, tzinfo)

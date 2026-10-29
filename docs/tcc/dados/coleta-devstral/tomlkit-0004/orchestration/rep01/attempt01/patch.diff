@@ -1,0 +1,59 @@
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index c88637a..2098b5b 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -447,6 +447,9 @@ class Table(Item):
+         return self._is_super_table
+ 
+     def as_string(self, prefix=None):  # type: () -> str
++        # Se a tabela estiver vazia, retorne uma string vazia
++        if not self._value.body:
++            return ""
+         return self._value.as_string(prefix=prefix)
+ 
+     # Helpers
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..ba7ff63 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -147,6 +147,40 @@ class Parser:
+ 
+         return body
+ 
++    def _add_dotted_key(self, body, key, value):  # type: (Container, Key, Item) -> None
++        """
++        Adds a dotted key to the document, creating nested tables as needed.
++        """
++        # Split the dotted key into parts
++        parts = list(self._split_table_name(key.key))
++        
++        # Start from the root body
++        current_container = body
++        
++        # Navigate through the parts, creating tables as needed
++        for i, part in enumerate(parts[:-1]):
++            # Check if this part already exists in the current container
++            if part in current_container:
++                item = current_container[part]
++                if isinstance(item, Table):
++                    current_container = item.value
++                else:
++                    # This should not happen in valid TOML, but let's handle it
++                    # by replacing the existing item with a table
++                    table = Table(Container(), Trivia(), False, is_super_table=(i < len(parts) - 2), name=part.key)
++                    current_container._replace(part, part, table)
++                    current_container = table.value
++            else:
++                # Create a new table for this part
++                is_super = i < len(parts) - 2
++                table = Table(Container(), Trivia(), False, is_super_table=is_super, name=part.key)
++                current_container.append(part, table)
++                current_container = table.value
++        
++        # Add the final part with the value
++        final_part = parts[-1]
++        current_container.append(final_part, value)
++
+     def _merge_ws(self, item, container):  # type: (Item, Container) -> bool:
+         """
+         Merges the given Item with the last one currently in the given Container if

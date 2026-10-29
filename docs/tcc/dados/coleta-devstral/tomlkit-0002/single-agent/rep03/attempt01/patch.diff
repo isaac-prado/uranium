@@ -1,0 +1,253 @@
+diff --git a/tomlkit/api.py b/tomlkit/api.py
+index fd4b2f3..3eb8c50 100644
+--- a/tomlkit/api.py
++++ b/tomlkit/api.py
+@@ -2,7 +2,9 @@ import datetime as _datetime
+ 
+ from collections.abc import Mapping
+ from typing import IO
++from typing import List
+ from typing import Tuple
++from typing import Union
+ 
+ from ._utils import parse_rfc3339
+ from .container import Container
+@@ -12,6 +14,7 @@ from .items import Bool
+ from .items import Comment
+ from .items import Date
+ from .items import DateTime
++from .items import DottedKey
+ from .items import Float
+ from .items import InlineTable
+ from .items import Integer
+@@ -141,7 +144,9 @@ def aot() -> AoT:
+     return AoT([])
+ 
+ 
+-def key(k: str) -> Key:
++def key(k: Union[str, List[str]]) -> Key:
++    if isinstance(k, list):
++        return DottedKey([SingleKey(part) for part in k])
+     return SingleKey(k)
+ 
+ 
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index dc6da89..0e94ac8 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -20,6 +20,7 @@ from .items import Key
+ from .items import Null
+ from .items import SingleKey
+ from .items import Table
++from .items import Trivia
+ from .items import Whitespace
+ from .items import _CustomDict
+ from .items import item as _item
+@@ -237,11 +238,19 @@ class Container(_CustomDict):
+             if key is not None and not isinstance(current, Table):
+                 raise KeyAlreadyPresent(key)
+ 
+-            # Adding sub tables to a currently existing table
+-            if not isinstance(current_idx, tuple):
+-                current_idx = (current_idx,)
++            # If the current item is a dotted key table, we can replace it
++            if isinstance(current, Table) and getattr(current, '_is_dotted_key_table', False):
++                # Remove the old dotted key table from the body and map
++                self._body[current_idx] = (None, Null())
++                self._map.pop(key)
++                # Continue to add the new item below
++            else:
++                # Adding sub tables to a currently existing table
++                if not isinstance(current_idx, tuple):
++                    current_idx = (current_idx,)
+ 
+-            self._map[key] = current_idx + (len(self._body),)
++                self._map[key] = current_idx + (len(self._body),)
++                return self
+         else:
+             self._map[key] = len(self._body)
+ 
+@@ -250,7 +259,43 @@ class Container(_CustomDict):
+             self._table_keys.append(key)
+ 
+         if key is not None:
+-            dict.__setitem__(self, key.key, item.value)
++            if key.is_dotted():
++                # For dotted keys, we need to create nested tables in the dict
++                parts = key.key.split(".")
++                current_container = self
++                for i, part in enumerate(parts[:-1]):
++                    # Get the current container (either Container or Table.value)
++                    if isinstance(current_container, Table):
++                        current_dict = current_container.value
++                    else:
++                        current_dict = current_container
++                    
++                    # Check if the part already exists in the map as a dotted key table
++                    part_key = SingleKey(part)
++                    if part_key in current_dict._map:
++                        # The part already exists, so use it
++                        current_container = current_dict[part]
++                    else:
++                        new_table = Table(Container(), Trivia(), False, is_dotted_key_table=True)
++                        new_table.name = part
++                        # Add the table to the current container's body and map
++                        current_dict._body.append((part_key, new_table))
++                        current_dict._map[part_key] = len(current_dict._body) - 1
++                        current_dict._table_keys.append(part_key)
++                        dict.__setitem__(current_dict, part, new_table)
++                        current_container = new_table
++                # Add the final key-value pair to the last table's value container
++                if isinstance(current_container, Table):
++                    current_container = current_container.value
++                final_key = SingleKey(parts[-1])
++                # Check if the final key already exists
++                if final_key in current_container:
++                    raise KeyAlreadyPresent(key)
++                current_container._body.append((final_key, item))
++                current_container._map[final_key] = len(current_container._body) - 1
++                dict.__setitem__(current_container, parts[-1], item.value)
++            else:
++                dict.__setitem__(self, key.key, item.value)
+ 
+         return self
+ 
+@@ -385,7 +430,8 @@ class Container(_CustomDict):
+         for k, v in self._body:
+             if k is not None:
+                 if isinstance(v, Table):
+-                    s += self._render_table(k, v)
++                    if not getattr(v, '_is_dotted_key_table', False):
++                        s += self._render_table(k, v)
+                 elif isinstance(v, AoT):
+                     s += self._render_aot(k, v)
+                 else:
+@@ -431,14 +477,15 @@ class Container(_CustomDict):
+ 
+         for k, v in table.value.body:
+             if isinstance(v, Table):
+-                if v.is_super_table():
+-                    if k.is_dotted() and not key.is_dotted():
+-                        # Dotted key inside table
+-                        cur += self._render_table(k, v)
++                if not getattr(v, '_is_dotted_key_table', False):
++                    if v.is_super_table():
++                        if k.is_dotted() and not key.is_dotted():
++                            # Dotted key inside table
++                            cur += self._render_table(k, v)
++                        else:
++                            cur += self._render_table(k, v, prefix=_key)
+                     else:
+                         cur += self._render_table(k, v, prefix=_key)
+-                else:
+-                    cur += self._render_table(k, v, prefix=_key)
+             elif isinstance(v, AoT):
+                 cur += self._render_aot(k, v, prefix=_key)
+             else:
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index f325029..8a1dbd2 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -329,7 +329,7 @@ class DottedKey(Key):
+         if original is None:
+             original = ".".join(k.as_string() for k in self._keys)
+ 
+-        self.sep = "=" if sep is None else sep
++        self.sep = " = " if sep is None else sep
+         self._original = original
+         self._dotted = True
+         self.key = ".".join(k.key for k in self._keys)
+@@ -1205,6 +1205,7 @@ class Table(AbstractTable):
+         is_super_table: bool = False,
+         name: Optional[str] = None,
+         display_name: Optional[str] = None,
++        is_dotted_key_table: bool = False,
+     ) -> None:
+         super().__init__(value, trivia)
+ 
+@@ -1212,6 +1213,7 @@ class Table(AbstractTable):
+         self.display_name = display_name
+         self._is_aot_element = is_aot_element
+         self._is_super_table = is_super_table
++        self._is_dotted_key_table = is_dotted_key_table
+ 
+     @property
+     def discriminant(self) -> int:
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index da1e5c4..b03e2db 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -423,7 +423,12 @@ class Parser:
+         name._dotted = True
+         if name in container:
+             if not isinstance(value, Table):
+-                table = Table(Container(True), Trivia(), False, is_super_table=True)
++                # Get the existing table or create a new one
++                existing = container[name]
++                if isinstance(existing, Table):
++                    table = existing
++                else:
++                    table = Table(Container(True), Trivia(), False, is_super_table=True)
+                 _table = table
+                 for i, _name in enumerate(names[1:]):
+                     if i == len(names) - 2:
+@@ -432,29 +437,40 @@ class Parser:
+                         _table.append(_name, value)
+                     else:
+                         _name._dotted = True
+-                        _table.append(
+-                            _name,
+-                            Table(
+-                                Container(True),
+-                                Trivia(),
+-                                False,
+-                                is_super_table=i < len(names) - 2,
+-                            ),
+-                        )
+-
+-                        _table = _table[_name]
+-
+-                value = table
+-
+-            container.append(name, value)
++                        if _name in _table.value:
++                            _table = _table.value[_name]
++                        else:
++                            _table.append(
++                                _name,
++                                Table(
++                                    Container(True),
++                                    Trivia(),
++                                    False,
++                                    is_super_table=i < len(names) - 2,
++                                ),
++                            )
++                            _table = _table[_name]
++
++                # Do not append the table again if it's the existing one
++                if value is not existing:
++                    container.append(name, table)
+ 
+             return
+         else:
+-            table = Table(Container(True), Trivia(), False, is_super_table=True)
+-            if isinstance(container, Table):
+-                container.raw_append(name, table)
++            # Check if the table already exists (e.g., created by a previous dotted key)
++            if name in container:
++                table = container[name]
+             else:
+-                container.append(name, table)
++                table = Table(Container(True), Trivia(), False, is_super_table=True)
++                if isinstance(container, Table):
++                    container.raw_append(name, table)
++                else:
++                    # Check if the key is already in the map (e.g., created by a dotted key)
++                    if name not in container._map:
++                        container.append(name, table)
++                    else:
++                        # The table already exists in the map, so use it
++                        table = container[name]
+ 
+         for i, _name in enumerate(names[1:]):
+             if i == len(names) - 2:

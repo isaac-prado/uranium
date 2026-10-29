@@ -25,3 +25,17 @@ Autor: "estou com a recarga automática desativada, com 15 dolares de crédito e
 Nova sonda, mesma chamada de 16 tokens:
 tentativa 1 16:31:27 http=200 provider=Mistral is_byok=True reasoning=0 custo=0 upstream=1.24e-05 erro=None resp='ok'
 Leitura: o Devstral 2 não está no plano gratuito (acesso pago desde 27/01/2026); com pay-as-you-go ativo a chave BYOK atende, e o custo sai como upstream_inference_cost (cobrado na conta da Mistral).
+
+== cobrança real da Mistral x custo reportado pelo OpenRouter (28/10/2026, 22:35, coleta Devstral em 74/78)
+Autor: "Já gastei certa de 35 dolares de mistral, quanto ainda falta?" (leitura do console da Mistral).
+Soma dos runs fechados (coleta + fumaça, 80 runs, mais a célula em andamento): prompt 119,9M tokens (93,8 % em cache), completion 1,37M.
+custo reportado pelo OpenRouter (usage.cost_details.upstream_inference_cost, BYOK): US$ 10,21
+preço de tabela da Mistral com leitura em cache a 0,04/M: US$ 10,21 (idêntico: o OpenRouter estima o custo upstream assumindo o desconto de cache)
+preço de tabela da Mistral sem desconto de cache (0,40/M entrada, 2,00/M saída): US$ 50,70
+US$ 35 observados pelo autor ≈ 50,70 menos a franquia mensal inclusa de US$ 10 (= 40,70), com atraso de processamento do console.
+Leitura: a Mistral cobra o Devstral 2 pelo preço cheio de entrada (ou com desconto de cache bem menor que o assumido); `cost_usd` dos runs do Devstral subestima a cobrança real em ~4 a 5x. A métrica de custo da replicação Devstral precisa usar a cobrança do console da Mistral como fonte (valor final a pedir ao autor), com `cost_usd` registrado como "estimativa do OpenRouter".
+
+== contraprova na DeepInfra (28/10/2026, 22:37, coleta DeepSeek em 41/78)
+Autor: "no deepinfra tinha 30 dolares e agora tem $23.56 ainda" → consumo US$ 6,44.
+Soma de cost_usd da coleta DeepSeek (41 runs fechados + célula em andamento): US$ 6,43 (prompt 45,1M, 95,0 % em cache, completion 0,74M; tabela sem cache seria US$ 12,00).
+Razão observado/reportado = 1,00: na DeepInfra o custo reportado pelo OpenRouter é a cobrança real (desconto de cache aplicado). A divergência é só da Mistral.

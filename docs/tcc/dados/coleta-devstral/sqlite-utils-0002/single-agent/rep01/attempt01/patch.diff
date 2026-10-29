@@ -1,0 +1,46 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 48987a6..157c682 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -3093,6 +3093,20 @@ class Table(Queryable):
+             ).strip()
+         )
+ 
++        # Identify columns that need NULLIF: TEXT columns being converted to numeric types
++        numeric_types = {int, float, "INTEGER", "REAL", "FLOAT", "integer", "real", "float"}
++        columns_needing_nullif = set()
++        for name, current_type in current_column_pairs:
++            if name in drop:
++                continue
++            new_type = types.get(name)
++            if new_type is not None:
++                # Check if current type is TEXT and new type is numeric
++                current_type_str = COLUMN_TYPE_MAPPING.get(current_type, "")
++                new_type_str = COLUMN_TYPE_MAPPING.get(new_type, "")
++                if current_type_str == "TEXT" and new_type_str in ("INTEGER", "REAL", "FLOAT"):
++                    columns_needing_nullif.add(name)
++
+         # Copy across data, respecting any renamed columns
+         new_cols = []
+         old_cols = []
+@@ -3103,10 +3117,19 @@ class Table(Queryable):
+         if "rowid" not in new_cols:
+             new_cols.insert(0, "rowid")
+             old_cols.insert(0, "rowid")
++        
++        # Build SELECT clause with NULLIF for columns that need it
++        old_cols_select = []
++        for col in old_cols:
++            if col in columns_needing_nullif:
++                old_cols_select.append(f"NULLIF({quote_identifier(col)}, '')")
++            else:
++                old_cols_select.append(quote_identifier(col))
++        
+         copy_sql = "INSERT INTO {} ({new_cols})\n   SELECT {old_cols} FROM {};".format(
+             quote_identifier(new_table_name),
+             quote_identifier(self.name),
+-            old_cols=", ".join(quote_identifier(col) for col in old_cols),
++            old_cols=", ".join(old_cols_select),
+             new_cols=", ".join(quote_identifier(col) for col in new_cols),
+         )
+         sqls.append(copy_sql)

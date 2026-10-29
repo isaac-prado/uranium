@@ -56,7 +56,38 @@ Saúde: 513 de 513 chamadas BYOK, todas servidas pela Mistral; 0 tokens de racio
 
 Fumaça limpa em todos os critérios → **coleta lançada 28/10 17:07** em `runs/coleta-devstral` (78 células, mesmos parâmetros da §4, script `runs/_lancamento/fila-devstral.sh`), em paralelo com a do DeepSeek (provedores distintos; a execução de código é leve, mediana 6 s e máximo 47 s por suíte contra teto de 120 s, medido nos runs de hoje). Autor avisado de que a máquina não pode suspender; combinado que uso moderado da máquina é aceitável e que estouros de tempo em `test_run` serão auditados no fechamento como possível confundidor.
 
-## 8. Pendente
+## 8. Coleta do Devstral fechada (28/10/2026, 17:07 a 22:48, 78/78, 0 perdidas)
 
-- Fechamento de cada coleta com as sete métricas (`scripts/analyze_results.py`), auditoria de `timed_out` nas suítes, comparação com o estudo principal.
-- Conferir o uso cobrado no console da Mistral contra a soma de `cost_usd` (§5).
+Dados em [dados/coleta-devstral/](dados/coleta-devstral/) (runs sem workspaces, `collection.json`, `collection.log`, `analise-sete-metricas.{md,json}` de `scripts/analyze_results.py`, `apendice-metricas.md` de `scripts/metrics_appendix.py`, `resumo-devstral.txt` de `scripts/resumo_rodada.py`, `auditoria-saude.txt`). Dois braços na mesma coleta, mesmas sementes por repetição, manifesto v18.
+
+### 8.1 Saúde
+
+5.392 de 5.392 chamadas BYOK, todas servidas pela Mistral; 0 tokens de raciocínio; cache de prompt 93,8 %; detector 0 críticos e 0 avisos; 0 estouros de tempo em suíte (oráculo e agente); 0 ferramentas negadas; 78 de 78 runs admitidos pela análise, nenhum par quebrado (`auditoria-saude.txt`, `analise-sete-metricas.md`). O autor usou a máquina durante a coleta (decisão registrada na §7); sem estouro de tempo, não há confundidor a declarar.
+
+### 8.2 Resultado
+
+| | single-agent | orchestration |
+|---|---|---|
+| runs resolvidos | **28/39** | **30/39** |
+| tarefas (maioria das repetições) | **9/13** | **10/13** |
+| grande | 4/9 runs, 1/3 tarefas | 5/9 runs, 2/3 tarefas |
+| média | 11/12 runs, 4/4 tarefas | 9/12 runs, 3/4 tarefas |
+| pequena | 13/18 runs, 4/6 tarefas | 16/18 runs, 5/6 tarefas |
+| cortes por orçamento | 12 | 7 |
+| turnos médios | 72 | 62 |
+| custo reportado pelo OpenRouter | US$ 5,46 | US$ 4,24 |
+
+Sete métricas (`analise-sete-metricas.md`, diferença orchestration − single-agent, unidade = tarefa): resolução 9/13 × 10/13 (sinal exato, n = 5, p = 1,0); tokens, mediana 1.002.483 × 525.005 (Wilcoxon, n = 7 tarefas resolvidas por ambos, **p = 0,031**); tempo 154,5 s × 180,1 s (p = 0,69); Δ complexidade 0,028 × 0,015 (p = 1,0); consistência 8/11 × 9/11; conclusão sem corte 27/39 × 32/39; violações 0 em ambos. O orquestrado gasta cerca de metade dos tokens nas tarefas que os dois resolvem, e é a única diferença com p abaixo de 0,05.
+
+Por tarefa (repetições 1 a 3; `auditoria-saude.txt`): o orquestrado leva sqlite-utils-0001 3/3 contra 0/3 (o single-agent entrega suíte visível verde e o oculto reprova, nas 3 repetições), pygments-0001 3/3 contra 1/3 e a grande tomlkit-0002 2/3 contra 1/3; o single-agent leva peewee-0002 2/3 contra 0/3 e tomlkit-0005 3/3 contra 1/3. tomlkit-0004 fica 0/6 e as outras sete tarefas 3/3 nos dois braços. Aprovações erradas do revisor final: 3 (peewee-0002 rep01 e rep03, tomlkit-0005 rep02), todas na classe "nenhum exemplo exercita o critério oculto". Resolvidos só pelo oráculo, com corte por orçamento: 5 (peewee-0002 single rep01, sqlite-utils-0002 single rep02, tomlkit-0002 orq rep03, tomlkit-0003 single rep01 e rep03).
+
+Contra o estudo principal (Qwen3-Coder, rodada 4: single-agent 23/39 e 8/13, orquestrado 24/39 e 9/13): o Devstral 2 resolve mais nos dois braços e a diferença entre braços tem o mesmo sinal e o mesmo tamanho em tarefas (+1), sem significância; o padrão por faixa também se repete, com o orquestrado à frente na grande e atrás na média.
+
+### 8.3 Custo real na Mistral
+
+`cost_usd` dos runs do Devstral é o `upstream_inference_cost` que o OpenRouter estima assumindo leitura em cache a 10 % do preço de entrada; a Mistral cobra o Devstral 2 pelo preço cheio ou perto disso. Soma reportada US$ 9,70; preço de tabela sem desconto de cache US$ 50,70 para os mesmos tokens; o autor observou cerca de US$ 35 no console com 74 de 78 células, compatível com o preço cheio menos a franquia de US$ 10 ([dados/sondagens/mistral-byok-429-2026-10-28.txt](dados/sondagens/mistral-byok-429-2026-10-28.txt), que traz também a contraprova na DeepInfra: saldo caiu US$ 6,44 contra US$ 6,43 reportados, razão 1,00). **Na replicação Devstral, a métrica de custo em dólares usa a cobrança do console da Mistral como fonte, pendente do autor informar o valor final do mês por modelo; `cost_usd` fica registrado como estimativa do OpenRouter e a comparação em tokens (métrica 2) não é afetada.**
+
+## 9. Pendente
+
+- Fechamento da coleta DeepSeek (em andamento desde 16:11) com o mesmo tratamento.
+- Valor final de uso do Devstral no console da Mistral (autor), para a métrica de custo em dólares da §8.3.

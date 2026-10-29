@@ -503,3 +503,15 @@ Relatório em [07-e4-fumaca.md](07-e4-fumaca.md): 4 células (`tomlkit-0002` gra
 **Teste que prova.** Nenhum código mudou desde a suíte verde das 16:35 (751, `runs/_lancamento/suite-2026-10-28.log`); a suíte não foi rodada de novo para não disputar CPU com as duas coletas. Os `result.json` da fumaça trazem `byok_calls == llm_calls`, `cheat.clean`, `oracle.*.network_isolated` e `timed_out: false` em todas as execuções.
 
 **Impacto em docs.** [26-replicacao.md](26-replicacao.md) §5 a §8; registro 45 (fumaça e lançamento Devstral) em [09-decisoes-do-autor.md](09-decisoes-do-autor.md); `CLAUDE.md` (estado em 28/10).
+
+
+
+---
+
+## Replicação: coleta do Devstral fechada (28/10/2026, decisão 45)
+
+**Diff resumido.** Só documentação e dados. `runs/coleta-devstral` fechada às 22:48 (5 h 40 desde o lançamento), 78/78, 0 perdidas; dados sem workspaces, análise das sete métricas, apêndice, resumo e auditoria em [dados/coleta-devstral/](dados/coleta-devstral/). Resultado: single-agent 28/39 runs e 9/13 tarefas, orquestrado 30/39 e 10/13; tokens do orquestrado cerca da metade nas tarefas resolvidas por ambos (p = 0,031), demais métricas sem diferença; 3 aprovações erradas; 5 resolvidos só pelo oráculo. Cobrança real da Mistral ≈ 4 a 5× o `cost_usd` reportado (contraprova na DeepInfra: razão 1,00).
+
+**Teste que prova.** Nenhum código mudou desde a suíte verde das 16:35 (751); `analise-sete-metricas.md` admite 78 de 78 runs sem par quebrado; `auditoria-saude.txt` registra 5.392/5.392 BYOK, detector 0/0, 0 estouros de tempo.
+
+**Impacto em docs.** [26-replicacao.md](26-replicacao.md) §8 e §9; registro 45 (resultado Devstral) em [09-decisoes-do-autor.md](09-decisoes-do-autor.md); `CLAUDE.md`. Pendente do autor: valor final de uso do Devstral no console da Mistral.

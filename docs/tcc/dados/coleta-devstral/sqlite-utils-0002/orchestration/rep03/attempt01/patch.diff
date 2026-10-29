@@ -1,0 +1,48 @@
+diff --git a/sqlite_utils/db.py b/sqlite_utils/db.py
+index 48987a6..fee8659 100644
+--- a/sqlite_utils/db.py
++++ b/sqlite_utils/db.py
+@@ -3093,6 +3093,22 @@ class Table(Queryable):
+             ).strip()
+         )
+ 
++        # Identify columns that are TEXT and being converted to numeric types
++        # These need NULLIF to convert empty strings to NULL
++        text_to_numeric_columns = set()
++        for name, current_type in current_column_pairs:
++            if name in drop:
++                continue
++            new_type = types.get(name) or current_type
++            # Check if current type is TEXT (str) and new type is numeric
++            if current_type is str and new_type in (int, float):
++                text_to_numeric_columns.add(name)
++            # Also check for string representations of numeric types
++            if current_type is str and isinstance(new_type, str):
++                new_type_upper = new_type.upper().strip()
++                if new_type_upper in ("INTEGER", "INT", "REAL", "FLOAT", "DOUBLE", "NUMERIC"):
++                    text_to_numeric_columns.add(name)
++
+         # Copy across data, respecting any renamed columns
+         new_cols = []
+         old_cols = []
+@@ -3103,10 +3119,19 @@ class Table(Queryable):
+         if "rowid" not in new_cols:
+             new_cols.insert(0, "rowid")
+             old_cols.insert(0, "rowid")
++        
++        # Apply NULLIF to TEXT columns being converted to numeric types
++        old_cols_with_nullif = []
++        for col in old_cols:
++            if col in text_to_numeric_columns:
++                old_cols_with_nullif.append(f"NULLIF({quote_identifier(col)}, '')")
++            else:
++                old_cols_with_nullif.append(quote_identifier(col))
++        
+         copy_sql = "INSERT INTO {} ({new_cols})\n   SELECT {old_cols} FROM {};".format(
+             quote_identifier(new_table_name),
+             quote_identifier(self.name),
+-            old_cols=", ".join(quote_identifier(col) for col in old_cols),
++            old_cols=", ".join(old_cols_with_nullif),
+             new_cols=", ".join(quote_identifier(col) for col in new_cols),
+         )
+         sqls.append(copy_sql)

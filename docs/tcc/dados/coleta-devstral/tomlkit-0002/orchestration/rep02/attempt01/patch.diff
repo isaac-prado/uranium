@@ -1,0 +1,186 @@
+diff --git a/tomlkit/api.py b/tomlkit/api.py
+index fd4b2f3..a17ab3c 100644
+--- a/tomlkit/api.py
++++ b/tomlkit/api.py
+@@ -12,6 +12,7 @@ from .items import Bool
+ from .items import Comment
+ from .items import Date
+ from .items import DateTime
++from .items import DottedKey
+ from .items import Float
+ from .items import InlineTable
+ from .items import Integer
+@@ -141,7 +142,9 @@ def aot() -> AoT:
+     return AoT([])
+ 
+ 
+-def key(k: str) -> Key:
++def key(k: str | list) -> Key:
++    if isinstance(k, list):
++        return DottedKey([SingleKey(part) for part in k], sep=" = ")
+     return SingleKey(k)
+ 
+ 
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index dc6da89..1c48a99 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -20,6 +20,7 @@ from .items import Key
+ from .items import Null
+ from .items import SingleKey
+ from .items import Table
++from .items import Trivia
+ from .items import Whitespace
+ from .items import _CustomDict
+ from .items import item as _item
+@@ -96,6 +97,9 @@ class Container(_CustomDict):
+         if not isinstance(item, Item):
+             item = _item(item)
+ 
++        if key is not None and key.is_dotted():
++            return self._append_dotted_key(key, item)
++
+         if isinstance(item, (AoT, Table)) and item.name is None:
+             item.name = key.key
+ 
+@@ -272,6 +276,140 @@ class Container(_CustomDict):
+ 
+         return self
+ 
++    def _append_dotted_key(self, key: Key, item: Item) -> "Container":
++        from .items import Table
++        
++        names = tuple(iter(key))
++        if len(names) == 1:
++            name = names[0]
++            name._dotted = True
++            if isinstance(item, (AoT, Table)) and item.name is None:
++                item.name = name.key
++            
++            prev = self._previous_item()
++            prev_ws = isinstance(prev, Whitespace) or ends_with_withespace(prev)
++            if isinstance(item, Table):
++                if item.name != name.key:
++                    item.invalidate_display_name()
++                if self._body and not (self._parsed or item.trivia.indent or prev_ws):
++                    item.trivia.indent = "\n"
++            
++            if isinstance(item, AoT) and self._body and not self._parsed:
++                item.invalidate_display_name()
++                if item and not ("\n" in item[0].trivia.indent or prev_ws):
++                    item[0].trivia.indent = "\n" + item[0].trivia.indent
++            
++            if name in self:
++                raise KeyAlreadyPresent(name)
++            
++            is_table = isinstance(item, (Table, AoT))
++            if name is not None and self._body and not self._parsed:
++                key_after = None
++                for i, (k, v) in enumerate(self._body):
++                    if isinstance(v, Null):
++                        continue
++                    if isinstance(v, Whitespace) and not v.is_fixed():
++                        continue
++                    if not is_table and isinstance(v, (Table, AoT)):
++                        break
++                    key_after = k or i
++                
++                if key_after is not None:
++                    if isinstance(key_after, int):
++                        if key_after + 1 < len(self._body):
++                            return self._insert_at(key_after + 1, name, item)
++                        else:
++                            previous_item = self._body[-1][1]
++                            if not (
++                                isinstance(previous_item, Whitespace)
++                                or ends_with_withespace(previous_item)
++                                or is_table
++                                or "\n" in previous_item.trivia.trail
++                            ):
++                                previous_item.trivia.trail += "\n"
++                    else:
++                        return self._insert_after(key_after, name, item)
++                else:
++                    return self._insert_at(0, name, item)
++            
++            if name in self._map:
++                current_idx = self._map[name]
++                if isinstance(current_idx, tuple):
++                    current_idx = current_idx[-1]
++                current = self._body[current_idx][1]
++                if not isinstance(current, Table):
++                    raise KeyAlreadyPresent(name)
++                if not isinstance(current_idx, tuple):
++                    current_idx = (current_idx,)
++                self._map[name] = current_idx + (len(self._body),)
++            else:
++                self._map[name] = len(self._body)
++            
++            self._body.append((name, item))
++            if item.is_table():
++                self._table_keys.append(name)
++            
++            if name is not None:
++                dict.__setitem__(self, name.key, item.value)
++            
++            return self
++        
++        name = names[0]
++        name._dotted = True
++        
++        if name.key in dict.keys(self):
++            current = self[name.key]
++            if not isinstance(current, Table):
++                raise KeyAlreadyPresent(key)
++            
++            _table = current._value
++            for i, _name in enumerate(names[1:-1]):
++                _name._dotted = True
++                if _name.key not in dict.keys(_table):
++                    new_table = Table(
++                        Container(True),
++                        Trivia(),
++                        False,
++                        is_super_table=True,
++                    )
++                    _table._body.append((_name, new_table))
++                    _table._map[_name] = len(_table._body) - 1
++                    dict.__setitem__(_table, _name.key, new_table)
++                _table = _table[_name.key]._value
++            
++            last_name = names[-1]
++            last_name.sep = key.sep
++            _table._body.append((last_name, item))
++            _table._map[last_name] = len(_table._body) - 1
++            dict.__setitem__(_table, last_name.key, item.value)
++        else:
++            table = Table(Container(True), Trivia(), False, is_super_table=True)
++            _table = table._value
++            for i, _name in enumerate(names[1:-1]):
++                _name._dotted = True
++                new_table = Table(
++                    Container(True),
++                    Trivia(),
++                    False,
++                    is_super_table=True,
++                )
++                _table._body.append((_name, new_table))
++                _table._map[_name] = len(_table._body) - 1
++                dict.__setitem__(_table, _name.key, new_table)
++                _table = new_table._value
++            
++            last_name = names[-1]
++            last_name.sep = key.sep
++            _table._body.append((last_name, item))
++            _table._map[last_name] = len(_table._body) - 1
++            dict.__setitem__(_table, last_name.key, item.value)
++            
++            self._body.append((name, table))
++            self._map[name] = len(self._body) - 1
++            dict.__setitem__(self, name.key, table)
++        
++        return self
++
+     def _insert_after(
+         self, key: Union[Key, str], other_key: Union[Key, str], item: Any
+     ) -> "Container":

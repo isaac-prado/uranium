@@ -1,0 +1,231 @@
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 59045a2..f4e1443 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -131,8 +131,16 @@ class Parser:
+                 break
+ 
+             key, value = item
+-            if not self._merge_ws(value, body):
+-                body.append(key, value)
++            if key is not None:
++                if not self._merge_ws(value, body):
++                    # Handle dotted keys
++                    if "." in key.key:
++                        self._append_dotted_key(body, key, value)
++                    else:
++                        body.append(key, value)
++            else:
++                if not self._merge_ws(value, body):
++                    body.append(key, value)
+ 
+             self.mark()
+ 
+@@ -169,6 +177,65 @@ class Parser:
+ 
+         return True
+ 
++    def _append_dotted_key(self, container, key, value):  # type: (Container, Key, Item) -> None
++        """
++        Appends a dotted key to the container, creating nested tables as needed.
++        """
++        # Split the key into parts, handling quoted parts correctly
++        parts = []
++        current_part = ""
++        in_quotes = False
++        quote_char = None
++        
++        for c in key.key:
++            if c in ('"', "'") and (not in_quotes or c == quote_char):
++                if in_quotes:
++                    # End of quoted part
++                    in_quotes = False
++                    quote_char = None
++                    current_part += c
++                    parts.append(current_part)
++                    current_part = ""
++                else:
++                    # Start of quoted part
++                    in_quotes = True
++                    quote_char = c
++                    current_part += c
++            elif c == "." and not in_quotes:
++                if current_part:
++                    parts.append(current_part)
++                    current_part = ""
++            else:
++                current_part += c
++        
++        if current_part:
++            parts.append(current_part)
++        
++        # Convert parts to Keys
++        key_parts = []
++        for part in parts:
++            if part.startswith('"') and part.endswith('"'):
++                key_parts.append(Key(part[1:-1], KeyType.Basic, ""))
++            elif part.startswith("'") and part.endswith("'"):
++                key_parts.append(Key(part[1:-1], KeyType.Literal, ""))
++            else:
++                key_parts.append(Key(part, KeyType.Bare, ""))
++        
++        current_container = container
++        
++        for i, part in enumerate(key_parts[:-1]):
++            if part not in current_container:
++                # Create a new table for this part
++                table = Table(Container(), Trivia(), False, name=part.key)
++                current_container.append(part, table)
++            
++            # Move into the nested table
++            table_item = current_container._body[current_container._map[part]][1]
++            current_container = table_item.value
++        
++        # Add the value to the final part
++        current_container.append(key_parts[-1], value)
++
+     def parse_error(self, kind=ParseError, args=None):  # type: () -> None
+         """
+         Creates a generic "parse error" at the current position.
+@@ -203,6 +270,56 @@ class Parser:
+ 
+         return parent_parts == child_parts[: len(parent_parts)]
+ 
++    def _split_key_name(self, name):  # type: (str) -> List[Key]
++        """
++        Splits a key name into parts, handling dotted keys.
++        """
++        parts = []
++        in_name = False
++        delim = None
++        current = ""
++        t = KeyType.Bare
++        for c in name:
++            c = TOMLChar(c)
++
++            if c == ".":
++                if in_name:
++                    current += c
++                    continue
++
++                if not current:
++                    raise self.parse_error()
++
++                parts.append(Key(current, t=t, sep=""))
++
++                current = ""
++                t = KeyType.Bare
++                continue
++            elif c in {"'", '"'}:
++                if in_name:
++                    if t == KeyType.Literal and c == '"':
++                        current += c
++                        continue
++
++                    if c != t.value:
++                        raise self.parse_error()
++
++                    in_name = False
++                else:
++                    in_name = True
++                    t = KeyType.Literal if c == "'" else KeyType.Basic
++
++                continue
++            elif in_name or c.is_bare_key_char():
++                current += c
++            else:
++                raise self.parse_error()
++
++        if current:
++            parts.append(Key(current, t=t, sep=""))
++        
++        return parts
++
+     def _split_table_name(self, name):  # type: (str) -> Generator[Key]
+         in_name = False
+         delim = None
+@@ -402,10 +519,58 @@ class Parser:
+         Parses a Key at the current position;
+         WS before the key must be exhausted first at the callsite.
+         """
+-        if self._current in "\"'":
+-            return self._parse_quoted_key()
+-        else:
+-            return self._parse_bare_key()
++        self.mark()
++        parts = []
++        
++        while True:
++            if self._current in "\"'":
++                # Parse quoted part
++                quote_style = self._current
++                key_type = None
++                for t in KeyType:
++                    if t.value == quote_style:
++                        key_type = t
++                        break
++                
++                self.inc()
++                self.mark()
++                
++                while self._current != quote_style and self.inc():
++                    pass
++                
++                key = self.extract()
++                self.inc()
++                # Preserve the quoted part with its quotes
++                quoted_key = quote_style + key + quote_style
++                parts.append((quoted_key, key_type))
++            else:
++                # Parse bare part
++                self.mark()
++                while self._current.is_bare_key_char() and self._current != "." and self.inc():
++                    pass
++                
++                key = self.extract()
++                if key:
++                    parts.append((key, KeyType.Bare))
++            
++            # Check for dot
++            if self._current == ".":
++                self.inc()
++                continue
++            
++            break
++        
++        if len(parts) == 1:
++            key, key_type = parts[0]
++            return Key(key, key_type, "")
++        
++        # Combine parts into a single key, preserving quoted parts
++        combined_parts = []
++        for part, key_type in parts:
++            combined_parts.append(part)
++        
++        combined_key = ".".join(combined_parts)
++        return Key(combined_key, KeyType.Bare, "")
+ 
+     def _parse_quoted_key(self):  # type: () -> Key
+         """
+@@ -817,7 +982,7 @@ class Parser:
+                 #
+                 # So we have to create the parent tables
+                 table = Table(
+-                    Container(),
++                    Container(is_table_value=True),
+                     Trivia(indent, cws, comment, trail),
+                     is_aot and name_parts[0] in self._aot_stack,
+                     is_super_table=True,
+diff --git a/tomlkit/toml_char.py b/tomlkit/toml_char.py
+index 8d8d660..fd2c802 100644
+--- a/tomlkit/toml_char.py
++++ b/tomlkit/toml_char.py
+@@ -14,7 +14,7 @@ class TOMLChar(unicode):
+         """
+         Whether the character is a valid bare key name or not.
+         """
+-        return self in string.ascii_letters + string.digits + "-" + "_"
++        return self in string.ascii_letters + string.digits + "-" + "_" + "."
+ 
+     def is_kv_sep(self):  # type: () -> bool
+         """

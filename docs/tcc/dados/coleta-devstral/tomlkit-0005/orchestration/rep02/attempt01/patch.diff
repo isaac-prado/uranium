@@ -1,0 +1,43 @@
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 4a24fc0..1660079 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -633,6 +633,12 @@ class Integer(Item, _CustomInt):
+     def __hash__(self) -> int:
+         return hash(self.unwrap())
+ 
++    def __iter__(self) -> None:
++        raise TypeError("'Integer' object is not iterable")
++
++    def __getitem__(self, key: Any) -> None:
++        raise TypeError(f"'{type(self).__name__}' object is not subscriptable")
++
+     @property
+     def discriminant(self) -> int:
+         return 2
+@@ -856,6 +862,12 @@ class Float(Item, _CustomFloat):
+     def __hash__(self) -> int:
+         return hash(self.unwrap())
+ 
++    def __iter__(self) -> None:
++        raise TypeError("'Float' object is not iterable")
++
++    def __getitem__(self, key: Any) -> None:
++        raise TypeError(f"'{type(self).__name__}' object is not subscriptable")
++
+     @property
+     def discriminant(self) -> int:
+         return 3
+@@ -1234,6 +1246,12 @@ class Date(Item, date):
+     def as_string(self) -> str:
+         return self._raw
+ 
++    def __iter__(self) -> None:
++        raise TypeError("'Date' object is not iterable")
++
++    def __getitem__(self, key: Any) -> None:
++        raise TypeError(f"'{type(self).__name__}' object is not subscriptable")
++
+     def __add__(self, other: timedelta) -> Date:
+         if PY38:
+             result = date(self.year, self.month, self.day).__add__(other)

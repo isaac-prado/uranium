@@ -1,0 +1,91 @@
+diff --git a/src/attr/_funcs.py b/src/attr/_funcs.py
+index 518be16..521bafb 100644
+--- a/src/attr/_funcs.py
++++ b/src/attr/_funcs.py
+@@ -296,6 +296,15 @@ def has(cls):
+ 
+     :rtype: bool
+     """
++    # Handle specialized generic classes (e.g., Caixa[str])
++    import typing
++    
++    origin = typing.get_origin(cls)
++    if origin is not None:
++        # cls is a specialized generic class, check its origin
++        return getattr(origin, "__attrs_attrs__", None) is not None
++    
++    # For non-generic classes, check directly
+     return getattr(cls, "__attrs_attrs__", None) is not None
+ 
+ 
+@@ -400,11 +409,26 @@ def resolve_types(cls, globalns=None, localns=None, attribs=None):
+     ..  versionadded:: 21.1.0 *attribs*
+ 
+     """
++    # Handle specialized generic classes (e.g., A[str])
++    import typing
++    
++    origin = typing.get_origin(cls)
++    if origin is not None:
++        # cls is a specialized generic class, resolve types on its origin
++        if getattr(origin, "__attrs_types_resolved__", None) != origin:
++            hints = typing.get_type_hints(origin, globalns=globalns, localns=localns)
++            for field in fields(origin) if attribs is None else attribs:
++                if field.name in hints:
++                    # Since fields have been frozen we must work around it.
++                    _obj_setattr(field, "type", hints[field.name])
++            # We store the class we resolved so that subclasses know they haven't
++            # been resolved.
++            origin.__attrs_types_resolved__ = origin
++        return cls
++    
+     # Since calling get_type_hints is expensive we cache whether we've
+     # done it already.
+     if getattr(cls, "__attrs_types_resolved__", None) != cls:
+-        import typing
+-
+         hints = typing.get_type_hints(cls, globalns=globalns, localns=localns)
+         for field in fields(cls) if attribs is None else attribs:
+             if field.name in hints:
+diff --git a/src/attr/_make.py b/src/attr/_make.py
+index 014b7bc..e2b70b5 100644
+--- a/src/attr/_make.py
++++ b/src/attr/_make.py
+@@ -1919,6 +1919,18 @@ def fields(cls):
+     .. versionchanged:: 16.2.0 Returned tuple allows accessing the fields
+        by name.
+     """
++    # Handle specialized generic classes (e.g., Caixa[str])
++    import typing
++    
++    origin = typing.get_origin(cls)
++    if origin is not None:
++        # cls is a specialized generic class, check its origin
++        attrs = getattr(origin, "__attrs_attrs__", None)
++        if attrs is None:
++            raise NotAnAttrsClassError(f"{cls!r} is not an attrs-decorated class.")
++        return attrs
++    
++    # For non-generic classes, check directly
+     if not isinstance(cls, type):
+         raise TypeError("Passed object must be a class.")
+     attrs = getattr(cls, "__attrs_attrs__", None)
+@@ -1942,6 +1954,18 @@ def fields_dict(cls):
+ 
+     .. versionadded:: 18.1.0
+     """
++    # Handle specialized generic classes (e.g., Caixa[str])
++    import typing
++    
++    origin = typing.get_origin(cls)
++    if origin is not None:
++        # cls is a specialized generic class, check its origin
++        attrs = getattr(origin, "__attrs_attrs__", None)
++        if attrs is None:
++            raise NotAnAttrsClassError(f"{cls!r} is not an attrs-decorated class.")
++        return {a.name: a for a in attrs}
++    
++    # For non-generic classes, check directly
+     if not isinstance(cls, type):
+         raise TypeError("Passed object must be a class.")
+     attrs = getattr(cls, "__attrs_attrs__", None)
