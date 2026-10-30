@@ -547,3 +547,15 @@ Relatório em [07-e4-fumaca.md](07-e4-fumaca.md): 4 células (`tomlkit-0002` gra
 **Teste que prova.** Suíte completa verde às 10:xx de 29/10 (`runs/_lancamento/suite-2026-10-29.log`, 751 passed); nenhum código mudou depois. Varredura da chave da API em 322 `patch.diff` e nos `events.jsonl` das cinco raízes de coleta: 0 ocorrências.
 
 **Impacto em docs.** Documento novo 27; nenhum documento anterior alterado. Pendências do autor listadas em 27 §8.
+
+---
+
+## Análise exploratória do orquestrado e scripts de análise versionados (30/10/2026)
+
+**Diff resumido.** Só documentação, dados derivados e scripts de análise. [28-exploratorio-orquestrado.md](28-exploratorio-orquestrado.md): análise pós-hoc declarada, a pedido do autor, dos pontos em que o orquestrado se destaca (custo da carga inteira 29% menor em dólares nos 117 pares, Wilcoxon pareado p = 0,031 em dólares e p < 0,001 em tokens; pior caso 2,9 M contra 8,1 M tokens; tomlkit-0002 7/9 contra 2/9 nos três modelos, com o single-agent quebrando de 5 a 91 testes e nunca chegando à suíte verde; 8 dos 15 pares vencidos pelo orquestrado passam por reprovação do revisor com suíte verde seguida de reescrita; IC 95% da diferença pareada −6,1 a +11,3 pontos), dos pontos em que perde (10 patches certos nunca aprovados pelo revisor e 40% a 55% dos turnos gastos depois do verde; peewee-0002 com seis sub-tarefas seriais de até 40 turnos em 120, 0/9 e 0/24 nas rodadas; aprovações erradas 13 iguais às falsas conclusões do single-agent 14) e quatro hipóteses pré-registráveis (H1 a H4). Fonte: `dados/coleta-deepseek/exploratorio-orquestrado.txt`, saída de `scripts/exploratorio_orquestrado.py`. Os scripts que geraram `agregado-tres-modelos.txt` e `por-tarefa-tres-modelos.txt` (até então só no scratchpad da sessão) foram versionados em `scripts/agregado_tres_modelos.py` e `scripts/por_tarefa_tres_modelos.py`; o primeiro reproduz o arquivo versionado byte a byte fora de linhas em branco, o segundo reproduz a tabela (a nota final do oráculo foi acrescentada à mão em 29/10).
+
+**Correção de leitura.** A faixa grande "a favor do orquestrado nos três modelos" (27 Resumo, §4.2, §5 P10, §7 e §9) é uma única tarefa: tomlkit-0003 é teto e tomlkit-0004 é piso, logo os 7 pares discordantes da faixa são todos da tomlkit-0002. Frases ajustadas em 27 com a ressalva e ponteiro para 28; a faixa média, por sua vez, tem 4 dos 7 pares discordantes na peewee-0002.
+
+**Teste que prova.** Suíte completa em `runs/_lancamento/suite-2026-10-30.log` (ver resultado no commit); nenhum arquivo de `src/`, `harness/` ou `tests/` mudou. Os três scripts rodam da raiz sem argumentos e leem só arquivos versionados ou de `runs/coleta-deepseek` e `runs/coleta-devstral`.
+
+**Impacto em docs.** Documento novo 28; 27 com seis frases ajustadas (ressalva "uma tarefa" e ponteiros para 28); `26-replicacao.md` já nomeava a tomlkit-0002 em §10 e não mudou.

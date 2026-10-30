@@ -1,0 +1,210 @@
+runs lidos: 234
+
+======== 1. Faixa grande: de onde vem o sinal (por tarefa, por modelo)
+-- faixa grande
+  tomlkit-0002       Qwen: SA 1/3 OR 2/3 | DeepSeek: SA 0/3 OR 3/3 | Devstral: SA 1/3 OR 2/3  => SA 2/9 OR 7/9
+  tomlkit-0003       Qwen: SA 3/3 OR 3/3 | DeepSeek: SA 3/3 OR 3/3 | Devstral: SA 3/3 OR 3/3  => SA 9/9 OR 9/9
+  tomlkit-0004       Qwen: SA 0/3 OR 0/3 | DeepSeek: SA 0/3 OR 0/3 | Devstral: SA 0/3 OR 0/3  => SA 0/9 OR 0/9
+  pares 27: OR ganha 6, SA ganha 1, McNemar p=0.125; diferença OR-SA +0.185 IC95 [+0.006, +0.364]
+-- faixa media
+  attrs-0001         Qwen: SA 3/3 OR 2/3 | DeepSeek: SA 3/3 OR 3/3 | Devstral: SA 3/3 OR 3/3  => SA 9/9 OR 8/9
+  peewee-0001        Qwen: SA 3/3 OR 3/3 | DeepSeek: SA 3/3 OR 3/3 | Devstral: SA 3/3 OR 3/3  => SA 9/9 OR 9/9
+  peewee-0002        Qwen: SA 2/3 OR 0/3 | DeepSeek: SA 0/3 OR 0/3 | Devstral: SA 2/3 OR 0/3  => SA 4/9 OR 0/9
+  sqlite-utils-0003  Qwen: SA 2/3 OR 2/3 | DeepSeek: SA 3/3 OR 2/3 | Devstral: SA 3/3 OR 3/3  => SA 8/9 OR 7/9
+  pares 36: OR ganha 1, SA ganha 7, McNemar p=0.070; diferença OR-SA -0.167 IC95 [-0.311, -0.023]
+-- faixa pequena
+  peewee-0003        Qwen: SA 3/3 OR 3/3 | DeepSeek: SA 3/3 OR 3/3 | Devstral: SA 3/3 OR 3/3  => SA 9/9 OR 9/9
+  pygments-0001      Qwen: SA 2/3 OR 3/3 | DeepSeek: SA 3/3 OR 3/3 | Devstral: SA 1/3 OR 3/3  => SA 6/9 OR 9/9
+  sqlite-utils-0001  Qwen: SA 1/3 OR 1/3 | DeepSeek: SA 2/3 OR 0/3 | Devstral: SA 0/3 OR 3/3  => SA 3/9 OR 4/9
+  sqlite-utils-0002  Qwen: SA 0/3 OR 2/3 | DeepSeek: SA 0/3 OR 0/3 | Devstral: SA 3/3 OR 3/3  => SA 3/9 OR 5/9
+  tomlkit-0001       Qwen: SA 3/3 OR 3/3 | DeepSeek: SA 3/3 OR 3/3 | Devstral: SA 3/3 OR 3/3  => SA 9/9 OR 9/9
+  tomlkit-0005       Qwen: SA 0/3 OR 0/3 | DeepSeek: SA 3/3 OR 3/3 | Devstral: SA 3/3 OR 1/3  => SA 6/9 OR 4/9
+  pares 54: OR ganha 8, SA ganha 4, McNemar p=0.388; diferença OR-SA +0.074 IC95 [-0.050, +0.198]
+
+======== 2. Não inferioridade: diferença pareada OR-SA e IC 95% (todos os pares, por modelo)
+todos: n=117 OR 80 SA 77; OR ganha 15 SA ganha 12 p=0.701; dif +0.026 IC95 [-0.061,+0.113]
+Qwen     : n=39 OR ganha 5 SA ganha 4 p=1.000; dif +0.026 IC95 [-0.125,+0.176]
+DeepSeek : n=39 OR ganha 3 SA ganha 3 p=1.000; dif +0.000 IC95 [-0.123,+0.123]
+Devstral : n=39 OR ganha 7 SA ganha 5 p=0.774; dif +0.051 IC95 [-0.122,+0.225]
+
+======== 3. Sensibilidade: deixar uma tarefa de fora (OR-SA em runs, 117 pares)
+base: OR-SA = +3
+  sem attrs-0001        : OR-SA = +4  (OR ganha 15, SA ganha 11, p=0.557)
+  sem peewee-0001       : OR-SA = +3  (OR ganha 15, SA ganha 12, p=0.701)
+  sem peewee-0002       : OR-SA = +7  (OR ganha 15, SA ganha 8, p=0.210)
+  sem peewee-0003       : OR-SA = +3  (OR ganha 15, SA ganha 12, p=0.701)
+  sem pygments-0001     : OR-SA = +0  (OR ganha 12, SA ganha 12, p=1.000)
+  sem sqlite-utils-0001 : OR-SA = +2  (OR ganha 12, SA ganha 10, p=0.832)
+  sem sqlite-utils-0002 : OR-SA = +1  (OR ganha 13, SA ganha 12, p=1.000)
+  sem sqlite-utils-0003 : OR-SA = +4  (OR ganha 14, SA ganha 10, p=0.541)
+  sem tomlkit-0001      : OR-SA = +3  (OR ganha 15, SA ganha 12, p=0.701)
+  sem tomlkit-0002      : OR-SA = -2  (OR ganha 9, SA ganha 11, p=0.824)
+  sem tomlkit-0003      : OR-SA = +3  (OR ganha 15, SA ganha 12, p=0.701)
+  sem tomlkit-0004      : OR-SA = +3  (OR ganha 15, SA ganha 12, p=0.701)
+  sem tomlkit-0005      : OR-SA = +5  (OR ganha 15, SA ganha 10, p=0.424)
+
+======== 4. Pares discordantes (mesma semente): parada do SA e trajetória do OR
+-- Qwen
+  attrs-0001         rep3 vence SA | SA: tests_pass             f2p 3/3 turns  25 tok 0.16M | OR: budget: max_turns (120 f2p 0/3 turns 120 tok 1.91M sub 3 ciclos 3 rej_verde 0 escreveu_depois False
+  peewee-0002        rep1 vence SA | SA: tests_pass             f2p 6/6 turns  87 tok 1.60M | OR: budget: max_turns (120 f2p 1/6 turns 120 tok 1.50M sub 6 ciclos 4 rej_verde 4 escreveu_depois True
+  peewee-0002        rep2 vence SA | SA: tests_pass             f2p 6/6 turns 111 tok 2.11M | OR: budget: max_turns (120 f2p 0/6 turns 120 tok 1.28M sub 6 ciclos 4 rej_verde 3 escreveu_depois True
+  pygments-0001      rep1 vence OR | SA: budget: max_turns (120 f2p 0/2 turns 120 tok 7.11M | OR: concluiu               f2p 2/2 turns  62 tok 0.70M sub 6 ciclos 4 rej_verde 3 escreveu_depois True
+  sqlite-utils-0002  rep1 vence OR | SA: tests_pass             f2p 5/11 turns  28 tok 0.45M | OR: concluiu               f2p 11/11 turns  44 tok 0.59M sub 3 ciclos 1 rej_verde 0 escreveu_depois False
+  sqlite-utils-0002  rep2 vence OR | SA: budget: max_tokens (80 f2p 5/11 turns 117 tok 8.08M | OR: concluiu               f2p 11/11 turns  61 tok 0.89M sub 6 ciclos 2 rej_verde 1 escreveu_depois True
+  sqlite-utils-0003  rep1 vence SA | SA: tests_pass             f2p 12/12 turns  60 tok 1.01M | OR: concluiu               f2p 12/12 turns  73 tok 1.27M sub 6 ciclos 3 rej_verde 2 escreveu_depois True
+  sqlite-utils-0003  rep3 vence OR | SA: budget: max_turns (120 f2p 12/12 turns 120 tok 4.12M | OR: concluiu               f2p 12/12 turns  70 tok 1.33M sub 5 ciclos 2 rej_verde 1 escreveu_depois True
+  tomlkit-0002       rep3 vence OR | SA: budget: max_turns (120 f2p 0/1 turns 120 tok 4.45M | OR: concluiu               f2p 1/1 turns  50 tok 0.41M sub 5 ciclos 2 rej_verde 1 escreveu_depois True
+-- DeepSeek
+  sqlite-utils-0001  rep2 vence SA | SA: tests_pass             f2p 5/5 turns  46 tok 0.67M | OR: concluiu               f2p 1/5 turns  49 tok 0.64M sub 2 ciclos 1 rej_verde 0 escreveu_depois False
+  sqlite-utils-0001  rep3 vence SA | SA: tests_pass             f2p 5/5 turns  69 tok 1.33M | OR: concluiu               f2p 1/5 turns  54 tok 0.79M sub 5 ciclos 1 rej_verde 0 escreveu_depois False
+  sqlite-utils-0003  rep3 vence SA | SA: tests_pass             f2p 12/12 turns  69 tok 1.30M | OR: concluiu               f2p 11/12 turns  54 tok 1.17M sub 5 ciclos 1 rej_verde 0 escreveu_depois False
+  tomlkit-0002       rep1 vence OR | SA: budget: max_turns (120 f2p 1/1 turns 120 tok 3.91M | OR: concluiu               f2p 1/1 turns  72 tok 0.74M sub 4 ciclos 2 rej_verde 1 escreveu_depois True
+  tomlkit-0002       rep2 vence OR | SA: budget: max_turns (120 f2p 1/1 turns 120 tok 3.84M | OR: concluiu               f2p 1/1 turns  53 tok 0.68M sub 5 ciclos 1 rej_verde 0 escreveu_depois False
+  tomlkit-0002       rep3 vence OR | SA: budget: max_turns (120 f2p 1/1 turns 120 tok 3.46M | OR: concluiu               f2p 1/1 turns  95 tok 1.43M sub 1 ciclos 2 rej_verde 0 escreveu_depois False
+-- Devstral
+  peewee-0002        rep1 vence SA | SA: budget: max_turns (120 f2p 6/6 turns 120 tok 2.99M | OR: concluiu               f2p 1/6 turns  49 tok 0.49M sub 6 ciclos 1 rej_verde 0 escreveu_depois False
+  peewee-0002        rep2 vence SA | SA: tests_pass             f2p 6/6 turns  95 tok 1.76M | OR: budget: max_turns (120 f2p 5/6 turns 120 tok 1.74M sub 6 ciclos 3 rej_verde 2 escreveu_depois True
+  pygments-0001      rep2 vence OR | SA: budget: max_turns (120 f2p 0/2 turns 120 tok 5.16M | OR: concluiu               f2p 2/2 turns  61 tok 1.15M sub 5 ciclos 2 rej_verde 1 escreveu_depois True
+  pygments-0001      rep3 vence OR | SA: budget: max_turns (120 f2p 0/2 turns 120 tok 5.39M | OR: concluiu               f2p 2/2 turns  72 tok 1.62M sub 4 ciclos 2 rej_verde 1 escreveu_depois True
+  sqlite-utils-0001  rep1 vence OR | SA: tests_pass             f2p 1/5 turns  63 tok 1.12M | OR: concluiu               f2p 5/5 turns  47 tok 0.54M sub 1 ciclos 1 rej_verde 0 escreveu_depois False
+  sqlite-utils-0001  rep2 vence OR | SA: tests_pass             f2p 1/5 turns  71 tok 1.25M | OR: concluiu               f2p 5/5 turns  50 tok 0.88M sub 3 ciclos 1 rej_verde 0 escreveu_depois False
+  sqlite-utils-0001  rep3 vence OR | SA: tests_pass             f2p 1/5 turns  60 tok 1.05M | OR: concluiu               f2p 5/5 turns  40 tok 0.43M sub 2 ciclos 1 rej_verde 0 escreveu_depois False
+  tomlkit-0002       rep1 vence OR | SA: budget: max_turns (120 f2p 1/1 turns 120 tok 3.33M | OR: concluiu               f2p 1/1 turns  54 tok 0.93M sub 3 ciclos 1 rej_verde 0 escreveu_depois False
+  tomlkit-0002       rep2 vence SA | SA: tests_pass             f2p 1/1 turns 106 tok 2.79M | OR: budget: max_turns (120 f2p 1/1 turns 120 tok 1.99M sub 3 ciclos 3 rej_verde 1 escreveu_depois True
+  tomlkit-0002       rep3 vence OR | SA: budget: max_turns (120 f2p 1/1 turns 120 tok 3.94M | OR: budget: max_turns (120 f2p 1/1 turns 120 tok 1.88M sub 4 ciclos 5 rej_verde 5 escreveu_depois True
+  tomlkit-0005       rep1 vence SA | SA: tests_pass             f2p 1/1 turns  34 tok 0.27M | OR: budget: max_turns (120 f2p 0/1 turns 120 tok 1.56M sub 2 ciclos 5 rej_verde 3 escreveu_depois True
+  tomlkit-0005       rep2 vence SA | SA: tests_pass             f2p 1/1 turns  58 tok 0.94M | OR: concluiu               f2p 0/1 turns  95 tok 1.45M sub 2 ciclos 2 rej_verde 0 escreveu_depois False
+
+======== 5. Mecanismos do revisor (OR) e do operador (SA), por modelo
+modelo   braço parou_sozinho …errado  corte  …resolvido  rej_verde_runs resgate?  f2p parcial não-res p2p quebrado turnos med turnos após verde med 
+Qwen     SA        29/39        6       10       0           0             0         0.31               16             50           0
+Qwen     OR        23/39        3       16       4          26            16         0.14               13             73          42
+DeepSeek SA        31/39        5        8       0           0             0         0.65               13             57           0
+DeepSeek OR        28/39        7       11       5          17             9         0.54               13             54          13
+Devstral SA        27/39        3       12       4           0             0         0.36               11             64           0
+Devstral OR        32/39        3        7       1          14             8         0.31                9             54          13
+legenda: parou_sozinho = tests_pass (SA) ou concluiu (OR); …errado = parou sozinho e oráculo oculto reprovou; corte = orçamento; …resolvido = cortado mas oráculo aprovou (no OR: revisor nunca aprovou um patch certo); rej_verde_runs = runs em que a revisão final reprovou com suíte verde; resgate? = desses, resolvidos com escrita de arquivo depois da reprovação; f2p parcial = fração média de testes ocultos passando nos runs NÃO resolvidos; p2p quebrado = runs com regressão em teste que passava.
+
+======== 6. Custo por braço e modelo (medianas) e explicação do token
+modelo   braço tok total  prompt/chamada  chamadas  turnos  parede s  US$ total US$/run resolvido 
+Qwen     SA       0.98M       16.7k           50       50       243      8.44      0.367
+Qwen     OR       0.88M        9.9k           78       73       290      5.67      0.236
+DeepSeek SA       0.99M       17.4k           57       57       499      8.02      0.308
+DeepSeek OR       0.83M       11.8k           57       54       669      5.56      0.214
+Devstral SA       1.25M       19.0k           64       64       219      5.46      0.195
+Devstral OR       0.70M       11.9k           56       54       271      4.24      0.141
+-- tokens OR/SA nos pares em que os dois resolveram (mediana da razão) e nos pares em que só um resolveu
+  Qwen      ambos resolvidos n=19 mediana OR/SA tokens = 1.82
+  DeepSeek  ambos resolvidos n=23 mediana OR/SA tokens = 1.24
+  Devstral  ambos resolvidos n=23 mediana OR/SA tokens = 0.64
+
+======== 7. Consistência (tarefas 3/3 ou 0/3 por braço), qualidade (cc_mean_delta), avisos do detector
+  Qwen     SA  consistentes 8/13 (3/3: 5)  cc_mean_delta mediana nos resolvidos +0.009 (n=23, >0: 15)  avisos 8 críticos 0
+  Qwen     OR  consistentes 8/13 (3/3: 5)  cc_mean_delta mediana nos resolvidos +0.022 (n=24, >0: 17)  avisos 3 críticos 0
+  DeepSeek SA  consistentes 12/13 (3/3: 8)  cc_mean_delta mediana nos resolvidos +0.021 (n=26, >0: 19)  avisos 0 críticos 0
+  DeepSeek OR  consistentes 12/13 (3/3: 8)  cc_mean_delta mediana nos resolvidos +0.012 (n=26, >0: 16)  avisos 1 críticos 0
+  Devstral SA  consistentes 10/13 (3/3: 8)  cc_mean_delta mediana nos resolvidos +0.018 (n=28, >0: 22)  avisos 0 críticos 0
+  Devstral OR  consistentes 11/13 (3/3: 9)  cc_mean_delta mediana nos resolvidos +0.017 (n=30, >0: 19)  avisos 0 críticos 0
+
+======== 8. Anatomia das tarefas que discriminam (6 células)
+  attrs-0001         media    SA 9/9 OR 8/9  ->  SA +1
+  peewee-0002        media    SA 4/9 OR 0/9  ->  SA +4
+  pygments-0001      pequena  SA 6/9 OR 9/9  ->  OR +3
+  sqlite-utils-0001  pequena  SA 3/9 OR 4/9  ->  OR +1
+  sqlite-utils-0002  pequena  SA 3/9 OR 5/9  ->  OR +2
+  sqlite-utils-0003  media    SA 8/9 OR 7/9  ->  SA +1
+  tomlkit-0002       grande   SA 2/9 OR 7/9  ->  OR +5
+  tomlkit-0005       pequena  SA 6/9 OR 4/9  ->  SA +2
+
+======== 9. peewee-0002 e tomlkit-0002: planos do orquestrado
+-- peewee-0002
+  Qwen      rep2 res=False stop=budget: max_turns (1 f2p 0/6 ciclos=4 sub=6 rej_verde=3 | ['Corrigir commit() e rollback() com conexão fechada', 'Corrigir comportamento de connection_context após manual_commit', 'Validar aliases em window()', 'Corrigir INSERT com on_conflict sem banco associado', 'Corrigir make_index_name para gerar nomes consistentes', 'Corrigir compartilhamento de column_map em introspectors']
+  Qwen      rep3 res=False stop=budget: max_turns (1 f2p 3/6 ciclos=5 sub=6 rej_verde=5 | ['Corrigir comportamento de commit/rollback com conexão fechada', 'Corrigir fechamento automático após contexto with recusado em manual_commit', 'Detectar aliases duplicados em cláusulas window', 'Validar banco associado em INSERT com ON CONFLICT', 'Unificar algoritmo de geração de nomes de índice', 'Corrigir compartilhamento de column_map em Introspector']
+  Qwen      rep1 res=False stop=budget: max_turns (1 f2p 1/6 ciclos=4 sub=6 rej_verde=4 | ['Corrigir commit/rollback com conexão fechada', 'Corrigir estado inconsistente após with db: recusado em manual_commit', 'Validar aliases duplicados em Select.window()', 'Tratar INSERT ... ON CONFLICT sem banco associado', 'Unificar algoritmo de truncamento de nomes em make_index_name', 'Corrigir compartilhamento de column_map em Introspector']
+  DeepSeek  rep2 res=False stop=budget: max_turns (1 f2p 3/6 ciclos=3 sub=6 rej_verde=3 | ['Corrigir commit() e rollback() para levantar InterfaceError com conexão fechada', 'Garantir que with db: recusado dentro de manual_commit() não impeça fechamento automático', 'Validar aliases duplicados em query.window()', 'Corrigir InterfaceError para INSERT ... ON CONFLICT sem banco associado', 'Alinhar make_index_name com esquema de truncamento do peewee', 'Tornar column_map da reflexão instância-específico']
+  DeepSeek  rep3 res=False stop=budget: max_turns (1 f2p 3/6 ciclos=3 sub=6 rej_verde=3 | ['Corrigir commit() e rollback() com conexão fechada', 'Corrigir rastro deixado por with db: recusado dentro de manual_commit()', 'Validar aliases duplicados em window()', 'Corrigir INSERT ... ON CONFLICT sem banco associado', 'Alinhar make_index_name do migrador com esquema do peewee', 'Tornar column_map da reflexão instância-específico']
+  DeepSeek  rep1 res=False stop=budget: max_turns (1 f2p 4/6 ciclos=3 sub=6 rej_verde=2 | ['Impedir reabertura silenciosa em commit/rollback com conexão fechada', 'Corrigir resquício de with db: recusado dentro de manual_commit', 'Validar aliases duplicados em window()', 'Substituir TypeError por InterfaceError em INSERT ... ON CONFLICT sem banco', 'Alinhar make_index_name com esquema de truncamento do modelo', 'Tornar column_map específico por instância em Introspector']
+  Devstral  rep2 res=False stop=budget: max_turns (1 f2p 5/6 ciclos=3 sub=6 rej_verde=2 | ['Corrigir commit() e rollback() para levantar InterfaceError em conexão fechada', 'Corrigir estado de transação após with db: recusado dentro de manual_commit()', 'Validar aliases duplicados em window()', 'Corrigir geração de SQL para INSERT ... ON CONFLICT sem banco associado', 'Alinhar make_index_name com a geração de nomes de índices do peewee', 'Isolar column_map de cada Introspector']
+  Devstral  rep3 res=False stop=concluiu             f2p 2/6 ciclos=2 sub=6 rej_verde=1 | ['Corrigir commit() e rollback() para levantar InterfaceError com conexão fechada', 'Corrigir gerenciamento de estado em manual_commit() para não bloquear fechamento automático', 'Validar aliases duplicados em window()', 'Levantar InterfaceError para INSERT ... ON CONFLICT sem banco associado', 'Alinhar make_index_name do migrador com a regra do peewee', 'Isolar column_map em Introspector para evitar vazamento de estado']
+  Devstral  rep1 res=False stop=concluiu             f2p 1/6 ciclos=1 sub=6 rej_verde=0 | ['Corrigir commit() e rollback() para levantar InterfaceError em conexão fechada', 'Corrigir estado de transação após with db: recusado dentro de manual_commit()', 'Validar aliases únicos em window()', 'Validar banco associado em INSERT ... ON CONFLICT', 'Alinhar make_index_name ao padrão do peewee para nomes longos', 'Isolar column_map de cada Introspector']
+-- tomlkit-0002
+  Qwen      rep2 res=True stop=concluiu             f2p 1/1 ciclos=2 sub=5 rej_verde=1 | ['Modificar tomlkit.key() para suportar chaves pontilhadas', 'Verificar integração de chaves pontilhadas com Container.add()', 'Verificar integração de chaves pontilhadas com Table.add()', 'Validar compatibilidade com funcionalidades existentes', 'Testes de integração e regressão']
+  Qwen      rep3 res=True stop=concluiu             f2p 1/1 ciclos=2 sub=5 rej_verde=1 | ['Modificar tomlkit.key() para aceitar listas de strings', 'Atualizar método add() em Container para tratar chaves pontilhadas', 'Implementar serialização correta de chaves pontilhadas', 'Garantir acesso via tabelas aninhadas para valores com chaves pontilhadas', 'Verificação de compatibilidade com funcionalidades existentes']
+  Qwen      rep1 res=False stop=budget: max_turns (1 f2p 0/1 ciclos=3 sub=6 rej_verde=0 | ['Modificar tomlkit.key() para aceitar listas de strings', 'Ajustar lógica de Container.append para lidar com DottedKey', 'Atualizar renderização de itens com chaves pontilhadas', 'Garantir acesso como tabelas aninhadas', 'Testar compatibilidade com funcionalidades existentes', 'Integração e regressão']
+  DeepSeek  rep2 res=True stop=concluiu             f2p 1/1 ciclos=1 sub=5 rej_verde=0 | ['Estender tomlkit.key() para aceitar lista de strings', 'Adaptar Container.add() para processar chaves pontilhadas', 'Implementar serialização correta em as_string()', 'Garantir indexação aninhada para chaves pontilhadas', 'Preservar comportamento existente e erros de chave duplicada']
+  DeepSeek  rep3 res=True stop=concluiu             f2p 1/1 ciclos=2 sub=1 rej_verde=0 | ['Estender tomlkit.key() para aceitar listas e adaptar Container.add()']
+  DeepSeek  rep1 res=True stop=concluiu             f2p 1/1 ciclos=2 sub=4 rej_verde=1 | ['Modificar tomlkit.key() para aceitar lista de strings', 'Adaptar Container.append() para criar tabelas aninhadas com chaves pontilhadas', 'Garantir serialização correta de chaves pontilhadas', 'Manter compatibilidade com parsing existente e erros de chave duplicada']
+  Devstral  rep2 res=False stop=budget: max_turns (1 f2p 1/1 ciclos=3 sub=3 rej_verde=1 | ['Estender tomlkit.key() para aceitar listas de strings e criar DottedKey', 'Adaptar Container.append() para lidar com DottedKey sem criar cabeçalho de tabela', 'Ajustar renderização de DottedKey em _render_simple_item()']
+  Devstral  rep3 res=True stop=budget: max_turns (1 f2p 1/1 ciclos=5 sub=4 rej_verde=5 | ['Estender tomlkit.key() para aceitar listas de strings e criar DottedKey', 'Adaptar Container.append() para lidar com DottedKey e criar estrutura aninhada', 'Garantir que as_string() formate DottedKey corretamente sem cabeçalho de tabela', 'Validar compatibilidade com comportamento existente']
+  Devstral  rep1 res=True stop=concluiu             f2p 1/1 ciclos=1 sub=3 rej_verde=0 | ['Estender tomlkit.key() para aceitar listas de strings e criar DottedKey', 'Adaptar Container.add() para lidar com chaves pontilhadas (DottedKey)', 'Adaptar _render_simple_item para serializar chaves pontilhadas sem cabeçalho de tabela']
+
+======== 10. tomlkit-0002 no single-agent: a suíte quebra? (p2p, execuções da suíte, verdes)
+  Qwen      rep2 res=True stop=tests_pass           f2p 1/1 p2p_quebrados=0 suíte rodada 1x verdes 1 tok 2.35M prompt última chamada 55k
+  Qwen      rep3 res=False stop=budget: max_turns (1 f2p 0/1 p2p_quebrados=9 suíte rodada 35x verdes 0 tok 4.45M prompt última chamada 124k
+  Qwen      rep1 res=False stop=budget: max_turns (1 f2p 0/1 p2p_quebrados=37 suíte rodada 0x verdes 0 tok 3.27M prompt última chamada 49k
+  DeepSeek  rep2 res=False stop=budget: max_turns (1 f2p 1/1 p2p_quebrados=7 suíte rodada 0x verdes 0 tok 3.84M prompt última chamada 63k
+  DeepSeek  rep3 res=False stop=budget: max_turns (1 f2p 1/1 p2p_quebrados=5 suíte rodada 0x verdes 0 tok 3.46M prompt última chamada 61k
+  DeepSeek  rep1 res=False stop=budget: max_turns (1 f2p 1/1 p2p_quebrados=24 suíte rodada 0x verdes 0 tok 3.91M prompt última chamada 67k
+  Devstral  rep2 res=True stop=tests_pass           f2p 1/1 p2p_quebrados=0 suíte rodada 1x verdes 1 tok 2.79M prompt última chamada 48k
+  Devstral  rep3 res=False stop=budget: max_turns (1 f2p 1/1 p2p_quebrados=91 suíte rodada 0x verdes 0 tok 3.94M prompt última chamada 67k
+  Devstral  rep1 res=False stop=budget: max_turns (1 f2p 1/1 p2p_quebrados=31 suíte rodada 0x verdes 0 tok 3.33M prompt última chamada 56k
+
+======== 11. Revisor: reprovações desperdiçadas (patch certo, sem escrita depois) e turnos após o verde, por modelo
+  Qwen      runs com reprovação-com-verde 26; dessas resolvidas sem escrever depois (reprovação inútil) 2; resolvidas mas cortadas 4; turnos após 1º verde: soma 1664 de 3007 (55%), mediana 42, n runs com verde 33
+  DeepSeek  runs com reprovação-com-verde 17; dessas resolvidas sem escrever depois (reprovação inútil) 3; resolvidas mas cortadas 5; turnos após 1º verde: soma 1338 de 2935 (46%), mediana 13, n runs com verde 38
+  Devstral  runs com reprovação-com-verde 14; dessas resolvidas sem escrever depois (reprovação inútil) 1; resolvidas mas cortadas 1; turnos após 1º verde: soma 955 de 2412 (40%), mediana 13, n runs com verde 37
+
+======== 12. Custo: totais, pior caso, e teste pareado em TODOS os pares (exploratório)
+  Qwen      US$ SA   8.44 OR   5.67 (-33%); US$/resolvido SA 0.367 OR 0.236 (-36%); tokens pareados: OR<SA em 19/39, Wilcoxon p=0.151; US$ pareado p=0.512; tokens máx SA 8.1M OR 2.6M; runs cortados mediana tok SA 4.7M OR 1.4M
+  DeepSeek  US$ SA   8.02 OR   5.56 (-31%); US$/resolvido SA 0.308 OR 0.214 (-31%); tokens pareados: OR<SA em 24/39, Wilcoxon p=0.025; US$ pareado p=0.052; tokens máx SA 4.2M OR 2.1M; runs cortados mediana tok SA 3.8M OR 1.3M
+  Devstral  US$ SA   5.46 OR   4.24 (-22%); US$/resolvido SA 0.195 OR 0.141 (-27%); tokens pareados: OR<SA em 31/39, Wilcoxon p=0.000; US$ pareado p=0.167; tokens máx SA 7.1M OR 2.9M; runs cortados mediana tok SA 4.3M OR 2.0M
+  todos     US$ SA  21.91 OR  15.47 (-29%); US$/resolvido SA 0.285 OR 0.193 (-32%); tokens pareados: OR<SA em 74/117, Wilcoxon p=0.000; US$ pareado p=0.031; tokens máx SA 8.1M OR 2.9M; runs cortados mediana tok SA 4.0M OR 1.5M
+
+======== 13. Contexto: prompt da última chamada (tamanho do contexto no fim do run), mediana e máximo por braço
+  Qwen     SA  última chamada do agente/developer: mediana 28k máx 171k (n=39)
+  Qwen     OR  última chamada do agente/developer: mediana 12k máx 31k (n=39)
+  DeepSeek SA  última chamada do agente/developer: mediana 30k máx 70k (n=39)
+  DeepSeek OR  última chamada do agente/developer: mediana 21k máx 37k (n=39)
+  Devstral SA  última chamada do agente/developer: mediana 32k máx 106k (n=39)
+  Devstral OR  última chamada do agente/developer: mediana 19k máx 29k (n=39)
+
+======== 14. Vitórias do OR nos pares discordantes: por mecanismo
+   3 ('SA cortado por orçamento', 'aprovado sem reprovação com verde')
+   8 ('SA cortado por orçamento', 'revisor reprovou com suíte verde e developer reescreveu')
+   4 ('SA parou com suíte verde mas oculto reprovou', 'aprovado sem reprovação com verde')
+   6 ('SA vence', 'OR aprovado errado')
+   6 ('SA vence', 'OR cortado por orçamento')
+
+======== 15. Cache: fração de tokens do prompt cobrados como cache (payload.tokens_cached, decisão 46; só DeepSeek e Devstral)
+  DeepSeek SA  mediana 0.97 (n=39)
+  DeepSeek OR  mediana 0.91 (n=39)
+  Devstral SA  mediana 0.96 (n=39)
+  Devstral OR  mediana 0.88 (n=39)
+  leitura: o single-agent reaproveita mais prefixo; onde o provedor não dá desconto de cache (Mistral), o custo real do SA sobe mais que o do OR.
+
+======== 16. Estabilidade por tarefa nas oito configurações do orquestrado (Qwen, rodadas 1 a 8 = 24 runs) vs SA pareado (3 runs)
+  attrs-0001         media    OR r1..r8 2/3 2/3 1/3 2/3 1/3 1/3 2/3 0/3 = 11/24  SA 3/3
+  peewee-0001        media    OR r1..r8 2/3 3/3 3/3 3/3 3/3 3/3 2/3 2/3 = 21/24  SA 3/3
+  peewee-0002        media    OR r1..r8 0/3 0/3 0/3 0/3 0/3 0/3 0/3 0/3 =  0/24  SA 2/3
+  peewee-0003        pequena  OR r1..r8 3/3 3/3 3/3 3/3 3/3 3/3 3/3 3/3 = 24/24  SA 3/3
+  pygments-0001      pequena  OR r1..r8 0/3 1/3 1/3 3/3 2/3 3/3 3/3 2/3 = 15/24  SA 2/3
+  sqlite-utils-0001  pequena  OR r1..r8 0/3 1/3 1/3 1/3 0/3 0/3 2/3 0/3 =  5/24  SA 1/3
+  sqlite-utils-0002  pequena  OR r1..r8 3/3 3/3 1/3 2/3 1/3 2/3 2/3 1/3 = 15/24  SA 0/3
+  sqlite-utils-0003  media    OR r1..r8 0/3 1/3 1/3 2/3 0/3 0/3 2/3 3/3 =  9/24  SA 2/3
+  tomlkit-0001       pequena  OR r1..r8 2/3 3/3 3/3 3/3 2/3 3/3 3/3 3/3 = 22/24  SA 3/3
+  tomlkit-0002       grande   OR r1..r8 1/3 1/3 2/3 2/3 2/3 1/3 1/3 3/3 = 13/24  SA 1/3
+  tomlkit-0003       grande   OR r1..r8 3/3 3/3 3/3 3/3 3/3 3/3 3/3 3/3 = 24/24  SA 3/3
+  tomlkit-0004       grande   OR r1..r8 0/3 0/3 0/3 0/3 0/3 0/3 0/3 0/3 =  0/24  SA 0/3
+  tomlkit-0005       pequena  OR r1..r8 1/3 2/3 0/3 0/3 1/3 0/3 0/3 0/3 =  4/24  SA 0/3
+
+======== 17. peewee-0002 no orquestrado: ciclos (turnos, sub-tarefa corrente, parada) e progresso oculto
+  Qwen      rep2 f2p 0/6 stop=budget: max_turns ciclos=[(14, 1, 'concluiu'), (41, 1, 'cycle'), (41, 2, 'cycle'), (11, 2, 'budget')]
+  Qwen      rep3 f2p 3/6 stop=budget: max_turns ciclos=[(21, 1, 'concluiu'), (41, 2, 'cycle'), (22, 2, 'concluiu'), (13, 3, 'concluiu'), (10, 4, 'budget')]
+  Qwen      rep1 f2p 1/6 stop=budget: max_turns ciclos=[(41, 1, 'cycle'), (41, 1, 'cycle'), (17, 2, 'concluiu'), (8, 3, 'budget')]
+  DeepSeek  rep2 f2p 3/6 stop=budget: max_turns ciclos=[(41, 1, 'cycle'), (41, 2, 'cycle'), (25, 3, 'budget')]
+  DeepSeek  rep3 f2p 3/6 stop=budget: max_turns ciclos=[(41, 1, 'cycle'), (41, 2, 'cycle'), (25, 3, 'budget')]
+  DeepSeek  rep1 f2p 4/6 stop=budget: max_turns ciclos=[(41, 1, 'cycle'), (41, 2, 'cycle'), (25, 3, 'budget')]
+  Devstral  rep2 f2p 5/6 stop=budget: max_turns ciclos=[(41, 1, 'cycle'), (41, 2, 'cycle'), (25, 3, 'budget')]
+  Devstral  rep3 f2p 2/6 stop=concluiu          ciclos=[(41, 1, 'cycle'), (15, 2, 'concluiu')]
+  Devstral  rep1 f2p 1/6 stop=concluiu          ciclos=[(36, 1, 'concluiu')]
+  leitura: todos os 9 planos têm 6 sub-tarefas (uma por defeito); o developer bate o teto de 40 turnos do ciclo na sub-tarefa 1 ou 2 e o orçamento de 120 acaba com no máximo 3 sub-tarefas iniciadas. O single-agent recebe os seis defeitos de uma vez e resolve 4/9.
