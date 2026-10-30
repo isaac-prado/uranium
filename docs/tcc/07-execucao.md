@@ -537,3 +537,13 @@ Relatório em [07-e4-fumaca.md](07-e4-fumaca.md): 4 células (`tomlkit-0002` gra
 **Teste que prova.** Suíte completa de 29/10 (`runs/_lancamento/suite-2026-10-29.log`); a tarefa continua validada pelos quatro portões com duas referências ([dados/validacao-08-10/validate_task_final.txt](dados/validacao-08-10/validate_task_final.txt), l.103-133); o enunciado em `tasks/tomlkit-0004/statement.md` descreve os sete comportamentos cobrados e as cinco linhas que o patch de teste acrescenta a `tests/examples/0.5.0.toml`.
 
 **Impacto em docs.** [26-replicacao.md](26-replicacao.md) §10: frase corrigida e parágrafo "Validade das tarefas como teste".
+
+---
+
+## Relatório científico consolidado e revisão de código do harness final (29/10/2026)
+
+**Diff resumido.** Só documentação e dados. [27-relatorio-cientifico.md](27-relatorio-cientifico.md): resumo, pergunta e hierarquia de desfechos a priori, método, construção do instrumento (fumaças A a H, rodadas 1 a 8, 16 defeitos corrigidos, replicação), resultados das três coletas com análise agregada run a run (117 pares, McNemar exato) e por tarefa×modelo, tabela teto/piso, validação de dez proposições (a priori × emergentes), análise de poder por simulação, ameaças à validade, contribuições, melhorias e prompt para redação externa. Arquivos de origem novos: [dados/coleta-deepseek/agregado-tres-modelos.txt](dados/coleta-deepseek/agregado-tres-modelos.txt) (script ad hoc sobre os 234 `result.json`; Qwen com o single-agent pareado de `dados/coleta` + `dados/coleta-r2`), [dados/revisao-codigo-2026-10-29.md](dados/revisao-codigo-2026-10-29.md) (14 achados da revisão estática `xhigh` de `src/`, `harness/` e scripts de análise, nenhum altera resultado coletado, nada corrigido por serem intocáveis). [dados/coleta-deepseek/por-tarefa-tres-modelos.txt](dados/coleta-deepseek/por-tarefa-tres-modelos.txt) regenerado com o single-agent pareado (antes usava os 39 runs originais de `dados/coleta`, que nas três tarefas reconstruídas não são comparáveis à rodada 4): pygments-0001 Qwen-SA 3/3 → 2/3, sqlite-utils-0002 1/3 → 0/3; teto, piso e as oito tarefas que discriminam não mudam.
+
+**Teste que prova.** Suíte completa verde às 10:xx de 29/10 (`runs/_lancamento/suite-2026-10-29.log`, 751 passed); nenhum código mudou depois. Varredura da chave da API em 322 `patch.diff` e nos `events.jsonl` das cinco raízes de coleta: 0 ocorrências.
+
+**Impacto em docs.** Documento novo 27; nenhum documento anterior alterado. Pendências do autor listadas em 27 §8.

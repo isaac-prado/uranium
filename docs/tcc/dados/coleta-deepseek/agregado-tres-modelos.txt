@@ -1,0 +1,62 @@
+runs lidos: 234 (esperado 234)
+
+== Por modelo e braço (runs resolvidos, tarefas por maioria, por faixa, cortes, concluiu-errado, só-oráculo)
+modelo   braço runs   tarefas grande media  pequena cortes aprov.err SA tests_pass errado só oráculo crit/warn mediana tok mediana s US$    
+Qwen     SA    23/39   8/13   4/9    10/12   9/18    10      0         6                     0         0/8        0.98M         243    8.44
+Qwen     OR    24/39   9/13   5/9     7/12  12/18    16      3         0                     4         0/3        0.88M         290    5.67
+DeepSeek SA    26/39   9/13   3/9     9/12  14/18     8      0         5                     0         0/0        0.99M         499    8.02
+DeepSeek OR    26/39   9/13   6/9     8/12  12/18    11      7         0                     5         0/1        0.83M         669    5.56
+Devstral SA    28/39   9/13   4/9    11/12  13/18    12      0         3                     4         0/0        1.25M         219    5.46
+Devstral OR    30/39  10/13   5/9     9/12  16/18     7      3         0                     1         0/0        0.70M         271    4.24
+
+== Pareamento run a run (mesmo modelo, tarefa, repetição = mesma semente): McNemar exato bilateral
+  todos os 3 modelos: 117 pares; OR ganha 15, SA ganha 12, empates 90; SA 77/117, OR 80/117; p=0.701
+  Qwen     : OR ganha 5, SA ganha 4, p=1.000
+  DeepSeek : OR ganha 3, SA ganha 3, p=1.000
+  Devstral : OR ganha 7, SA ganha 5, p=0.774
+  faixa grande  : 27 pares; SA 11/27, OR 16/27; OR ganha 6, SA ganha 1, p=0.125
+  faixa media   : 36 pares; SA 30/36, OR 24/36; OR ganha 1, SA ganha 7, p=0.070
+  faixa pequena : 54 pares; SA 36/54, OR 40/54; OR ganha 8, SA ganha 4, p=0.388
+
+== Pareamento por tarefa×modelo (39 pares; valor = resolvidos em 3 repetições): sinal exato e Wilcoxon exato
+  OR melhor em 7, SA melhor em 6, empate em 26; sinal p=1.000; soma das diferenças +3 runs; Wilcoxon exato W=40.0 n=13 p=0.72265625
+
+== Métrica 2/3 agregada: tokens e tempo por run, mediana por braço e modelo, só runs resolvidos pelos dois braços na mesma (tarefa,rep)
+  Qwen     : 19 pares resolvidos por ambos; tokens mediana SA 229k OR 632k (OR/SA=1.82); parede mediana SA 130s OR 258s; US$ por run resolvido SA 0.080 OR 0.092
+  DeepSeek : 23 pares resolvidos por ambos; tokens mediana SA 691k OR 833k (OR/SA=1.24); parede mediana SA 406s OR 628s; US$ por run resolvido SA 0.128 OR 0.127
+  Devstral : 23 pares resolvidos por ambos; tokens mediana SA 1002k OR 466k (OR/SA=0.64); parede mediana SA 146s OR 185s; US$ por run resolvido SA 0.091 OR 0.074
+
+== Consistência (métrica 4): tarefas resolvidas nas 3 repetições / resolvidas ao menos uma vez
+  Qwen     SA: 5/10  (1 de 3: 2, 2 de 3: 3)
+  Qwen     OR: 5/10  (1 de 3: 1, 2 de 3: 4)
+  DeepSeek SA: 8/9  (1 de 3: 0, 2 de 3: 1)
+  DeepSeek OR: 8/9  (1 de 3: 0, 2 de 3: 1)
+  Devstral SA: 8/11  (1 de 3: 2, 2 de 3: 1)
+  Devstral OR: 9/11  (1 de 3: 1, 2 de 3: 1)
+
+== Progresso parcial nos não resolvidos: fração média de ocultos passados
+  Qwen     SA: 16 não resolvidos; ocultos passados média 0.31; zero ocultos: 6; todos ocultos mas regressão/outro: 1
+  Qwen     OR: 15 não resolvidos; ocultos passados média 0.14; zero ocultos: 11; todos ocultos mas regressão/outro: 1
+  DeepSeek SA: 13 não resolvidos; ocultos passados média 0.65; zero ocultos: 1; todos ocultos mas regressão/outro: 3
+  DeepSeek OR: 13 não resolvidos; ocultos passados média 0.54; zero ocultos: 0; todos ocultos mas regressão/outro: 0
+  Devstral SA: 11 não resolvidos; ocultos passados média 0.36; zero ocultos: 4; todos ocultos mas regressão/outro: 2
+  Devstral OR: 9 não resolvidos; ocultos passados média 0.31; zero ocultos: 4; todos ocultos mas regressão/outro: 1
+
+== Patches vazios (achado da revisão de código: houve_mudanca contaminado por arquivo não rastreado)
+  patch vazio: Qwen OR tomlkit-0005 rep3 res=False stop=budget: max_turns (120 >= 120)
+  patch vazio: Devstral SA pygments-0001 rep3 res=False stop=budget: max_turns (120 >= 120)
+  (fim da lista; nenhuma linha acima = nenhum patch vazio)
+
+== Δ complexidade ciclomática média (métrica 5), mediana por braço, runs resolvidos
+  Qwen     SA: n=23 mediana +0.009
+  Qwen     OR: n=24 mediana +0.022
+  DeepSeek SA: n=26 mediana +0.021
+  DeepSeek OR: n=26 mediana +0.012
+  Devstral SA: n=28 mediana +0.018
+  Devstral OR: n=30 mediana +0.017
+
+== Poder (simulação): 13 tarefas, 3 repetições, sinal exato bilateral sobre a maioria por tarefa; p_SA por tarefa = taxa agregada observada do SA (9 runs)
+  Δ=0.0: poder com 13 tarefas = 0.00; com 30 = 0.01; com 60 = 0.03
+  Δ=0.1: poder com 13 tarefas = 0.00; com 30 = 0.05; com 60 = 0.14
+  Δ=0.2: poder com 13 tarefas = 0.00; com 30 = 0.18; com 60 = 0.52
+  Δ=0.3: poder com 13 tarefas = 0.01; com 30 = 0.44; com 60 = 0.88
