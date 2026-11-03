@@ -255,3 +255,79 @@ Depois de cada resposta: colar aqui para conferência de números; só então pa
 - "Faixa grande a favor do orquestrado" sempre acompanhada de "uma tarefa que discrimina".
 - Vocabulário da seção 2, sem sinônimos.
 - Nenhuma afirmação sobre modelos pensantes, modelos fechados ou tarefas de outras linguagens.
+
+---
+
+## 9. Revisão da Introdução e do Referencial Teórico já escritos (03/11/2026)
+
+Os capítulos `1-Introducao.tex` e `2-Referencial.tex` foram escritos para o TFG, antes de o escopo mudar. Esta seção diz o que ficou desatualizado, o que manter, o que cortar e o que falta. Serve de instrução ao assistente para o prompt 0 (seção 7).
+
+### 9.1 O que mudou de escopo e o texto antigo ainda afirma
+
+| O TFG diz | O que o estudo fez | Onde ajustar |
+|---|---|---|
+| Compara ES 2.0 (humano com copiloto) com ES 3.0 (agentes autônomos) | Compara duas topologias de agente autônomo, agente único e orquestração de papéis, com o mesmo modelo, ferramentas, prompt e orçamento. É uma pergunta interna à ES 3.0: a organização em papéis muda o resultado? | Introdução, parágrafos 5 a 7; referencial §2 |
+| "Aproximadamente cinco desenvolvedores de diferentes níveis de senioridade" | Nenhum participante humano. 13 tarefas × 3 repetições × 2 braços × 3 modelos, pareadas por semente | Introdução, parágrafo 7; `desenvolvimento.tex` "Caracterização" |
+| Uranium "instrumentada com LangSmith" | LangSmith foi removido; a telemetria é própria: `events.jsonl` por run, `manifest.json` com toda a configuração, `result.json` com oráculo, detector, custo e qualidade [`01-inventario.md` C6, C7] | Introdução, parágrafo 6; referencial §5, parágrafo da observabilidade |
+| Métricas: produtividade, autonomia, qualidade, rastreabilidade e custo | Sete métricas com hierarquia a priori: resolução; tokens; tempo de parede; consistência; variação da complexidade ciclomática; conclusão sem corte; violações do detector. Mais custo em dólares. Mapa: produtividade → resolução e tempo; autonomia → conclusão sem corte; qualidade → complexidade e regressões; rastreabilidade → manifesto, eventos e detector; custo → tokens e dólares | Introdução, parágrafo 7; referencial §8, último parágrafo |
+| Maintainability Index, Cyclomatic Complexity e Mutation Score | Só a complexidade ciclomática entrou. O Índice de Manutenibilidade é calculado, mas satura em zero nos módulos alterados e foi excluído [`03-metricas.md` §3]. O Mutation Score foi excluído porque mede a força de suítes de teste e nenhum braço escreve testes: a área de testes é protegida [`03-metricas.md` §4, com o parágrafo pronto para o TCC] | Referencial §8, último parágrafo |
+| Hipótese implícita de que a arquitetura multiagente "entrega redução substancial de tempo mantendo ou melhorando a qualidade" | Hipótese neutra bicaudal, fixada antes da coleta. Resultado: resolução igual, custo da carga menor, tempo de parede maior | Introdução, parágrafo 4; a lacuna passa a ser "a literatura compara sistemas inteiros, com modelo, prompt e ferramentas diferentes; falta a comparação com o resto constante" |
+| DSR de Wieringa com avaliação por estudo com desenvolvedores | DSR continua válido: artefato (Uranium) mais avaliação empírica por experimento controlado, pareado e replicado em três modelos | Introdução, parágrafo 7 |
+
+### 9.2 Introdução, parágrafo a parágrafo
+
+| Parágrafo | Veredito | Instrução |
+|---|---|---|
+| 1 (NATO 1968 a DevOps) | manter, encurtar | Duas frases bastam; o capítulo de referencial repete o mesmo histórico. |
+| 2 (LLMs, copilotos, ES 2.0) | manter | Trocar "sistematizado pela literatura como ES 2.0" por citação explícita. |
+| 3 (limites dos copilotos) | manter, reescrever o fim | O limite que importa para este trabalho é a janela de contexto e a ausência de garantia de qualidade integrada: são os dois mecanismos que o orquestrado ataca (memória de trabalho, revisor). Dizer isso. |
+| 4 (ES 3.0, AI Teammates, MetaGPT, CodeAir) | manter, neutralizar | Retirar a conclusão "capazes de entregar redução substancial de tempo". Escrever: esses sistemas foram avaliados como um todo, com modelo, prompts e ferramentas diferentes dos sistemas com que foram comparados; não se sabe o que a organização em papéis contribui por si. |
+| 5 (lacuna) | reescrever | Lacuna nova: falta um experimento em que só a topologia varie. Dimensões: resolução verificada por testes escondidos, custo, tempo, consistência, qualidade, integridade. |
+| 6 (objetivo e Uranium) | reescrever | Objetivo: medir se a organização de um agente em papéis orquestrados muda a correção de defeitos reais em relação a um agente único, com o resto constante. Uranium: harness em LangGraph com telemetria própria, oráculo de testes escondidos, detector de trapaça e caixa de areia; é o meio, não o objeto. |
+| 7 (DSR, cinco desenvolvedores, métricas) | reescrever | DSR com avaliação por experimento controlado: 13 tarefas reais, 3 repetições pareadas por semente, 2 braços, 3 modelos de 2 laboratórios, 234 runs finais; sete métricas com hierarquia fixada antes da coleta; hipótese neutra bicaudal. Fechar com a estrutura do texto. |
+
+### 9.3 Referencial Teórico, subseção a subseção
+
+| Subseção | Veredito | Instrução |
+|---|---|---|
+| 1 Origens, crises e evolução | cortar a dois parágrafos | Só o necessário para chegar aos LLMs. |
+| 2 ES 2.0 e 3.0 | manter, encurtar e corrigir | Os números de adoção (75%, 90%, 45%) estão sem citação: citar ou retirar. Manter o AIDev (456 mil PRs) e a definição de ES 3.0. Acrescentar uma frase: este trabalho se situa dentro da ES 3.0 e pergunta como organizar os agentes. |
+| 3 Agentes inteligentes | manter a definição de Wooldridge e Jennings; reduzir o BDI a uma frase | Manter o parágrafo das capacidades (planejamento, memória, decisão) e ligá-lo aos papéis do Uranium: planejador, memória de trabalho, revisor. |
+| 4 Sistemas multiagentes | manter integralmente; é o núcleo | As quatro dimensões de colaboração posicionam o braço orquestrado: cooperação; estrutura centralizada por grafo; coordenação estática; orquestração por LangGraph. A frase do survey de que "sistemas com design sub-ótimo podem ser superados por um único agente bem instruído" é a hipótese rival que o experimento testa: destacar. MetaGPT e ChatDev são os trabalhos que o estudo confronta: eles atribuem papéis mas não isolam a topologia. |
+| 5 Orquestração: grafos, estado, workflows | manter; trocar o parágrafo do LangSmith | CodeAir, com limpeza e reinjeção de contexto entre fases, é o antecedente direto da memória de trabalho do developer: ligar explicitamente, porque o achado de custo limitado (contexto máximo 37 k contra 171 k) conversa com ele. O parágrafo de observabilidade continua, mas com a telemetria própria (eventos por chamada e ferramenta, manifesto, `result.json`) no lugar do LangSmith. |
+| 6 Capacidades: ferramentas, planejamento, memória, RAG, MCP | manter ferramentas, planejamento e memória; cortar RAG e MCP | Uranium não usa RAG nem MCP. Uma frase dizendo que ficaram fora do desenho basta. O parágrafo final ("copiloto responde a solicitações isoladas; agente executa workflows") precisa mudar: os dois braços são agentes; a diferença é a topologia. |
+| 7 Programação baseada em agentes (APLs, BDI, JaCaMo, Jason, JADE) | cortar a um parágrafo | Manter só a ponte: dos APLs aos frameworks de agentes com LLM (LangChain, AutoGen, CrewAI, LangGraph) e a escolha do LangGraph. |
+| 8 Segurança, confiabilidade e governança | reescrever como "integridade e rastreabilidade da avaliação" | Cortar prompt injection. Manter Trustworthy2023 em uma frase. O que o trabalho implementou e a literatura pede: caixa de areia sem rede, área de testes protegida, workspace sem histórico (contra código do futuro), detector com oito regras, manifesto e eventos por run, semente pareada. O último parágrafo (métricas) é substituído pelo mapa da seção 9.1 e pelo parágrafo pronto sobre o Mutation Score em `03-metricas.md` §4. |
+
+### 9.4 O que falta no referencial (buscar com o Perplexity, conferir cada citação)
+
+1. **Avaliação de agentes de código com testes escondidos.** O vocabulário fail-to-pass e pass-to-pass vem do SWE-bench (Jiménez et al., 2024) e dos seus derivados verificados; o oráculo do Uranium segue esse desenho. Citar o benchmark e a crítica à contaminação e ao "gaming" de testes, que motivam o detector e o workspace sem histórico.
+2. **Degradação com contexto longo.** Trabalhos sobre perda de desempenho de modelos conforme o contexto cresce sustentam o mecanismo do achado de custo (agente único chega a 171 k tokens de contexto; orquestrado fica abaixo de 37 k).
+3. **Por que sistemas multiagentes com LLM falham.** Taxonomias recentes de falhas de sistemas multiagentes (especificação, coordenação, verificação) dão nome aos dois mecanismos observados: revisor que reprova patch certo e plano que serializa defeitos independentes.
+4. **Agente único contra multiagente com controle de variáveis.** Qualquer estudo que compare topologias mantendo o modelo constante é trabalho relacionado direto; a lacuna do trabalho é a ausência desse controle na maior parte da literatura.
+5. **Estatística para experimentos pareados com poucas unidades.** Sinal exato, McNemar exato, Wilcoxon exato e análise de poder por simulação, com referência a guias de experimentação em engenharia de software (Wohlin et al.).
+6. **Custo e eficiência de agentes.** Trabalhos que medem tokens e dólares por tarefa resolvida, para situar o achado de 29%.
+
+### 9.5 Fontes do espaço do Perplexity e onde cada uma entrou no texto existente
+
+| Arquivo no espaço | Chave no texto | Onde foi usado |
+|---|---|---|
+| Towards AI-Native Software Engineering (SE 3.0): A Vision and a Challenge Roadmap | `ES302024` | Introdução, parágrafo 4; referencial §2 (stack Teammate.next etc.) |
+| The Rise of AI Teammates in Software Engineering (SE) 3.0 | `AIDEV2025` | Referencial §2 (456 mil PRs, 61 mil repositórios, Codex) |
+| Intelligent Agents (Wooldridge e Jennings) | `IntelligentAgents1995` | Referencial §3 (noção fraca e forte) |
+| From Intelligent Agents to Trustworthy | `Trustworthy2023` | Referencial §4 (fim) e §8 |
+| Multi-Agent Collaboration Mechanisms | `SurveyLLMs2025` | Referencial §4 (quatro dimensões, "design sub-ótimo") |
+| A Review of Agent-Based Programming for Multi-Agent Systems | `ReviewMAS2021` | Referencial §7 (APLs, BDI em sete de quinze linguagens) |
+| CodeAir: A Multi-Agent Orchestration Framework | `CodeAir2025` | Referencial §5 (limpeza e reinjeção de contexto, 96%) |
+| Design Science Research | Wieringa 2009, 2014 (sem chave) | Introdução, parágrafo 7 |
+| Framework Científico para Avaliação de ES 2.0 vs 3.0 (nota própria) | sem chave | Introdução, parágrafos 5 a 7 (dimensões produtividade, autonomia, qualidade, rastreabilidade, custo) |
+| Métricas para avaliação do processo e dos artefatos (notas próprias) | sem chave | Referencial §8, último parágrafo (MI, CC, Mutation Score) |
+| LLMs Working in Harmony | sem chave | Provável fonte do §6 (ferramentas, planejamento, memória, RAG, MCP); não citado: citar ou confirmar |
+| AI-Native Software Engineering and Vibe Coding: A Strategic Technical Survey (2025-2035) | sem chave | Provável fonte dos números de adoção do §2 (75%, 90%, 45%); não citado: citar ou retirar os números |
+| A Tutorial on Software Engineering for FMware | sem chave | Não aparece no texto |
+
+Citações do texto que não vêm do espaço e precisam de referência completa conferida: `MetaGPT2023`, `ChatDev2023`, `LangGraph2025`, `LangSmith2025` (sai com o LangSmith), `AINativeMemory2024`, `MCP2024` (sai com o MCP), `AOP1993`, `JaCaMo2013`, `JASON2007`, `JADE2001` (saem com o corte do §7), `Intention1987`, `BDIAgents1995`, `GenAIAgenda2023`, `GitHubCopilot2024`, `Cursor2022`, `ClaudeCode2025`, `Codex2025`.
+
+### 9.6 Prompt 0 (antes do prompt 1 da seção 7)
+
+"Reescreva `1-Introducao.tex` e `2-Referencial.tex` seguindo a seção 9 do pacote: aplique a tabela 9.1 para corrigir o escopo, os vereditos de 9.2 e 9.3 parágrafo a parágrafo, retire LangSmith, RAG, MCP, prompt injection, Mutation Score e Maintainability Index conforme indicado, mantenha as citações existentes que a seção 9.5 confirma e marque com [REF: buscar] cada ponto da seção 9.4 em que falta uma referência. Entregue o LaTeX completo dos dois capítulos, com um resumo das mudanças ao fim."
