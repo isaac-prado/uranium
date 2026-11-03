@@ -559,3 +559,13 @@ Relatório em [07-e4-fumaca.md](07-e4-fumaca.md): 4 células (`tomlkit-0002` gra
 **Teste que prova.** Suíte completa em `runs/_lancamento/suite-2026-10-30.log` (ver resultado no commit); nenhum arquivo de `src/`, `harness/` ou `tests/` mudou. Os três scripts rodam da raiz sem argumentos e leem só arquivos versionados ou de `runs/coleta-deepseek` e `runs/coleta-devstral`.
 
 **Impacto em docs.** Documento novo 28; 27 com seis frases ajustadas (ressalva "uma tarefa" e ponteiros para 28); `26-replicacao.md` já nomeava a tomlkit-0002 em §10 e não mudou.
+
+---
+
+## Pacote de redação para o assistente externo (03/11/2026)
+
+**Diff resumido.** Só documentação. [29-pacote-redacao.md](29-pacote-redacao.md): o autor decidiu redigir o texto final com o Perplexity, que já contém a revisão bibliográfica. O pacote reúne, sem número novo, tudo o que o assistente precisa: instruções (nenhum número fora dos arquivos, fonte entre colchetes, significância só onde há), vocabulário fixo, fatos do desenho, modelos e por quê, cronograma, as sete métricas e o processo por modelo, custo da carga inteira, tarefa a tarefa, anatomia da tomlkit-0002, mecanismos, integridade, hipóteses P1 a P10 com veredito, afirmações A1 a A10, hipóteses H1 a H8, estrutura dos capítulos que faltam (o `texto/desenvolvimento.tex` de 16/10 precisa de atualização), nove prompts na ordem e a lista de conferência que o executor aplica quando o texto voltar. Página de resultados para a orientadora publicada em 30/10 (artefato privado, versão 3) com o mesmo conteúdo em tabelas.
+
+**Teste que prova.** Nenhum código mudou; suíte rodada antes do commit (ver log em `runs/_lancamento/`).
+
+**Impacto em docs.** Documento novo 29; nenhum anterior alterado.
