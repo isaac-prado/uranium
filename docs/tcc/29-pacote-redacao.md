@@ -13,7 +13,7 @@
 
 ## 1. Instruções para o assistente (colar nas instruções do espaço)
 
-> Você redige o texto de um Trabalho de Conclusão de Curso em engenharia de software, em português do Brasil, no formato de monografia da UNIFEI. O experimento está descrito nos arquivos anexados; eles são a única fonte de fatos e números sobre ele. Regras: (1) nunca escreva um número que não esteja nos arquivos; se precisar de um que não existe, escreva "[NÚMERO: pedir]" em vez de estimar; (2) ao lado de cada número, mantenha entre colchetes o nome do arquivo e a seção de onde ele vem, para a conferência posterior; (3) nunca afirme significância estatística onde o arquivo diz que não há; a única diferença significativa pré-registrada é o consumo de tokens no Devstral 2; (4) toda análise marcada como exploratória nos arquivos continua marcada como exploratória no texto; (5) use o vocabulário da seção 2 do pacote, sem sinônimos; (6) a revisão bibliográfica e os trabalhos relacionados podem usar a busca na web, com citação completa; o resto do texto, não; (7) frases curtas, voz ativa, sem adjetivos de valor ("robusto", "poderoso") que os dados não sustentem.
+> Você redige o texto de um Trabalho de Conclusão de Curso em engenharia de software, em português do Brasil, no formato de artigo de TCC do template do IMC-UNIFEI (seção 6 do pacote: estrutura e normas do template são obrigatórias). O experimento está descrito nos arquivos anexados; eles são a única fonte de fatos e números sobre ele. Regras: (1) nunca escreva um número que não esteja nos arquivos; se precisar de um que não existe, escreva "[NÚMERO: pedir]" em vez de estimar; (2) ao lado de cada número, mantenha entre colchetes o nome do arquivo e a seção de onde ele vem, para a conferência posterior; (3) nunca afirme significância estatística onde o arquivo diz que não há; a única diferença significativa pré-registrada é o consumo de tokens no Devstral 2; (4) toda análise marcada como exploratória nos arquivos continua marcada como exploratória no texto; (5) use o vocabulário da seção 2 do pacote, sem sinônimos; (6) a revisão bibliográfica e os trabalhos relacionados podem usar a busca na web, com citação completa; o resto do texto, não; (7) frases curtas, voz ativa, sem adjetivos de valor ("robusto", "poderoso") que os dados não sustentem.
 
 ---
 
@@ -222,27 +222,92 @@ Poder baixo (13 tarefas); uma tarefa grande que discrimina; modelos não pensant
 
 ---
 
-## 6. Estrutura sugerida dos capítulos que faltam
+## 6. Estrutura e normas do template de artigo de TCC do IMC-UNIFEI
 
-O capítulo "Desenvolvimento" existe em `docs/tcc/texto/desenvolvimento.tex` (16/10/2026) e precisa de uma atualização com as rodadas 5 a 8, o isolamento de 22/10 e a replicação (seção 3 deste pacote). Faltam:
+Fonte: `Template_Artigo_IMC_UNIFEI.pdf` (IMC-UNIFEI, novembro de 2022), enviado pelo autor em 03/11/2026. O artigo segue esta estrutura, nesta ordem; a discussão fica onde o template permite (ver 6.6).
 
-- **Resultados.** 1 Visão geral das três coletas (4.1). 2 As sete métricas (4.2, 4.3). 3 Análise pareada e por faixa (4.1). 4 Tarefa a tarefa, teto, piso e as oito que discriminam (4.5). 5 Custo real, cache e integridade (4.4, 4.8).
-- **Discussão.** 1 Vereditos das hipóteses (5.1, 5.2). 2 Mecanismos: tomlkit-0002, resgates do revisor, peewee-0002, custo do revisor (4.6, 4.7). 3 Economia da topologia (4.4, A2, A3, A8). 4 Ameaças à validade (5.5). 5 Lições da construção do instrumento (27 §3).
-- **Conclusão.** Afirmações A1 a A10, contribuições (27 §7), hipóteses H1 a H8 e dimensionamento do próximo estudo.
+### 6.1 Resumo (`elemtextuais/resumo.tex`)
+
+Um único parágrafo, sem tabulação, sem links nem citações, escrito por último. Quatro conteúdos, nesta ordem: (i) contextualização com o problema real e a motivação; (ii) esboço da solução adotada; (iii) como se verificou que a solução resolveu o problema (experimentos); (iv) síntese dos resultados. Título e palavras-chave em `configuracao.tex`. O título destaca o problema, não a tecnologia, e evita siglas.
+
+### 6.2 Introdução (seção 1), oito parágrafos
+
+| Parágrafo | Conteúdo pedido pelo template | O que entra, deste estudo |
+|---|---|---|
+| 1 e 2 | apresentação do tema dentro de um contexto | LLMs no desenvolvimento; de copilotos (ES 2.0) a agentes autônomos (ES 3.0); sistemas multiagentes com papéis |
+| 3 | delimitação do tema pelo problema de pesquisa | a literatura compara sistemas inteiros com modelo, prompt e ferramentas diferentes; não se sabe o que a organização em papéis contribui por si. Problema: a orquestração de papéis muda a correção de defeitos reais em relação a um agente único, com o resto constante? |
+| 4 | hipóteses | hipótese neutra bicaudal sobre resolução (P1); custo em tokens (P2); efeito por faixa (P3), seção 5.1 do pacote |
+| 5 | objetivo geral e específicos | geral: medir o efeito da topologia com o resto constante. Específicos: construir o harness Uranium com oráculo, detector e caixa de areia; minerar e validar 13 tarefas; calibrar e congelar tetos; executar as coletas pareadas por semente; replicar em três modelos; analisar as sete métricas |
+| 6 | justificativa | decisões de adoção de agentes dependem de saber o que a topologia muda em resolução, custo e modo de falhar; a literatura não isola essa variável |
+| 7 | metodologia, de forma concisa | DSR (Wieringa) com avaliação por experimento controlado: 13 tarefas × 3 repetições × 2 braços × 3 modelos, 234 runs finais, pareamento por semente, sete métricas com hierarquia fixada antes da coleta |
+| 8 | estrutura do trabalho | uma frase por seção |
+
+Evitar parágrafos muito curtos; frases curtas.
+
+### 6.3 Referencial Teórico (seção 2)
+
+Conceitos com referências (mais de uma quando possível), ontologia (conceitos usados) e ontogenia (como as ideias evoluíram até o estado da arte), **e os trabalhos correlatos** na mesma seção. Aplicar os vereditos da seção 9.3 do pacote. Trabalhos correlatos a incluir: MetaGPT, ChatDev, CodeAir, o survey de mecanismos de colaboração, o AIDev, e o que a busca da seção 9.4 encontrar (SWE-bench e derivados, comparações agente único × multiagente com modelo constante, taxonomias de falha).
+
+### 6.4 Desenvolvimento (seção 3)
+
+Contribuição pessoal do autor; evitar citar referências. Conteúdo pedido pelo template e onde já está em `texto/desenvolvimento.tex` (16/10/2026):
+
+| Item do template | Subseção existente | Atualizar com |
+|---|---|---|
+| tipo de pesquisa: abordagem, natureza, procedimento, método | Caracterização da pesquisa | quantitativa, prática, experimento controlado, DSR; sem participantes humanos |
+| dados (materiais): tipo, obtenção, quantidade, onde obter | Materiais: repositórios e tarefas | 13 tarefas, cinco portões, duas referências, faixas; dados versionados em `docs/tcc/dados/` |
+| evidências do que foi desenvolvido (modelos, diagramas, figuras, algoritmos) | O instrumento: Uranium | figura da arquitetura (`figs/uranium-arquitetura.tex`, em PDF), os dois braços, oráculo, detector, caixa de areia, workspace só com o commit-base, telemetria própria, manifesto |
+| projeto de experimentos: fatores, níveis, variáveis de resposta, métricas, métodos estatísticos, reprodução | Projeto de experimentos | fator: topologia (2 níveis); blocos: tarefa (13), repetição/semente (3), modelo (3); variáveis de resposta: as sete métricas; testes exatos pareados (sinal, McNemar, Wilcoxon); poder por simulação; rodadas 2 a 8 e a regra da configuração decisiva |
+| ambiente: hardware, software, versões, parâmetros | Ambiente de desenvolvimento e de experimentos | modelos, provedores, quantização, tetos (120 turnos, 8 M tokens, 3.600 s, 120 s), bubblewrap, versões |
+
+Algoritmos em pseudocódigo com `algorithm2e` quando ajudarem (por exemplo, o laço do operador do agente único e o ciclo developer–validador); todo algoritmo, figura e tabela descrito no texto.
+
+### 6.5 Resultados (seção 4)
+
+Evidências dos experimentos do Desenvolvimento: apresentar, analisar e só então discutir; linguagem neutra, com o que deu certo e o que deu errado; conjecturas que expliquem os resultados; verificar se os objetivos foram atendidos e se a hipótese foi confirmada. Subseções propostas, uma por planejamento de experimento:
+
+- 4.1 Coleta principal e construção do instrumento (fumaças, rodadas 1 a 8, defeitos corrigidos; `27` §3; tabela das rodadas).
+- 4.2 As três coletas finais: resolução e as sete métricas (4.1, 4.2, 4.3 do pacote).
+- 4.3 Análise pareada e por faixa (4.1 do pacote: McNemar, intervalos, faixas).
+- 4.4 Tarefa a tarefa e mecanismos (4.5, 4.6, 4.7 do pacote).
+- 4.5 Custo, cache e integridade (4.4, 4.8 do pacote).
+- 4.6 Discussão (ver 6.6).
+
+Tabelas em LaTeX (nunca figura de tabela), com título que diga o quê, como, onde e quando; figuras em PDF; termos em inglês em itálico; nomes de seções, figuras e tabelas com inicial maiúscula e chamados com `\ref{}`.
+
+### 6.6 Onde fica a discussão
+
+O template dá duas opções: subseção própria dentro de Resultados, ou na seção Conclusões. Proposta: subseção 4.6 Discussão, porque a discussão deste trabalho é longa (vereditos das hipóteses, mecanismos, economia da topologia, ameaças à validade, concordância e contraste com os trabalhos correlatos) e deixaria a Conclusão desproporcional. Decisão do autor com a orientadora.
+
+### 6.7 Conclusões (seção 5), três partes
+
+(i) Conclusão: problema, solução, validação, resultados e constatações mais significativas; as hipóteses foram confirmadas?; retomar os objetivos geral e específicos e dizer como foram alcançados. (ii) Contribuições: a principal em destaque, pontos positivos e negativos, cada conclusão com sua evidência (afirmações A1 a A10 do pacote). (iii) Trabalhos futuros: hipóteses H1 a H8 e o dimensionamento de 40 a 60 tarefas.
+
+### 6.8 Agradecimentos e Referências
+
+Agradecimentos: um parágrafo, até quatro linhas (`elemtextuais/agradecimentos.tex`). Referências em `referencias.bib`, com `\cite{}` para "Autor (ano)" e `\citep{}` para "(Autor, ano)"; conferir os campos de cada entrada; retirar as referências e figuras de exemplo do template.
+
+### 6.9 Normas de escrita do template
+
+- Listas com frases curtas: ponto e vírgula, "e" no penúltimo item, ponto final no último; frases longas: ponto final em todas.
+- Toda figura, tabela, algoritmo e código numerado e citado no texto.
+- Documento sem erros nem avisos de compilação.
+- Palavras em inglês em itálico.
 
 ---
 
-## 7. Prompts, um por seção (colar no Perplexity, na ordem)
+## 7. Prompts, um por seção do template (colar no Perplexity, na ordem)
 
-1. "Com base no pacote (seção 4.1 e 4.2) e no documento 27 §4.1, escreva a seção 'Resultados: visão geral das três coletas', 600 a 800 palavras, com a tabela 4.1 em formato de tabela e a tabela 4.2 em seguida. Cada número com a fonte entre colchetes."
-2. "Escreva 'Análise pareada e por faixa' a partir de 4.1 (parágrafo dos intervalos) e E §1 e §2, 400 a 600 palavras. Deixe explícito que o sinal da faixa grande vem de uma tarefa."
-3. "Escreva 'Tarefa a tarefa' a partir de 4.5 e 4.6, 600 a 800 palavras, com a tabela 4.5."
-4. "Escreva 'Custo, cache e integridade' a partir de 4.4 e 4.8, 500 a 700 palavras, marcando o custo da carga inteira como análise exploratória."
-5. "Escreva 'Discussão: vereditos das hipóteses' a partir de 5.1 e 5.2, 500 a 700 palavras, com as duas tabelas."
-6. "Escreva 'Discussão: mecanismos' a partir de 4.6 e 4.7, 800 a 1.000 palavras, com uma subseção por mecanismo (tomlkit-0002, resgates do revisor, custo do revisor, peewee-0002)."
-7. "Escreva 'Discussão: economia da topologia e ameaças à validade' a partir de 4.4, A2, A3, A8 e 5.5, 600 a 800 palavras."
-8. "Escreva 'Conclusão' a partir de 5.3, 5.4 e 27 §7, 600 a 900 palavras, terminando com o dimensionamento do próximo estudo."
-9. "Atualize o capítulo 'Desenvolvimento' anexado com a seção 3 do pacote: rodadas 5 a 8, isolamento, replicação, cronograma. Não remova nada que já esteja correto; marque o que mudou."
+0. "Reescreva `1-Introducao.tex` e `2-Referencial.tex` seguindo a seção 9 do pacote e a estrutura da seção 6.2 (oito parágrafos da Introdução, com o conteúdo da terceira coluna) e 6.3 (Referencial com trabalhos correlatos). Retire LangSmith, RAG, MCP, prompt injection, Mutation Score e Maintainability Index conforme a seção 9.1; mantenha as citações que a seção 9.5 confirma; marque [REF: buscar] onde a seção 9.4 pede referência. Entregue o LaTeX dos dois arquivos e um resumo das mudanças."
+1. "Atualize `3-Desenvolvimento.tex` (anexado como `desenvolvimento.tex`) conforme a seção 6.4 do pacote: mantenha as cinco subseções, acrescente rodadas 5 a 8, isolamento de 22/10, replicação e o projeto de experimentos com fatores, níveis, variáveis de resposta e métodos estatísticos (seção 3 e 3.2 do pacote). Sem citar referências. Marque o que mudou."
+2. "Escreva a subseção 4.1 Coleta principal e construção do instrumento a partir de 27 §3 e da seção 3.2 do pacote, com a tabela das rodadas (runs, tarefas, faixa grande, aprovações erradas, custo). Cada número com a fonte entre colchetes."
+3. "Escreva a subseção 4.2 As três coletas finais a partir de 4.1, 4.2 e 4.3 do pacote, com as tabelas de resolução e das sete métricas em LaTeX, título de tabela com o quê, como, onde e quando."
+4. "Escreva a subseção 4.3 Análise pareada e por faixa a partir de 4.1 do pacote e de E §1 e §2; diga que o sinal da faixa grande vem de uma tarefa."
+5. "Escreva a subseção 4.4 Tarefa a tarefa e mecanismos a partir de 4.5, 4.6 e 4.7 do pacote, com a tabela por tarefa."
+6. "Escreva a subseção 4.5 Custo, cache e integridade a partir de 4.4 e 4.8 do pacote; o custo da carga inteira é análise exploratória e fica dito."
+7. "Escreva a subseção 4.6 Discussão a partir de 5.1, 5.2, 4.6, 4.7, 5.5 do pacote e dos trabalhos correlatos do Referencial: vereditos das hipóteses, mecanismos, economia da topologia, ameaças à validade, concordância e contraste com MetaGPT, ChatDev, CodeAir e o survey de colaboração."
+8. "Escreva a seção 5 Conclusões em três partes conforme 6.7 do pacote: conclusão com retomada dos objetivos e das hipóteses; contribuições com as afirmações A1 a A10 e suas evidências; trabalhos futuros com H1 a H8 e o dimensionamento."
+9. "Escreva o Resumo em um parágrafo, sem citações nem links, com os quatro conteúdos da seção 6.1 do pacote, e proponha três palavras-chave e um título que destaque o problema, não a tecnologia."
 
 Depois de cada resposta: colar aqui para conferência de números; só então passar ao LaTeX.
 
@@ -275,6 +340,8 @@ Os capítulos `1-Introducao.tex` e `2-Referencial.tex` foram escritos para o TFG
 | DSR de Wieringa com avaliação por estudo com desenvolvedores | DSR continua válido: artefato (Uranium) mais avaliação empírica por experimento controlado, pareado e replicado em três modelos | Introdução, parágrafo 7 |
 
 ### 9.2 Introdução, parágrafo a parágrafo
+
+A Introdução nova segue os oito parágrafos da seção 6.2 (template). A tabela abaixo diz o que aproveitar do texto antigo em cada um.
 
 | Parágrafo | Veredito | Instrução |
 |---|---|---|
@@ -328,6 +395,6 @@ Os capítulos `1-Introducao.tex` e `2-Referencial.tex` foram escritos para o TFG
 
 Citações do texto que não vêm do espaço e precisam de referência completa conferida: `MetaGPT2023`, `ChatDev2023`, `LangGraph2025`, `LangSmith2025` (sai com o LangSmith), `AINativeMemory2024`, `MCP2024` (sai com o MCP), `AOP1993`, `JaCaMo2013`, `JASON2007`, `JADE2001` (saem com o corte do §7), `Intention1987`, `BDIAgents1995`, `GenAIAgenda2023`, `GitHubCopilot2024`, `Cursor2022`, `ClaudeCode2025`, `Codex2025`.
 
-### 9.6 Prompt 0 (antes do prompt 1 da seção 7)
+### 9.6 Prompt 0 (é o prompt 0 da seção 7, repetido aqui)
 
 "Reescreva `1-Introducao.tex` e `2-Referencial.tex` seguindo a seção 9 do pacote: aplique a tabela 9.1 para corrigir o escopo, os vereditos de 9.2 e 9.3 parágrafo a parágrafo, retire LangSmith, RAG, MCP, prompt injection, Mutation Score e Maintainability Index conforme indicado, mantenha as citações existentes que a seção 9.5 confirma e marque com [REF: buscar] cada ponto da seção 9.4 em que falta uma referência. Entregue o LaTeX completo dos dois capítulos, com um resumo das mudanças ao fim."
