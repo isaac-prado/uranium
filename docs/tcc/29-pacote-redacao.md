@@ -4,7 +4,7 @@
 
 **Como usar, na ordem.**
 
-1. Crie um espaço (Space) no Perplexity e anexe como fontes: este arquivo, o 27, o 28 e `docs/tcc/texto/desenvolvimento.tex`. Nas instruções do espaço, cole o bloco "Instruções para o assistente" abaixo.
+1. Crie um espaço (Space) no Perplexity e anexe como fontes sete arquivos: este pacote, o 27, o 28, `Template_Artigo_IMC_UNIFEI.pdf`, e os três `.tex` já escritos (`1-Introducao.tex`, `2-Referencial.tex`, `docs/tcc/texto/desenvolvimento.tex`). O assistente só enxerga o que está anexado; o texto antigo não está na memória dele. Se o Space recusar a extensão `.tex`, salve uma cópia como `.txt` com o mesmo nome. Nas instruções do espaço, cole o bloco "Instruções para o assistente" abaixo.
 2. Peça uma seção por vez, usando os prompts da seção 7 deste arquivo, na ordem. Não peça "o artigo inteiro": o texto fica longo demais e os números começam a derivar.
 3. Cole cada seção pronta de volta aqui no Claude Code com o pedido "confira os números desta seção contra os arquivos". A conferência é mecânica: cada número do texto tem de existir num arquivo de `docs/tcc/dados/` ou nos documentos 27 e 28.
 4. Só então leve a seção para o LaTeX (`docs/tcc/texto/`), no template da UNIFEI já usado em `desenvolvimento.tex`.
@@ -298,8 +298,8 @@ Agradecimentos: um parágrafo, até quatro linhas (`elemtextuais/agradecimentos.
 
 ## 7. Prompts, um por seção do template (colar no Perplexity, na ordem)
 
-0. "Reescreva `1-Introducao.tex` e `2-Referencial.tex` seguindo a seção 9 do pacote e a estrutura da seção 6.2 (oito parágrafos da Introdução, com o conteúdo da terceira coluna) e 6.3 (Referencial com trabalhos correlatos). Retire LangSmith, RAG, MCP, prompt injection, Mutation Score e Maintainability Index conforme a seção 9.1; mantenha as citações que a seção 9.5 confirma; marque [REF: buscar] onde a seção 9.4 pede referência. Entregue o LaTeX dos dois arquivos e um resumo das mudanças."
-1. "Atualize `3-Desenvolvimento.tex` (anexado como `desenvolvimento.tex`) conforme a seção 6.4 do pacote: mantenha as cinco subseções, acrescente rodadas 5 a 8, isolamento de 22/10, replicação e o projeto de experimentos com fatores, níveis, variáveis de resposta e métodos estatísticos (seção 3 e 3.2 do pacote). Sem citar referências. Marque o que mudou."
+0. "Os arquivos anexados `1-Introducao.tex` e `2-Referencial.tex` são a Introdução e o Referencial Teórico atuais. Reescreva os dois seguindo a seção 9 do pacote e a estrutura da seção 6.2 (oito parágrafos da Introdução, com o conteúdo da terceira coluna) e 6.3 (Referencial com trabalhos correlatos). Retire LangSmith, RAG, MCP, prompt injection, Mutation Score e Maintainability Index conforme a seção 9.1; mantenha as citações que a seção 9.5 confirma; marque [REF: buscar] onde a seção 9.4 pede referência. Entregue o LaTeX dos dois arquivos e um resumo das mudanças."
+1. "O arquivo anexado `desenvolvimento.tex` é a seção Desenvolvimento atual. Atualize-o conforme a seção 6.4 do pacote: mantenha as cinco subseções, acrescente rodadas 5 a 8, isolamento de 22/10, replicação e o projeto de experimentos com fatores, níveis, variáveis de resposta e métodos estatísticos (seção 3 e 3.2 do pacote). Sem citar referências. Marque o que mudou."
 2. "Escreva a subseção 4.1 Coleta principal e construção do instrumento a partir de 27 §3 e da seção 3.2 do pacote, com a tabela das rodadas (runs, tarefas, faixa grande, aprovações erradas, custo). Cada número com a fonte entre colchetes."
 3. "Escreva a subseção 4.2 As três coletas finais a partir de 4.1, 4.2 e 4.3 do pacote, com as tabelas de resolução e das sete métricas em LaTeX, título de tabela com o quê, como, onde e quando."
 4. "Escreva a subseção 4.3 Análise pareada e por faixa a partir de 4.1 do pacote e de E §1 e §2; diga que o sinal da faixa grande vem de uma tarefa."
