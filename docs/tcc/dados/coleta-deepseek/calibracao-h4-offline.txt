@@ -1,0 +1,171 @@
+runs orquestrados lidos: 117
+
+== Linha de base real (117 runs)
+resolvidos 80; turnos totais 8354; aprovações erradas 13; resolvidos cortados 10
+
+== Regra: primeiro_verde
+turnos economizados: 2547 de 8354 (30%)
+    2  não resolvido: corte vira aprovação errada
+   13  não resolvido: corte vira aprovação errada (patch mudou depois)
+    3  não resolvido: já era aprovação errada
+    6  resolvido: mesmo patch (ganho certo)
+   33  resolvido: patch mudou depois (incerto)
+   60  sem efeito
+resolvidos: real 80; limite pessimista 47 (os incertos viram perda); limite otimista 80
+aprovações erradas: real 13; com a regra, certas 28 (cortes que virariam aprovação errada) + até 33 incertas
+  Qwen      não resolvido: corte vira aprovação errada (patch mudou depois)=6; não resolvido: já era aprovação errada=2; resolvido: mesmo patch (ganho certo)=2; resolvido: patch mudou depois (incerto)=16; sem efeito=13
+  DeepSeek  não resolvido: corte vira aprovação errada=2; não resolvido: corte vira aprovação errada (patch mudou depois)=3; resolvido: mesmo patch (ganho certo)=3; resolvido: patch mudou depois (incerto)=9; sem efeito=22
+  Devstral  não resolvido: corte vira aprovação errada (patch mudou depois)=4; não resolvido: já era aprovação errada=1; resolvido: mesmo patch (ganho certo)=1; resolvido: patch mudou depois (incerto)=8; sem efeito=25
+
+== Regra: concluiu+verde
+turnos economizados: 1761 de 8354 (21%)
+    1  não resolvido: corte vira aprovação errada
+    4  não resolvido: corte vira aprovação errada (patch mudou depois)
+    2  não resolvido: já era aprovação errada
+    6  resolvido: mesmo patch (ganho certo)
+   26  resolvido: patch mudou depois (incerto)
+   78  sem efeito
+resolvidos: real 80; limite pessimista 54 (os incertos viram perda); limite otimista 80
+aprovações erradas: real 13; com a regra, certas 18 (cortes que virariam aprovação errada) + até 26 incertas
+  Qwen      não resolvido: corte vira aprovação errada=1; não resolvido: corte vira aprovação errada (patch mudou depois)=3; não resolvido: já era aprovação errada=2; resolvido: mesmo patch (ganho certo)=2; resolvido: patch mudou depois (incerto)=15; sem efeito=16
+  DeepSeek  resolvido: mesmo patch (ganho certo)=3; resolvido: patch mudou depois (incerto)=6; sem efeito=30
+  Devstral  não resolvido: corte vira aprovação errada (patch mudou depois)=1; resolvido: mesmo patch (ganho certo)=1; resolvido: patch mudou depois (incerto)=5; sem efeito=32
+  detalhe (modelo, tarefa, rep, ciclo de aprovação simulada / ciclos reais, turnos poupados, classe):
+    ('Qwen', 'attrs-0001', 1, 1, 3, 18, 'resolvido: patch mudou depois (incerto)')
+    ('Qwen', 'attrs-0001', 2, 1, 2, 11, 'resolvido: patch mudou depois (incerto)')
+    ('Qwen', 'peewee-0001', 1, 1, 2, 18, 'resolvido: patch mudou depois (incerto)')
+    ('Qwen', 'peewee-0001', 2, 1, 2, 16, 'resolvido: patch mudou depois (incerto)')
+    ('Qwen', 'peewee-0001', 3, 1, 2, 16, 'resolvido: patch mudou depois (incerto)')
+    ('Qwen', 'peewee-0002', 1, 3, 4, 8, 'não resolvido: corte vira aprovação errada')
+    ('Qwen', 'peewee-0002', 2, 1, 4, 93, 'não resolvido: corte vira aprovação errada (patch mudou depois)')
+    ('Qwen', 'peewee-0002', 3, 1, 5, 86, 'não resolvido: corte vira aprovação errada (patch mudou depois)')
+    ('Qwen', 'pygments-0001', 1, 1, 4, 38, 'resolvido: patch mudou depois (incerto)')
+    ('Qwen', 'pygments-0001', 2, 1, 2, 19, 'resolvido: patch mudou depois (incerto)')
+    ('Qwen', 'pygments-0001', 3, 1, 2, 29, 'resolvido: patch mudou depois (incerto)')
+    ('Qwen', 'sqlite-utils-0001', 3, 1, 3, 45, 'não resolvido: já era aprovação errada')
+    ('Qwen', 'sqlite-utils-0002', 2, 1, 2, 36, 'resolvido: patch mudou depois (incerto)')
+    ('Qwen', 'sqlite-utils-0003', 1, 1, 3, 54, 'não resolvido: já era aprovação errada')
+    ('Qwen', 'sqlite-utils-0003', 2, 1, 6, 95, 'resolvido: patch mudou depois (incerto)')
+    ('Qwen', 'sqlite-utils-0003', 3, 1, 2, 41, 'resolvido: patch mudou depois (incerto)')
+    ('Qwen', 'tomlkit-0001', 1, 1, 7, 68, 'resolvido: mesmo patch (ganho certo)')
+    ('Qwen', 'tomlkit-0001', 3, 1, 6, 66, 'resolvido: mesmo patch (ganho certo)')
+    ('Qwen', 'tomlkit-0002', 3, 1, 2, 24, 'resolvido: patch mudou depois (incerto)')
+    ('Qwen', 'tomlkit-0003', 1, 1, 4, 47, 'resolvido: patch mudou depois (incerto)')
+    ('Qwen', 'tomlkit-0003', 2, 1, 4, 86, 'resolvido: patch mudou depois (incerto)')
+    ('Qwen', 'tomlkit-0003', 3, 2, 4, 65, 'resolvido: patch mudou depois (incerto)')
+    ('Qwen', 'tomlkit-0005', 2, 1, 6, 92, 'não resolvido: corte vira aprovação errada (patch mudou depois)')
+    ('DeepSeek', 'attrs-0001', 1, 1, 4, 74, 'resolvido: patch mudou depois (incerto)')
+    ('DeepSeek', 'peewee-0001', 1, 1, 2, 41, 'resolvido: patch mudou depois (incerto)')
+    ('DeepSeek', 'pygments-0001', 1, 1, 2, 20, 'resolvido: patch mudou depois (incerto)')
+    ('DeepSeek', 'pygments-0001', 2, 1, 2, 17, 'resolvido: patch mudou depois (incerto)')
+    ('DeepSeek', 'sqlite-utils-0003', 2, 1, 3, 66, 'resolvido: patch mudou depois (incerto)')
+    ('DeepSeek', 'tomlkit-0001', 1, 1, 5, 81, 'resolvido: mesmo patch (ganho certo)')
+    ('DeepSeek', 'tomlkit-0001', 2, 1, 5, 67, 'resolvido: mesmo patch (ganho certo)')
+    ('DeepSeek', 'tomlkit-0001', 3, 1, 4, 79, 'resolvido: mesmo patch (ganho certo)')
+    ('DeepSeek', 'tomlkit-0002', 1, 1, 2, 41, 'resolvido: patch mudou depois (incerto)')
+    ('Devstral', 'attrs-0001', 1, 1, 2, 25, 'resolvido: patch mudou depois (incerto)')
+    ('Devstral', 'sqlite-utils-0003', 1, 1, 2, 32, 'resolvido: patch mudou depois (incerto)')
+    ('Devstral', 'sqlite-utils-0003', 2, 1, 2, 35, 'resolvido: patch mudou depois (incerto)')
+    ('Devstral', 'sqlite-utils-0003', 3, 1, 3, 40, 'resolvido: patch mudou depois (incerto)')
+    ('Devstral', 'tomlkit-0001', 1, 1, 9, 30, 'resolvido: mesmo patch (ganho certo)')
+    ('Devstral', 'tomlkit-0002', 3, 3, 5, 13, 'resolvido: patch mudou depois (incerto)')
+    ('Devstral', 'tomlkit-0005', 1, 2, 5, 29, 'não resolvido: corte vira aprovação errada (patch mudou depois)')
+
+== Regra: patch_inalterado
+turnos economizados: 493 de 8354 (6%)
+    3  não resolvido: corte vira aprovação errada
+    3  não resolvido: corte vira aprovação errada (patch mudou depois)
+    1  não resolvido: já era aprovação errada
+    8  resolvido: mesmo patch (ganho certo)
+    2  resolvido: patch mudou depois (incerto)
+  100  sem efeito
+resolvidos: real 80; limite pessimista 78 (os incertos viram perda); limite otimista 80
+aprovações erradas: real 13; com a regra, certas 19 (cortes que virariam aprovação errada) + até 2 incertas
+  Qwen      não resolvido: corte vira aprovação errada=2; não resolvido: corte vira aprovação errada (patch mudou depois)=2; não resolvido: já era aprovação errada=1; resolvido: mesmo patch (ganho certo)=4; sem efeito=30
+  DeepSeek  não resolvido: corte vira aprovação errada=1; resolvido: mesmo patch (ganho certo)=3; sem efeito=35
+  Devstral  não resolvido: corte vira aprovação errada (patch mudou depois)=1; resolvido: mesmo patch (ganho certo)=1; resolvido: patch mudou depois (incerto)=2; sem efeito=35
+  detalhe (modelo, tarefa, rep, ciclo de aprovação simulada / ciclos reais, turnos poupados, classe):
+    ('Qwen', 'peewee-0002', 1, 2, 4, 25, 'não resolvido: corte vira aprovação errada (patch mudou depois)')
+    ('Qwen', 'peewee-0002', 2, 2, 4, 52, 'não resolvido: corte vira aprovação errada (patch mudou depois)')
+    ('Qwen', 'peewee-0002', 3, 5, 5, 0, 'não resolvido: corte vira aprovação errada')
+    ('Qwen', 'sqlite-utils-0001', 3, 2, 3, 23, 'não resolvido: já era aprovação errada')
+    ('Qwen', 'tomlkit-0001', 1, 2, 7, 50, 'resolvido: mesmo patch (ganho certo)')
+    ('Qwen', 'tomlkit-0001', 3, 2, 6, 52, 'resolvido: mesmo patch (ganho certo)')
+    ('Qwen', 'tomlkit-0003', 1, 3, 4, 19, 'resolvido: mesmo patch (ganho certo)')
+    ('Qwen', 'tomlkit-0003', 2, 3, 4, 4, 'resolvido: mesmo patch (ganho certo)')
+    ('Qwen', 'tomlkit-0005', 2, 6, 6, 0, 'não resolvido: corte vira aprovação errada')
+    ('DeepSeek', 'peewee-0002', 3, 3, 3, 0, 'não resolvido: corte vira aprovação errada')
+    ('DeepSeek', 'tomlkit-0001', 1, 2, 5, 65, 'resolvido: mesmo patch (ganho certo)')
+    ('DeepSeek', 'tomlkit-0001', 2, 2, 5, 44, 'resolvido: mesmo patch (ganho certo)')
+    ('DeepSeek', 'tomlkit-0001', 3, 2, 4, 58, 'resolvido: mesmo patch (ganho certo)')
+    ('Devstral', 'sqlite-utils-0003', 3, 2, 3, 37, 'resolvido: patch mudou depois (incerto)')
+    ('Devstral', 'tomlkit-0001', 1, 2, 9, 27, 'resolvido: mesmo patch (ganho certo)')
+    ('Devstral', 'tomlkit-0002', 3, 3, 5, 13, 'resolvido: patch mudou depois (incerto)')
+    ('Devstral', 'tomlkit-0005', 1, 3, 5, 24, 'não resolvido: corte vira aprovação errada (patch mudou depois)')
+
+== Regra: teto_2
+turnos economizados: 968 de 8354 (12%)
+    5  não resolvido: corte vira aprovação errada
+    7  não resolvido: corte vira aprovação errada (patch mudou depois)
+    2  não resolvido: já era aprovação errada
+    8  resolvido: mesmo patch (ganho certo)
+    9  resolvido: patch mudou depois (incerto)
+   86  sem efeito
+resolvidos: real 80; limite pessimista 71 (os incertos viram perda); limite otimista 80
+aprovações erradas: real 13; com a regra, certas 25 (cortes que virariam aprovação errada) + até 9 incertas
+  Qwen      não resolvido: corte vira aprovação errada=2; não resolvido: corte vira aprovação errada (patch mudou depois)=4; não resolvido: já era aprovação errada=2; resolvido: mesmo patch (ganho certo)=4; resolvido: patch mudou depois (incerto)=4; sem efeito=23
+  DeepSeek  não resolvido: corte vira aprovação errada=1; não resolvido: corte vira aprovação errada (patch mudou depois)=2; resolvido: mesmo patch (ganho certo)=3; resolvido: patch mudou depois (incerto)=3; sem efeito=30
+  Devstral  não resolvido: corte vira aprovação errada=2; não resolvido: corte vira aprovação errada (patch mudou depois)=1; resolvido: mesmo patch (ganho certo)=1; resolvido: patch mudou depois (incerto)=2; sem efeito=33
+
+== Regra: teto_3
+turnos economizados: 365 de 8354 (4%)
+    5  não resolvido: corte vira aprovação errada
+    3  não resolvido: corte vira aprovação errada (patch mudou depois)
+    9  resolvido: mesmo patch (ganho certo)
+    4  resolvido: patch mudou depois (incerto)
+   96  sem efeito
+resolvidos: real 80; limite pessimista 76 (os incertos viram perda); limite otimista 80
+aprovações erradas: real 13; com a regra, certas 21 (cortes que virariam aprovação errada) + até 4 incertas
+  Qwen      não resolvido: corte vira aprovação errada=3; não resolvido: corte vira aprovação errada (patch mudou depois)=2; resolvido: mesmo patch (ganho certo)=4; resolvido: patch mudou depois (incerto)=2; sem efeito=28
+  DeepSeek  não resolvido: corte vira aprovação errada=2; resolvido: mesmo patch (ganho certo)=4; resolvido: patch mudou depois (incerto)=1; sem efeito=32
+  Devstral  não resolvido: corte vira aprovação errada (patch mudou depois)=1; resolvido: mesmo patch (ganho certo)=1; resolvido: patch mudou depois (incerto)=1; sem efeito=36
+
+== Os 10 runs resolvidos mas cortados (revisor nunca aprovou): a primeira reprovação com verde e se o patch mudou depois dela
+  Qwen      tomlkit-0001       rep1: 1ª reprovação com verde no ciclo 1/7; patch mudou depois: False; turnos depois: 68; reprovações com verde: 7
+  Qwen      tomlkit-0001       rep3: 1ª reprovação com verde no ciclo 1/6; patch mudou depois: False; turnos depois: 66; reprovações com verde: 5
+  Qwen      tomlkit-0003       rep1: 1ª reprovação com verde no ciclo 1/4; patch mudou depois: True; turnos depois: 47; reprovações com verde: 4
+  Qwen      tomlkit-0003       rep2: 1ª reprovação com verde no ciclo 1/4; patch mudou depois: True; turnos depois: 86; reprovações com verde: 4
+  DeepSeek  attrs-0001         rep1: 1ª reprovação com verde no ciclo 1/4; patch mudou depois: True; turnos depois: 74; reprovações com verde: 4
+  DeepSeek  tomlkit-0001       rep1: 1ª reprovação com verde no ciclo 1/5; patch mudou depois: False; turnos depois: 81; reprovações com verde: 5
+  DeepSeek  tomlkit-0001       rep2: 1ª reprovação com verde no ciclo 1/5; patch mudou depois: False; turnos depois: 67; reprovações com verde: 5
+  DeepSeek  tomlkit-0001       rep3: 1ª reprovação com verde no ciclo 1/4; patch mudou depois: False; turnos depois: 79; reprovações com verde: 4
+  DeepSeek  tomlkit-0005       rep1: 1ª reprovação com verde no ciclo 1/3; patch mudou depois: True; turnos depois: 66; reprovações com verde: 3
+  Devstral  tomlkit-0002       rep3: 1ª reprovação com verde no ciclo 1/5; patch mudou depois: True; turnos depois: 66; reprovações com verde: 5
+
+== Causa das reprovações com verde: blocos de reprodução que não compilam (SyntaxError na execução do validador)
+  Qwen      reprovações com verde 66, com SyntaxError nos blocos 28
+  DeepSeek  reprovações com verde 39, com SyntaxError nos blocos 16
+  Devstral  reprovações com verde 31, com SyntaxError nos blocos 14
+  total: 136 reprovações com verde, 58 com SyntaxError; runs afetados 16, resolvidos 15, turnos depois da 1ª reprovação com SyntaxError 885 de 8354
+    ('Qwen', 'sqlite-utils-0003', 1, False, 'concluiu', 54, True)
+    ('Qwen', 'sqlite-utils-0003', 2, True, 'concluiu', 95, True)
+    ('Qwen', 'sqlite-utils-0003', 3, True, 'concluiu', 41, True)
+    ('Qwen', 'tomlkit-0001', 1, True, 'budget: max_turns', 68, False)
+    ('Qwen', 'tomlkit-0001', 3, True, 'budget: max_turns', 66, False)
+    ('Qwen', 'tomlkit-0003', 1, True, 'budget: max_wall_seconds', 47, True)
+    ('Qwen', 'tomlkit-0003', 2, True, 'budget: max_turns', 86, True)
+    ('DeepSeek', 'sqlite-utils-0003', 2, True, 'concluiu', 66, True)
+    ('DeepSeek', 'tomlkit-0001', 1, True, 'budget: max_turns', 81, False)
+    ('DeepSeek', 'tomlkit-0001', 2, True, 'budget: max_turns', 67, False)
+    ('DeepSeek', 'tomlkit-0001', 3, True, 'budget: max_turns', 79, False)
+    ('Devstral', 'pygments-0001', 2, True, 'concluiu', 10, True)
+    ('Devstral', 'pygments-0001', 3, True, 'concluiu', 20, True)
+    ('Devstral', 'sqlite-utils-0003', 2, True, 'concluiu', 35, True)
+    ('Devstral', 'sqlite-utils-0003', 3, True, 'concluiu', 40, True)
+    ('Devstral', 'tomlkit-0001', 1, True, 'concluiu', 30, False)
+
+== Rodada 4 (sem compile check) × rodada 8 (compile check + cópia consertada pelo enunciado), Qwen, nas tarefas afetadas: reprovações com verde por run e turnos
+  pygments-0001      r4: resolvidos 3/3, reprovações com verde [3, 1, 1], turnos [62, 56, 51] | r8: resolvidos 2/3, reprovações com verde [1, 3, 1], turnos [60, 120, 104]
+  sqlite-utils-0003  r4: resolvidos 2/3, reprovações com verde [2, 5, 1], turnos [73, 114, 70] | r8: resolvidos 3/3, reprovações com verde [4, 1, 1], turnos [94, 58, 52]
+  tomlkit-0001       r4: resolvidos 3/3, reprovações com verde [7, 0, 5], turnos [120, 32, 120] | r8: resolvidos 3/3, reprovações com verde [0, 0, 0], turnos [34, 29, 47]
+  tomlkit-0003       r4: resolvidos 3/3, reprovações com verde [4, 4, 2], turnos [81, 120, 102] | r8: resolvidos 3/3, reprovações com verde [0, 0, 0], turnos [40, 31, 34]

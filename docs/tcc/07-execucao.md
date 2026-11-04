@@ -569,3 +569,13 @@ Relatório em [07-e4-fumaca.md](07-e4-fumaca.md): 4 células (`tomlkit-0002` gra
 **Teste que prova.** Nenhum código mudou; suíte rodada antes do commit (ver log em `runs/_lancamento/`).
 
 **Impacto em docs.** Documento novo 29; nenhum anterior alterado.
+
+---
+
+## Calibração offline da hipótese H4 e README atualizado (04/11/2026)
+
+**Diff resumido.** Só documentação, dados derivados, um script de análise e o README. [30-calibracao-h4.md](30-calibracao-h4.md): simulação, sobre os eventos gravados dos 117 runs orquestrados das coletas finais, de cinco regras de parada alternativas para o revisor final (`scripts/calibracao_h4.py`, saída em `dados/coleta-deepseek/calibracao-h4-offline.txt`). Como o diff de cada ciclo não é gravado, o desfecho no ponto de aprovação simulado só é conhecido quando nenhuma escrita ocorreu depois dele; os demais entram como incertos nos dois limites. Resultado: a forma forte de H4 (cortar metade dos turnos após o verde sem aumentar aprovações erradas) é refutada; a única regra segura (aprovar patch inalterado após reprovação com verde) poupa 6% dos turnos com no máximo 2 resoluções em risco. A causa principal das reprovações com suíte verde é bloco de reprodução que não compila: 58 das 136 citam `SyntaxError`, em 16 runs (15 resolvidos), com 885 turnos gastos depois da primeira delas; o `REPRODUCTION_COMPILE_CHECK` das rodadas 6 a 8 resolve isso (tomlkit-0001 e tomlkit-0003 na rodada 8: 0 reprovações, 29 a 47 turnos, contra 2 a 7 reprovações e 81 a 120 turnos na rodada 4), mas a configuração da rodada 4 usada na replicação o tem desligado. H4 reformulada em 28 §3 com ponteiro para 30. README reescrito para o estado final (planejador no grafo, cinco repositórios e 13 tarefas, oráculo, detector, caixa de areia, scripts de análise, documentos 26 a 30).
+
+**Teste que prova.** Suíte completa em `runs/_lancamento/suite-2026-11-04.log` (751 passed); nenhum arquivo de `src/`, `harness/` ou `tests/` mudou. O script roda da raiz sem argumentos.
+
+**Impacto em docs.** Documento novo 30; 28 §3 (H4) com o veredito e o ponteiro; README; 29 inalterado (a hipótese H4 do pacote passa a remeter a 30 na próxima revisão do texto).
