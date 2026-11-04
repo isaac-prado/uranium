@@ -75,7 +75,8 @@ for m,d in roots.items():
                 x["rej_green"]=rej_green; x["writes_after_rej"]=writes_after_rej; x["approved"]=approved
                 x["strict_coerced"]=sum(1 for v in finals if v["payload"].get("strict_coerced"))
                 # turnos gastos depois do primeiro verde
-                x["turns_after_green"]=(x["turns"]-fg) if fg is not None else None
+                fgs=next((t["seq"] for t in tests if t["payload"].get("green")),None)
+                x["turns_after_green"]=(sum(int(pm["payload"]["turnos"]) for pm in mems if pm["seq"]>fgs) if fgs is not None else None)
             else:
                 x["turns_after_green"]=0 if x["stop"]=="tests_pass" else None
             R.append(x)

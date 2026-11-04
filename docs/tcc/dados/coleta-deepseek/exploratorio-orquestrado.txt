@@ -78,11 +78,11 @@ base: OR-SA = +3
 ======== 5. Mecanismos do revisor (OR) e do operador (SA), por modelo
 modelo   braço parou_sozinho …errado  corte  …resolvido  rej_verde_runs resgate?  f2p parcial não-res p2p quebrado turnos med turnos após verde med 
 Qwen     SA        29/39        6       10       0           0             0         0.31               16             50           0
-Qwen     OR        23/39        3       16       4          26            16         0.14               13             73          42
+Qwen     OR        23/39        3       16       4          26            16         0.14               13             73          29
 DeepSeek SA        31/39        5        8       0           0             0         0.65               13             57           0
-DeepSeek OR        28/39        7       11       5          17             9         0.54               13             54          13
+DeepSeek OR        28/39        7       11       5          17             9         0.54               13             54           0
 Devstral SA        27/39        3       12       4           0             0         0.36               11             64           0
-Devstral OR        32/39        3        7       1          14             8         0.31                9             54          13
+Devstral OR        32/39        3        7       1          14             8         0.31                9             54           0
 legenda: parou_sozinho = tests_pass (SA) ou concluiu (OR); …errado = parou sozinho e oráculo oculto reprovou; corte = orçamento; …resolvido = cortado mas oráculo aprovou (no OR: revisor nunca aprovou um patch certo); rej_verde_runs = runs em que a revisão final reprovou com suíte verde; resgate? = desses, resolvidos com escrita de arquivo depois da reprovação; f2p parcial = fração média de testes ocultos passando nos runs NÃO resolvidos; p2p quebrado = runs com regressão em teste que passava.
 
 ======== 6. Custo por braço e modelo (medianas) e explicação do token
@@ -150,9 +150,9 @@ Devstral OR       0.70M       11.9k           56       54       271      4.24   
   Devstral  rep1 res=False stop=budget: max_turns (1 f2p 1/1 p2p_quebrados=31 suíte rodada 0x verdes 0 tok 3.33M prompt última chamada 56k
 
 ======== 11. Revisor: reprovações desperdiçadas (patch certo, sem escrita depois) e turnos após o verde, por modelo
-  Qwen      runs com reprovação-com-verde 26; dessas resolvidas sem escrever depois (reprovação inútil) 2; resolvidas mas cortadas 4; turnos após 1º verde: soma 1664 de 3007 (55%), mediana 42, n runs com verde 33
-  DeepSeek  runs com reprovação-com-verde 17; dessas resolvidas sem escrever depois (reprovação inútil) 3; resolvidas mas cortadas 5; turnos após 1º verde: soma 1338 de 2935 (46%), mediana 13, n runs com verde 38
-  Devstral  runs com reprovação-com-verde 14; dessas resolvidas sem escrever depois (reprovação inútil) 1; resolvidas mas cortadas 1; turnos após 1º verde: soma 955 de 2412 (40%), mediana 13, n runs com verde 37
+  Qwen      runs com reprovação-com-verde 26; dessas resolvidas sem escrever depois (reprovação inútil) 2; resolvidas mas cortadas 4; turnos após 1º verde: soma 1233 de 3007 (41%), mediana 29, n runs com verde 33
+  DeepSeek  runs com reprovação-com-verde 17; dessas resolvidas sem escrever depois (reprovação inútil) 3; resolvidas mas cortadas 5; turnos após 1º verde: soma 814 de 2935 (28%), mediana 0, n runs com verde 38
+  Devstral  runs com reprovação-com-verde 14; dessas resolvidas sem escrever depois (reprovação inútil) 1; resolvidas mas cortadas 1; turnos após 1º verde: soma 500 de 2412 (21%), mediana 0, n runs com verde 37
 
 ======== 12. Custo: totais, pior caso, e teste pareado em TODOS os pares (exploratório)
   Qwen      US$ SA   8.44 OR   5.67 (-33%); US$/resolvido SA 0.367 OR 0.236 (-36%); tokens pareados: OR<SA em 19/39, Wilcoxon p=0.151; US$ pareado p=0.512; tokens máx SA 8.1M OR 2.6M; runs cortados mediana tok SA 4.7M OR 1.4M
