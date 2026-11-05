@@ -81,13 +81,13 @@ Modelos fechados de custo médio (Claude Haiku 4.5, GPT-5-mini) ficaram fora por
 | Quando | Etapa | Produto |
 |---|---|---|
 | 11/09/2026 | piloto | Qwen3-Coder na DeepInfra com semente fixa |
-| 19/09/2026 | escolha de modelo e provedor | oito critérios sobre endpoints consultados ao vivo |
+| 19/09/2026 | escolha de modelo e provedor | nove requisitos (R1 a R9 de `08-escolha-modelo.md`) sobre endpoints consultados ao vivo |
 | 08/10/2026 | tarefas congeladas | 13 tarefas, cinco portões, duas referências |
 | 08 e 09/10/2026 | fumaças A a H | calibração dos tetos; congelados em 12/10 |
 | 12 e 13/10/2026 | coleta principal | 78 runs, Qwen3-Coder; 9 aprovações erradas do revisor diagnosticadas |
 | 14/10/2026 | ablação do refinador e intent v2 | 6/13 → 8/13 com o enunciado íntegro |
 | 14 a 27/10/2026 | rodadas 2 a 8 | sete configurações do orquestrado, 273 runs, 16 defeitos do instrumento corrigidos |
-| 22/10/2026 | isolamento | workspace só com o commit-base, caixa de areia, regra C8 (5 cópias de código futuro em 426 runs) |
+| 23 a 27/10/2026 | isolamento (achado em 23/10, decisão 49 aprovada em 27/10) | workspace só com o commit-base, caixa de areia, regra C8 (5 cópias de código futuro em 426 runs) |
 | 27 a 29/10/2026 | replicação | DeepSeek V3.2 e Devstral 2, 78 runs cada |
 | 29 e 30/10/2026 | relatório e análise exploratória | documentos 27 e 28; revisão de código com 14 achados |
 
@@ -312,7 +312,7 @@ Agradecimentos: um parágrafo, até quatro linhas (`elemtextuais/agradecimentos.
 ## 7. Prompts, um por seção do template (colar no Perplexity, na ordem)
 
 0. "Os arquivos anexados `1-Introducao.tex` e `2-Referencial.tex` são a Introdução e o Referencial Teórico atuais. Reescreva os dois seguindo a seção 9 do pacote e a estrutura da seção 6.2 (oito parágrafos da Introdução, com o conteúdo da terceira coluna) e 6.3 (Referencial com trabalhos correlatos). Retire LangSmith, RAG, MCP, prompt injection, Mutation Score e Maintainability Index conforme a seção 9.1; mantenha as citações que a seção 9.5 confirma; marque [REF: buscar] onde a seção 9.4 pede referência. Entregue o LaTeX dos dois arquivos e um resumo das mudanças."
-1. "O arquivo anexado `desenvolvimento.tex` é a seção Desenvolvimento atual. Atualize-o conforme a seção 6.4 do pacote: mantenha as cinco subseções, acrescente rodadas 5 a 8, isolamento de 22/10, replicação e o projeto de experimentos com fatores, níveis, variáveis de resposta e métodos estatísticos (seção 3 e 3.2 do pacote). Sem citar referências. Marque o que mudou."
+1. "O arquivo anexado `desenvolvimento.tex` é a seção Desenvolvimento atual. Atualize-o conforme a seção 6.4 do pacote: mantenha as cinco subseções, acrescente a escolha da configuração do orquestrado em um parágrafo (sem relato rodada a rodada), o isolamento de 23 a 27/10, a replicação e o projeto de experimentos com fatores, níveis, variáveis de resposta e métodos estatísticos (seção 3 e 3.2 do pacote). Sem citar referências. Marque o que mudou."
 2. "Escreva a subseção 4.1 Coleta principal (Qwen3-Coder) a partir de 4.1 a 4.3 do pacote: resolução dos dois braços, as sete métricas e o processo, sem relatar rodadas. Cada número com a fonte entre colchetes."
 3. "Escreva a subseção 4.2 As três coletas finais a partir de 4.1, 4.2 e 4.3 do pacote, com as tabelas de resolução e das sete métricas em LaTeX, título de tabela com o quê, como, onde e quando."
 4. "Escreva a subseção 4.3 Análise pareada e por faixa a partir de 4.1 do pacote e de E §1 e §2; diga que o sinal da faixa grande vem de uma tarefa."
@@ -411,3 +411,23 @@ Citações do texto que não vêm do espaço e precisam de referência completa 
 ### 9.6 Prompt 0 (é o prompt 0 da seção 7, repetido aqui)
 
 "Reescreva `1-Introducao.tex` e `2-Referencial.tex` seguindo a seção 9 do pacote: aplique a tabela 9.1 para corrigir o escopo, os vereditos de 9.2 e 9.3 parágrafo a parágrafo, retire LangSmith, RAG, MCP, prompt injection, Mutation Score e Maintainability Index conforme indicado, mantenha as citações existentes que a seção 9.5 confirma e marque com [REF: buscar] cada ponto da seção 9.4 em que falta uma referência. Entregue o LaTeX completo dos dois capítulos, com um resumo das mudanças ao fim."
+
+---
+
+## 10. Estado da redação (05/11/2026)
+
+**Feito, em `docs/tcc/texto/`.**
+- `1-Introducao.tex` e `2-Referencial.tex`: revisados em 04/11 contra 27, 29, os dados e os artigos citados (afirmações sobre Hassan et al., Tran et al., MetaGPT/ChatDev, Harmony2025, Trustworthy2023 e GenAIAgenda2023 reescritas com o que os artigos dizem); os dez `[REF: buscar]` preenchidos; marcadores `[27 §…]`/`[29 §…]` retirados; chave `ES302024` unificada.
+- `desenvolvimento.tex`: reescrito em 05/11 na configuração da rodada 4 (manifesto v12/v18), com isolamento (decisão 49), replicação, cronograma, mapa do TFG conforme 27 §1.2, métodos estatísticos, e a escolha da configuração em um parágrafo (sem relato rodada a rodada). Números conferidos contra 27, 29, manifestos, código e máquina. Algoritmos com `\nllabel`/`\ref` (exige `linesnumbered` no algorithm2e).
+- `referencias-novas.bib`: 33 entradas novas, verificadas, para anexar ao `referencias.bib`. `referencias-verificadas.bib`: as 26 antigas mais as 33, para comparar campo a campo.
+
+**Decisões do autor (04/11/2026).** Hipóteses P1 a P3 no texto; mapa das dimensões do TFG conforme 27 §1.2; CodeAir mantido como antecedente direto da memória de trabalho; números de contexto (12 k a 21 k × 28 k a 32 k; 37 k × 171 k) só na Discussão 4.6; o artigo não relata as rodadas uma a uma.
+
+**Pendente.**
+- Compilar com o template (fora do repositório); o `(?)` do natbib confirma que o template carrega natbib; `\ref{resultados}` e `\ref{conclusoes}` ficam `??` até as seções 4 e 5 existirem com esses rótulos.
+- Comentários `%` para o autor: no Referencial, pilha de Hassan et al. conferida na v2 (jan. 2026) e não na v1; CodeAir (sessão limpa por fase, artefatos em git) a conferir no PDF; `GenAIAgenda2023` supõe Nguyen-Duc et al. No Desenvolvimento, os 14.873 commits do segundo ciclo de mineração não têm fonte localizada.
+- Apagar do `referencias.bib` as chaves órfãs LangSmith2025, MCP2024, AOP1993, JaCaMo2013, JASON2007 e JADE2001; corrigir anos/veículos conforme `referencias-verificadas.bib` (MetaGPT ICLR 2024, ChatDev ACL 2024, Nguyen-Duc SPE 2025, CodeAir SSRN 2026, "Trustworthy" = Divband Soorati et al. 2022).
+- Aviso de `Underfull \hbox` na §2.9 do Referencial: `microtype` ou hifenização do babel.
+- Seções 4, 5 e Resumo: prompts 2 a 9 da seção 7, uma seção por vez, colando cada resposta no Claude Code para conferência dos números antes do LaTeX. Reanexar ao espaço do Perplexity este pacote e os três `.tex` atuais.
+
+**Fora do git, levar para a outra máquina:** o template da UNIFEI, o `main.tex`, o `referencias.bib` e o espaço do Perplexity. O `.uranium/` (espelhos e venvs) só é necessário para rodar o harness ou a suíte, não para escrever.
