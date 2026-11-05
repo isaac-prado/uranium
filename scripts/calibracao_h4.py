@@ -106,7 +106,7 @@ for m,root in roots.items():
             tr=[t for t in tests if t["seq"]<v["seq"]]
             if not (tr and tr[-1]["payload"].get("green")): continue
             tot[m,"rej_verde"]+=1
-            if any("SyntaxError" in (x.get("saida") or "") for x in (v["payload"].get("executions") or [])):
+            if any(x.get("executado") and "SyntaxError" in (x.get("saida") or "") for x in (v["payload"].get("executions") or [])):
                 tot[m,"com_SyntaxError"]+=1
                 if first is None: first=v["seq"]
         if first is not None:

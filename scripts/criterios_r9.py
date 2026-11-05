@@ -19,7 +19,7 @@ def medir(root, tasks=None):
                 tr=[t for t in tests if t["seq"]<e["seq"]]
                 if tr and tr[-1]["payload"].get("green"):
                     rej_verde+=1
-                    if any("SyntaxError" in (x.get("saida") or "") for x in (e["payload"].get("executions") or [])): syn+=1
+                    if any(x.get("executado") and "SyntaxError" in (x.get("saida") or "") for x in (e["payload"].get("executions") or [])): syn+=1  # só blocos executados: com o compile check ligado o rótulo "não compila" também contém a palavra
         turns_after=sum(int(m["payload"]["turnos"]) for m in mems if first_green is not None and m["seq"]>first_green)
         R.append(dict(task=r["task_id"],rep=r["repetition"],res=bool(r["resolved"]),stop=s["stop_reason"].split("(")[0].strip(),
                       turns=s["turns"],tok=r["cost"]["tokens_total"],usd=r["cost"]["cost_usd"],rej_verde=rej_verde,syn=syn,
